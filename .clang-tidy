@@ -1,0 +1,4 @@
+---
+Checks:          '*,-llvmlibc-restrict-system-libc-headers,-cppcoreguidelines-avoid-magic-numbers,-readability-magic-numbers'
+WarningsAsErrors: '*'
+FormatStyle:    google

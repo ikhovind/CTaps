@@ -1,12 +1,17 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(
-    mocking
+    CTaps
     VERSION 0.1.0
-    DESCRIPTION "Short description"
-    HOMEPAGE_URL "https://example.com/"
+    DESCRIPTION "A C implementation of the Transport Services as described in RFC 9622"
+    HOMEPAGE_URL "https://github.com/ikhovind/ctaps"
     LANGUAGES C
 )
+
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
+include(tidy)
+include(format)
 
 # ---- Declare library ----
 add_library(

@@ -4,11 +4,11 @@
  * @brief Contains the name of the project
  */
 struct library {
-  char const* name;
+  char const *name;
 };
 
 typedef struct testing123 {
-  char const* name;
+  char const *name;
 } testing_t;
 
 /**
