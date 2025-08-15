@@ -17,7 +17,10 @@ add_library(
     CTaps SHARED
     source/api/transport_properties/transport_properties.c
     source/api/transport_properties/selection_properties/selection_properties.c
+    source/api/connections/preconnection/preconnection.c
 )
+
+target_include_directories(CTaps PUBLIC source/api)
 
 # ---- library for testing etc. -----
 add_library(
