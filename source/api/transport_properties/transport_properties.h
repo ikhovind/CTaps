@@ -11,6 +11,4 @@ typedef struct {
     SelectionProperties selection_properties;
 } TransportProperties;
 
-void selection_properties_set(SelectionProperties * selection_properties, const SelectionProperty selection_property, const SelectionPreference preference);
-
 #endif //TRANSPORT_PROPERTIES_H

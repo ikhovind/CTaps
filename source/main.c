@@ -14,7 +14,7 @@ int main() {
 
   Preconnection preconnection;
 
-  preconnection_init(&preconnection, transport_properties);
+  preconnection_build(&preconnection, transport_properties);
 
 
   if (printf("Hello from %s!\n", lib.name) < 0) {

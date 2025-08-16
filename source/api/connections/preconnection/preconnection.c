@@ -5,7 +5,7 @@
 #include "preconnection.h"
 
 
-void preconnection_init(Preconnection *preconnection, TransportProperties transport_properties) {
+void preconnection_build(Preconnection *preconnection, TransportProperties transport_properties) {
     printf("initializing preconnection\n");
     preconnection->transport_properties = transport_properties;
 }

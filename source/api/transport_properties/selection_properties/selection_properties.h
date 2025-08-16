@@ -9,7 +9,24 @@
 #include <string.h>
 
 #define mklist(f) \
-    f(RELIABILITY, "reliability")
+    f(RELIABILITY, "reliability") \
+    f(PRESERVE_MSG_BOUNDARIES, "preserveMsgBoundaries") \
+    f(PER_MSG_RELIABILITY, "perMsgReliability") \
+    f(PRESERVE_ORDER, "preserveOrder") \
+    f(ZERO_RTT_MSG, "zeroRttMsg") \
+    f(MULTISTREAMING, "multistreaming") \
+    f(FULL_CHECKSUM_SEND, "fullChecksumSend") \
+    f(FULL_CHECKSUM_RECV, "fullChecksumRecv") \
+    f(CONGESTION_CONTROL, "congestionControl") \
+    f(KEEP_ALIVE, "keepAlive") \
+    f(interface, "interface") \
+    f(PVD, "pvd") \
+    f(USE_TEMPORARY_LOCAL_ADDRESS, "useTemporaryLocalAddress") \
+    f(MULTIPATH, "multipath") \
+    f(ADVERTISES_ALT_ADDRES, "advertisesAltAddr") \
+    f(DIRECTION, "direction") \
+    f(SOFT_ERROR_NOTIFY, "softErrorNotify") \
+    f(ACTIVE_READ_BEFORE_SEND, "activeReadBeforeSend") \
 
 #define f_enum(enum_name, string_name) enum_name,
 #define f_arr(enum_name, string_name) {enum_name, string_name},
