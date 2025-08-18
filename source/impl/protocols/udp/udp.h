@@ -7,6 +7,7 @@
 
 
 int udp_init(void);
+int udp_close(void);
 void udp_connect(void);
 void register_udp_support();
 

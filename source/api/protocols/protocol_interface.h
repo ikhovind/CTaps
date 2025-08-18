@@ -1,18 +1,22 @@
 #ifndef PROTOCOL_INTERFACE_H
 #define PROTOCOL_INTERFACE_H
-#include "connections/connection/connection.h"
+#include "transport_properties/selection_properties/selection_properties.h"
+
+#include "message/message.h"
+
+struct Connection;
 
 typedef struct {
     SelectionPreference values[SELECTION_PROPERTY_END];
 } ProtocolFeatures;
 
-typedef struct {
+typedef struct ProtocolImplementation{
     const char* name;
     ProtocolFeatures features;
     int (*init)();
-    int (*send)(Connection*, Message*);
-    int (*receive)(Connection*, char*);
-    void (*close)(Connection*);
+    int (*send)(struct Connection*, Message*);
+    int (*receive)(struct Connection*, Message*);
+    void (*close)(struct Connection*);
 } ProtocolImplementation;
 
 #endif //PROTOCOL_INTERFACE_H

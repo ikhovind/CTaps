@@ -11,6 +11,7 @@ typedef struct {
         in_addr_t ipv4_addr; // typically a uint32_t
         struct in6_addr ipv6_addr;
     };
+    int port;
 } LocalEndpoint;
 
 #endif //LOCAL_ENDPOINT_H
