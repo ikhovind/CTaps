@@ -3,12 +3,15 @@
 #include "gtest/gtest.h"
 #include "fff.h"
 extern "C" {
+#include "ctaps.h"
 #include "connections/preconnection/preconnection.h"
 #include "endpoints/remote/remote_endpoint.h"
 #include "transport_properties/transport_properties.h"
 }
 
 TEST(NetworkingTest, SendsUdpPacket) {
+
+    ctaps_initialize();
     printf("Sending UDP packet...\n");
     RemoteEndpoint remote_endpoint;
 

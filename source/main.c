@@ -1,16 +1,16 @@
 #include <stdio.h>
 
 #include "lib.h"
+#include "ctaps.h"
 #include "connections/preconnection/preconnection.h"
 #include "protocols/registry/protocol_registry.h"
-#include "protocols/udp/udp.h"
 #include "transport_properties/selection_properties/selection_properties.h"
 #include "transport_properties/transport_properties.h"
 
 int main() {
   struct library lib = create_library();
 
-  register_udp();
+  ctaps_initialize();
 
   printf("first protocol is: %s\n", get_supported_protocols()[0]->name);
 

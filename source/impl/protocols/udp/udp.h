@@ -8,7 +8,7 @@
 
 int udp_init(void);
 void udp_connect(void);
-void register_udp();
+void register_udp_support();
 
 static ProtocolImplementation udp_protocol_interface = {
     .name = "UDP",

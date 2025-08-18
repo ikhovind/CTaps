@@ -13,8 +13,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(tidy)
 include(format)
 
-add_library(
-    CTaps SHARED
+set(API_SOURCES
     source/api/transport_properties/transport_properties.c
     source/api/transport_properties/selection_properties/selection_properties.c
     source/api/connections/preconnection/preconnection.c
@@ -22,7 +21,28 @@ add_library(
     source/api/message/message.c
     source/api/connections/connection/connection.c
     source/api/protocols/registry/protocol_registry.c
-    source/api/protocols/udp/udp.c
+    source/api/ctaps.c
+)
+
+set(IMPL_SOURCES
+    source/impl/protocols/udp/udp.c
+)
+
+add_library(
+        CTaps SHARED
+        ${API_SOURCES}
+        ${IMPL_SOURCES}
+)
+
+target_include_directories(CTaps
+        PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/source/api>
+        $<INSTALL_INTERFACE:include> # Path after installation
+)
+
+target_include_directories(CTaps
+        PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/source/impl
 )
 
 target_include_directories(CTaps PUBLIC source/api)
