@@ -15,6 +15,10 @@ void selection_properties_init(SelectionProperties* selection_properties) {
     selection_properties->preference[RELIABILITY] = REQUIRE;
 }
 
+void selection_properties_set(SelectionProperties * selection_properties, SelectionProperty selection_property, SelectionPreference preference) {
+    selection_properties->preference[selection_property] = preference;
+}
+
 void selection_properties_require_prop(SelectionProperties *selection_properties,
     SelectionProperty selection_property) {
     printf("hello from require prop with arg: %d\n", selection_property);

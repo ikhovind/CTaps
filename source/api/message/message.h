@@ -9,4 +9,11 @@ typedef struct {
    char* content;
 } Message;
 
+void message_build_with_content(Message* message, const char* content);
+
+void message_build_without_content(Message* message);
+
+void message_free(Message* message);
+
+
 #endif //MESSAGE_H

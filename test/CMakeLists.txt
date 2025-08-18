@@ -29,3 +29,9 @@ target_link_libraries(mocking_test PRIVATE gtest gtest_main gmock fff c_lib )
 target_compile_features(mocking_test PRIVATE c_std_99)
 
 add_test(NAME mocking_test COMMAND mocking_test)
+
+add_executable(networking source/networking.cpp)
+target_link_libraries(networking PRIVATE gtest gtest_main gmock fff CTaps)
+target_compile_features(networking PRIVATE c_std_99)
+
+add_test(NAME networking COMMAND networking)
