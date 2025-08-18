@@ -37,11 +37,11 @@ typedef enum {
 } SelectionProperty;
 
 typedef enum  {
-    REQUIRE = 0,
-    PREFER,
-    NO_PREFERENCE,
+    PROHIBIT = -2,
     AVOID,
-    PROHIBIT
+    NO_PREFERENCE,
+    PREFER,
+    REQUIRE,
 } SelectionPreference;
 
 typedef struct {

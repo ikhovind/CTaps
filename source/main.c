@@ -2,11 +2,22 @@
 
 #include "lib.h"
 #include "connections/preconnection/preconnection.h"
+#include "protocols/registry/protocol_registry.h"
+#include "protocols/udp/udp.h"
 #include "transport_properties/selection_properties/selection_properties.h"
 #include "transport_properties/transport_properties.h"
 
 int main() {
   struct library lib = create_library();
+
+  register_udp();
+
+  printf("first protocol is: %s\n", get_supported_protocols()[0]->name);
+
+  for (int i = 0; i < 5; i ++) {
+    printf("Preference[i] is: %d\n", get_supported_protocols()[0]->features.values[i]);
+  }
+
 
   TransportProperties transport_properties;
   selection_properties_init(&transport_properties.selection_properties);

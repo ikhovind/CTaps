@@ -21,6 +21,8 @@ add_library(
     source/api/endpoints/remote/remote_endpoint.c
     source/api/message/message.c
     source/api/connections/connection/connection.c
+    source/api/protocols/registry/protocol_registry.c
+    source/api/protocols/udp/udp.c
 )
 
 target_include_directories(CTaps PUBLIC source/api)
