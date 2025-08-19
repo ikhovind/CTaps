@@ -10,6 +10,8 @@ int udp_init(void);
 int udp_close(void);
 void udp_connect(void);
 void register_udp_support();
+int udp_send(struct Connection* connection, Message* message);
+int udp_receive(struct Connection* connection, Message* message);
 
 static ProtocolImplementation udp_protocol_interface = {
     .name = "UDP",
@@ -21,7 +23,9 @@ static ProtocolImplementation udp_protocol_interface = {
             [PRESERVE_MSG_BOUNDARIES]   = REQUIRE
         }
     },
+    .send = udp_send,
     .init = udp_init,
+    .receive = udp_receive,
 };
 
 #endif //UDP_H

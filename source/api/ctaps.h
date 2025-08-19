@@ -7,4 +7,7 @@
 
 int ctaps_initialize();
 
+void ctaps_start_event_loop();
+
+
 #endif //TAPS_H

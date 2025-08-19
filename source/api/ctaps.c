@@ -7,3 +7,8 @@ int ctaps_initialize() {
     return 0;
 }
 
+
+void ctaps_start_event_loop() {
+
+}
+

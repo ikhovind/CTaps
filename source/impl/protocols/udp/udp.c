@@ -1,7 +1,6 @@
 #include "udp.h"
 
 #include <unistd.h>
-#include <bits/fcntl-linux.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/epoll.h>
@@ -56,4 +55,12 @@ int udp_close() {
 
 void register_udp_support() {
     register_protocol(&udp_protocol_interface);
+}
+
+int udp_send(struct Connection* connection, Message* message) {
+    return 0;
+}
+
+int udp_receive(struct Connection* connection, Message* message) {
+    return 0;
 }
