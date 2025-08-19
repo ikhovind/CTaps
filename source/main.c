@@ -18,7 +18,6 @@ int main() {
     printf("Preference[i] is: %d\n", get_supported_protocols()[0]->features.values[i]);
   }
 
-
   TransportProperties transport_properties;
   selection_properties_init(&transport_properties.selection_properties);
   selection_properties_require(&transport_properties.selection_properties, "reliability");

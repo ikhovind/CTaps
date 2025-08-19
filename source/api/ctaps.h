@@ -4,6 +4,10 @@
 
 #ifndef TAPS_H
 #define TAPS_H
+#include <uv.h>
+
+
+extern uv_loop_t ctaps_event_loop;
 
 int ctaps_initialize();
 

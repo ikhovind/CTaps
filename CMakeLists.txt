@@ -48,6 +48,8 @@ target_include_directories(CTaps
 
 target_include_directories(CTaps PUBLIC source/api)
 
+target_link_libraries(CTaps PRIVATE uv)
+
 # ---- library for testing etc. -----
 add_library(
     c_lib SHARED
