@@ -38,23 +38,6 @@ void on_send(uv_udp_send_t *req, int status) {
 
 int udp_init() {
     uv_udp_init(ctaps_event_loop, &send_socket);
-
-    struct sockaddr_in dest_addr;
-    uv_ip4_addr("127.0.0.1", 4001, &dest_addr);
-
-    printf("UDP server listening on port 4002...\n");
-
-    char message[] = "pingpong";
-    uv_buf_t buffer = uv_buf_init(message, strlen(message));
-
-    uv_udp_send_t *send_req = malloc(sizeof(uv_udp_send_t));
-    if (!send_req) {
-        fprintf(stderr, "Failed to allocate send request\n");
-        return 1;
-    }
-
-    printf("Queueing UDP message to be sent...\n");
-    uv_udp_send(send_req, &send_socket, &buffer, 1, (const struct sockaddr*)&dest_addr, on_send);
 }
 
 int udp_close() {
@@ -67,11 +50,11 @@ void register_udp_support() {
 
 
 int udp_send(struct Connection* connection, Message* message) {
-    /*
-    printf("trying to send udp\n");
-    uv_buf_t buf = uv_buf_init("hello world", strlen("hello world"));
     struct sockaddr_in dest_addr;
-    uv_ip4_addr("0.0.0.0", 4001, &dest_addr);
+    uv_ip4_addr("127.0.0.1", 4001, &dest_addr);
+
+    char msg[] = "pingpong6";
+    uv_buf_t buffer = uv_buf_init(msg, strlen(msg));
 
     uv_udp_send_t *send_req = malloc(sizeof(uv_udp_send_t));
     if (!send_req) {
@@ -79,8 +62,8 @@ int udp_send(struct Connection* connection, Message* message) {
         return 1;
     }
 
-    uv_udp_send(send_req, &send_socket, &buf, 1, (const struct sockaddr *)&dest_addr, on_send);
-    */
+    printf("Queueing UDP message to be sent...\n");
+    uv_udp_send(send_req, &send_socket, &buffer, 1, (const struct sockaddr*)&connection->remote_endpoint, on_send);
 
     return 0;
 }

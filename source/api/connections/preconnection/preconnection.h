@@ -14,14 +14,14 @@
 // TODO - listen & rendezvous
 typedef struct {
     TransportProperties transport_properties;
-    RemoteEndpoint* remote;
+    RemoteEndpoint remote;
     unsigned int num_remote_endpoints;
-    LocalEndpoint* local;
+    LocalEndpoint local;
     unsigned int num_local_endpoints;
 } Preconnection;
 
 // TODO - change other init functions to build, to avoid confusing with initiate
-void preconnection_build(Preconnection *preconnection, TransportProperties transport_properties);
+void preconnection_build(Preconnection *preconnection, TransportProperties transport_properties, RemoteEndpoint remote_endpoint);
 
 void preconnection_initiate(Preconnection* preconnection, Connection* connection);
 

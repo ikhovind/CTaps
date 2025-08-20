@@ -14,7 +14,8 @@ typedef struct Connection {
     TransportProperties transport_properties;
     LocalEndpoint local_endpoint;
     RemoteEndpoint remote_endpoint;
-    ProtocolImplementation* protocol;
+    // TODO - decide on if this has to be a pointer
+    ProtocolImplementation protocol;
 } Connection;
 
 int send_message(Connection* connection, Message* message);

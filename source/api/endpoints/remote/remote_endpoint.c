@@ -1,12 +1,28 @@
-//
-// Created by ikhovind on 18.08.25.
-//
 #include "remote_endpoint.h"
 
-void remote_endpoint_with_endpoint(RemoteEndpoint* remote_endpoint, const char* hostname) {
+#include <stdio.h>
 
+// TODO - this does not currently support actual hostnames, only ip addresses
+void remote_endpoint_with_hostname(RemoteEndpoint* remote_endpoint, const char* hostname) {
+    if (remote_endpoint->family == AF_INET) {
+        remote_endpoint->addr.ipv4_addr.sin_addr.s_addr = inet_addr(hostname);
+    }
+    else if (remote_endpoint->family == AF_INET6) {
+    }
+    else {
+        printf("remote_endpoint_with_port error\n");
+    }
 }
 
 void remote_endpoint_with_port(RemoteEndpoint* remote_endpoint, int port) {
+    if (remote_endpoint->family == AF_INET) {
+        remote_endpoint->addr.ipv4_addr.sin_family = AF_INET;
+        remote_endpoint->addr.ipv4_addr.sin_port = htons(port);
+    }
+    else if (remote_endpoint->family == AF_INET6) {
+    }
+    else {
+        printf("remote_endpoint_with_port error\n");
+    }
 
 }

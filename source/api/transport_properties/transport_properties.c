@@ -18,7 +18,8 @@ void selection_properties_set_selection_property(TransportProperties* transport_
 
 int transport_properties_protocol_stacks_with_selection_properties(TransportProperties* transport_properties, ProtocolImplementation* protocol_stacks, int* num_found) {
     ProtocolImplementation** supported_protocols = get_supported_protocols();
+    printf("supported protocols: %s\n", supported_protocols[0]->name);
     *protocol_stacks = *supported_protocols[0];
-    *num_found = 1;
+    //*num_found = 1;
     return 0;
 }

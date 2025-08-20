@@ -13,9 +13,10 @@ TEST(NetworkingTest, SendsUdpPacket) {
 
     ctaps_initialize();
     printf("Sending UDP packet...\n");
+
     RemoteEndpoint remote_endpoint;
 
-    remote_endpoint_with_endpoint(&remote_endpoint, "localhost");
+    remote_endpoint_with_hostname(&remote_endpoint, "127.0.0.1");
     remote_endpoint_with_port(&remote_endpoint, 4001);
 
     TransportProperties transport_properties;
@@ -25,12 +26,13 @@ TEST(NetworkingTest, SendsUdpPacket) {
     selection_properties_set_selection_property(&transport_properties, RELIABILITY, PROHIBIT);
 
     Preconnection preconnection;
-    preconnection_build(&preconnection, transport_properties);
+    preconnection_build(&preconnection, transport_properties, remote_endpoint);
 
     Connection connection;
 
     preconnection_initiate(&preconnection, &connection);
 
+    /*
     Message message;
 
     message_build_with_content(&message, "hello world");
@@ -39,7 +41,6 @@ TEST(NetworkingTest, SendsUdpPacket) {
 
     ctaps_start_event_loop();
 
-    /*
     message_free(&message);
 
     Message recv;
