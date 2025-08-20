@@ -20,4 +20,5 @@ int transport_properties_protocol_stacks_with_selection_properties(TransportProp
     ProtocolImplementation** supported_protocols = get_supported_protocols();
     *protocol_stacks = *supported_protocols[0];
     *num_found = 1;
+    return 0;
 }

@@ -29,10 +29,8 @@ TEST(NetworkingTest, SendsUdpPacket) {
 
     Connection connection;
 
-    // TODO fix segfault
     preconnection_initiate(&preconnection, &connection);
 
-    /*
     Message message;
 
     message_build_with_content(&message, "hello world");
@@ -41,6 +39,7 @@ TEST(NetworkingTest, SendsUdpPacket) {
 
     ctaps_start_event_loop();
 
+    /*
     message_free(&message);
 
     Message recv;
