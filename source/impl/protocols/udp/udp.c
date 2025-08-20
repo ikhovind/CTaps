@@ -49,12 +49,8 @@ void register_udp_support() {
 }
 
 
-int udp_send(struct Connection* connection, Message* message) {
-    struct sockaddr_in dest_addr;
-    uv_ip4_addr("127.0.0.1", 4001, &dest_addr);
-
-    char msg[] = "pingpong6";
-    uv_buf_t buffer = uv_buf_init(msg, strlen(msg));
+int udp_send(Connection* connection, Message* message) {
+    const uv_buf_t buffer = uv_buf_init(message->content, strlen(message->content));
 
     uv_udp_send_t *send_req = malloc(sizeof(uv_udp_send_t));
     if (!send_req) {
@@ -62,8 +58,7 @@ int udp_send(struct Connection* connection, Message* message) {
         return 1;
     }
 
-    printf("Queueing UDP message to be sent...\n");
-    uv_udp_send(send_req, &send_socket, &buffer, 1, (const struct sockaddr*)&connection->remote_endpoint, on_send);
+    uv_udp_send(send_req, &send_socket, &buffer, 1, (const struct sockaddr*)&connection->remote_endpoint.addr.ipv4_addr, on_send);
 
     return 0;
 }

@@ -16,6 +16,7 @@ TEST(NetworkingTest, SendsUdpPacket) {
 
     RemoteEndpoint remote_endpoint;
 
+    remote_endpoint_with_family(&remote_endpoint, AF_INET);
     remote_endpoint_with_hostname(&remote_endpoint, "127.0.0.1");
     remote_endpoint_with_port(&remote_endpoint, 4001);
 
@@ -32,7 +33,6 @@ TEST(NetworkingTest, SendsUdpPacket) {
 
     preconnection_initiate(&preconnection, &connection);
 
-    /*
     Message message;
 
     message_build_with_content(&message, "hello world");
@@ -40,6 +40,7 @@ TEST(NetworkingTest, SendsUdpPacket) {
     send_message(&connection, &message);
 
     ctaps_start_event_loop();
+    /*
 
     message_free(&message);
 

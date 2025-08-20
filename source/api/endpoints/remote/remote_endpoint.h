@@ -15,6 +15,7 @@ typedef struct {
     } addr;
 } RemoteEndpoint;
 
+void remote_endpoint_with_family(RemoteEndpoint* remote_endpoint, sa_family_t family);
 void remote_endpoint_with_hostname(RemoteEndpoint* remote_endpoint, const char* hostname);
 void remote_endpoint_with_port(RemoteEndpoint* remote_endpoint, int port);
 void remote_endpoint_with_service(RemoteEndpoint* remote_endpoint, const char* service);
