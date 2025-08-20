@@ -4,14 +4,17 @@
 
 #ifndef LOCAL_ENDPOINT_H
 #define LOCAL_ENDPOINT_H
+#include <stdbool.h>
 #include <arpa/inet.h> // or <winsock2.h> for Windows
 
 typedef struct {
+    sa_family_t family;
+
     union {
-        in_addr_t ipv4_addr; // typically a uint32_t
-        struct in6_addr ipv6_addr;
-    };
-    int port;
+        struct sockaddr_in ipv4_addr;
+        struct sockaddr_in6 ipv6_addr;
+    } addr;
+    bool initialized;
 } LocalEndpoint;
 
 #endif //LOCAL_ENDPOINT_H

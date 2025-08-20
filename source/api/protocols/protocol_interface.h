@@ -13,7 +13,7 @@ typedef struct {
 typedef struct ProtocolImplementation{
     const char* name;
     ProtocolFeatures features;
-    int (*init)();
+    int (*init)(struct Connection* connection);
     int (*send)(struct Connection*, Message*);
     int (*receive)(struct Connection*, Message*);
     void (*close)(struct Connection*);

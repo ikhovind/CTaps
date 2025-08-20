@@ -35,12 +35,11 @@ TEST(NetworkingTest, SendsUdpPacket) {
 
     Message message;
 
-    message_build_with_content(&message, "hello world");
+    message_build_with_content(&message, "hello world 2");
 
     send_message(&connection, &message);
 
     ctaps_start_event_loop();
-    /*
 
     message_free(&message);
 
@@ -48,6 +47,7 @@ TEST(NetworkingTest, SendsUdpPacket) {
 
     message_build_without_content(&recv);
 
+    /*
     receive_message(&connection, &recv);
 
     connection_close(&connection);

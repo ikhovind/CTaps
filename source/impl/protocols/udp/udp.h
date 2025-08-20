@@ -1,12 +1,14 @@
 #ifndef UDP_H
 #define UDP_H
 
+#include <connections/connection/connection.h>
+
 #include "protocols/protocol_interface.h"
 #include "transport_properties/selection_properties/selection_properties.h"
 
 
 
-int udp_init(void);
+int udp_init(Connection *connection);
 int udp_close(void);
 void udp_connect(void);
 void register_udp_support();

@@ -17,8 +17,8 @@ void preconnection_initiate(Preconnection *preconnection, Connection *connection
     int num_found_protocols = 0;
     transport_properties_protocol_stacks_with_selection_properties(&preconnection->transport_properties, &connection->protocol, &num_found_protocols);
     if (num_found_protocols > 0) {
-        connection->protocol.init();
         connection->remote_endpoint = preconnection->remote;
+        connection->protocol.init(connection);
     }
     else {
         printf("No protocol found\n");
