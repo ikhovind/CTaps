@@ -3,7 +3,6 @@
 
 #include "protocols/udp/udp.h"
 
-
 uv_loop_t *ctaps_event_loop;
 
 int ctaps_initialize() {
@@ -11,11 +10,6 @@ int ctaps_initialize() {
     register_udp_support();
     return 0;
 }
-
-void idle_cb(struct uv_idle_s* id) {
-    printf("idle_cb\n");
-}
-
 
 void ctaps_start_event_loop() {
     printf("Starting the libuv event ctaps_event_loop...\n");

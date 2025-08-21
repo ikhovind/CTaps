@@ -24,7 +24,12 @@ int main() {
 
   Preconnection preconnection;
 
-  preconnection_build(&preconnection, transport_properties);
+  RemoteEndpoint remote_endpoint;
+
+  remote_endpoint_with_family(&remote_endpoint, AF_INET);
+  remote_endpoint_with_hostname(&remote_endpoint, "127.0.0.1");
+  remote_endpoint_with_port(&remote_endpoint, 5005);
+  preconnection_build(&preconnection, transport_properties, remote_endpoint);
 
 
   if (printf("Hello from %s!\n", lib.name) < 0) {

@@ -1,20 +1,20 @@
 #include "udp.h"
 
-#include <ctaps.h>
-#include <unistd.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <sys/epoll.h>
 #include <fcntl.h>
-#include <stdlib.h>
-#include <uv.h>
-#include <connections/connection/connection.h>
 #include <glib.h>
+#include <netinet/in.h>
+#include <stdlib.h>
+#include <sys/epoll.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <uv.h>
 
+#include "connections/connection/connection.h"
+#include "ctaps.h"
 #include "protocols/registry/protocol_registry.h"
 
-uv_udp_t send_socket;
-GQueue* udp_receive_queue;
+static uv_udp_t send_socket;
+static GQueue* udp_receive_queue;
 
 void udp_recv_cb() {
 

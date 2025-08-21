@@ -15,6 +15,6 @@ void message_build_without_content(Message* message);
 
 void message_free_all(Message* message);
 
-void message_free_content(Message* message);
+void message_free_content(const Message* message);
 
 #endif //MESSAGE_H

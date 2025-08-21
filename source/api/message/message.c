@@ -21,7 +21,7 @@ void message_free_all(Message* message) {
     free(message);
 }
 
-void message_free_content(Message* message) {
+void message_free_content(const Message* message) {
     free(message->content);
 }
 

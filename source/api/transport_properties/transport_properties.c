@@ -8,7 +8,7 @@
 
 #include "selection_properties/selection_properties.h"
 
-void transport_properties_build(TransportProperties *self) {
+void transport_properties_build(TransportProperties *properties) {
     return;
 }
 

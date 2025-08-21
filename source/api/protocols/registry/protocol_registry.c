@@ -11,5 +11,5 @@ void register_protocol(ProtocolImplementation* proto) {
 // Function to get the list of available protocols
 const ProtocolImplementation** get_supported_protocols() {
     printf("Num Supported protocols is: %d\n", protocol_count);
-    return (const ProtocolImplementation**)supported_protocols;
+    return supported_protocols;
 }
