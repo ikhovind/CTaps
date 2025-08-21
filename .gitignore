@@ -25,3 +25,5 @@ Testing/
 *.log
 # Temporary files
 *.tmp
+.cache/
+.ropeproject/

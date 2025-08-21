@@ -12,8 +12,8 @@ int udp_init(Connection *connection);
 int udp_close(void);
 void udp_connect(void);
 void register_udp_support();
-int udp_send(struct Connection* connection, Message* message);
-int udp_receive(struct Connection* connection, Message* message);
+int udp_send(Connection* connection, Message* message);
+Message* udp_receive(Connection* connection);
 
 static ProtocolImplementation udp_protocol_interface = {
     .name = "UDP",

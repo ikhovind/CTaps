@@ -19,6 +19,6 @@ typedef struct Connection {
 } Connection;
 
 int send_message(Connection* connection, Message* message);
-void receive_message(Connection* connection, Message* message);
+Message* receive_message(Connection* connection);
 void connection_close (Connection* connection);
 #endif //CONNECTION_H

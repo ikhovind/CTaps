@@ -9,17 +9,12 @@
 #include <stdlib.h>
 #include <uv.h>
 #include <connections/connection/connection.h>
+#include <glib.h>
 
 #include "protocols/registry/protocol_registry.h"
 
-#define BUFFER_SIZE 1024
-#define MAX_EVENTS 1024
-
-struct epoll_event event;
-struct epoll_event events[MAX_EVENTS];
-char buffer[BUFFER_SIZE];
-int udp_fd;
 uv_udp_t send_socket;
+GQueue* udp_receive_queue;
 
 void udp_recv_cb() {
 
@@ -34,7 +29,6 @@ void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
 
 
 void on_send(uv_udp_send_t *req, int status) {
-    printf("on_send\n");
     if (status) {
         fprintf(stderr, "Send error: %s\n", uv_strerror(status));
     }
@@ -44,7 +38,6 @@ void on_send(uv_udp_send_t *req, int status) {
 }
 
 void on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags) {
-    printf("on_read\n");
     if (nread < 0) {
         fprintf(stderr, "Read error: %s\n", uv_err_name(nread));
         uv_close((uv_handle_t*) req, NULL);
@@ -57,15 +50,20 @@ void on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct soc
         return;
     }
 
-    // Get the sender's address and port
-    char sender[17] = { 0 };
-    uv_ip4_name((const struct sockaddr_in*) addr, sender, 16);
-    int port = ntohs(((const struct sockaddr_in*) addr)->sin_port);
+    Message* received_message = malloc(sizeof(Message));
+    if (!received_message) {
+        return;
+    }
 
-    printf("Received message from %s:%d\n", sender, port);
+    received_message->content = malloc(nread);
+    if (!received_message->content) {
+        return;
+    }
 
     // Print the received data (nread holds the number of bytes received)
-    printf("Data: %.*s\n", (int)nread, buf->base);
+    memcpy(received_message->content, buf->base, nread);
+
+    g_queue_push_tail(udp_receive_queue, received_message);
 
     // Stop receiving so the event loop can exit
     uv_udp_recv_stop(req);
@@ -73,6 +71,8 @@ void on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct soc
 
 
 int udp_init(Connection *connection) {
+
+    udp_receive_queue = g_queue_new();
     uv_udp_init(ctaps_event_loop, &send_socket);
 
     if (connection->local_endpoint.initialized) {
@@ -92,7 +92,8 @@ int udp_init(Connection *connection) {
 }
 
 int udp_close() {
-    close(udp_fd);
+    g_queue_free(udp_receive_queue);
+    return 0;
 }
 
 void register_udp_support() {
@@ -114,6 +115,9 @@ int udp_send(Connection* connection, Message* message) {
     return 0;
 }
 
-int udp_receive(struct Connection* connection, Message* message) {
+Message* udp_receive(Connection* connection) {
+    if (g_queue_get_length(udp_receive_queue) > 0) {
+        return g_queue_pop_tail(udp_receive_queue);
+    }
     return 0;
 }

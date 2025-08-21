@@ -16,7 +16,12 @@ void message_build_without_content(Message* message) {
     message->content = 0;
 }
 
-void message_free(Message* message) {
+void message_free_all(Message* message) {
+    free(message->content);
+    free(message);
+}
+
+void message_free_content(Message* message) {
     free(message->content);
 }
 

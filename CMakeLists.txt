@@ -22,6 +22,7 @@ set(API_SOURCES
     source/api/connections/connection/connection.c
     source/api/protocols/registry/protocol_registry.c
     source/api/ctaps.c
+    source/api/endpoints/local/local_endpoint.c
 )
 
 set(IMPL_SOURCES
@@ -49,6 +50,14 @@ target_include_directories(CTaps
 target_include_directories(CTaps PUBLIC source/api)
 
 target_link_libraries(CTaps PRIVATE uv)
+
+find_package(PkgConfig REQUIRED)
+
+pkg_check_modules(GLIB REQUIRED glib-2.0)
+
+target_include_directories(CTaps PRIVATE ${GLIB_INCLUDE_DIRS})
+target_link_libraries(CTaps PRIVATE ${GLIB_LIBRARIES})
+
 
 # ---- library for testing etc. -----
 add_library(

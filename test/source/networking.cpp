@@ -18,8 +18,11 @@ TEST(NetworkingTest, SendsUdpPacket) {
 
     remote_endpoint_with_family(&remote_endpoint, AF_INET);
     remote_endpoint_with_hostname(&remote_endpoint, "127.0.0.1");
-    remote_endpoint_with_port(&remote_endpoint, 4001);
+    remote_endpoint_with_port(&remote_endpoint, 5005);
 
+    LocalEndpoint local_endpoint;
+
+    local_endpoint_with_port(&local_endpoint, 4005);
     TransportProperties transport_properties;
 
     transport_properties_build(&transport_properties);
@@ -27,7 +30,7 @@ TEST(NetworkingTest, SendsUdpPacket) {
     selection_properties_set_selection_property(&transport_properties, RELIABILITY, PROHIBIT);
 
     Preconnection preconnection;
-    preconnection_build(&preconnection, transport_properties, remote_endpoint);
+    preconnection_build_with_local(&preconnection, transport_properties, remote_endpoint, local_endpoint);
 
     Connection connection;
 
@@ -35,25 +38,19 @@ TEST(NetworkingTest, SendsUdpPacket) {
 
     Message message;
 
-    message_build_with_content(&message, "hello world 2");
+    message_build_with_content(&message, "hello world");
 
     send_message(&connection, &message);
 
     ctaps_start_event_loop();
 
-    message_free(&message);
+    message_free_content(&message);
 
-    Message recv;
-
-    message_build_without_content(&recv);
-
-    /*
-    receive_message(&connection, &recv);
+    Message* received_message = receive_message(&connection);
 
     connection_close(&connection);
 
-    ASSERT_THAT(recv.content, testing::NotNull());
-    */
-
-    //EXPECT_STREQ(recv.content, "hello world");
+    ASSERT_THAT(received_message->content, testing::NotNull());
+    EXPECT_STREQ(received_message->content, "Pong: hello world");
+    message_free_all(received_message);
 }

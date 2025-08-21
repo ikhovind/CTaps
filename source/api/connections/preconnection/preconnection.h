@@ -23,6 +23,8 @@ typedef struct {
 // TODO - change other init functions to build, to avoid confusing with initiate
 void preconnection_build(Preconnection *preconnection, TransportProperties transport_properties, RemoteEndpoint remote_endpoint);
 
+void preconnection_build_with_local(Preconnection *preconnection, TransportProperties transport_properties, RemoteEndpoint remote_endpoint, LocalEndpoint local_endpoint);
+
 void preconnection_initiate(Preconnection* preconnection, Connection* connection);
 
 void preconnection_initiate_with_timeout(Preconnection* preconnection, Connection* connection, int timeout_ms);

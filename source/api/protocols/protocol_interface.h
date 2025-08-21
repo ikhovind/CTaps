@@ -15,7 +15,7 @@ typedef struct ProtocolImplementation{
     ProtocolFeatures features;
     int (*init)(struct Connection* connection);
     int (*send)(struct Connection*, Message*);
-    int (*receive)(struct Connection*, Message*);
+    Message* (*receive)(struct Connection*);
     void (*close)(struct Connection*);
 } ProtocolImplementation;
 

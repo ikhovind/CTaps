@@ -13,7 +13,8 @@ void message_build_with_content(Message* message, const char* content);
 
 void message_build_without_content(Message* message);
 
-void message_free(Message* message);
+void message_free_all(Message* message);
 
+void message_free_content(Message* message);
 
 #endif //MESSAGE_H

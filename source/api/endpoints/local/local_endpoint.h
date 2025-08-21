@@ -1,7 +1,3 @@
-//
-// Created by ikhovind on 16.08.25.
-//
-
 #ifndef LOCAL_ENDPOINT_H
 #define LOCAL_ENDPOINT_H
 #include <stdbool.h>
@@ -16,5 +12,7 @@ typedef struct {
     } addr;
     bool initialized;
 } LocalEndpoint;
+
+void local_endpoint_with_port(LocalEndpoint* remote_endpoint, int port);
 
 #endif //LOCAL_ENDPOINT_H
