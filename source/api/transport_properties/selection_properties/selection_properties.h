@@ -8,56 +8,57 @@
 #include <stdio.h>
 #include <string.h>
 
-#define mklist(f) \
-    f(RELIABILITY, "reliability") \
-    f(PRESERVE_MSG_BOUNDARIES, "preserveMsgBoundaries") \
-    f(PER_MSG_RELIABILITY, "perMsgReliability") \
-    f(PRESERVE_ORDER, "preserveOrder") \
-    f(ZERO_RTT_MSG, "zeroRttMsg") \
-    f(MULTISTREAMING, "multistreaming") \
-    f(FULL_CHECKSUM_SEND, "fullChecksumSend") \
-    f(FULL_CHECKSUM_RECV, "fullChecksumRecv") \
-    f(CONGESTION_CONTROL, "congestionControl") \
-    f(KEEP_ALIVE, "keepAlive") \
-    f(interface, "interface") \
-    f(PVD, "pvd") \
-    f(USE_TEMPORARY_LOCAL_ADDRESS, "useTemporaryLocalAddress") \
-    f(MULTIPATH, "multipath") \
-    f(ADVERTISES_ALT_ADDRES, "advertisesAltAddr") \
-    f(DIRECTION, "direction") \
-    f(SOFT_ERROR_NOTIFY, "softErrorNotify") \
-    f(ACTIVE_READ_BEFORE_SEND, "activeReadBeforeSend") \
+#define mklist(f)                                                             \
+  f(RELIABILITY, "reliability")                                               \
+      f(PRESERVE_MSG_BOUNDARIES, "preserveMsgBoundaries")                     \
+          f(PER_MSG_RELIABILITY, "perMsgReliability") f(                      \
+              PRESERVE_ORDER, "preserveOrder") f(ZERO_RTT_MSG, "zeroRttMsg")  \
+              f(MULTISTREAMING, "multistreaming")                             \
+                  f(FULL_CHECKSUM_SEND, "fullChecksumSend") f(                \
+                      FULL_CHECKSUM_RECV, "fullChecksumRecv")                 \
+                      f(CONGESTION_CONTROL, "congestionControl") f(           \
+                          KEEP_ALIVE, "keepAlive") f(interface, "interface")  \
+                          f(PVD, "pvd") f(USE_TEMPORARY_LOCAL_ADDRESS,        \
+                                          "useTemporaryLocalAddress")         \
+                              f(MULTIPATH, "multipath") f(                    \
+                                  ADVERTISES_ALT_ADDRES, "advertisesAltAddr") \
+                                  f(DIRECTION, "direction")                   \
+                                      f(SOFT_ERROR_NOTIFY, "softErrorNotify") \
+                                          f(ACTIVE_READ_BEFORE_SEND,          \
+                                            "activeReadBeforeSend")
 
 #define f_enum(enum_name, string_name) enum_name,
 #define f_arr(enum_name, string_name) {enum_name, string_name},
 
-typedef enum {
-    mklist(f_enum)
-    SELECTION_PROPERTY_END
-} SelectionProperty;
+typedef enum { mklist(f_enum) SELECTION_PROPERTY_END } SelectionProperty;
 
-typedef enum  {
-    PROHIBIT = -2,
-    AVOID,
-    NO_PREFERENCE,
-    PREFER,
-    REQUIRE,
+typedef enum {
+  PROHIBIT = -2,
+  AVOID,
+  NO_PREFERENCE,
+  PREFER,
+  REQUIRE,
 } SelectionPreference;
 
 typedef struct {
-    SelectionPreference preference[SELECTION_PROPERTY_END];
+  SelectionPreference preference[SELECTION_PROPERTY_END];
 } SelectionProperties;
 
 void selection_properties_init(SelectionProperties* selection_properties);
-void selection_properties_set(SelectionProperties * selection_properties, SelectionProperty selection_property, SelectionPreference preference);
-void selection_properties_require_prop(SelectionProperties * selection_properties, SelectionProperty selection_property);
+void selection_properties_set(SelectionProperties* selection_properties,
+                              SelectionProperty selection_property,
+                              SelectionPreference preference);
+void selection_properties_require_prop(
+    SelectionProperties* selection_properties,
+    SelectionProperty selection_property);
 
-void selection_properties_require_char(SelectionProperties * selection_properties, char* selection_property);
+void selection_properties_require_char(
+    SelectionProperties* selection_properties, char* selection_property);
 
 #define selection_properties_require(selection_properties, selection_property) \
-    _Generic((selection_property),        \
-        char*:             selection_properties_require_char,    \
-        SelectionProperty: selection_properties_require_prop \
-    )(selection_properties, selection_property)
+  _Generic((selection_property),                                               \
+      char*: selection_properties_require_char,                                \
+      SelectionProperty: selection_properties_require_prop)(                   \
+      selection_properties, selection_property)
 
-#endif //SELECTION_PROPERTIES_H
+#endif  // SELECTION_PROPERTIES_H

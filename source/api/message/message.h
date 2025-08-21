@@ -6,7 +6,7 @@
 #define MESSAGE_H
 
 typedef struct {
-   char* content;
+  char* content;
 } Message;
 
 void message_build_with_content(Message* message, const char* content);
@@ -17,4 +17,4 @@ void message_free_all(Message* message);
 
 void message_free_content(const Message* message);
 
-#endif //MESSAGE_H
+#endif  // MESSAGE_H

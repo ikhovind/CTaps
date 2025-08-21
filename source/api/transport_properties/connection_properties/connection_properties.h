@@ -6,7 +6,7 @@
 #define CONNECTION_PROPERTIES_H
 
 typedef struct {
-    int dummy;
+  int dummy;
 } ConnectionProperties;
 
-#endif //CONNECTION_PROPERTIES_H
+#endif  // CONNECTION_PROPERTIES_H

@@ -6,9 +6,7 @@
 #include "protocols/protocol_interface.h"
 #include "transport_properties/selection_properties/selection_properties.h"
 
-
-
-int udp_init(Connection *connection);
+int udp_init(Connection* connection);
 int udp_close(void);
 void udp_connect(void);
 void register_udp_support();
@@ -17,17 +15,13 @@ Message* udp_receive(Connection* connection);
 
 static ProtocolImplementation udp_protocol_interface = {
     .name = "UDP",
-    .features = {
-        .values = {
-            [RELIABILITY]               = PROHIBIT,
-            [PRESERVE_ORDER]            = PROHIBIT,
-            [CONGESTION_CONTROL]        = PROHIBIT,
-            [PRESERVE_MSG_BOUNDARIES]   = REQUIRE
-        }
-    },
+    .features = {.values = {[RELIABILITY] = PROHIBIT,
+                            [PRESERVE_ORDER] = PROHIBIT,
+                            [CONGESTION_CONTROL] = PROHIBIT,
+                            [PRESERVE_MSG_BOUNDARIES] = REQUIRE}},
     .send = udp_send,
     .init = udp_init,
     .receive = udp_receive,
 };
 
-#endif //UDP_H
+#endif  // UDP_H

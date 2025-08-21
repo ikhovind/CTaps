@@ -13,4 +13,4 @@ void register_protocol(ProtocolImplementation* proto);
 
 const ProtocolImplementation** get_supported_protocols();
 
-#endif //PROTOCOL_REGISTRY_H
+#endif  // PROTOCOL_REGISTRY_H
