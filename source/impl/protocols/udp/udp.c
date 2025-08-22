@@ -1,7 +1,6 @@
 #include "udp.h"
 
 #include <fcntl.h>
-#include <glib.h>
 #include <netinet/in.h>
 #include <stdlib.h>
 #include <sys/epoll.h>
@@ -13,11 +12,8 @@
 #include "ctaps.h"
 #include "protocols/registry/protocol_registry.h"
 
-static uv_udp_t send_socket;
-static GQueue* udp_receive_queue;
-
-void udp_recv_cb() {
-}
+typedef int (*ReceiveMessageCb)(struct Connection* connection,
+                                Message** received_message);
 
 void alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
   // We'll use a static buffer for this simple example, but in a real
@@ -37,6 +33,7 @@ void on_send(uv_udp_send_t* req, int status) {
 
 void on_read(uv_udp_t* req, ssize_t nread, const uv_buf_t* buf,
              const struct sockaddr* addr, unsigned flags) {
+  Connection* connection = (Connection*)req->data;
   if (nread < 0) {
     fprintf(stderr, "Read error: %s\n", uv_err_name(nread));
     uv_close((uv_handle_t*)req, NULL);
@@ -53,7 +50,6 @@ void on_read(uv_udp_t* req, ssize_t nread, const uv_buf_t* buf,
   if (!received_message) {
     return;
   }
-
   received_message->content = malloc(nread);
   if (!received_message->content) {
     return;
@@ -62,20 +58,31 @@ void on_read(uv_udp_t* req, ssize_t nread, const uv_buf_t* buf,
   // Print the received data (nread holds the number of bytes received)
   memcpy(received_message->content, buf->base, nread);
 
-  g_queue_push_tail(udp_receive_queue, received_message);
+  if (g_queue_is_empty(connection->received_callbacks)) {
+    g_queue_push_tail(connection->received_messages, received_message);
+    // It works when I invoke it here???:
+    // uv_udp_recv_stop(&connection->udp_handle);
+  }
 
-  // Stop receiving so the event loop can exit
-  uv_udp_recv_stop(req);
+  else {
+    const ReceiveMessageCb receive_message_cb =
+        g_queue_pop_head(connection->received_callbacks);
+
+    receive_message_cb(connection, &received_message);
+  }
 }
 
-int udp_init(Connection* connection) {
-  udp_receive_queue = g_queue_new();
-  uv_udp_init(ctaps_event_loop, &send_socket);
+int udp_init(Connection* connection,
+             int (*init_done_cb)(Connection* connection)) {
+  connection->received_messages = g_queue_new();
+  connection->received_callbacks = g_queue_new();
+  uv_udp_init(ctaps_event_loop, &connection->udp_handle);
+
+  connection->udp_handle.data = connection;
 
   if (connection->local_endpoint.initialized) {
-    // TODO - set local endpoint in test check that this works
     uv_udp_bind(
-        &send_socket,
+        &connection->udp_handle,
         (const struct sockaddr*)&connection->local_endpoint.addr.ipv4_addr, 0);
     printf("Listening for UDP packets on port %d...\n",
            ntohs(connection->local_endpoint.addr.ipv4_addr.sin_port));
@@ -83,16 +90,22 @@ int udp_init(Connection* connection) {
     struct sockaddr_in bind_addr;
     uv_ip4_addr("0.0.0.0", 0, &bind_addr);
 
-    uv_udp_bind(&send_socket, (const struct sockaddr*)&bind_addr, 0);
+    uv_udp_bind(&connection->udp_handle, (const struct sockaddr*)&bind_addr, 0);
     printf("Listening for UDP packets on port %d...\n",
            ntohs(bind_addr.sin_port));
   }
 
-  uv_udp_recv_start(&send_socket, alloc_buffer, on_read);
+  uv_udp_recv_start(&connection->udp_handle, alloc_buffer, on_read);
+  init_done_cb(connection);
 }
 
-int udp_close() {
-  g_queue_free(udp_receive_queue);
+void test(struct uv_handle_s* a) {
+}
+
+int udp_close(const Connection* connection) {
+  g_queue_free(connection->received_messages);
+  g_queue_free(connection->received_callbacks);
+  uv_udp_recv_stop(&connection->udp_handle);
   return 0;
 }
 
@@ -111,16 +124,22 @@ int udp_send(Connection* connection, Message* message) {
   }
 
   uv_udp_send(
-      send_req, &send_socket, &buffer, 1,
+      send_req, &connection->udp_handle, &buffer, 1,
       (const struct sockaddr*)&connection->remote_endpoint.addr.ipv4_addr,
       on_send);
 
   return 0;
 }
 
-Message* udp_receive(Connection* connection) {
-  if (g_queue_get_length(udp_receive_queue) > 0) {
-    return g_queue_pop_tail(udp_receive_queue);
+int udp_receive(Connection* connection, ReceiveMessageCb receive_msg_cb) {
+  // If we have a message to receive then simply return that
+  if (!g_queue_is_empty(connection->received_messages)) {
+    Message* received_message = g_queue_pop_head(connection->received_messages);
+    receive_msg_cb(connection, &received_message);
+    return 0;
   }
+  // If we don't have a message to receive, add the callback to the queue of
+  // waiting callbacks
+  g_queue_push_tail(connection->received_callbacks, receive_msg_cb);
   return 0;
 }

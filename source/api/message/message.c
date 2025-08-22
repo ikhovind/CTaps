@@ -1,7 +1,3 @@
-//
-// Created by ikhovind on 18.08.25.
-//
-
 #include "message.h"
 
 #include <stdlib.h>

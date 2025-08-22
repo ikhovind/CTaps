@@ -55,8 +55,8 @@ find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(GLIB REQUIRED glib-2.0)
 
-target_include_directories(CTaps PRIVATE ${GLIB_INCLUDE_DIRS})
-target_link_libraries(CTaps PRIVATE ${GLIB_LIBRARIES})
+target_include_directories(CTaps PUBLIC ${GLIB_INCLUDE_DIRS})
+target_link_libraries(CTaps PUBLIC ${GLIB_LIBRARIES})
 
 
 # ---- library for testing etc. -----

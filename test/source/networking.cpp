@@ -9,8 +9,33 @@ extern "C" {
 #include "transport_properties/transport_properties.h"
 }
 
-TEST(NetworkingTest, SendsUdpPacket) {
+void assert_message(Message* received_message) {
+    ASSERT_THAT(received_message->content, testing::NotNull());
+    EXPECT_STREQ(received_message->content, "Pong: hello world");
+    message_free_all(received_message);
+}
 
+int receive_message_cb(Connection* connection, Message** received_message) {
+    printf("Received message with data: %s\n", (*received_message)->content);
+    connection_close(connection);
+    assert_message(*received_message);
+    return 0;
+}
+
+int connection_ready_cb(Connection* connection) {
+    Message message;
+
+    message_build_with_content(&message, "hello world");
+
+    send_message(connection, &message);
+
+    message_free_content(&message);
+
+    receive_message(connection, receive_message_cb);
+}
+
+
+TEST(NetworkingTest, SendsUdpPacket) {
     ctaps_initialize();
     printf("Sending UDP packet...\n");
 
@@ -34,23 +59,9 @@ TEST(NetworkingTest, SendsUdpPacket) {
 
     Connection connection;
 
-    preconnection_initiate(&preconnection, &connection);
-
-    Message message;
-
-    message_build_with_content(&message, "hello world");
-
-    send_message(&connection, &message);
+    preconnection_initiate(&preconnection, &connection, connection_ready_cb);
 
     ctaps_start_event_loop();
 
-    message_free_content(&message);
-
-    Message* received_message = receive_message(&connection);
-
     connection_close(&connection);
-
-    ASSERT_THAT(received_message->content, testing::NotNull());
-    EXPECT_STREQ(received_message->content, "Pong: hello world");
-    message_free_all(received_message);
 }
