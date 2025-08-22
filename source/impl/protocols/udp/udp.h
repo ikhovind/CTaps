@@ -11,7 +11,7 @@ int udp_close(const Connection* connection);
 void udp_connect(void);
 void register_udp_support();
 int udp_send(Connection* connection, Message* message);
-int udp_receive(Connection* connection, ReceiveMessageCb receive_message_cb);
+int udp_receive(Connection* connection, ReceiveMessageRequest receive_message_cb);
 
 const static ProtocolImplementation udp_protocol_interface = {
     .name = "UDP",

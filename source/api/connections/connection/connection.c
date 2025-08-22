@@ -8,7 +8,7 @@ int send_message(Connection* connection, Message* message) {
 }
 
 int receive_message(Connection* connection,
-                    ReceiveMessageCb receive_message_cb
+                    ReceiveMessageRequest receive_message_cb
                     ) {
   return connection->protocol.receive(connection, receive_message_cb);
 }

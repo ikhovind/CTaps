@@ -12,4 +12,6 @@ int ctaps_initialize();
 
 void ctaps_start_event_loop();
 
+void ctaps_cleanup();
+
 #endif  // TAPS_H

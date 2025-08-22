@@ -60,10 +60,11 @@ void on_read(uv_udp_t* req, ssize_t nread, const uv_buf_t* buf,
   }
 
   else {
-    ReceiveMessageCb receive_callback =
+    ReceiveMessageRequest* receive_callback =
         g_queue_pop_head(connection->received_callbacks);
 
-    receive_callback(connection, &received_message);
+    receive_callback->receive_cb(connection, &received_message, receive_callback->user_data);
+    free(receive_callback);
   }
 }
 
@@ -90,10 +91,7 @@ int udp_init(Connection* connection, InitDoneCb init_done_cb) {
   }
 
   uv_udp_recv_start(&connection->udp_handle, alloc_buffer, on_read);
-  init_done_cb(connection);
-}
-
-void test(struct uv_handle_s* a) {
+  init_done_cb.init_done_callback(connection, init_done_cb.user_data);
 }
 
 int udp_close(const Connection* connection) {
@@ -125,16 +123,20 @@ int udp_send(Connection* connection, Message* message) {
   return 0;
 }
 
-int udp_receive(Connection* connection, ReceiveMessageCb receive_msg_cb) {
+int udp_receive(Connection* connection, ReceiveMessageRequest receive_msg_cb) {
   // If we have a message to receive then simply return that
   if (!g_queue_is_empty(connection->received_messages)) {
+    printf("first");
     Message* received_message = g_queue_pop_head(connection->received_messages);
-    receive_msg_cb(connection, &received_message);
+    receive_msg_cb.receive_cb(connection, &received_message, receive_msg_cb.user_data);
     return 0;
   }
 
+  ReceiveMessageRequest* ptr = malloc(sizeof(receive_msg_cb));
+  memcpy(ptr, &receive_msg_cb, sizeof(receive_msg_cb));
+
   // If we don't have a message to receive, add the callback to the queue of
   // waiting callbacks
-  g_queue_push_tail(connection->received_callbacks, receive_msg_cb);
+  g_queue_push_tail(connection->received_callbacks, ptr);
   return 0;
 }

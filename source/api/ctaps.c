@@ -19,3 +19,7 @@ void ctaps_start_event_loop() {
 
   uv_loop_close(ctaps_event_loop);
 }
+
+void ctaps_cleanup() {
+  ctaps_event_loop = NULL;
+}
