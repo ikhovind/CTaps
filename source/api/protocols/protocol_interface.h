@@ -10,16 +10,19 @@ typedef struct {
   SelectionPreference values[SELECTION_PROPERTY_END];
 } ProtocolFeatures;
 
+typedef int (*ReceiveMessageCb)(struct Connection* connection,
+                                Message** received_message
+                                );
+
+typedef int (*InitDoneCb)(struct Connection* connection);
+
 typedef struct ProtocolImplementation {
   const char* name;
   ProtocolFeatures features;
-  int (*init)(struct Connection* connection,
-              int (*init_done_cb)(struct Connection* connection));
+  int (*init)(struct Connection* connection, InitDoneCb init_done_cb);
   int (*send)(struct Connection*, Message*);
-  int (*receive)(struct Connection*,
                  // TODO - public callbacks should probably have a void* for context
-                 int (*receive_msg_cb)(struct Connection* connection,
-                                       Message** received_message));
+  int (*receive)(struct Connection*, ReceiveMessageCb receive_cb);
   int (*close)(const struct Connection*);
 } ProtocolImplementation;
 

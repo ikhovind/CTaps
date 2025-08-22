@@ -21,7 +21,7 @@ void preconnection_build_with_local(Preconnection* preconnection,
 }
 
 int preconnection_initiate(Preconnection* preconnection, Connection* connection,
-                           int (*connection_ready_cb)(Connection* connection)) {
+                            InitDoneCb init_done_cb) {
   printf("Initiating connection from preconnection\n");
   int num_found_protocols = 0;
   transport_properties_protocol_stacks_with_selection_properties(
@@ -34,7 +34,7 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
       connection->local_endpoint = preconnection->local;
       connection->local_endpoint.initialized = true;
     }
-    connection->protocol.init(connection, connection_ready_cb);
+    connection->protocol.init(connection, init_done_cb);
     return 0;
   }
   printf("No protocol found\n");

@@ -26,7 +26,6 @@ typedef struct Connection {
 
 int send_message(Connection* connection, Message* message);
 int receive_message(Connection* connection,
-                    int (*receive_msg_cb)(Connection* connection,
-                                          Message** received_message));
+                    ReceiveMessageCb receive_message_cb);
 void connection_close(Connection* connection);
 #endif  // CONNECTION_H

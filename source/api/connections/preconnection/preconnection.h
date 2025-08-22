@@ -31,7 +31,7 @@ void preconnection_build_with_local(Preconnection* preconnection,
                                     LocalEndpoint local_endpoint);
 
 int preconnection_initiate(Preconnection* preconnection, Connection* connection,
-                           int (*connection_ready_cb)(Connection* connection));
+                            InitDoneCb init_done_cb);
 
 void preconnection_initiate_with_timeout(Preconnection* preconnection,
                                          Connection* connection,

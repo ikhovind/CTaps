@@ -12,9 +12,6 @@
 #include "ctaps.h"
 #include "protocols/registry/protocol_registry.h"
 
-typedef int (*ReceiveMessageCb)(struct Connection* connection,
-                                Message** received_message);
-
 void alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
   // We'll use a static buffer for this simple example, but in a real
   // application, you would likely use malloc or a buffer pool.
@@ -60,20 +57,17 @@ void on_read(uv_udp_t* req, ssize_t nread, const uv_buf_t* buf,
 
   if (g_queue_is_empty(connection->received_callbacks)) {
     g_queue_push_tail(connection->received_messages, received_message);
-    // It works when I invoke it here???:
-    // uv_udp_recv_stop(&connection->udp_handle);
   }
 
   else {
-    const ReceiveMessageCb receive_message_cb =
+    ReceiveMessageCb receive_callback =
         g_queue_pop_head(connection->received_callbacks);
 
-    receive_message_cb(connection, &received_message);
+    receive_callback(connection, &received_message);
   }
 }
 
-int udp_init(Connection* connection,
-             int (*init_done_cb)(Connection* connection)) {
+int udp_init(Connection* connection, InitDoneCb init_done_cb) {
   connection->received_messages = g_queue_new();
   connection->received_callbacks = g_queue_new();
   uv_udp_init(ctaps_event_loop, &connection->udp_handle);
@@ -138,6 +132,7 @@ int udp_receive(Connection* connection, ReceiveMessageCb receive_msg_cb) {
     receive_msg_cb(connection, &received_message);
     return 0;
   }
+
   // If we don't have a message to receive, add the callback to the queue of
   // waiting callbacks
   g_queue_push_tail(connection->received_callbacks, receive_msg_cb);
