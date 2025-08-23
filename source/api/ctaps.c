@@ -6,7 +6,8 @@
 uv_loop_t* ctaps_event_loop;
 
 int ctaps_initialize() {
-  ctaps_event_loop = uv_default_loop();
+  ctaps_event_loop = malloc(sizeof(uv_loop_t));
+  uv_loop_init(ctaps_event_loop);
   register_udp_support();
   return 0;
 }
@@ -18,8 +19,4 @@ void ctaps_start_event_loop() {
   uv_run(ctaps_event_loop, UV_RUN_DEFAULT);
 
   uv_loop_close(ctaps_event_loop);
-}
-
-void ctaps_cleanup() {
-  ctaps_event_loop = NULL;
 }

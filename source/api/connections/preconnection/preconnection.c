@@ -8,6 +8,7 @@ void preconnection_build(Preconnection* preconnection,
   printf("Remote endpoint port when building preconnection is: %d\n",
          remote_endpoint.addr.ipv4_addr.sin_port);
   preconnection->remote = remote_endpoint;
+  preconnection->local.initialized = false;
 }
 
 void preconnection_build_with_local(Preconnection* preconnection,
@@ -33,6 +34,9 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
     if (preconnection->local.initialized) {
       connection->local_endpoint = preconnection->local;
       connection->local_endpoint.initialized = true;
+    }
+    else {
+      connection->local_endpoint.initialized = false;
     }
     connection->protocol.init(connection, init_done_cb);
     return 0;

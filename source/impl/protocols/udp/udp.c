@@ -60,6 +60,7 @@ void on_read(uv_udp_t* req, ssize_t nread, const uv_buf_t* buf,
   }
 
   else {
+    printf("We have a receive callback ready\n");
     ReceiveMessageRequest* receive_callback =
         g_queue_pop_head(connection->received_callbacks);
 
@@ -71,26 +72,37 @@ void on_read(uv_udp_t* req, ssize_t nread, const uv_buf_t* buf,
 int udp_init(Connection* connection, InitDoneCb init_done_cb) {
   connection->received_messages = g_queue_new();
   connection->received_callbacks = g_queue_new();
-  uv_udp_init(ctaps_event_loop, &connection->udp_handle);
+  int udp_handle_rc = uv_udp_init(ctaps_event_loop, &connection->udp_handle);
+  if (udp_handle_rc < 0) {
+    printf("Error with udp handle: %d\n", udp_handle_rc);
+    return udp_handle_rc;
+  }
 
   connection->udp_handle.data = connection;
 
   if (connection->local_endpoint.initialized) {
-    uv_udp_bind(
-        &connection->udp_handle,
-        (const struct sockaddr*)&connection->local_endpoint.addr.ipv4_addr, 0);
-    printf("Listening for UDP packets on port %d...\n",
-           ntohs(connection->local_endpoint.addr.ipv4_addr.sin_port));
+    printf("Local endpoint is initialized by user.\n");
+    int bind_rc = uv_udp_bind(&connection->udp_handle, (const struct sockaddr*)&connection->local_endpoint.addr.ipv4_addr, 0);
+    if (bind_rc < 0) {
+      return bind_rc;
+    }
   } else {
+    printf("Local endpoint is not initialized by user.\n");
     struct sockaddr_in bind_addr;
     uv_ip4_addr("0.0.0.0", 0, &bind_addr);
 
-    uv_udp_bind(&connection->udp_handle, (const struct sockaddr*)&bind_addr, 0);
+    int bind_rc = uv_udp_bind(&connection->udp_handle, (const struct sockaddr*)&bind_addr, 0);
+    if (bind_rc < 0) {
+      return bind_rc;
+    }
     printf("Listening for UDP packets on port %d...\n",
            ntohs(bind_addr.sin_port));
   }
 
-  uv_udp_recv_start(&connection->udp_handle, alloc_buffer, on_read);
+  int recv_start_rc = uv_udp_recv_start(&connection->udp_handle, alloc_buffer, on_read);
+  if (recv_start_rc < 0) {
+    return recv_start_rc;
+  }
   init_done_cb.init_done_callback(connection, init_done_cb.user_data);
 }
 
@@ -106,6 +118,7 @@ void register_udp_support() {
 }
 
 int udp_send(Connection* connection, Message* message) {
+  printf("Sending message: %s\n", message->content);
   const uv_buf_t buffer =
       uv_buf_init(message->content, strlen(message->content));
 
@@ -115,12 +128,10 @@ int udp_send(Connection* connection, Message* message) {
     return 1;
   }
 
-  uv_udp_send(
+  return uv_udp_send(
       send_req, &connection->udp_handle, &buffer, 1,
       (const struct sockaddr*)&connection->remote_endpoint.addr.ipv4_addr,
       on_send);
-
-  return 0;
 }
 
 int udp_receive(Connection* connection, ReceiveMessageRequest receive_msg_cb) {

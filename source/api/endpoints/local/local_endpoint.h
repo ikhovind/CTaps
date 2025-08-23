@@ -14,5 +14,7 @@ typedef struct {
 } LocalEndpoint;
 
 void local_endpoint_with_port(LocalEndpoint* remote_endpoint, int port);
+void local_endpoint_with_family(LocalEndpoint* local_endpoint, sa_family_t family);
+void local_endpoint_with_hostname(LocalEndpoint* local_endpoint, const char* hostname);
 
 #endif  // LOCAL_ENDPOINT_H
