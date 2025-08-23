@@ -9,74 +9,58 @@ extern "C" {
 #include "transport_properties/transport_properties.h"
 }
 
+typedef struct {
+    pthread_mutex_t* waiting_mutex;
+    pthread_cond_t* waiting_cond;
+    int* num_reads;
+    int expected_num_reads;
+} CallBackWaiter;
 
-// TODO - implement better system for waiting on callbacks
-pthread_mutex_t mutex;
-pthread_cond_t cond;
-bool test_state = false;
-int num_receives = 0;
-bool second_test_state = false;
+typedef struct {
+    Message** message;
+    CallBackWaiter* cb_waiter;
+} MessageReceiver;
 
-pthread_mutex_t mutex2;
-pthread_cond_t cond2;
+void wait_for_callback(CallBackWaiter* cb_waiter) {
+    pthread_mutex_lock(cb_waiter->waiting_mutex);
+    while (*cb_waiter->num_reads < cb_waiter->expected_num_reads) {
+        pthread_cond_wait(cb_waiter->waiting_cond, cb_waiter->waiting_mutex);
+    }
+    pthread_mutex_unlock(cb_waiter->waiting_mutex);
+}
+
+void increment_reads(Connection* connection, CallBackWaiter* cb_waiter) {
+    pthread_mutex_lock(cb_waiter->waiting_mutex);
+    (*cb_waiter->num_reads)++;
+    if (*cb_waiter->num_reads >= cb_waiter->expected_num_reads) {
+        pthread_cond_signal(cb_waiter->waiting_cond);
+    }
+    pthread_mutex_unlock(cb_waiter->waiting_mutex);
+}
 
 int receive_message_cb(Connection* connection, Message** received_message, void* user_data) {
-    printf("receive_message_cb\n");
-
-    Message** message = (Message**) user_data;
+    MessageReceiver* message_receiver = (MessageReceiver*)user_data;
+    Message** message = message_receiver->message;
 
     // want to extract actual pointer so we can later free it
     *message = *received_message;
 
-    num_receives++;
+    increment_reads(connection, message_receiver->cb_waiter);
 
-    printf("Received message content: %s\n", (*received_message)->content);
-    printf("num receives is now: %d\n", num_receives);
-    if (num_receives == 2) {
+    if (*message_receiver->cb_waiter->num_reads >= message_receiver->cb_waiter->expected_num_reads) {
         connection_close(connection);
     }
 
     return 0;
 }
 
-int receive_message_and_close_cb(Connection* connection, Message** received_message, void* user_data) {
-
-    Message** output_message = (Message**) user_data;
-
-   // want to extract actual pointer so we can later free it
-    *output_message = *received_message;
-
-    connection_close(connection);
-    return 0;
-}
-
-
-int connection_ready_notify_cb(Connection* connection, void* user_data) {
-    pthread_mutex_lock(&mutex);
-
-    // Wake up the main test thread that is waiting on this condition.
-    test_state = true;
-    pthread_cond_signal(&cond);
-
-    pthread_mutex_unlock(&mutex);
-}
-
 int connection_ready_cb(Connection* connection, void* user_data) {
     printf("Connection ready\n");
-    Message message;
 
-    message_build_with_content(&message, "hello world");
+    CallBackWaiter* cb_waiter = (CallBackWaiter*) user_data;
 
-    send_message(connection, &message);
-
-    message_free_content(&message);
-
-    ReceiveMessageRequest receive_message_cb2 = {
-        .receive_cb = receive_message_and_close_cb,
-        .user_data = user_data
-    };
-
-    receive_message(connection, receive_message_cb2);
+    increment_reads(connection, cb_waiter);
+    return 0;
 }
 
 
@@ -101,18 +85,55 @@ TEST(SimpleUdpTests, sendsSingleUdpPacket) {
 
     Connection connection;
 
-    Message* output_message = (Message*)malloc(sizeof(Message));
+    pthread_mutex_t waiting_mutex;
+    pthread_cond_t waiting_cond;
+    int num_reads = 0;
+    pthread_mutex_init(&waiting_mutex, NULL);
+    pthread_cond_init(&waiting_cond, NULL);
+
+    CallBackWaiter cb_waiter = (CallBackWaiter) {
+        .waiting_mutex = &waiting_mutex,
+        .waiting_cond = &waiting_cond,
+        .num_reads = &num_reads,
+        .expected_num_reads = 0,
+    };
+
     InitDoneCb init_done_cb = {
         .init_done_callback = connection_ready_cb,
-        .user_data = (void*)&output_message
+        .user_data = (void*)&cb_waiter
     };
 
     preconnection_initiate(&preconnection, &connection, init_done_cb);
-    sleep(1);
+
+    wait_for_callback(&cb_waiter);
+
+    Message message;
+
+    message_build_with_content(&message, "hello world");
+
+    send_message(&connection, &message);
+
+    message_free_content(&message);
+
+    Message* output_message;
+
+    cb_waiter.expected_num_reads = 1;
+    *cb_waiter.num_reads = 0;
+
+    MessageReceiver message_receiver = (MessageReceiver) {
+        .message = &output_message,
+        .cb_waiter = &cb_waiter
+    };
+
+    ReceiveMessageRequest receive_message_request = {
+        .receive_cb = receive_message_cb,
+        .user_data = &message_receiver
+    };
+
+    receive_message(&connection, receive_message_request);
 
     ctaps_start_event_loop();
 
-    ASSERT_THAT(output_message, testing::NotNull());
     EXPECT_STREQ(output_message->content, "Pong: hello world");
     message_free_all(output_message);
 }
@@ -122,8 +143,6 @@ TEST(SimpleUdpTests, packetsAreReadInOrder) {
     ctaps_initialize();
 
     RemoteEndpoint remote_endpoint;
-    pthread_mutex_init(&mutex, NULL);
-    pthread_cond_init(&cond, NULL);
 
     remote_endpoint_with_family(&remote_endpoint, AF_INET);
     remote_endpoint_with_hostname(&remote_endpoint, "127.0.0.1");
@@ -140,19 +159,25 @@ TEST(SimpleUdpTests, packetsAreReadInOrder) {
 
     Connection connection;
 
+    pthread_mutex_t waiting_mutex;
+    pthread_cond_t waiting_cond;
+    int num_reads = 0;
+    pthread_mutex_init(&waiting_mutex, NULL);
+    pthread_cond_init(&waiting_cond, NULL);
+
+    CallBackWaiter cb_waiter = (CallBackWaiter) {
+        .waiting_mutex = &waiting_mutex,
+        .waiting_cond = &waiting_cond,
+        .num_reads = &num_reads,
+        .expected_num_reads = 1,
+    };
+
     InitDoneCb init_done_cb = {
-        .init_done_callback = connection_ready_notify_cb,
-        .user_data = 0
+        .init_done_callback = connection_ready_cb,
+        .user_data = (void*)&cb_waiter
     };
 
     preconnection_initiate(&preconnection, &connection, init_done_cb);
-
-    pthread_mutex_lock(&mutex);
-    while (!test_state) {
-        pthread_cond_wait(&cond, &mutex);
-    }
-    pthread_mutex_unlock(&mutex);
-
 
     Message message1;
     message_build_with_content(&message1, "hello 1");
@@ -165,16 +190,40 @@ TEST(SimpleUdpTests, packetsAreReadInOrder) {
 
     Message* received_message1;
 
+    pthread_mutex_t waiting_mutex1;
+    pthread_cond_t waiting_cond1;
+    num_reads = 0;
+    pthread_mutex_init(&waiting_mutex1, NULL);
+    pthread_cond_init(&waiting_cond1, NULL);
+
+    CallBackWaiter cb_waiter1 = (CallBackWaiter) {
+        .waiting_mutex = &waiting_mutex1,
+        .waiting_cond = &waiting_cond1,
+        .num_reads = &num_reads,
+        .expected_num_reads = 2,
+    };
+
+
+    MessageReceiver message_receiver = (MessageReceiver) {
+        .message = &received_message1,
+        .cb_waiter = &cb_waiter1,
+    };
+
     ReceiveMessageRequest receive_message_cb1 = {
         .receive_cb = receive_message_cb,
-        .user_data = &received_message1
+        .user_data = &message_receiver
     };
 
     Message* received_message2;
 
+    MessageReceiver message_receiver2 = (MessageReceiver) {
+        .message = &received_message2,
+        .cb_waiter = &cb_waiter1,
+    };
+
     ReceiveMessageRequest receive_message_cb2 = {
         .receive_cb = receive_message_cb,
-        .user_data = &received_message2,
+        .user_data = &message_receiver2,
     };
 
     receive_message(&connection, receive_message_cb1);
@@ -182,7 +231,7 @@ TEST(SimpleUdpTests, packetsAreReadInOrder) {
 
     ctaps_start_event_loop();
 
-    sleep(1);
+    wait_for_callback(&cb_waiter1);
 
     EXPECT_STREQ(received_message1->content, "Pong: hello 1");
     EXPECT_STREQ(received_message2->content, "Pong: hello 2");
