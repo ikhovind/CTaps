@@ -9,35 +9,47 @@ extern "C" {
 #include "transport_properties/transport_properties.h"
 }
 
+
+// TODO - implement better system for waiting on callbacks
 pthread_mutex_t mutex;
 pthread_cond_t cond;
 bool test_state = false;
 int num_receives = 0;
+bool second_test_state = false;
 
+pthread_mutex_t mutex2;
+pthread_cond_t cond2;
+
+int receive_message_cb(Connection* connection, Message** received_message, void* user_data) {
+    printf("receive_message_cb\n");
+
+    Message** message = (Message**) user_data;
+
+    // want to extract actual pointer so we can later free it
+    *message = *received_message;
+
+    num_receives++;
+
+    printf("Received message content: %s\n", (*received_message)->content);
+    printf("num receives is now: %d\n", num_receives);
+    if (num_receives == 2) {
+        connection_close(connection);
+    }
+
+    return 0;
+}
 
 int receive_message_and_close_cb(Connection* connection, Message** received_message, void* user_data) {
 
     Message** output_message = (Message**) user_data;
 
-    // want to extract actual pointer so we can later free it
+   // want to extract actual pointer so we can later free it
     *output_message = *received_message;
 
     connection_close(connection);
     return 0;
 }
 
-int receive_message_cb(Connection* connection, Message** received_message, void* user_data) {
-
-    Message** output_message = (Message**) user_data;
-
-    // want to extract actual pointer so we can later free it
-    *output_message = *received_message;
-
-    if (++num_receives == 2) {
-        connection_close(connection);
-    }
-    return 0;
-}
 
 int connection_ready_notify_cb(Connection* connection, void* user_data) {
     pthread_mutex_lock(&mutex);
@@ -78,9 +90,6 @@ TEST(SimpleUdpTests, sendsSingleUdpPacket) {
     remote_endpoint_with_hostname(&remote_endpoint, "127.0.0.1");
     remote_endpoint_with_port(&remote_endpoint, 5005);
 
-    LocalEndpoint local_endpoint;
-
-    local_endpoint_with_port(&local_endpoint, 4005);
     TransportProperties transport_properties;
 
     transport_properties_build(&transport_properties);
@@ -88,7 +97,7 @@ TEST(SimpleUdpTests, sendsSingleUdpPacket) {
     selection_properties_set_selection_property(&transport_properties, RELIABILITY, PROHIBIT);
 
     Preconnection preconnection;
-    preconnection_build_with_local(&preconnection, transport_properties, remote_endpoint, local_endpoint);
+    preconnection_build(&preconnection, transport_properties, remote_endpoint);
 
     Connection connection;
 
@@ -99,18 +108,18 @@ TEST(SimpleUdpTests, sendsSingleUdpPacket) {
     };
 
     preconnection_initiate(&preconnection, &connection, init_done_cb);
+    sleep(1);
 
     ctaps_start_event_loop();
 
     ASSERT_THAT(output_message, testing::NotNull());
     EXPECT_STREQ(output_message->content, "Pong: hello world");
     message_free_all(output_message);
-    ctaps_cleanup();
 }
 
 TEST(SimpleUdpTests, packetsAreReadInOrder) {
+    printf("receiving messages\n");
     ctaps_initialize();
-    printf("Sending UDP packet...\n");
 
     RemoteEndpoint remote_endpoint;
     pthread_mutex_init(&mutex, NULL);
@@ -120,9 +129,6 @@ TEST(SimpleUdpTests, packetsAreReadInOrder) {
     remote_endpoint_with_hostname(&remote_endpoint, "127.0.0.1");
     remote_endpoint_with_port(&remote_endpoint, 5005);
 
-    LocalEndpoint local_endpoint;
-
-    local_endpoint_with_port(&local_endpoint, 4005);
     TransportProperties transport_properties;
 
     transport_properties_build(&transport_properties);
@@ -130,7 +136,7 @@ TEST(SimpleUdpTests, packetsAreReadInOrder) {
     selection_properties_set_selection_property(&transport_properties, RELIABILITY, PROHIBIT);
 
     Preconnection preconnection;
-    preconnection_build_with_local(&preconnection, transport_properties, remote_endpoint, local_endpoint);
+    preconnection_build(&preconnection, transport_properties, remote_endpoint);
 
     Connection connection;
 
@@ -176,14 +182,10 @@ TEST(SimpleUdpTests, packetsAreReadInOrder) {
 
     ctaps_start_event_loop();
 
-    printf("hello does this work\n");
-    /*
-    printf("message 1 content: %s\n", received_message1->content);
-    printf("message 2 content: %s\n", received_message2->content);
-    */
+    sleep(1);
 
     EXPECT_STREQ(received_message1->content, "Pong: hello 1");
     EXPECT_STREQ(received_message2->content, "Pong: hello 2");
-    //message_free_content(received_message1);
-    //message_free_content(received_message2);
+    message_free_all(received_message1);
+    message_free_content(received_message2);
 }
