@@ -34,13 +34,24 @@ target_link_libraries(CTaps_test PRIVATE gtest gtest_main gmock fff CTaps)
 target_compile_features(CTaps_test PRIVATE c_std_99)
 target_include_directories(CTaps_test PRIVATE ${CMAKE_SOURCE_DIR}/test/source)
 
-add_executable(CTaps_initiation_test
+add_test(NAME CTaps_test COMMAND CTaps_test)
+
+add_executable(initiation_test
         source/preconnection/initiation.cpp
         source/util/util.c
 )
-target_link_libraries(CTaps_initiation_test PRIVATE gtest gtest_main gmock fff CTaps)
-target_compile_features(CTaps_initiation_test PRIVATE c_std_99)
-target_include_directories(CTaps_initiation_test PRIVATE ${CMAKE_SOURCE_DIR}/test/source)
+target_link_libraries(initiation_test PRIVATE gtest gtest_main gmock fff CTaps)
+target_compile_features(initiation_test PRIVATE c_std_99)
+target_include_directories(initiation_test PRIVATE ${CMAKE_SOURCE_DIR}/test/source)
 
-add_test(NAME CTaps_test COMMAND CTaps_test)
-add_test(NAME CTaps_initiation_test COMMAND CTaps_initiation_test)
+add_test(NAME initiation_test COMMAND initiation_test)
+
+add_executable(remote_endpoint_unit_test
+        source/unit/endpoint/remote.cpp
+        source/util/util.c
+)
+target_link_libraries(remote_endpoint_unit_test PRIVATE gtest gtest_main gmock fff CTaps)
+target_compile_features(remote_endpoint_unit_test PRIVATE c_std_99)
+target_include_directories(remote_endpoint_unit_test PRIVATE ${CMAKE_SOURCE_DIR}/test/source)
+
+add_test(NAME remote_endpoint_unit_test COMMAND remote_endpoint_unit_test)

@@ -17,8 +17,7 @@ TEST(SimpleUdpTests, sendsSingleUdpPacket) {
 
     RemoteEndpoint remote_endpoint;
 
-    remote_endpoint_with_family(&remote_endpoint, AF_INET);
-    remote_endpoint_with_hostname(&remote_endpoint, "127.0.0.1");
+    remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
     remote_endpoint_with_port(&remote_endpoint, 5005);
 
     TransportProperties transport_properties;
@@ -93,8 +92,7 @@ TEST(SimpleUdpTests, packetsAreReadInOrder) {
 
     RemoteEndpoint remote_endpoint;
 
-    remote_endpoint_with_family(&remote_endpoint, AF_INET);
-    remote_endpoint_with_hostname(&remote_endpoint, "127.0.0.1");
+    remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
     remote_endpoint_with_port(&remote_endpoint, 5005);
 
     TransportProperties transport_properties;
