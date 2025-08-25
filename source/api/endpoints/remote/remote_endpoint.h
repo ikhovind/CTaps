@@ -4,20 +4,33 @@
 
 #ifndef REMOTE_ENDPOINT_H
 #define REMOTE_ENDPOINT_H
+#include <uv.h>
 #include <arpa/inet.h>
 
-typedef struct {
-  sa_family_t family;
+typedef enum {
+  ENDPOINT_TYPE_UNSPECIFIED,
+  ENDPOINT_TYPE_HOSTNAME,
+  ENDPOINT_TYPE_ADDRESS
+} EndpointType;
 
-  struct {
-    struct sockaddr_in ipv4_addr;
-    struct sockaddr_in6 ipv6_addr;
-  } addr;
+
+typedef struct RemoteEndpoint{
+  EndpointType type;
+  uint16_t port;
+  union {
+    struct sockaddr_storage address;
+    char* hostname;
+  } data;
+
+  struct RemoteEndpoint* next;
 } RemoteEndpoint;
 
-void remote_endpoint_with_hostname(RemoteEndpoint* remote_endpoint,
-                                   const char* hostname);
+void remote_endpoint_build(RemoteEndpoint* remote_endpoint);
+
+int remote_endpoint_with_hostname(RemoteEndpoint* remote_endpoint, const char* hostname);
+
 void remote_endpoint_with_port(RemoteEndpoint* remote_endpoint, unsigned short port);
+
 void remote_endpoint_with_service(RemoteEndpoint* remote_endpoint,
                                   const char* service);
 void remote_endpoint_with_ipv4(RemoteEndpoint* remote_endpoint,

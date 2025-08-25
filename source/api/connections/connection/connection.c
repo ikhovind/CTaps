@@ -4,7 +4,7 @@
 #include "protocols/protocol_interface.h"
 
 int send_message(Connection* connection, Message* message) {
-  printf("Sending message to port %d\n", ntohs(connection->remote_endpoint.addr.ipv4_addr.sin_port));
+  printf("Sending message to port %d\n", ntohs(connection->remote_endpoint.port));
   return connection->protocol.send(connection, message);
 }
 

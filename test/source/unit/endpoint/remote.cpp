@@ -17,10 +17,11 @@ TEST(RemoteEndpointUnitTests, SetsIpv4FamilyAndAddress) {
     remote_endpoint_with_port(&remote_endpoint, 5005);
     remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
 
-    EXPECT_EQ(5005, ntohs(remote_endpoint.addr.ipv4_addr.sin_port));
-    EXPECT_EQ(AF_INET, remote_endpoint.family);
-    EXPECT_EQ(AF_INET, remote_endpoint.addr.ipv4_addr.sin_family);
-    EXPECT_EQ(inet_addr("127.0.0.1"), remote_endpoint.addr.ipv4_addr.sin_addr.s_addr);
+    sockaddr_in* addr = (struct sockaddr_in*)&remote_endpoint.data.address;
+    EXPECT_EQ(5005, ntohs(addr->sin_port));
+    EXPECT_EQ(5005, remote_endpoint.port);
+    EXPECT_EQ(AF_INET, addr->sin_family);
+    EXPECT_EQ(inet_addr("127.0.0.1"), addr->sin_addr.s_addr);
 }
 
 TEST(RemoteEndpointUnitTests, SetsIpv6FamilyAndAddress) {
@@ -31,9 +32,21 @@ TEST(RemoteEndpointUnitTests, SetsIpv6FamilyAndAddress) {
 
     remote_endpoint_with_port(&remote_endpoint, 5005);
     remote_endpoint_with_ipv6(&remote_endpoint, ipv6_addr);
+    sockaddr_in6* addr = (struct sockaddr_in6*)&remote_endpoint.data.address;
 
-    EXPECT_EQ(AF_INET6, remote_endpoint.family);
-    EXPECT_EQ(5005, ntohs(remote_endpoint.addr.ipv6_addr.sin6_port));
-    EXPECT_EQ(AF_INET6, remote_endpoint.addr.ipv6_addr.sin6_family);
-    EXPECT_EQ(0, memcmp(&ipv6_addr, &remote_endpoint.addr.ipv6_addr.sin6_addr, sizeof(in6_addr)));
+    EXPECT_EQ(AF_INET6, addr->sin6_family);
+    EXPECT_EQ(5005, ntohs(addr->sin6_port));
+    EXPECT_EQ(5005, remote_endpoint.port);
+    EXPECT_EQ(0, memcmp(&ipv6_addr, &addr->sin6_addr, sizeof(in6_addr)));
 }
+
+
+/*
+TEST(RemoteEndpointUnitTests, CanDnsLookupHostName) {
+    ctaps_initialize();
+    RemoteEndpoint remote_endpoint;
+    remote_endpoint_build(&remote_endpoint);
+
+    remote_endpoint_with_hostname(&remote_endpoint, "google.com");
+}
+*/
