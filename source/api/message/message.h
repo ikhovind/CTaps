@@ -7,6 +7,7 @@
 
 typedef struct {
   char* content;
+  unsigned int length;
 } Message;
 
 void message_build_with_content(Message* message, const char* content);

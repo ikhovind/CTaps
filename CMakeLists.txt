@@ -47,7 +47,7 @@ target_include_directories(CTaps
         ${CMAKE_CURRENT_SOURCE_DIR}/source/impl
 )
 
-target_include_directories(CTaps PUBLIC source/api)
+#target_include_directories(CTaps PUBLIC source/api)
 
 target_link_libraries(CTaps PRIVATE uv)
 

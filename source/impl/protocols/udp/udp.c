@@ -28,12 +28,12 @@ void on_send(uv_udp_send_t* req, int status) {
   }
 }
 
-void on_read(uv_udp_t* req, ssize_t nread, const uv_buf_t* buf,
+void on_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
              const struct sockaddr* addr, unsigned flags) {
-  Connection* connection = (Connection*)req->data;
+  Connection* connection = (Connection*)handle->data;
   if (nread < 0) {
     fprintf(stderr, "Read error: %s\n", uv_err_name(nread));
-    uv_close((uv_handle_t*)req, NULL);
+    uv_close((uv_handle_t*)handle, NULL);
     free(buf->base);
     return;
   }
@@ -142,6 +142,7 @@ int udp_receive(Connection* connection, ReceiveMessageRequest receive_msg_cb) {
     receive_msg_cb.receive_cb(connection, &received_message, receive_msg_cb.user_data);
     return 0;
   }
+  printf("Adding received callback to callback queue\n");
 
   ReceiveMessageRequest* ptr = malloc(sizeof(receive_msg_cb));
   memcpy(ptr, &receive_msg_cb, sizeof(receive_msg_cb));

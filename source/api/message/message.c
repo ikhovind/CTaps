@@ -5,6 +5,7 @@
 
 void message_build_with_content(Message* message, const char* content) {
   message->content = malloc(strlen(content) + 1);
+  message->length = strlen(content) + 1;
   strcpy(message->content, content);
 }
 
