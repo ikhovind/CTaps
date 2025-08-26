@@ -14,7 +14,7 @@ DEFINE_FFF_GLOBALS;
 FAKE_VALUE_FUNC(int, uv_udp_bind, uv_udp_t*, const struct sockaddr*, unsigned int)
 FAKE_VALUE_FUNC(int, uv_udp_recv_start, uv_udp_t*, uv_alloc_cb, uv_udp_recv_cb)
 
-TEST(InitiationTests, respectsLocalEndpoint) {
+TEST(InitiationTests, setsPortBasedOnLocalEndpoint) {
     uv_udp_bind_fake.return_val = 0;
     uv_udp_recv_start_fake.return_val = 0;
 

@@ -11,6 +11,7 @@ extern "C" {
 }
 
 
+// this performs an actual DNS lookup, so requires network access
 TEST(RemoteEndpointUnitTests, CanDnsLookupHostName) {
     ctaps_initialize();
     printf("Sending UDP packet...\n");

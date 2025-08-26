@@ -136,6 +136,7 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
           return rc;
         }
       }
+      printf("resolved endpoints[0]: %d\n", resolved_list[0].port);
       g_array_append_vals(resolved_endpoints, resolved_list, resolved_count);
       free(resolved_list);
     }

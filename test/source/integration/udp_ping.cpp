@@ -10,6 +10,8 @@ extern "C" {
 #include "util/util.h"
 }
 
+DEFINE_FFF_GLOBALS;
+FAKE_VALUE_FUNC(int, uv_getaddrinfo, uv_loop_t*, uv_getaddrinfo_t*, uv_getaddrinfo_cb, const char*, const char*, const struct addrinfo*)
 
 TEST(SimpleUdpTests, sendsSingleUdpPacket) {
     ctaps_initialize();
@@ -184,4 +186,104 @@ TEST(SimpleUdpTests, packetsAreReadInOrder) {
     EXPECT_STREQ(received_message2->content, "Pong: hello 2");
     message_free_all(received_message1);
     message_free_content(received_message2);
+}
+
+int custom_dns_fake(uv_loop_t*, uv_getaddrinfo_t* request, uv_getaddrinfo_cb, const char*, const char*, const struct addrinfo*) {
+
+    sockaddr_in* ipv4 = (sockaddr_in*)malloc(sizeof(sockaddr_in));
+
+    *ipv4 = {
+        .sin_family = AF_INET,
+        .sin_port = 5005,
+        .sin_addr = inet_addr("127.0.0.1")
+    };
+    addrinfo* localhost_service_provider = (addrinfo*)malloc(sizeof(addrinfo));
+
+
+    *localhost_service_provider = (struct addrinfo) {
+        .ai_addr = (struct sockaddr*)ipv4,
+        .ai_next = NULL,
+    };
+
+    *request = (uv_getaddrinfo_t) {
+        .addrinfo = localhost_service_provider,
+    };
+    return 0;
+}
+
+TEST(SimpleUdpTests, canPingResultOfDnsLookup) {
+    uv_getaddrinfo_fake.custom_fake = custom_dns_fake;
+
+    ctaps_initialize();
+    printf("Sending UDP packet...\n");
+
+    RemoteEndpoint remote_endpoint;
+
+    remote_endpoint_with_hostname(&remote_endpoint, "google.com");
+    remote_endpoint_with_port(&remote_endpoint, 5005);
+
+    TransportProperties transport_properties;
+
+    transport_properties_build(&transport_properties);
+
+    selection_properties_set_selection_property(&transport_properties, RELIABILITY, PROHIBIT);
+
+    Preconnection preconnection;
+    preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);
+
+    Connection connection;
+
+    pthread_mutex_t waiting_mutex;
+    pthread_cond_t waiting_cond;
+    int num_reads = 0;
+    pthread_mutex_init(&waiting_mutex, NULL);
+    pthread_cond_init(&waiting_cond, NULL);
+
+    CallBackWaiter cb_waiter = (CallBackWaiter) {
+        .waiting_mutex = &waiting_mutex,
+        .waiting_cond = &waiting_cond,
+        .num_reads = &num_reads,
+        .expected_num_reads = 0,
+    };
+
+    InitDoneCb init_done_cb = {
+        .init_done_callback = connection_ready_cb,
+        .user_data = (void*)&cb_waiter
+    };
+
+    preconnection_initiate(&preconnection, &connection, init_done_cb);
+
+    wait_for_callback(&cb_waiter);
+
+    Message message;
+
+    message_build_with_content(&message, "hello world");
+
+    send_message(&connection, &message);
+
+    message_free_content(&message);
+
+    Message* output_message;
+
+    cb_waiter.expected_num_reads = 1;
+    *cb_waiter.num_reads = 0;
+
+    MessageReceiver message_receiver = (MessageReceiver) {
+        .message = &output_message,
+        .cb_waiter = &cb_waiter
+    };
+
+    ReceiveMessageRequest receive_message_request = {
+        .receive_cb = receive_message_cb,
+        .user_data = &message_receiver
+    };
+
+    receive_message(&connection, receive_message_request);
+
+    ctaps_start_event_loop();
+
+    wait_for_callback(&cb_waiter);
+
+    EXPECT_STREQ(output_message->content, "Pong: hello world");
+    message_free_all(output_message);
 }
