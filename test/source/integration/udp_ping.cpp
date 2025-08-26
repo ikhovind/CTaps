@@ -27,7 +27,7 @@ TEST(SimpleUdpTests, sendsSingleUdpPacket) {
     selection_properties_set_selection_property(&transport_properties, RELIABILITY, PROHIBIT);
 
     Preconnection preconnection;
-    preconnection_build(&preconnection, transport_properties, remote_endpoint);
+    preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);
 
     Connection connection;
 
@@ -102,7 +102,7 @@ TEST(SimpleUdpTests, packetsAreReadInOrder) {
     selection_properties_set_selection_property(&transport_properties, RELIABILITY, PROHIBIT);
 
     Preconnection preconnection;
-    preconnection_build(&preconnection, transport_properties, remote_endpoint);
+    preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);
 
     Connection connection;
 

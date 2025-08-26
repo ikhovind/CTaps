@@ -30,7 +30,7 @@ int main() {
 
   remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
   remote_endpoint_with_port(&remote_endpoint, 5005);
-  preconnection_build(&preconnection, transport_properties, remote_endpoint);
+  preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);
 
   if (printf("Hello from %s!\n", lib.name) < 0) {
     return 1;

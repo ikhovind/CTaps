@@ -2,7 +2,13 @@
 
 #include <ctaps.h>
 
-int lookup(const char* hostname, RemoteEndpoint* out_head) {
+#define INT_TO_STRING(x) #x
+
+#define MAX_PORT_STR_LENGTH sizeof(INT_TO_STRING(UINT16_MAX))
+
+
+int perform_dns_lookup(const char* hostname, const char* service, RemoteEndpoint** out_list, size_t* out_count) {
+  printf("Performing dns lookup for hostname: %s\n", hostname);
   uv_getaddrinfo_t request;
 
   int rc = uv_getaddrinfo(
@@ -10,7 +16,7 @@ int lookup(const char* hostname, RemoteEndpoint* out_head) {
     &request,
     NULL,
     hostname,
-    NULL,
+    service,
     NULL//&hints
   );
 
@@ -18,68 +24,86 @@ int lookup(const char* hostname, RemoteEndpoint* out_head) {
     return rc;
   }
 
-  RemoteEndpoint* head = NULL;
-  RemoteEndpoint** current_ptr = &head;
+  *out_count = 0;
+  int count = 0;
+
+  for (struct addrinfo* ptr = request.addrinfo; ptr != NULL; ptr = ptr->ai_next) {
+    count++;
+  }
+
+  *out_list = malloc(count);
+  if (*out_list == NULL) {
+    return -1;
+  }
+
+  printf("About to add to output list\n");
+  printf("Found %d addresses\n", count);
 
   // 3. Loop through the source addrinfo list.
   for (struct addrinfo* ptr = request.addrinfo; ptr != NULL; ptr = ptr->ai_next) {
-
     // 4. Allocate a new RemoteEndpoint node.
-    RemoteEndpoint* new_node = malloc(sizeof(RemoteEndpoint));
-    if (new_node == NULL) {
-      // In a real application, you should free the list built so far.
-      return -1;
-    }
+    RemoteEndpoint new_node;
 
-    new_node->type = ENDPOINT_TYPE_ADDRESS;
-    new_node->next = NULL;
+    new_node.type = ENDPOINT_TYPE_ADDRESS;
 
-    // 5. Copy the address data.
     if (ptr->ai_family == AF_INET) {
-      memcpy(&new_node->data.address, ptr->ai_addr, sizeof(struct sockaddr_in));
+      memcpy(&new_node.data.address, ptr->ai_addr, sizeof(struct sockaddr_in));
+      new_node.port = ntohs(((struct sockaddr_in*)ptr->ai_addr)->sin_port);
     } else if (ptr->ai_family == AF_INET6) {
-      memcpy(&new_node->data.address, ptr->ai_addr, sizeof(struct sockaddr_in6));
+      memcpy(&new_node.data.address, ptr->ai_addr, sizeof(struct sockaddr_in6));
+      new_node.port = ntohs(((struct sockaddr_in6*)ptr->ai_addr)->sin6_port);
     } else {
       // Skip address families we don't handle.
-      free(new_node);
       continue;
     }
-
-    // 6. Link the new node into our list and advance the pointer.
-    *current_ptr = new_node;
-    current_ptr = &new_node->next;
+    (*out_list)[*out_count] = new_node;
+    (*out_count)++;
   }
-
-  out_head = head;
-
-
-  // Normally we free this is the callback, but on error or synchronous we cannot
-  /*
-  if (rc < 0 || callback == NULL) {
-    free(request);
-  }
-  */
-
-  return rc;
+  return 0;
 }
 
-void preconnection_build(Preconnection* preconnection,
+int copy_remote_endpoints(Preconnection* preconnection,
+                         RemoteEndpoint* remote_endpoints,
+                         size_t num_remote_endpoints) {
+  preconnection->num_remote_endpoints = num_remote_endpoints;
+  preconnection->remote_endpoints = malloc(num_remote_endpoints * sizeof(RemoteEndpoint));
+  for (int i = 0; i < num_remote_endpoints; i++) {
+    if (remote_endpoints[i].type == ENDPOINT_TYPE_UNSPECIFIED) {
+      printf("Remote endpoint is not specified\n");
+      return -1;
+    }
+    memcpy(&preconnection->remote_endpoints[i], &remote_endpoints[i], sizeof(RemoteEndpoint));
+    if (remote_endpoints[i].type == ENDPOINT_TYPE_HOSTNAME) {
+      // We have copied the pointer, but want a deep copy of the string, so just overwrite the pointer
+      preconnection->remote_endpoints[i].data.hostname = malloc(strlen(remote_endpoints[i].data.hostname) + 1);
+      strcpy(preconnection->remote_endpoints[i].data.hostname, remote_endpoints[i].data.hostname);
+    }
+  }
+  return 0;
+}
+
+int preconnection_build(Preconnection* preconnection,
                          const TransportProperties transport_properties,
-                         RemoteEndpoint remote_endpoint) {
+                         RemoteEndpoint* remote_endpoints,
+                         size_t num_remote_endpoints
+                         ) {
   printf("initializing preconnection\n");
   preconnection->transport_properties = transport_properties;
-  preconnection->remote = remote_endpoint;
   preconnection->local.initialized = false;
+  return copy_remote_endpoints(preconnection, remote_endpoints, num_remote_endpoints);
 }
 
-void preconnection_build_with_local(Preconnection* preconnection,
+int preconnection_build_with_local(Preconnection* preconnection,
                                     TransportProperties transport_properties,
-                                    RemoteEndpoint remote_endpoint,
+                                    RemoteEndpoint remote_endpoints[],
+                                    size_t num_remote_endpoints,
                                     LocalEndpoint local_endpoint) {
   printf("initializing preconnection\n");
   preconnection->transport_properties = transport_properties;
-  preconnection->remote = remote_endpoint;
+  preconnection->num_local_endpoints = 1;
   preconnection->local = local_endpoint;
+
+  return copy_remote_endpoints(preconnection, remote_endpoints, num_remote_endpoints);
 }
 
 int preconnection_initiate(Preconnection* preconnection, Connection* connection,
@@ -87,42 +111,46 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
   printf("Initiating connection from preconnection\n");
 
 
-  // TODO - sort out the building of this linked list
-  /*
-  RemoteEndpoint* head = NULL;
-  RemoteEndpoint** current_ptr = &head;
-  RemoteEndpoint* remote_endpoint;
-  for (remote_endpoint = &preconnection->remote; remote_endpoint != NULL; remote_endpoint = NULL) {
-    if (remote_endpoint->type == ENDPOINT_TYPE_UNSPECIFIED) {
-      printf("Remote endpoint is not specified\n");
-      return -1;
-    }
-    if (remote_endpoint->type == ENDPOINT_TYPE_HOSTNAME) {
-      if (remote_endpoint->data.hostname == NULL) {
-        printf("Remote endpoint hostname is not specified\n");
-        return -1;
+  GArray* resolved_endpoints = g_array_new(false, true, sizeof(RemoteEndpoint));
+  int num_failed_lookups = 0;
+
+  printf("Num remote endpoints is: %d\n", preconnection->num_remote_endpoints);
+  for (int i = 0; i < preconnection->num_remote_endpoints; i++) {
+    if (preconnection->remote_endpoints[i].type == ENDPOINT_TYPE_HOSTNAME) {
+      RemoteEndpoint* resolved_list = NULL;
+      size_t resolved_count = 0;
+
+      char service_str[MAX_PORT_STR_LENGTH];
+      sprintf(service_str, "%d", preconnection->remote_endpoints[i].port);
+
+      int rc = perform_dns_lookup(
+        preconnection->remote_endpoints[i].data.hostname,
+        service_str,
+        &resolved_list,
+        &resolved_count
+      );
+      if (rc < 0) {
+        printf("DNS lookup failed for hostname %s with error %d\n", preconnection->remote_endpoints[i].data.hostname, rc);
+        // only return error code if we have *no* valid endpoints
+        if (preconnection->num_remote_endpoints == ++num_failed_lookups) {
+          return rc;
+        }
       }
-
-      RemoteEndpoint lookup_head;
-
-      lookup(remote_endpoint->data.hostname, &lookup_head);
-
+      g_array_append_vals(resolved_endpoints, resolved_list, resolved_count);
+      free(resolved_list);
     }
-    if (remote_endpoint->type == ENDPOINT_TYPE_ADDRESS) {
-      if (remote_endpoint->data.address.ss_family == AF_UNSPEC) {
-        printf("Remote endpoint address family is not specified\n");
-        return -1;
-      }
+    else {
+      g_array_append_val(resolved_endpoints, preconnection->remote_endpoints[i]);
     }
   }
-  */
 
   int num_found_protocols = 0;
   transport_properties_protocol_stacks_with_selection_properties(
       &preconnection->transport_properties, &connection->protocol,
       &num_found_protocols);
   if (num_found_protocols > 0) {
-    connection->remote_endpoint = preconnection->remote;
+    connection->remote_endpoint = g_array_index(resolved_endpoints, RemoteEndpoint, 0);
+    g_array_free(resolved_endpoints, true);
 
     if (preconnection->local.initialized) {
       connection->local_endpoint = preconnection->local;

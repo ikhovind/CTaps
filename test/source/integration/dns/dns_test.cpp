@@ -10,36 +10,24 @@ extern "C" {
 #include "transport_properties/transport_properties.h"
 }
 
-DEFINE_FFF_GLOBALS;
-FAKE_VALUE_FUNC(int, uv_udp_bind, uv_udp_t*, const struct sockaddr*, unsigned int)
-FAKE_VALUE_FUNC(int, uv_udp_recv_start, uv_udp_t*, uv_alloc_cb, uv_udp_recv_cb)
 
-TEST(InitiationTests, respectsLocalEndpoint) {
-    uv_udp_bind_fake.return_val = 0;
-    uv_udp_recv_start_fake.return_val = 0;
-
+TEST(RemoteEndpointUnitTests, CanDnsLookupHostName) {
     ctaps_initialize();
     printf("Sending UDP packet...\n");
 
     RemoteEndpoint remote_endpoint;
 
-    remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
-    remote_endpoint_with_port(&remote_endpoint, 5005);
-
-    LocalEndpoint local_endpoint;
-
-    local_endpoint_with_family(&local_endpoint, AF_INET);
-    local_endpoint_with_hostname(&local_endpoint, "127.0.0.1");
-    local_endpoint_with_port(&local_endpoint, 1234);
+    remote_endpoint_build(&remote_endpoint);
+    remote_endpoint_with_hostname(&remote_endpoint, "google.com");
+    remote_endpoint_with_port(&remote_endpoint, 1234);
 
     TransportProperties transport_properties;
 
     transport_properties_build(&transport_properties);
-
     selection_properties_set_selection_property(&transport_properties, RELIABILITY, PROHIBIT);
 
     Preconnection preconnection;
-    preconnection_build_with_local(&preconnection, transport_properties, &remote_endpoint, 1,  local_endpoint);
+    preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);
 
     Connection connection;
 
@@ -65,9 +53,6 @@ TEST(InitiationTests, respectsLocalEndpoint) {
 
     wait_for_callback(&cb_waiter);
 
-    // Check that the given local port is actually the one used
-    EXPECT_EQ(1234, htons(connection.local_endpoint.addr.ipv4_addr.sin_port));
-    EXPECT_TRUE(connection.local_endpoint.initialized);
-    EXPECT_EQ(1, uv_udp_bind_fake.call_count);
-    EXPECT_EQ(1234, htons(((struct sockaddr_in*)uv_udp_bind_fake.arg1_val)->sin_port));
+    printf("Connection port is: %d\n", connection.remote_endpoint.port);
+    EXPECT_EQ(1234, connection.remote_endpoint.port);
 }

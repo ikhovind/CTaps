@@ -7,7 +7,6 @@ extern "C" {
 #include "connections/preconnection/preconnection.h"
 #include "ctaps.h"
 #include "endpoints/remote/remote_endpoint.h"
-#include "transport_properties/transport_properties.h"
 }
 
 
@@ -39,14 +38,3 @@ TEST(RemoteEndpointUnitTests, SetsIpv6FamilyAndAddress) {
     EXPECT_EQ(5005, remote_endpoint.port);
     EXPECT_EQ(0, memcmp(&ipv6_addr, &addr->sin6_addr, sizeof(in6_addr)));
 }
-
-
-/*
-TEST(RemoteEndpointUnitTests, CanDnsLookupHostName) {
-    ctaps_initialize();
-    RemoteEndpoint remote_endpoint;
-    remote_endpoint_build(&remote_endpoint);
-
-    remote_endpoint_with_hostname(&remote_endpoint, "google.com");
-}
-*/

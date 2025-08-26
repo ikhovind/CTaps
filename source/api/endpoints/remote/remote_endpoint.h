@@ -21,8 +21,6 @@ typedef struct RemoteEndpoint{
     struct sockaddr_storage address;
     char* hostname;
   } data;
-
-  struct RemoteEndpoint* next;
 } RemoteEndpoint;
 
 void remote_endpoint_build(RemoteEndpoint* remote_endpoint);
