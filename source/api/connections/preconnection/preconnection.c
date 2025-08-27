@@ -87,6 +87,7 @@ int preconnection_build(Preconnection* preconnection,
                          RemoteEndpoint* remote_endpoints,
                          size_t num_remote_endpoints
                          ) {
+  memset(preconnection, 0, sizeof(Preconnection));
   printf("initializing preconnection\n");
   preconnection->transport_properties = transport_properties;
   local_endpoint_build(&preconnection->local);
@@ -99,6 +100,7 @@ int preconnection_build_with_local(Preconnection* preconnection,
                                     size_t num_remote_endpoints,
                                     LocalEndpoint local_endpoint) {
   printf("initializing preconnection\n");
+  memset(preconnection, 0, sizeof(Preconnection));
   preconnection->transport_properties = transport_properties;
   preconnection->num_local_endpoints = 1;
   preconnection->local = local_endpoint;
@@ -117,8 +119,8 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
   printf("Num remote endpoints is: %d\n", preconnection->num_remote_endpoints);
   for (int i = 0; i < preconnection->num_remote_endpoints; i++) {
     if (preconnection->remote_endpoints[i].type == REMOTE_ENDPOINT_TYPE_HOSTNAME) {
-      RemoteEndpoint* resolved_list = NULL;
-      size_t resolved_count = 0;
+      RemoteEndpoint* dns_lookup_list = NULL;
+      size_t num_dns_results = 0;
 
       char service_str[MAX_PORT_STR_LENGTH];
       sprintf(service_str, "%d", preconnection->remote_endpoints[i].port);
@@ -126,8 +128,8 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
       int rc = perform_dns_lookup(
         preconnection->remote_endpoints[i].data.hostname,
         service_str,
-        &resolved_list,
-        &resolved_count
+        &dns_lookup_list,
+        &num_dns_results
       );
       if (rc < 0) {
         printf("DNS lookup failed for hostname %s with error %d\n", preconnection->remote_endpoints[i].data.hostname, rc);
@@ -136,8 +138,8 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
           return rc;
         }
       }
-      g_array_append_vals(resolved_endpoints, resolved_list, resolved_count);
-      free(resolved_list);
+      g_array_append_vals(resolved_endpoints, dns_lookup_list, num_dns_results);
+      free(dns_lookup_list);
     }
     else {
       g_array_append_val(resolved_endpoints, preconnection->remote_endpoints[i]);
