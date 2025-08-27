@@ -49,7 +49,7 @@ TEST(SimpleUdpTests, sendsSingleUdpPacket) {
         .user_data = (void*)&cb_waiter
     };
 
-    preconnection_initiate(&preconnection, &connection, init_done_cb);
+    preconnection_initiate(&preconnection, &connection, init_done_cb,NULL);
 
     wait_for_callback(&cb_waiter);
 
@@ -85,7 +85,7 @@ TEST(SimpleUdpTests, sendsSingleUdpPacket) {
     wait_for_callback(&cb_waiter);
 
     EXPECT_STREQ(output_message->content, "Pong: hello world");
-    EXPECT_EQ(output_message->length, strlen("Pong: hello world"));
+    EXPECT_EQ(output_message->length, strlen("Pong: hello world") + 1);
     message_free_all(output_message);
 }
 
@@ -127,7 +127,7 @@ TEST(SimpleUdpTests, canPingArbitraryBytes) {
         .user_data = (void*)&cb_waiter
     };
 
-    preconnection_initiate(&preconnection, &connection, init_done_cb);
+    preconnection_initiate(&preconnection, &connection, init_done_cb,NULL);
 
     wait_for_callback(&cb_waiter);
 
@@ -205,7 +205,7 @@ TEST(SimpleUdpTests, packetsAreReadInOrder) {
         .user_data = (void*)&cb_waiter
     };
 
-    preconnection_initiate(&preconnection, &connection, init_done_cb);
+    preconnection_initiate(&preconnection, &connection, init_done_cb,NULL);
 
     char* hello1 = "hello 1";
     Message message1;

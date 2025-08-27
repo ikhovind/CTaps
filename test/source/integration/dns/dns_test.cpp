@@ -49,7 +49,7 @@ TEST(RemoteEndpointUnitTests, CanDnsLookupHostName) {
         .user_data = (void*)&cb_waiter
     };
 
-    preconnection_initiate(&preconnection, &connection, init_done_cb);
+    preconnection_initiate(&preconnection, &connection, init_done_cb,NULL);
 
     wait_for_callback(&cb_waiter);
 

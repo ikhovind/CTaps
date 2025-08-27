@@ -7,14 +7,14 @@
 #define MAX_PORT_STR_LENGTH sizeof(INT_TO_STRING(UINT16_MAX))
 
 
-int perform_dns_lookup(const char* hostname, const char* service, RemoteEndpoint** out_list, size_t* out_count) {
+int perform_dns_lookup(const char* hostname, const char* service, RemoteEndpoint** out_list, size_t* out_count, uv_getaddrinfo_cb getaddrinfo_cb) {
   printf("Performing dns lookup for hostname: %s\n", hostname);
   uv_getaddrinfo_t request;
 
   int rc = uv_getaddrinfo(
     ctaps_event_loop,
     &request,
-    NULL,
+    getaddrinfo_cb,
     hostname,
     service,
     NULL//&hints
@@ -109,7 +109,7 @@ int preconnection_build_with_local(Preconnection* preconnection,
 }
 
 int preconnection_initiate(Preconnection* preconnection, Connection* connection,
-                            InitDoneCb init_done_cb) {
+                           InitDoneCb init_done_cb, uv_getaddrinfo_cb dns_cb) {
   printf("Initiating connection from preconnection\n");
 
 
@@ -129,7 +129,8 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
         preconnection->remote_endpoints[i].data.hostname,
         service_str,
         &dns_lookup_list,
-        &num_dns_results
+        &num_dns_results,
+        NULL
       );
       if (rc < 0) {
         printf("DNS lookup failed for hostname %s with error %d\n", preconnection->remote_endpoints[i].data.hostname, rc);
