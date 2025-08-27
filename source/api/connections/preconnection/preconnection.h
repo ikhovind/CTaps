@@ -6,6 +6,7 @@
 #define PRECONNECTION_H
 
 #include "connections/connection/connection.h"
+#include "connections/listener/listener.h"
 #include "endpoints/local/local_endpoint.h"
 #include "endpoints/remote/remote_endpoint.h"
 #include "transport_properties/transport_properties.h"
@@ -35,6 +36,8 @@ int preconnection_build_with_local(Preconnection* preconnection,
 
 int preconnection_initiate(Preconnection* preconnection, Connection* connection,
                            InitDoneCb init_done_cb, uv_getaddrinfo_cb dns_cb);
+
+int preconnection_listen(Preconnection* preconnection, Listener* listener, ConnectionReceived connection_received_cb);
 
 void preconnection_initiate_with_timeout(Preconnection* preconnection,
                                          Connection* connection,
