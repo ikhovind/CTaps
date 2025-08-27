@@ -51,6 +51,7 @@ void on_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
   if (!received_message->content) {
     return;
   }
+  received_message->length = nread;
 
   // Print the received data (nread holds the number of bytes received)
   memcpy(received_message->content, buf->base, nread);
@@ -120,7 +121,7 @@ void register_udp_support() {
 int udp_send(Connection* connection, Message* message) {
   printf("Sending message: %s\n", message->content);
   const uv_buf_t buffer =
-      uv_buf_init(message->content, strlen(message->content));
+      uv_buf_init(message->content, message->length);
 
   uv_udp_send_t* send_req = malloc(sizeof(uv_udp_send_t));
   if (!send_req) {

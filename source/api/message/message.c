@@ -3,10 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-void message_build_with_content(Message* message, const char* content) {
-  message->content = malloc(strlen(content) + 1);
-  message->length = strlen(content) + 1;
-  strcpy(message->content, content);
+void message_build_with_content(Message* message, const char* content, size_t length) {
+  message->content = malloc(length);
+  message->length = length;
+  memcpy(message->content, content, length);
 }
 
 void message_build_without_content(Message* message) {
