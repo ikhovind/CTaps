@@ -80,9 +80,9 @@ int udp_init(Connection* connection, InitDoneCb init_done_cb) {
 
   connection->udp_handle.data = connection;
 
-  if (connection->local_endpoint.initialized) {
+  if (connection->local_endpoint.type == LOCAL_ENDPOINT_TYPE_ADDRESS) {
     printf("Local endpoint is initialized by user.\n");
-    int bind_rc = uv_udp_bind(&connection->udp_handle, (const struct sockaddr*)&connection->local_endpoint.addr.ipv4_addr, 0);
+    int bind_rc = uv_udp_bind(&connection->udp_handle, (const struct sockaddr*)&connection->local_endpoint.data.address, 0);
     if (bind_rc < 0) {
       return bind_rc;
     }

@@ -11,7 +11,7 @@ void remote_endpoint_build(RemoteEndpoint* remote_endpoint) {
 }
 
 void remote_endpoint_with_ipv4(RemoteEndpoint* remote_endpoint, in_addr_t ipv4_addr) {
-  remote_endpoint->type = ENDPOINT_TYPE_ADDRESS;
+  remote_endpoint->type = REMOTE_ENDPOINT_TYPE_ADDRESS;
 
   struct sockaddr_in* addr = (struct sockaddr_in*)&remote_endpoint->data.address;
   addr->sin_family = AF_INET;
@@ -20,7 +20,7 @@ void remote_endpoint_with_ipv4(RemoteEndpoint* remote_endpoint, in_addr_t ipv4_a
 }
 
 void remote_endpoint_with_ipv6(RemoteEndpoint* remote_endpoint, struct in6_addr ipv6_addr) {
-  remote_endpoint->type = ENDPOINT_TYPE_ADDRESS;
+  remote_endpoint->type = REMOTE_ENDPOINT_TYPE_ADDRESS;
 
   struct sockaddr_in6* addr = (struct sockaddr_in6*)&remote_endpoint->data.address;
   addr->sin6_family = AF_INET6;
@@ -29,10 +29,17 @@ void remote_endpoint_with_ipv6(RemoteEndpoint* remote_endpoint, struct in6_addr 
 }
 
 int remote_endpoint_with_hostname(RemoteEndpoint* remote_endpoint, const char* hostname) {
-  remote_endpoint->type = ENDPOINT_TYPE_HOSTNAME;
+  remote_endpoint->type = REMOTE_ENDPOINT_TYPE_HOSTNAME;
 
+  printf("About to malloc\n");
   remote_endpoint->data.hostname = (char*) malloc(strlen(hostname) + 1);
+  printf("after malloc\n");
+  if (remote_endpoint->data.hostname == NULL) {
+    return -1;
+  }
+  printf("About to memcpy\n");
   memcpy(remote_endpoint->data.hostname, hostname, strlen(hostname) + 1);
+  return 0;
 }
 
 void remote_endpoint_with_port(RemoteEndpoint* remote_endpoint, const uint16_t port) {

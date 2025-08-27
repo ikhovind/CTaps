@@ -44,7 +44,7 @@ int perform_dns_lookup(const char* hostname, const char* service, RemoteEndpoint
     // 4. Allocate a new RemoteEndpoint node.
     RemoteEndpoint new_node;
 
-    new_node.type = ENDPOINT_TYPE_ADDRESS;
+    new_node.type = REMOTE_ENDPOINT_TYPE_ADDRESS;
 
     if (ptr->ai_family == AF_INET) {
       memcpy(&new_node.data.address, ptr->ai_addr, sizeof(struct sockaddr_in));
@@ -68,12 +68,12 @@ int copy_remote_endpoints(Preconnection* preconnection,
   preconnection->num_remote_endpoints = num_remote_endpoints;
   preconnection->remote_endpoints = malloc(num_remote_endpoints * sizeof(RemoteEndpoint));
   for (int i = 0; i < num_remote_endpoints; i++) {
-    if (remote_endpoints[i].type == ENDPOINT_TYPE_UNSPECIFIED) {
+    if (remote_endpoints[i].type == REMOTE_ENDPOINT_TYPE_UNSPECIFIED) {
       printf("Remote endpoint is not specified\n");
       return -1;
     }
     memcpy(&preconnection->remote_endpoints[i], &remote_endpoints[i], sizeof(RemoteEndpoint));
-    if (remote_endpoints[i].type == ENDPOINT_TYPE_HOSTNAME) {
+    if (remote_endpoints[i].type == REMOTE_ENDPOINT_TYPE_HOSTNAME) {
       // We have copied the pointer, but want a deep copy of the string, so just overwrite the pointer
       preconnection->remote_endpoints[i].data.hostname = malloc(strlen(remote_endpoints[i].data.hostname) + 1);
       strcpy(preconnection->remote_endpoints[i].data.hostname, remote_endpoints[i].data.hostname);
@@ -89,7 +89,7 @@ int preconnection_build(Preconnection* preconnection,
                          ) {
   printf("initializing preconnection\n");
   preconnection->transport_properties = transport_properties;
-  preconnection->local.initialized = false;
+  local_endpoint_build(&preconnection->local);
   return copy_remote_endpoints(preconnection, remote_endpoints, num_remote_endpoints);
 }
 
@@ -116,7 +116,7 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
 
   printf("Num remote endpoints is: %d\n", preconnection->num_remote_endpoints);
   for (int i = 0; i < preconnection->num_remote_endpoints; i++) {
-    if (preconnection->remote_endpoints[i].type == ENDPOINT_TYPE_HOSTNAME) {
+    if (preconnection->remote_endpoints[i].type == REMOTE_ENDPOINT_TYPE_HOSTNAME) {
       RemoteEndpoint* resolved_list = NULL;
       size_t resolved_count = 0;
 
@@ -152,13 +152,7 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
     connection->remote_endpoint = g_array_index(resolved_endpoints, RemoteEndpoint, 0);
     g_array_free(resolved_endpoints, true);
 
-    if (preconnection->local.initialized) {
-      connection->local_endpoint = preconnection->local;
-      connection->local_endpoint.initialized = true;
-    }
-    else {
-      connection->local_endpoint.initialized = false;
-    }
+    connection->local_endpoint = preconnection->local;
     connection->protocol.init(connection, init_done_cb);
     return 0;
   }

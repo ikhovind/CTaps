@@ -8,14 +8,14 @@
 #include <arpa/inet.h>
 
 typedef enum {
-  ENDPOINT_TYPE_UNSPECIFIED,
-  ENDPOINT_TYPE_HOSTNAME,
-  ENDPOINT_TYPE_ADDRESS
-} EndpointType;
+  REMOTE_ENDPOINT_TYPE_UNSPECIFIED,
+  REMOTE_ENDPOINT_TYPE_HOSTNAME,
+  REMOTE_ENDPOINT_TYPE_ADDRESS
+} RemoteEndpointType;
 
 
 typedef struct RemoteEndpoint{
-  EndpointType type;
+  RemoteEndpointType type;
   uint16_t port;
   union {
     struct sockaddr_storage address;

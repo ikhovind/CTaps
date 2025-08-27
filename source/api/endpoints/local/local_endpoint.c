@@ -4,22 +4,35 @@
 #include <string.h>
 
 void local_endpoint_with_port(LocalEndpoint* local_endpoint, int port) {
-  local_endpoint->addr.ipv4_addr.sin_port = htons(port);
-  local_endpoint->initialized = true;
-}
-
-void local_endpoint_with_family(LocalEndpoint* local_endpoint, sa_family_t family) {
-  memset(&local_endpoint->addr.ipv4_addr, 0,
-         sizeof(local_endpoint->addr.ipv4_addr));
-  local_endpoint->family = family;
-  local_endpoint->addr.ipv4_addr.sin_family = AF_INET;
-}
-
-void local_endpoint_with_hostname(LocalEndpoint* local_endpoint, const char* hostname) {
-  if (local_endpoint->family == AF_INET) {
-    local_endpoint->addr.ipv4_addr.sin_addr.s_addr = inet_addr(hostname);
-  } else if (local_endpoint->family == AF_INET6) {
-  } else {
-    printf("remote_endpoint_with_port error\n");
+  local_endpoint->port = port;
+  if (local_endpoint->data.address.ss_family == AF_INET6) {
+    struct sockaddr_in6* addr = (struct sockaddr_in6*)&local_endpoint->data.address;
+    addr->sin6_port = htons(port);
   }
+  if (local_endpoint->data.address.ss_family == AF_INET) {
+    struct sockaddr_in* addr = (struct sockaddr_in*)&local_endpoint->data.address;
+    addr->sin_port = htons(port);
+  }
+}
+
+void local_endpoint_build(LocalEndpoint* local_endpoint) {
+  local_endpoint->data.address.ss_family = AF_UNSPEC;
+  memset(&local_endpoint->data, 0, sizeof(local_endpoint->data));
+  local_endpoint->type = LOCAL_ENDPOINT_TYPE_UNSPECIFIED;
+}
+
+void local_endpoint_with_ipv4(LocalEndpoint* local_endpoint, in_addr_t ipv4_addr) {
+  local_endpoint->type = LOCAL_ENDPOINT_TYPE_ADDRESS;
+  struct sockaddr_in* addr = (struct sockaddr_in*)&local_endpoint->data.address;
+  addr->sin_family = AF_INET;
+  addr->sin_addr.s_addr = ipv4_addr;
+  addr->sin_port = htons(local_endpoint->port);
+}
+
+void local_endpoint_with_ipv6(LocalEndpoint* local_endpoint, struct in6_addr ipv6_addr) {
+  local_endpoint->type = LOCAL_ENDPOINT_TYPE_ADDRESS;
+  struct sockaddr_in6* addr = (struct sockaddr_in6*)&local_endpoint->data.address;
+  addr->sin6_family = AF_INET6;
+  addr->sin6_addr = ipv6_addr;
+  addr->sin6_port = htons(local_endpoint->port);
 }
