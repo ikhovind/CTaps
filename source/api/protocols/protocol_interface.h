@@ -4,6 +4,7 @@
 #include "message/message.h"
 #include "transport_properties/selection_properties/selection_properties.h"
 
+struct Listener;
 struct Connection;
 
 typedef struct {
@@ -33,6 +34,7 @@ typedef struct ProtocolImplementation {
   int (*init)(struct Connection* connection, InitDoneCb init_done_cb);
   int (*send)(struct Connection*, Message*);
   int (*receive)(struct Connection*, ReceiveMessageRequest receive_cb);
+  int (*listen)(struct Listener*);
   int (*close)(const struct Connection*);
 } ProtocolImplementation;
 

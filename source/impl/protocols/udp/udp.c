@@ -10,6 +10,7 @@
 
 #include "connections/connection/connection.h"
 #include "ctaps.h"
+#include "connections/listener/socket_manager/socket_manager.h"
 #include "protocols/registry/protocol_registry.h"
 
 void alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
@@ -53,7 +54,6 @@ void on_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
   }
   received_message->length = nread;
 
-  // Print the received data (nread holds the number of bytes received)
   memcpy(received_message->content, buf->base, nread);
 
   if (g_queue_is_empty(connection->received_callbacks)) {
@@ -137,6 +137,7 @@ int udp_send(Connection* connection, Message* message) {
 
 int udp_receive(Connection* connection, ReceiveMessageRequest receive_msg_cb) {
   // If we have a message to receive then simply return that
+  printf("UDP receiving\n");
   if (!g_queue_is_empty(connection->received_messages)) {
     printf("first");
     Message* received_message = g_queue_pop_head(connection->received_messages);
@@ -152,4 +153,14 @@ int udp_receive(Connection* connection, ReceiveMessageRequest receive_msg_cb) {
   // waiting callbacks
   g_queue_push_tail(connection->received_callbacks, ptr);
   return 0;
+}
+
+
+void connection_received(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
+             const struct sockaddr* addr, unsigned flags) {
+}
+
+int udp_listen(struct Listener* listener) {
+  SocketManager* socket_manager;
+  return socket_manager_create(socket_manager, listener);
 }

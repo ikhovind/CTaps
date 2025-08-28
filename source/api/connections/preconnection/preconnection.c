@@ -108,6 +108,28 @@ int preconnection_build_with_local(Preconnection* preconnection,
   return copy_remote_endpoints(preconnection, remote_endpoints, num_remote_endpoints);
 }
 
+
+int preconnection_listen(Preconnection* preconnection, Listener* listener, ConnectionReceivedCb connection_received_cb) {
+  SocketManager* socket_manager = malloc(sizeof(SocketManager));
+  *listener = (Listener){
+    .connection_received_cb = connection_received_cb,
+    .local_endpoint = preconnection->local,
+    .num_local_endpoints = 1,
+    .socket_manager = socket_manager,
+    .transport_properties = preconnection->transport_properties
+  };
+
+  int num_found_protocols = 0;
+  transport_properties_protocol_stacks_with_selection_properties(
+      &preconnection->transport_properties, &listener->protocol,
+      &num_found_protocols);
+  if (num_found_protocols > 0) {
+    printf("Found at least one protocolt when listening\n");
+  }
+
+  return socket_manager_create(socket_manager, listener);
+}
+
 int preconnection_initiate(Preconnection* preconnection, Connection* connection,
                            InitDoneCb init_done_cb, uv_getaddrinfo_cb dns_cb) {
   printf("Initiating connection from preconnection\n");
@@ -155,6 +177,7 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
     connection->remote_endpoint = g_array_index(resolved_endpoints, RemoteEndpoint, 0);
     g_array_free(resolved_endpoints, true);
 
+    connection->open_type = CONNECTION_OPEN_TYPE_ACTIVE;
     connection->local_endpoint = preconnection->local;
     connection->protocol.init(connection, init_done_cb);
     return 0;
