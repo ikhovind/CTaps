@@ -8,10 +8,10 @@
 
 int udp_init(Connection* connection, InitDoneCb init_done_cb);
 int udp_close(const Connection* connection);
-void udp_connect(void);
 void register_udp_support();
 int udp_send(Connection* connection, Message* message);
 int udp_receive(Connection* connection, ReceiveMessageRequest receive_message_cb);
+int udp_listen(struct Listener* listener);
 
 const static ProtocolImplementation udp_protocol_interface = {
     .name = "UDP",
@@ -23,6 +23,7 @@ const static ProtocolImplementation udp_protocol_interface = {
     .init = udp_init,
     .receive = udp_receive,
     .close = udp_close,
+    .listen = udp_listen
 };
 
 #endif  // UDP_H
