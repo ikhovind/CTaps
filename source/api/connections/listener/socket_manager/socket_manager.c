@@ -29,15 +29,26 @@ void on_socket_manager_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf
 
   // get source address
   GBytes* addr_bytes = g_bytes_new(addr, sizeof(struct sockaddr_in));
-  Connection* connection = g_hash_table_lookup(listener->socket_manager->active_connections, (gpointer)g_bytes_ref(addr_bytes));
+  Connection* connection = g_hash_table_lookup(listener->socket_manager->active_connections, addr_bytes);
+  // print the value of addr_bytes
+
+  const void* addr_data = g_bytes_get_data(addr_bytes, NULL);
+
+  // print the address in human readable form
+  char addr_str[INET_ADDRSTRLEN];
+  struct sockaddr_in* addr_in = (struct sockaddr_in*)addr;
+  uv_ip4_name(addr_in, addr_str, sizeof(addr_str));
+
   if (connection == NULL) {
+    printf("No connection found, creating new one\n");
     Connection* connection = malloc(sizeof(Connection));
     connection_build_from_listener(connection, listener, (RemoteEndpoint*)&addr_bytes);
     // insert connection into hash table
-    g_hash_table_insert(listener->socket_manager->active_connections, (gpointer)g_bytes_ref(addr_bytes), connection);
+    g_hash_table_insert(listener->socket_manager->active_connections, addr_bytes, connection);
     listener->connection_received_cb(connection, NULL);
   }
   else {
+    printf("Connection found for incoming packet\n");
     Message* received_message = malloc(sizeof(Message));
     if (!received_message) {
       return;
@@ -67,7 +78,7 @@ void on_socket_manager_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf
 
 int socket_manager_create(SocketManager* socket_manager, Listener* listener) {
   memset(socket_manager, 0, sizeof(SocketManager));
-  socket_manager->active_connections = g_hash_table_new(g_direct_hash, g_direct_equal);
+  socket_manager->active_connections = g_hash_table_new(g_bytes_hash, g_bytes_equal);
   socket_manager->on_read = on_socket_manager_read;
   socket_manager->ref_count = 1;
   int udp_handle_rc = uv_udp_init(ctaps_event_loop, &socket_manager->udp_handle);

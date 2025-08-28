@@ -9,12 +9,26 @@ extern "C" {
 #include "transport_properties/transport_properties.h"
 #include "util/util.h"
 }
+
+int receive_message_cb2(Connection* connection, Message** received_message, void* user_data) {
+    printf("Received message callback!\n");
+    return 0;
+}
+
 int connection_receeived_cb(Connection* connection, void* user_data) {
     printf("Received connection callback!\n");
+
+
+    ReceiveMessageRequest receive_message_request = {
+        .receive_cb = receive_message_cb2,
+        .user_data = NULL
+    };
+
+    receive_message(connection, receive_message_request);
 }
 
 TEST(SimpleUdpTests, canListenForUdp) {
-    GTEST_SKIP("This is just an infinite loop for the moment");
+    GTEST_SKIP();
     ctaps_initialize();
     printf("Sending UDP packet...\n");
 
