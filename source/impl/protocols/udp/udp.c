@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <uv.h>
+#include <connections/listener/listener.h>
 
 #include "connections/connection/connection.h"
 #include "ctaps.h"
@@ -114,6 +115,12 @@ int udp_close(const Connection* connection) {
   return 0;
 }
 
+int udp_stop_listen(struct Listener* listener) {
+  // TODO - free connections which are contained in the socket manager
+  uv_udp_recv_stop(&listener->socket_manager->udp_handle);
+  return 0;
+}
+
 void register_udp_support() {
   register_protocol(&udp_protocol_interface);
 }
@@ -139,7 +146,6 @@ int udp_receive(Connection* connection, ReceiveMessageRequest receive_msg_cb) {
   // If we have a message to receive then simply return that
   printf("UDP receiving\n");
   if (!g_queue_is_empty(connection->received_messages)) {
-    printf("first");
     Message* received_message = g_queue_pop_head(connection->received_messages);
     receive_msg_cb.receive_cb(connection, &received_message, receive_msg_cb.user_data);
     return 0;

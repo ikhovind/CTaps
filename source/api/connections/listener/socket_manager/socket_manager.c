@@ -13,6 +13,7 @@ void socket_manager_alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_
 }
 
 void on_socket_manager_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags) {
+  printf("Socket manager read callback\n");
   if (nread < 0) {
     fprintf(stderr, "Read error: %s\n", uv_err_name(nread));
     uv_close((uv_handle_t*)handle, NULL);
@@ -20,6 +21,7 @@ void on_socket_manager_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf
     return;
   }
   if (addr == NULL) {
+    printf("Error with addr value");
     // No more data to read, or an empty packet.
     return;
   }
@@ -39,33 +41,34 @@ void on_socket_manager_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf
   struct sockaddr_in* addr_in = (struct sockaddr_in*)addr;
   uv_ip4_name(addr_in, addr_str, sizeof(addr_str));
 
+  printf("Connection found for incoming packet\n");
+  Message* received_message = malloc(sizeof(Message));
+  if (!received_message) {
+    return;
+  }
+  received_message->content = malloc(nread);
+  if (!received_message->content) {
+    free(received_message);
+    return;
+  }
+  received_message->length = nread;
+
+  memcpy(received_message->content, buf->base, nread);
+
   if (connection == NULL) {
     printf("No connection found, creating new one\n");
     Connection* connection = malloc(sizeof(Connection));
     connection_build_from_listener(connection, listener, (RemoteEndpoint*)&addr_bytes);
     // insert connection into hash table
     g_hash_table_insert(listener->socket_manager->active_connections, addr_bytes, connection);
-    listener->connection_received_cb(connection, NULL);
+    g_queue_push_tail(connection->received_messages, received_message);
+    listener->connection_received_cb(listener, connection);
   }
   else {
-    printf("Connection found for incoming packet\n");
-    Message* received_message = malloc(sizeof(Message));
-    if (!received_message) {
-      return;
-    }
-    received_message->content = malloc(nread);
-    if (!received_message->content) {
-      free(received_message);
-      return;
-    }
-    received_message->length = nread;
-
-    memcpy(received_message->content, buf->base, nread);
-
+    printf("Connection found, using existing one\n");
     if (g_queue_is_empty(connection->received_callbacks)) {
       g_queue_push_tail(connection->received_messages, received_message);
     }
-
     else {
       printf("We have a receive callback ready\n");
       ReceiveMessageRequest* receive_callback = g_queue_pop_head(connection->received_callbacks);
