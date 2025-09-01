@@ -6,14 +6,14 @@
 #include "protocols/protocol_interface.h"
 
 int send_message(Connection* connection, Message* message) {
-  printf("Sending message to port %d\n", ntohs(connection->remote_endpoint.port));
+  printf("Sending message to port %d\n", connection->remote_endpoint.port);
   return connection->protocol.send(connection, message);
 }
 
 int receive_message(Connection* connection,
                     ReceiveMessageRequest receive_message_cb
                     ) {
-  printf("Trying to receive message for connection to port %d\n", ntohs(connection->remote_endpoint.port));
+  printf("Trying to receive message for connection to port %d\n", connection->remote_endpoint.port);
   return connection->protocol.receive(connection, receive_message_cb);
 }
 

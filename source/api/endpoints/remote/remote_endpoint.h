@@ -16,6 +16,7 @@ typedef enum {
 
 typedef struct RemoteEndpoint{
   RemoteEndpointType type;
+  // host byte order
   uint16_t port;
   union {
     struct sockaddr_storage address;

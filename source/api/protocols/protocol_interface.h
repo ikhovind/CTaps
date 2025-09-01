@@ -35,6 +35,7 @@ typedef struct ProtocolImplementation {
   int (*send)(struct Connection*, Message*);
   int (*receive)(struct Connection*, ReceiveMessageRequest receive_cb);
   int (*listen)(struct Listener*);
+  int (*stop_listen)(struct Listener*);
   int (*close)(const struct Connection*);
 } ProtocolImplementation;
 

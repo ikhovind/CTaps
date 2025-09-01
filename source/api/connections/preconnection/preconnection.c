@@ -109,15 +109,17 @@ int preconnection_build_with_local(Preconnection* preconnection,
 }
 
 
-int preconnection_listen(Preconnection* preconnection, Listener* listener, ConnectionReceivedCb connection_received_cb) {
+int preconnection_listen(Preconnection* preconnection, Listener* listener, ConnectionReceivedCb connection_received_cb, void* user_data) {
   SocketManager* socket_manager = malloc(sizeof(SocketManager));
   *listener = (Listener){
     .connection_received_cb = connection_received_cb,
     .local_endpoint = preconnection->local,
     .num_local_endpoints = 1,
     .socket_manager = socket_manager,
-    .transport_properties = preconnection->transport_properties
+    .transport_properties = preconnection->transport_properties,
+    .user_data = user_data
   };
+  printf("Setting user data pointer to %p\n", user_data);
 
   int num_found_protocols = 0;
   transport_properties_protocol_stacks_with_selection_properties(
