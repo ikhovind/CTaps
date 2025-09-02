@@ -12,95 +12,9 @@ extern "C" {
 
 #include <mutex>
 #include <condition_variable>
-#include <chrono>
+#include "fixtures/awaiting_fixture.cpp"
 
-class CallbackAwaiter {
-public:
-    // Wakes up the waiting thread
-    void signal() {
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            signal_count_++;
-        }
-        cond_.notify_one();
-    }
-
-    // Waits until signal() has been called the expected number of times
-    void await(size_t expected_count, std::chrono::milliseconds timeout = std::chrono::seconds(5)) {
-        std::unique_lock<std::mutex> lock(mutex_);
-        cond_.wait_for(lock, timeout, [this, expected_count] {
-            return signal_count_ >= expected_count;
-        });
-    }
-
-    size_t get_signal_count() {
-        std::lock_guard<std::mutex> lock(mutex_);
-        return signal_count_;
-    }
-
-private:
-    std::mutex mutex_;
-    std::condition_variable cond_;
-    size_t signal_count_ = 0;
-};
-
-
-// A struct to pass context to our receive callback
-struct MessageReceiverCtx {
-    CallbackAwaiter* awaiter;
-    std::vector<Message*>* messages;
-    Connection* connection_to_close; // Handle to the connection
-    size_t total_expected_signals;
-};
-
-class SimpleUdpTests : public ::testing::Test {
-protected:
-    // Each test gets its own awaiter and message vector
-    CallbackAwaiter awaiter;
-    std::vector<Message*> received_messages;
-
-    void SetUp() override {
-        ctaps_initialize();
-    }
-
-    void TearDown() override {
-        // Clean up any messages the test didn't
-        for (Message* msg : received_messages) {
-            message_free_all(msg);
-        }
-    }
-
-    // --- C-style callbacks that bridge to our C++ object ---
-
-    static int on_connection_ready(Connection* connection, void* user_data) {
-        printf("Callback: Connection is ready.\n");
-        auto* awaiter = static_cast<CallbackAwaiter*>(user_data);
-        awaiter->signal();
-        return 0;
-    }
-
-    static int on_message_received(Connection* connection, Message** received_message, void* user_data) {
-        printf("Callback: Message received.\n");
-        auto* ctx = static_cast<MessageReceiverCtx*>(user_data);
-
-        // Store the message and signal the awaiter
-        ctx->messages->push_back(*received_message);
-        ctx->awaiter->signal();
-
-        printf("The number of signals is now: %zu\n", ctx->awaiter->get_signal_count());
-
-        if (ctx->awaiter->get_signal_count() >= ctx->total_expected_signals) {
-            printf("Callback: Final message received, closing connection.\n");
-            // This will cause ctaps_start_event_loop() to unblock and return.
-            connection_close(ctx->connection_to_close);
-        }
-
-        return 0;
-    }
-};
-
-
-TEST_F(SimpleUdpTests, sendsSingleUdpPacket) {
+TEST_F(CTapsGenericFixture, sendsSingleUdpPacket) {
     // --- Setup ---
     RemoteEndpoint remote_endpoint;
     remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
@@ -116,9 +30,22 @@ TEST_F(SimpleUdpTests, sendsSingleUdpPacket) {
     preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);
     Connection connection;
 
+    auto cleanup_logic = [&]() {
+        printf("Cleanup: Closing connection.\n");
+        connection_close(&connection);
+    };
+    std::function closing_func = cleanup_logic;
+
+    CallbackContext callback_context = {
+        .awaiter = &awaiter,
+        .messages = &received_messages,
+        .closing_function = &closing_func,
+        .total_expected_signals = 2
+    };
+
     InitDoneCb init_done_cb = {
         .init_done_callback = on_connection_ready,
-        .user_data = &awaiter
+        .user_data = &callback_context
     };
 
     preconnection_initiate(&preconnection, &connection, init_done_cb, nullptr);
@@ -133,14 +60,7 @@ TEST_F(SimpleUdpTests, sendsSingleUdpPacket) {
     send_message(&connection, &message);
     message_free_content(&message);
 
-    MessageReceiverCtx receiver_ctx = {
-        .awaiter = &awaiter,
-        .messages = &received_messages,
-        .connection_to_close = &connection,
-        .total_expected_signals = 2
-    };
-
-    ReceiveMessageRequest receive_req = { .receive_cb = on_message_received, .user_data = &receiver_ctx };
+    ReceiveMessageRequest receive_req = { .receive_cb = on_message_received, .user_data = &callback_context };
     receive_message(&connection, receive_req);
 
     ctaps_start_event_loop();
@@ -155,7 +75,7 @@ TEST_F(SimpleUdpTests, sendsSingleUdpPacket) {
 }
 
 
-TEST_F(SimpleUdpTests, packetsAreReadInOrder) {
+TEST_F(CTapsGenericFixture, packetsAreReadInOrder) {
     const size_t TOTAL_EXPECTED_SIGNALS = 3; // 1 ready + 2 receives
 
     RemoteEndpoint remote_endpoint;
@@ -174,7 +94,21 @@ TEST_F(SimpleUdpTests, packetsAreReadInOrder) {
 
     Connection connection;
 
-    InitDoneCb init_done_cb = { .init_done_callback = on_connection_ready, .user_data = &awaiter };
+
+    auto cleanup_logic = [&]() {
+        printf("Cleanup: Closing connection.\n");
+        connection_close(&connection);
+    };
+    std::function cleanup_func = cleanup_logic;
+
+    CallbackContext callback_context = {
+        .awaiter = &awaiter,
+        .messages = &received_messages,
+        .closing_function = &cleanup_func,
+        .total_expected_signals = TOTAL_EXPECTED_SIGNALS
+    };
+
+    InitDoneCb init_done_cb = { .init_done_callback = on_connection_ready, .user_data = &callback_context };
     preconnection_initiate(&preconnection, &connection, init_done_cb, nullptr);
     awaiter.await(1);
 
@@ -190,15 +124,7 @@ TEST_F(SimpleUdpTests, packetsAreReadInOrder) {
     message_build_with_content(&message2, hello2, strlen(hello2) + 1);
     send_message(&connection, &message2);
 
-
-    MessageReceiverCtx receiver_ctx = {
-        .awaiter = &awaiter,
-        .messages = &received_messages,
-        .connection_to_close = &connection,
-        .total_expected_signals = TOTAL_EXPECTED_SIGNALS
-    };
-
-    ReceiveMessageRequest receive_req = { .receive_cb = on_message_received, .user_data = &receiver_ctx };
+    ReceiveMessageRequest receive_req = { .receive_cb = on_message_received, .user_data = &callback_context };
 
     // Post two receive requests
     receive_message(&connection, receive_req);
@@ -214,12 +140,9 @@ TEST_F(SimpleUdpTests, packetsAreReadInOrder) {
     EXPECT_STREQ(received_messages[1]->content, "Pong: hello 2");
 }
 
-TEST_F(SimpleUdpTests, canPingArbitraryBytes) {
+TEST_F(CTapsGenericFixture, canPingArbitraryBytes) {
     // Total signals: 1 for the connection being ready, 1 for the message being received.
     const size_t TOTAL_EXPECTED_SIGNALS = 2;
-
-    // --- Setup ---
-
 
     RemoteEndpoint remote_endpoint;
 
@@ -237,9 +160,23 @@ TEST_F(SimpleUdpTests, canPingArbitraryBytes) {
 
     Connection connection;
 
+
+    auto cleanup_logic = [&]() {
+        printf("Cleanup: Closing connection.\n");
+        connection_close(&connection);
+    };
+    std::function closing_func = cleanup_logic;
+
+    CallbackContext callback_context = {
+        .awaiter = &awaiter,
+        .messages = &received_messages,
+        .closing_function = &closing_func,
+        .total_expected_signals = TOTAL_EXPECTED_SIGNALS
+    };
+
     InitDoneCb init_done_cb = {
         .init_done_callback = on_connection_ready,
-        .user_data = &awaiter
+        .user_data = &callback_context
     };
     preconnection_initiate(&preconnection, &connection, init_done_cb, nullptr);
 
@@ -255,16 +192,9 @@ TEST_F(SimpleUdpTests, canPingArbitraryBytes) {
     send_message(&connection, &message);
     message_free_content(&message);
 
-    // Setup the context for the receive callback
-    MessageReceiverCtx receiver_ctx = {
-        .awaiter = &awaiter,
-        .messages = &received_messages,
-        .connection_to_close = &connection,
-        .total_expected_signals = TOTAL_EXPECTED_SIGNALS
-    };
     ReceiveMessageRequest receive_req = {
         .receive_cb = on_message_received,
-        .user_data = &receiver_ctx
+        .user_data = &callback_context
     };
 
     // Post the receive request
