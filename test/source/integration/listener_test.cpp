@@ -12,7 +12,7 @@ extern "C" {
 
 // 1. A state struct to coordinate the test
 typedef struct {
-    void* received_content;
+    std::vector<Message*> received_messages;
     bool is_done;
     Connection* client_connection; // Pointer to the client to close it later
     pthread_mutex_t mutex;
@@ -22,7 +22,7 @@ typedef struct {
 
 int receive_callback(struct Connection* connection, Message** received_message, void* user_data) {
     TestState* state = (TestState*)user_data;
-    state->received_content = *received_message;
+    state->received_messages.push_back(*received_message);
     printf("Received message on server connection.\n");
 }
 
@@ -83,7 +83,10 @@ protected:
     void TearDown() override {
         pthread_mutex_destroy(&test_state.mutex);
         pthread_cond_destroy(&test_state.cond);
-        free(test_state.received_content);
+        for (Message* msg : test_state.received_messages) {
+            message_free_content(msg);
+            free(msg);
+        }
     }
 };
 
@@ -137,13 +140,14 @@ TEST_F(ListenerTest, ReceivesPacketFromLocalClient) {
     // This will block until the callbacks close the handles
     ctaps_start_event_loop();
 
-    Message* received_message = (Message*) test_state.received_content;
-
     // --- ASSERTIONS ---
     // We don't need to "await" with a cond_wait here because ctaps_start_event_loop
     // only returns after the callbacks have run and closed the connections.
+    pthread_mutex_lock(&test_state.mutex);
     ASSERT_TRUE(test_state.is_done);
-    EXPECT_STREQ(received_message->content, "ping");
+    ASSERT_EQ(test_state.received_messages.size(), 1);
+    EXPECT_STREQ(test_state.received_messages[0]->content, "ping");
+    pthread_mutex_unlock(&test_state.mutex);
 }
 
 
