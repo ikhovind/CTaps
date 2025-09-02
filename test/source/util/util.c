@@ -52,7 +52,7 @@ int receive_message_cb(Connection* connection, Message** received_message, void*
 }
 
 int connection_ready_cb(Connection* connection, void* user_data) {
-    printf("Connection ready\n");
+    printf("Connection ready callback\n");
 
     CallBackWaiter* cb_waiter = (CallBackWaiter*) user_data;
 
