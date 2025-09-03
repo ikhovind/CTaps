@@ -13,7 +13,7 @@ void socket_manager_alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_
 }
 
 void on_socket_manager_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags) {
-  printf("Socket manager read callback\n");
+  printf("Socket manager read callback, nread is: %lu\n", nread);
   if (nread < 0) {
     fprintf(stderr, "Read error: %s\n", uv_err_name(nread));
     uv_close((uv_handle_t*)handle, NULL);
@@ -41,9 +41,9 @@ void on_socket_manager_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf
   struct sockaddr_in* addr_in = (struct sockaddr_in*)addr;
   uv_ip4_name(addr_in, addr_str, sizeof(addr_str));
 
-  printf("Connection found for incoming packet\n");
   Message* received_message = malloc(sizeof(Message));
   if (!received_message) {
+    printf("Could not allocate memory for received message\n");
     return;
   }
   received_message->content = malloc(nread);

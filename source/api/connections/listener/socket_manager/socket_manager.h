@@ -3,6 +3,7 @@
 #include <uv.h>
 #include <endpoints/local/local_endpoint.h>
 #include <glib.h>
+#include <connections/connection/connection.h>
 
 struct Listener;
 
