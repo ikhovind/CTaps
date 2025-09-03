@@ -11,7 +11,6 @@
 
 #include "connections/connection/connection.h"
 #include "ctaps.h"
-#include "connections/listener/socket_manager/socket_manager.h"
 #include "protocols/registry/protocol_registry.h"
 
 void alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
@@ -115,9 +114,12 @@ int udp_close(const Connection* connection) {
   return 0;
 }
 
-int udp_stop_listen(struct Listener* listener) {
+int udp_stop_listen(struct SocketManager* socket_manager) {
   // TODO - free connections which are contained in the socket manager
-  uv_udp_recv_stop(&listener->socket_manager->udp_handle);
+  printf("Trying to stop listening via UDP\n");
+  printf("Socket manager udp handle pointer: %p\n", &socket_manager->udp_handle);
+  uv_udp_recv_stop(&socket_manager->udp_handle);
+  printf("Stopped listening via UDP\n");
   return 0;
 }
 
@@ -166,7 +168,62 @@ void connection_received(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
              const struct sockaddr* addr, unsigned flags) {
 }
 
-int udp_listen(struct Listener* listener) {
-  SocketManager* socket_manager;
-  return socket_manager_create(socket_manager, listener);
+void socket_listen_callback(uv_udp_t* handle,
+                               ssize_t nread,
+                               const uv_buf_t* buf,
+                               const struct sockaddr* addr,
+                               unsigned flags) {
+  printf("Socket manager read callback\n");
+  if (nread == 0 && addr == NULL) {
+    // No more data to read, or an empty packet.
+    printf("Nothing to read from udp socket\n");
+    return;
+  }
+  SocketManager *socket_manager = (SocketManager*)handle->data;
+
+  Message* received_message = malloc(sizeof(Message));
+  if (!received_message) {
+    return;
+  }
+  received_message->content = malloc(nread);
+  if (!received_message->content) {
+    return;
+  }
+  received_message->length = nread;
+
+  memcpy(received_message->content, buf->base, nread);
+
+  socket_manager_read(socket_manager, received_message, addr);
+}
+
+int udp_listen(SocketManager* socket_manager) {
+  printf("Listening via UDP\n");
+  socket_manager->active_connections = g_hash_table_new(g_bytes_hash, g_bytes_equal);
+  socket_manager->ref_count = 1;
+  Listener* listener = socket_manager->listener;
+  int udp_handle_rc = uv_udp_init(ctaps_event_loop, &socket_manager->udp_handle);
+  if (udp_handle_rc < 0) {
+    printf("Error with udp handle: %d\n", udp_handle_rc);
+    return udp_handle_rc;
+  }
+
+  if (socket_manager->listener->local_endpoint.type == LOCAL_ENDPOINT_TYPE_ADDRESS) {
+    printf("Local endpoint is initialized by user.\n");
+    int bind_rc = uv_udp_bind(&socket_manager->udp_handle, (const struct sockaddr*)&listener->local_endpoint.data.address, 0);
+    if (bind_rc < 0) {
+      printf("Problem with binding\n");
+      return bind_rc;
+    }
+  } else {
+    // local endpoint must be intialized for listener
+    printf("Local endpoint not initialized for listener\n");
+    return -1;
+  }
+  socket_manager->udp_handle.data = socket_manager;
+
+  int recv_start_rc = uv_udp_recv_start(&socket_manager->udp_handle, alloc_buffer, socket_listen_callback);
+  if (recv_start_rc < 0) {
+    printf("problem with receive start");
+    return recv_start_rc;
+  }
 }

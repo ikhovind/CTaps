@@ -110,7 +110,12 @@ int preconnection_build_with_local(Preconnection* preconnection,
 
 
 int preconnection_listen(Preconnection* preconnection, Listener* listener, ConnectionReceivedCb connection_received_cb, void* user_data) {
+  // TODO free socket manager when stopping listen
   SocketManager* socket_manager = malloc(sizeof(SocketManager));
+  memset(socket_manager, 0, sizeof(SocketManager));
+  if (socket_manager == NULL) {
+    return -1;
+  }
   *listener = (Listener){
     .connection_received_cb = connection_received_cb,
     .local_endpoint = preconnection->local,
@@ -120,13 +125,14 @@ int preconnection_listen(Preconnection* preconnection, Listener* listener, Conne
     .user_data = user_data
   };
   printf("Setting user data pointer to %p\n", user_data);
+  printf("Listener local endpoint type is 1 %d\n", listener->local_endpoint.type);
 
   int num_found_protocols = 0;
   transport_properties_protocol_stacks_with_selection_properties(
-      &preconnection->transport_properties, &listener->protocol,
+      &preconnection->transport_properties, &socket_manager->protocol_impl,
       &num_found_protocols);
   if (num_found_protocols > 0) {
-    printf("Found at least one protocolt when listening\n");
+    printf("Found at least one protocol when listening\n");
   }
 
   return socket_manager_create(socket_manager, listener);

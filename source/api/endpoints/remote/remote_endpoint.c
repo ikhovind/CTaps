@@ -28,6 +28,25 @@ void remote_endpoint_with_ipv6(RemoteEndpoint* remote_endpoint, struct in6_addr 
   addr->sin6_port = htons(remote_endpoint->port);
 }
 
+void remote_endpoint_from_sockaddr(RemoteEndpoint* remote_endpoint, const struct sockaddr* addr) {
+  memset(remote_endpoint, 0, sizeof(RemoteEndpoint));
+  if (addr->sa_family == AF_INET) {
+    struct sockaddr_in* in_addr = (struct sockaddr_in*)addr;
+    remote_endpoint->type = REMOTE_ENDPOINT_TYPE_ADDRESS;
+    remote_endpoint->port = ntohs(in_addr->sin_port);
+    remote_endpoint->data.address = *((struct sockaddr_storage*)addr);
+  }
+  else if (addr->sa_family == AF_INET6) {
+    struct sockaddr_in6* in6_addr = (struct sockaddr_in6*)addr;
+    remote_endpoint->type = REMOTE_ENDPOINT_TYPE_ADDRESS;
+    remote_endpoint->port = ntohs(in6_addr->sin6_port);
+    remote_endpoint->data.address = *((struct sockaddr_storage*)addr);
+  }
+  else {
+    printf("Unsupported address family: %d\n", addr->sa_family);
+  }
+}
+
 int remote_endpoint_with_hostname(RemoteEndpoint* remote_endpoint, const char* hostname) {
   remote_endpoint->type = REMOTE_ENDPOINT_TYPE_HOSTNAME;
 

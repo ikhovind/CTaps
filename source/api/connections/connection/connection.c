@@ -17,18 +17,25 @@ int receive_message(Connection* connection,
   return connection->protocol.receive(connection, receive_message_cb);
 }
 
-int connection_build_from_listener(Connection* connection, Listener* listener, RemoteEndpoint* remote_endpoint) {
+void connection_build_from_listener(Connection* connection, Listener* listener, RemoteEndpoint* remote_endpoint) {
   memset(connection, 0, sizeof(Connection));
   connection->local_endpoint = listener->local_endpoint;
   connection->transport_properties = listener->transport_properties;
   connection->remote_endpoint = *remote_endpoint;
-  connection->protocol = listener->protocol;
-  // TODO figure out connection->protocol = 0;
+  connection->protocol = listener->socket_manager->protocol_impl;
+  connection->socket_manager = listener->socket_manager;
   connection->received_callbacks = g_queue_new();
   connection->received_messages = g_queue_new();
   connection->open_type = CONNECTION_OPEN_TYPE_PASSIVE;
 }
 
 void connection_close(Connection* connection) {
-  connection->protocol.close(connection);
+  if (connection->open_type == CONNECTION_OPEN_TYPE_PASSIVE) {
+    printf("Connection relying on socket manager, removing from socket manager\n");
+    socket_manager_remove_connection(connection->socket_manager, connection);
+  }
+  else {
+    printf("Connection independent of socket manager\n");
+    connection->protocol.close(connection);
+  }
 }
