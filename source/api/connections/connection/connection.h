@@ -14,7 +14,6 @@ typedef enum {
   CONNECTION_OPEN_TYPE_PASSIVE,
 } ConnectionOpenType;
 
-struct ProtocolImplementation;
 
 typedef struct Connection {
   TransportProperties transport_properties;
@@ -24,6 +23,7 @@ typedef struct Connection {
   ProtocolImplementation protocol;
   uv_udp_t udp_handle;
   ConnectionOpenType open_type;
+  struct SocketManager* socket_manager;
   // TODO this is shared state and should be locked
   // Queue for pending receive() calls that arrived before the data
   GQueue* received_callbacks;
@@ -33,6 +33,6 @@ typedef struct Connection {
 int send_message(Connection* connection, Message* message);
 int receive_message(Connection* connection,
                     ReceiveMessageRequest receive_message_cb);
-int connection_build_from_listener(Connection* connection, struct Listener* listener, RemoteEndpoint* remote_endpoint);
+void connection_build_from_listener(Connection* connection, struct Listener* listener, RemoteEndpoint* remote_endpoint);
 void connection_close(Connection* connection);
 #endif  // CONNECTION_H

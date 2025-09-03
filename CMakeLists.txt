@@ -24,11 +24,11 @@ set(API_SOURCES
     source/api/ctaps.c
     source/api/endpoints/local/local_endpoint.c
     source/api/connections/listener/listener.c
-    source/api/connections/listener/socket_manager/socket_manager.c
 )
 
 set(IMPL_SOURCES
     source/impl/protocols/udp/udp.c
+    source/api/connections/listener/socket_manager/socket_manager.c
 )
 
 add_library(

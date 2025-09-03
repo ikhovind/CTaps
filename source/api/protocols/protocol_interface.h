@@ -6,6 +6,7 @@
 
 struct Listener;
 struct Connection;
+struct SocketManager;
 
 typedef struct {
   SelectionPreference values[SELECTION_PROPERTY_END];
@@ -34,8 +35,8 @@ typedef struct ProtocolImplementation {
   int (*init)(struct Connection* connection, InitDoneCb init_done_cb);
   int (*send)(struct Connection*, Message*);
   int (*receive)(struct Connection*, ReceiveMessageRequest receive_cb);
-  int (*listen)(struct Listener*);
-  int (*stop_listen)(struct Listener*);
+  int (*listen)(struct SocketManager* socket_manager);
+  int (*stop_listen)(struct SocketManager*);
   int (*close)(const struct Connection*);
 } ProtocolImplementation;
 

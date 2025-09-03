@@ -14,7 +14,6 @@ typedef struct Listener {
   LocalEndpoint local_endpoint;
   size_t num_local_endpoints;
   ConnectionReceivedCb connection_received_cb;
-  ProtocolImplementation protocol;
   SocketManager* socket_manager;
   void* user_data;
 } Listener;

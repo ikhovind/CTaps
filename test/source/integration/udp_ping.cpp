@@ -30,7 +30,7 @@ TEST_F(CTapsGenericFixture, sendsSingleUdpPacket) {
     preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);
     Connection connection;
 
-    auto cleanup_logic = [&]() {
+    auto cleanup_logic = [&](CallbackContext* ctx) {
         printf("Cleanup: Closing connection.\n");
         connection_close(&connection);
     };
@@ -95,7 +95,7 @@ TEST_F(CTapsGenericFixture, packetsAreReadInOrder) {
     Connection connection;
 
 
-    auto cleanup_logic = [&]() {
+    auto cleanup_logic = [&](CallbackContext* ctx) {
         printf("Cleanup: Closing connection.\n");
         connection_close(&connection);
     };
@@ -161,7 +161,7 @@ TEST_F(CTapsGenericFixture, canPingArbitraryBytes) {
     Connection connection;
 
 
-    auto cleanup_logic = [&]() {
+    auto cleanup_logic = [&](CallbackContext* ctx) {
         printf("Cleanup: Closing connection.\n");
         connection_close(&connection);
     };

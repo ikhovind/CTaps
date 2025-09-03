@@ -1,5 +1,7 @@
 #include "listener.h"
 
 void listener_close(Listener* listener) {
-  listener->protocol.stop_listen(listener);
+  printf("Closing listener pointer: %p\n", listener);
+  listener->socket_manager->ref_count--;
+  listener->socket_manager->listener = NULL;
 }

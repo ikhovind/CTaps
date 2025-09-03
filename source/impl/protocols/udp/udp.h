@@ -6,13 +6,15 @@
 #include "protocols/protocol_interface.h"
 #include "transport_properties/selection_properties/selection_properties.h"
 
+struct SocketManager;
+
 int udp_init(Connection* connection, InitDoneCb init_done_cb);
 int udp_close(const Connection* connection);
 void register_udp_support();
 int udp_send(Connection* connection, Message* message);
 int udp_receive(Connection* connection, ReceiveMessageRequest receive_message_cb);
-int udp_listen(struct Listener* listener);
-int udp_stop_listen(struct Listener* listener);
+int udp_listen(struct SocketManager* socket_manager);
+int udp_stop_listen(struct SocketManager* listener);
 
 const static ProtocolImplementation udp_protocol_interface = {
     .name = "UDP",

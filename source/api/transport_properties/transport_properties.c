@@ -25,7 +25,7 @@ int transport_properties_protocol_stacks_with_selection_properties(
   ProtocolImplementation** supported_protocols = get_supported_protocols();
   printf("supported protocols: %s\n", supported_protocols[0]->name);
   *protocol_stacks = *supported_protocols[0];
-  printf("Set protocol stacks");
+  printf("Set protocol stacks\n");
   *num_found = 1;
   return 0;
 }

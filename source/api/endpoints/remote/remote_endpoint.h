@@ -30,6 +30,8 @@ int remote_endpoint_with_hostname(RemoteEndpoint* remote_endpoint, const char* h
 
 void remote_endpoint_with_port(RemoteEndpoint* remote_endpoint, unsigned short port);
 
+void remote_endpoint_from_sockaddr(RemoteEndpoint* remote_endpoint, const struct sockaddr* addr);
+
 void remote_endpoint_with_service(RemoteEndpoint* remote_endpoint,
                                   const char* service);
 void remote_endpoint_with_ipv4(RemoteEndpoint* remote_endpoint,
