@@ -21,7 +21,7 @@ typedef struct Connection {
   RemoteEndpoint remote_endpoint;
   // TODO - decide on if this has to be a pointer
   ProtocolImplementation protocol;
-  uv_udp_t udp_handle;
+  uv_handle_t* protocol_uv_handle;
   ConnectionOpenType open_type;
   struct SocketManager* socket_manager;
   // TODO this is shared state and should be locked

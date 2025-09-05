@@ -22,6 +22,7 @@ void connection_build_from_listener(Connection* connection, Listener* listener, 
   connection->local_endpoint = listener->local_endpoint;
   connection->transport_properties = listener->transport_properties;
   connection->remote_endpoint = *remote_endpoint;
+  connection->protocol_uv_handle = listener->socket_manager->protocol_uv_handle;
   connection->protocol = listener->socket_manager->protocol_impl;
   connection->socket_manager = listener->socket_manager;
   connection->received_callbacks = g_queue_new();
