@@ -110,7 +110,6 @@ int preconnection_build_with_local(Preconnection* preconnection,
 
 
 int preconnection_listen(Preconnection* preconnection, Listener* listener, ConnectionReceivedCb connection_received_cb, void* user_data) {
-  // TODO free socket manager when stopping listen
   SocketManager* socket_manager = malloc(sizeof(SocketManager));
   memset(socket_manager, 0, sizeof(SocketManager));
   if (socket_manager == NULL) {

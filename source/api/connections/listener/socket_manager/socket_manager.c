@@ -17,7 +17,6 @@ int socket_manager_create(SocketManager* socket_manager, Listener* listener) {
   socket_manager->listener = listener;
   printf("Listener local endpoint type is 2 %d\n", listener->local_endpoint.type);
   printf("Socket manager listener type is 3 %d\n", socket_manager->listener->local_endpoint.type);
-  socket_manager->udp_handle.data = listener;
 
   socket_manager->protocol_impl.listen(socket_manager);
 
@@ -41,7 +40,7 @@ int socket_manager_remove_connection(SocketManager* socket_manager, Connection* 
   return -1;
 }
 
-void socket_manager_read(SocketManager* socket_manager, Message* message, const struct sockaddr* addr) {
+void socket_manager_multiplex_received_message(SocketManager* socket_manager, Message* message, const struct sockaddr* addr) {
   printf("Socket manager read callback with message: %s\n", message->content);
 
   Listener* listener = socket_manager->listener;
