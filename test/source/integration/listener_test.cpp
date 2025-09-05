@@ -17,21 +17,29 @@ TEST_F(CTapsGenericFixture, ReceivesPacketFromLocalClient) {
 
     std::function cleanup_logic = [&](CallbackContext* ctx) {
         printf("Cleanup: Closing connection.\n");
-        connection_close(&client_connection);
         listener_close(&listener);
-        // close all connections created by the listener
-        for (Connection* conn : ctx->connections) {
+        printf("Cleanup: Closing connection.\n");
+        // close all server_connections created by the listener
+        printf("Closing %zu server connections.\n", ctx->server_connections.size());
+        for (Connection* conn : ctx->server_connections) {
+            connection_close(conn);
+        }
+        printf("Closing %zu client connections.\n", ctx->client_connections.size());
+        for (Connection* conn : ctx->client_connections) {
             connection_close(conn);
         }
     };
     CallbackContext callback_context = {
         .awaiter = &awaiter,
         .messages = &received_messages,
-        .connections = received_connections,
+        .server_connections = received_connections,
+        .client_connections = client_connections,
         .closing_function = &cleanup_logic,
         .total_expected_signals = 3,
         .total_expected_messages = 1,
     };
+
+    callback_context.client_connections.push_back(&client_connection);
 
     LocalEndpoint listener_endpoint;
 
@@ -73,7 +81,7 @@ TEST_F(CTapsGenericFixture, ReceivesPacketFromLocalClient) {
     ctaps_start_event_loop();
 
     // --- ASSERTIONS ---
-    ASSERT_EQ(callback_context.connections.size(), 1);
+    ASSERT_EQ(callback_context.server_connections.size(), 1);
     ASSERT_EQ(callback_context.messages->size(), 1);
     ASSERT_EQ(callback_context.messages->at(0)->length, 5);
     ASSERT_STREQ(callback_context.messages->at(0)->content, "ping");
@@ -83,35 +91,38 @@ TEST_F(CTapsGenericFixture, ClosingListenerDoesNotAffectExistingConnections) {
     Listener listener;
     Connection client_connection;
 
-
-    std::function close_listener = [&](CallbackContext* ctx) {
-        listener_close(&listener);
-    };
     std::function final_cleanup = [&](CallbackContext* ctx) {
         printf("Cleanup: Closing connection.\n");
-        connection_close(&client_connection);
-        // close all connections created by the listener
-        for (Connection* conn : ctx->connections) {
+        // close all server_connections created by the listener
+        printf("Closing %zu server connections.\n", ctx->server_connections.size());
+        for (Connection* conn : ctx->server_connections) {
+            connection_close(conn);
+        }
+        printf("Closing %zu client connections.\n", ctx->client_connections.size());
+        for (Connection* conn : ctx->client_connections) {
             connection_close(conn);
         }
     };
     CallbackContext callback_context = {
         .awaiter = &awaiter,
         .messages = &received_messages,
-        .connections = received_connections,
-        .closing_function = &close_listener,
+        .server_connections = received_connections,
+        .client_connections = client_connections,
+        .closing_function = &final_cleanup,
         .total_expected_signals = 4,
         .listener = &listener
     };
 
+    callback_context.client_connections.push_back(&client_connection);
+
     LocalEndpoint listener_endpoint;
 
     local_endpoint_with_ipv4(&listener_endpoint, inet_addr("127.0.0.1"));
-    local_endpoint_with_port(&listener_endpoint, 1234);
+    local_endpoint_with_port(&listener_endpoint, 6234);
 
     RemoteEndpoint remote_endpoint;
     remote_endpoint_build(&remote_endpoint);
-    remote_endpoint_with_hostname(&remote_endpoint, "127.0.0.1");
+    remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
 
     TransportProperties listener_props;
     transport_properties_build(&listener_props);
@@ -123,8 +134,8 @@ TEST_F(CTapsGenericFixture, ClosingListenerDoesNotAffectExistingConnections) {
 
     // --- SETUP CLIENT ---
     RemoteEndpoint client_remote;
-    remote_endpoint_with_hostname(&client_remote, "127.0.0.1");
-    remote_endpoint_with_port(&client_remote, 1234); // Point to the listener
+    remote_endpoint_with_ipv4(&client_remote, inet_addr("127.0.0.1"));
+    remote_endpoint_with_port(&client_remote, 6234); // Point to the listener
 
     TransportProperties client_props;
     transport_properties_build(&client_props);
@@ -145,10 +156,12 @@ TEST_F(CTapsGenericFixture, ClosingListenerDoesNotAffectExistingConnections) {
     ctaps_start_event_loop();
 
     // --- ASSERTIONS ---
-    ASSERT_EQ(callback_context.connections.size(), 1);
+    ASSERT_EQ(callback_context.server_connections.size(), 1);
     ASSERT_EQ(callback_context.messages->size(), 2);
+
     ASSERT_EQ(callback_context.messages->at(0)->length, 5);
     ASSERT_STREQ(callback_context.messages->at(0)->content, "ping");
-    ASSERT_EQ(callback_context.messages->at(0)->length, 6);
-    ASSERT_STREQ(callback_context.messages->at(0)->content, "ping2");
+
+    ASSERT_EQ(callback_context.messages->at(1)->length, 6);
+    ASSERT_STREQ(callback_context.messages->at(1)->content, "ping2");
 }
