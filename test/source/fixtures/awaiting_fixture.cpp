@@ -52,7 +52,8 @@ private:
 struct CallbackContext {
     CallbackAwaiter* awaiter;
     std::vector<Message*>* messages;
-    std::vector<Connection*> connections; // created by the listener callback
+    std::vector<Connection*> server_connections; // created by the listener callback
+    std::vector<Connection*> client_connections;
     std::function<void(CallbackContext*)>* closing_function; // To close any connections/listeners etc.
     size_t total_expected_signals;
     size_t total_expected_messages;
@@ -65,6 +66,7 @@ protected:
     CallbackAwaiter awaiter;
     std::vector<Message*> received_messages;
     std::vector<Connection*> received_connections;
+    std::vector<Connection*> client_connections;
 
     void SetUp() override {
         ctaps_initialize();
@@ -103,19 +105,20 @@ protected:
     static int on_connection_received(Listener* listener, Connection* new_connection) {
         printf("Callback: New connection received.\n");
         auto* context = static_cast<CallbackContext*>(listener->user_data);
-        context->connections.push_back(new_connection);
+        context->server_connections.push_back(new_connection);
         context->awaiter->signal();
         return 0;
     }
 
     static int on_message_received(Connection* connection, Message** received_message, void* user_data) {
-        printf("Callback: Message received.\n");
+        printf("Callback: on_message_received.\n");
         auto* ctx = static_cast<CallbackContext*>(user_data);
 
         // Store the message and signal the awaiter
         ctx->messages->push_back(*received_message);
         ctx->awaiter->signal();
 
+        printf("Signal count is now %zu / %zu\n", ctx->awaiter->get_signal_count(), ctx->total_expected_signals);
         if (ctx->awaiter->get_signal_count() >= ctx->total_expected_signals) {
             printf("Callback: Final message received, closing connection.\n");
             // This will cause ctaps_start_event_loop() to unblock and return.
@@ -127,36 +130,21 @@ protected:
     }
 
 
-    static int on_message_receive_close_listener_and_send(Connection* connection, Message** received_message, void* user_data) {
-        printf("Callback: on_message_receive_close_listener_and_send.\n");
+    static int on_message_receive_send_new_message_and_receive(Connection* connection, Message** received_message, void* user_data) {
+        printf("Callback: on_message_receive_send_new_message_and_receive.\n");
         auto* ctx = static_cast<CallbackContext*>(user_data);
 
-        printf("Closing listener\n");
-        listener_close(ctx->listener);
+        // this is the received connection -> that is wrong
+        Connection* sending_connection = ctx->client_connections.at(0);
 
-        Connection* sending_connection = ctx->connections.at(0);
-
-        printf("Sending ping2\n");
         Message message;
         message_build_with_content(&message, "ping2", strlen("ping2") + 1);
         send_message(sending_connection, &message);
         message_free_content(&message);
-        printf("Done sending ping2\n");
-
-
-
 
         // Store the message and signal the awaiter
         ctx->messages->push_back(*received_message);
         ctx->awaiter->signal();
-
-        if (ctx->awaiter->get_signal_count() >= ctx->total_expected_signals) {
-            printf("Callback: Final message received, closing connection.\n");
-            // This will cause ctaps_start_event_loop() to unblock and return.
-            if (ctx->closing_function) {
-                (*ctx->closing_function)(ctx);
-            }
-        }
 
         ReceiveMessageRequest receive_message_request = {
           .receive_cb = on_message_received,
@@ -169,10 +157,9 @@ protected:
     }
 
     static int receive_message_on_connection_received(Listener* listener, Connection* new_connection) {
-        printf("Callback: New connection received, trying to receive message.\n");
+        printf("Callback: receive_message_on_connection_received.\n");
         auto* context = static_cast<CallbackContext*>(listener->user_data);
-        listener_close(listener);
-        context->connections.push_back(new_connection);
+        context->server_connections.push_back(new_connection);
         context->awaiter->signal();
 
         ReceiveMessageRequest receive_message_request = {
@@ -188,11 +175,11 @@ protected:
         printf("Callback: on_connection_received_receive_message_close_listener_and_send_new_message\n");
         auto* context = static_cast<CallbackContext*>(listener->user_data);
         listener_close(listener);
-        context->connections.push_back(new_connection);
+        context->server_connections.push_back(new_connection);
         context->awaiter->signal();
 
         ReceiveMessageRequest receive_message_request = {
-          .receive_cb = on_message_receive_close_listener_and_send,
+          .receive_cb = on_message_receive_send_new_message_and_receive,
           .user_data = listener->user_data,
         };
 
