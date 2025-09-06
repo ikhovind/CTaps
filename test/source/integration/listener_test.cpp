@@ -11,7 +11,7 @@ extern "C" {
 }
 #include "fixtures/awaiting_fixture.cpp"
 
-TEST_F(CTapsGenericFixture, ReceivesPacketFromLocalClient) {
+TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) {
     Listener listener;
     Connection client_connection;
 
@@ -36,7 +36,6 @@ TEST_F(CTapsGenericFixture, ReceivesPacketFromLocalClient) {
         .client_connections = client_connections,
         .closing_function = &cleanup_logic,
         .total_expected_signals = 3,
-        .total_expected_messages = 1,
     };
 
     callback_context.client_connections.push_back(&client_connection);
@@ -56,7 +55,7 @@ TEST_F(CTapsGenericFixture, ReceivesPacketFromLocalClient) {
     Preconnection listener_precon;
     preconnection_build_with_local(&listener_precon, listener_props, &remote_endpoint, 1, listener_endpoint);
 
-    preconnection_listen(&listener_precon, &listener, receive_message_on_connection_received, &callback_context);
+    preconnection_listen(&listener_precon, &listener, receive_message_and_respond_on_connection_received, &callback_context);
 
     // --- SETUP CLIENT ---
     RemoteEndpoint client_remote;
@@ -71,7 +70,7 @@ TEST_F(CTapsGenericFixture, ReceivesPacketFromLocalClient) {
 
 
     InitDoneCb client_ready = {
-        .init_done_callback = send_message_on_connection_ready,
+        .init_done_callback = send_message_and_wait_for_response_on_connection_ready,
         .user_data = &callback_context
     };
     preconnection_initiate(&client_precon, &client_connection, client_ready, nullptr);
@@ -82,9 +81,12 @@ TEST_F(CTapsGenericFixture, ReceivesPacketFromLocalClient) {
 
     // --- ASSERTIONS ---
     ASSERT_EQ(callback_context.server_connections.size(), 1);
-    ASSERT_EQ(callback_context.messages->size(), 1);
+    ASSERT_EQ(callback_context.messages->size(), 2);
     ASSERT_EQ(callback_context.messages->at(0)->length, 5);
     ASSERT_STREQ(callback_context.messages->at(0)->content, "ping");
+
+    ASSERT_EQ(callback_context.messages->at(1)->length, 5);
+    ASSERT_STREQ(callback_context.messages->at(1)->content, "pong");
 }
 
 TEST_F(CTapsGenericFixture, ClosingListenerDoesNotAffectExistingConnections) {

@@ -7,6 +7,15 @@
 #include "socket_manager/socket_manager.h"
 
 
+/*
+ * TODO - needed features for Listener:
+ * - Support for optional remote endpoint, to filter incoming connections
+ * - New connection limit
+ * - Figure out what to do with buffer pool
+ * Missing Events:
+ * - Establishment error
+ * - Stopped event
+ */
 typedef int (*ConnectionReceivedCb)(struct Listener* source, struct Connection* new_connection);
 
 typedef struct Listener {

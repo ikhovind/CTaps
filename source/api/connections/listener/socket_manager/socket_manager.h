@@ -25,7 +25,7 @@ typedef struct SocketManager{
 
 int socket_manager_remove_connection(SocketManager* socket_manager, Connection* connection);
 
-int socket_manager_create(SocketManager* socket_manager, struct Listener* listener);
+int socket_manager_build(SocketManager* socket_manager, struct Listener* listener);
 
 void socket_manager_multiplex_received_message(SocketManager* socket_manager, Message* message, const struct sockaddr* addr);
 

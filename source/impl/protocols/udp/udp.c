@@ -139,11 +139,8 @@ int udp_close(const Connection* connection) {
 }
 
 int udp_stop_listen(struct SocketManager* socket_manager) {
-  // TODO - free connections which are contained in the socket manager
   printf("Trying to stop listening via UDP\n");
-  printf("Socket manager udp handle pointer: %p\n", &socket_manager->protocol_uv_handle);
   uv_udp_recv_stop((uv_udp_t*)socket_manager->protocol_uv_handle);
-  printf("Stopped listening via UDP\n");
   return 0;
 }
 
@@ -187,11 +184,6 @@ int udp_receive(Connection* connection, ReceiveMessageRequest receive_msg_cb) {
   return 0;
 }
 
-
-void connection_received(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
-             const struct sockaddr* addr, unsigned flags) {
-}
-
 void socket_listen_callback(uv_udp_t* handle,
                                ssize_t nread,
                                const uv_buf_t* buf,
@@ -211,6 +203,7 @@ void socket_listen_callback(uv_udp_t* handle,
   }
   received_message->content = malloc(nread);
   if (!received_message->content) {
+    free(received_message);
     return;
   }
   received_message->length = nread;
