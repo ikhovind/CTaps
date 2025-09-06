@@ -12,7 +12,7 @@ void socket_manager_alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_
   *buf = uv_buf_init(slab, sizeof(slab));
 }
 
-int socket_manager_create(SocketManager* socket_manager, Listener* listener) {
+int socket_manager_build(SocketManager* socket_manager, Listener* listener) {
   printf("Creating socket manager\n");
   socket_manager->listener = listener;
   printf("Listener local endpoint type is 2 %d\n", listener->local_endpoint.type);
@@ -33,6 +33,8 @@ int socket_manager_remove_connection(SocketManager* socket_manager, Connection* 
     if (socket_manager->ref_count == 0) {
       socket_manager->protocol_impl.stop_listen(socket_manager);
       free(socket_manager);
+      socket_manager = NULL;
+      return 1; // indicate that the socket manager was freed
     }
     return 0;
   }
@@ -57,6 +59,11 @@ void socket_manager_multiplex_received_message(SocketManager* socket_manager, Me
     remote_endpoint_from_sockaddr(&remote_endpoint, addr);
 
     connection = malloc(sizeof(Connection));
+    if (connection == NULL) {
+      printf("Failed to allocate memory for new connection\n");
+      g_bytes_unref(addr_bytes);
+      return;
+    }
     connection_build_from_listener(connection, listener, &remote_endpoint);
     // insert connection into hash table
     g_hash_table_insert(socket_manager->active_connections, addr_bytes, connection);

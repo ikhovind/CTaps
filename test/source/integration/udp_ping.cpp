@@ -110,7 +110,6 @@ TEST_F(CTapsGenericFixture, packetsAreReadInOrder) {
 
     InitDoneCb init_done_cb = { .init_done_callback = on_connection_ready, .user_data = &callback_context };
     preconnection_initiate(&preconnection, &connection, init_done_cb, nullptr);
-    /*
     awaiter.await(1);
 
     // --- Action ---
@@ -139,7 +138,6 @@ TEST_F(CTapsGenericFixture, packetsAreReadInOrder) {
     ASSERT_EQ(received_messages.size(), 2);
     EXPECT_STREQ(received_messages[0]->content, "Pong: hello 1");
     EXPECT_STREQ(received_messages[1]->content, "Pong: hello 2");
-    */
 }
 
 TEST_F(CTapsGenericFixture, canPingArbitraryBytes) {

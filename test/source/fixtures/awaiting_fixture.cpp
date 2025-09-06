@@ -102,6 +102,24 @@ protected:
         return 0;
     }
 
+    static int send_message_and_wait_for_response_on_connection_ready(Connection* connection, void* user_data) {
+        printf("Callback: Connection is ready, sending message.\n");
+        auto* context = static_cast<CallbackContext*>(user_data);
+
+        // Send the message now that the client is ready
+        Message message;
+        message_build_with_content(&message, "ping", strlen("ping") + 1);
+        send_message(connection, &message);
+        message_free_content(&message);
+
+        receive_message(connection, {
+            .receive_cb = on_message_received,
+            .user_data = user_data,
+        });
+        context->awaiter->signal();
+        return 0;
+    }
+
     static int on_connection_received(Listener* listener, Connection* new_connection) {
         printf("Callback: New connection received.\n");
         auto* context = static_cast<CallbackContext*>(listener->user_data);
@@ -126,6 +144,23 @@ protected:
                 (*ctx->closing_function)(ctx);
             }
         }
+        return 0;
+    }
+
+    static int respond_on_message_received(Connection* connection, Message** received_message, void* user_data) {
+        printf("Callback: respond_on_message_received.\n");
+        auto* ctx = static_cast<CallbackContext*>(user_data);
+
+        // Store the message and signal the awaiter
+        ctx->messages->push_back(*received_message);
+        ctx->awaiter->signal();
+
+        Message message;
+        message_build_with_content(&message, "pong", strlen("pong") + 1);
+        int send_rc = send_message(connection, &message);
+        printf("Send rc is: %d\n", send_rc);
+        message_free_content(&message);
+
         return 0;
     }
 
@@ -156,14 +191,14 @@ protected:
         return 0;
     }
 
-    static int receive_message_on_connection_received(Listener* listener, Connection* new_connection) {
+    static int receive_message_and_respond_on_connection_received(Listener* listener, Connection* new_connection) {
         printf("Callback: receive_message_on_connection_received.\n");
         auto* context = static_cast<CallbackContext*>(listener->user_data);
         context->server_connections.push_back(new_connection);
         context->awaiter->signal();
 
         ReceiveMessageRequest receive_message_request = {
-          .receive_cb = on_message_received,
+          .receive_cb = respond_on_message_received,
           .user_data = listener->user_data,
         };
 

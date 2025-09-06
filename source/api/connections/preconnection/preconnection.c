@@ -134,7 +134,7 @@ int preconnection_listen(Preconnection* preconnection, Listener* listener, Conne
     printf("Found at least one protocol when listening\n");
   }
 
-  return socket_manager_create(socket_manager, listener);
+  return socket_manager_build(socket_manager, listener);
 }
 
 int preconnection_initiate(Preconnection* preconnection, Connection* connection,
