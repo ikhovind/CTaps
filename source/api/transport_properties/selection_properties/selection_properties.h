@@ -8,30 +8,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#define mklist(f)                                                             \
-  f(RELIABILITY, "reliability")                                               \
-      f(PRESERVE_MSG_BOUNDARIES, "preserveMsgBoundaries")                     \
-          f(PER_MSG_RELIABILITY, "perMsgReliability") f(                      \
-              PRESERVE_ORDER, "preserveOrder") f(ZERO_RTT_MSG, "zeroRttMsg")  \
-              f(MULTISTREAMING, "multistreaming")                             \
-                  f(FULL_CHECKSUM_SEND, "fullChecksumSend") f(                \
-                      FULL_CHECKSUM_RECV, "fullChecksumRecv")                 \
-                      f(CONGESTION_CONTROL, "congestionControl") f(           \
-                          KEEP_ALIVE, "keepAlive") f(interface, "interface")  \
-                          f(PVD, "pvd") f(USE_TEMPORARY_LOCAL_ADDRESS,        \
-                                          "useTemporaryLocalAddress")         \
-                              f(MULTIPATH, "multipath") f(                    \
-                                  ADVERTISES_ALT_ADDRES, "advertisesAltAddr") \
-                                  f(DIRECTION, "direction")                   \
-                                      f(SOFT_ERROR_NOTIFY, "softErrorNotify") \
-                                          f(ACTIVE_READ_BEFORE_SEND,          \
-                                            "activeReadBeforeSend")
-
-#define f_enum(enum_name, string_name) enum_name,
-#define f_arr(enum_name, string_name) {enum_name, string_name},
-
-typedef enum { mklist(f_enum) SELECTION_PROPERTY_END } SelectionProperty;
-
 typedef enum {
   PROHIBIT = -2,
   AVOID,
@@ -39,6 +15,48 @@ typedef enum {
   PREFER,
   REQUIRE,
 } SelectionPreference;
+
+typedef enum PropertyType {
+  TYPE_PREFERENCE,
+  TYPE_INTERFACE_PREFERENCE,
+} PropertyType;
+
+typedef struct {
+  char* name;   // e.g., "eth0", "en1", "Wi-Fi", "Cellular"
+  SelectionPreference preference;    // Your existing Preference enum (Require, Prohibit, etc.)
+} StringPreference;
+
+typedef struct {
+  size_t count;
+  StringPreference* preferences;
+} PreferenceSet;
+
+// clang-format off
+#define get_selection_property_list(f)                                                              \
+  f(RELIABILITY, "reliability", TYPE_PREFERENCE)                               \
+  f(PRESERVE_MSG_BOUNDARIES, "preserveMsgBoundaries", TYPE_PREFERENCE)         \
+  f(PER_MSG_RELIABILITY, "perMsgReliability", TYPE_PREFERENCE)                 \
+  f(PRESERVE_ORDER, "preserveOrder", TYPE_PREFERENCE)                          \
+  f(ZERO_RTT_MSG, "zeroRttMsg", TYPE_PREFERENCE)                               \
+  f(MULTISTREAMING, "multistreaming", TYPE_PREFERENCE)                         \
+  f(FULL_CHECKSUM_SEND, "fullChecksumSend", TYPE_PREFERENCE)                   \
+  f(FULL_CHECKSUM_RECV, "fullChecksumRecv", TYPE_PREFERENCE)                   \
+  f(CONGESTION_CONTROL, "congestionControl", TYPE_PREFERENCE)                  \
+  f(KEEP_ALIVE, "keepAlive", TYPE_PREFERENCE)                                  \
+  f(interface, "interface", TYPE_INTERFACE_PREFERENCE)                         \
+  f(PVD, "pvd", TYPE_PREFERENCE)                                               \
+  f(USE_TEMPORARY_LOCAL_ADDRESS, "useTemporaryLocalAddress", TYPE_PREFERENCE)  \
+  f(MULTIPATH, "multipath", TYPE_PREFERENCE)                                   \
+  f(ADVERTISES_ALT_ADDRES, "advertisesAltAddr", TYPE_PREFERENCE)               \
+  f(DIRECTION, "direction", TYPE_PREFERENCE)                                   \
+  f(SOFT_ERROR_NOTIFY, "softErrorNotify", TYPE_PREFERENCE)                     \
+  f(ACTIVE_READ_BEFORE_SEND, "activeReadBeforeSend", TYPE_PREFERENCE)
+// clang-format on
+
+#define output_enum(enum_name, string_name, property_type) enum_name,
+#define output_arr(enum_name, string_name, property_type) {enum_name, string_name},
+
+typedef enum { get_selection_property_list(output_enum) SELECTION_PROPERTY_END } SelectionProperty;
 
 typedef struct {
   SelectionPreference preference[SELECTION_PROPERTY_END];

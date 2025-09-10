@@ -7,7 +7,7 @@
 struct {
   SelectionProperty selection_property;
   char* name;
-} selection_property_name2[] = {mklist(f_arr)};
+} selection_property_name2[] = {get_selection_property_list(output_arr)};
 
 void selection_properties_init(SelectionProperties* selection_properties) {
   selection_properties->preference[RELIABILITY] = REQUIRE;

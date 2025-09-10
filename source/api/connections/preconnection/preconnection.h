@@ -11,8 +11,14 @@
 #include "endpoints/remote/remote_endpoint.h"
 #include "transport_properties/transport_properties.h"
 
-// TODO - security parameters
-// TODO - listen & rendezvous
+/*
+ * TODO:
+ *   - Multiple local endpoints
+ *   - Actual use multiple remote
+ *   - Security parameters
+ *   - Rendezvous
+ *
+ */
 typedef struct {
   TransportProperties transport_properties;
   LocalEndpoint local;

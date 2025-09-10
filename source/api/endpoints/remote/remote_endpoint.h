@@ -13,6 +13,12 @@ typedef enum {
   REMOTE_ENDPOINT_TYPE_ADDRESS
 } RemoteEndpointType;
 
+/* TODO:
+ *   - with service
+ *   - multicast
+ *   - interface
+ *   - with protocol
+ */
 
 typedef struct RemoteEndpoint{
   RemoteEndpointType type;
@@ -38,6 +44,5 @@ void remote_endpoint_with_ipv4(RemoteEndpoint* remote_endpoint,
                                in_addr_t ipv4_addr);
 void remote_endpoint_with_ipv6(RemoteEndpoint* remote_endpoint,
                                struct in6_addr ipv6_addr);
-// TODO - remote endpoint with multicast
 
 #endif  // LOCAL_ENDPOINT_H

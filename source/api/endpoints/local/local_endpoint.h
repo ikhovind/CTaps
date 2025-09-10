@@ -8,6 +8,13 @@ typedef enum {
   LOCAL_ENDPOINT_TYPE_ADDRESS
 } LocalEndpointType;
 
+/* TODO:
+ *   - with service?
+ *   - with interface
+ *   - multicast
+ *   - with protocol
+ */
+
 typedef struct {
   sa_family_t family;
   LocalEndpointType type;
