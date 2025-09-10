@@ -21,8 +21,10 @@ int main() {
 
   TransportProperties transport_properties;
   selection_properties_init(&transport_properties.selection_properties);
+  /*
   selection_properties_require(&transport_properties.selection_properties,
                                "reliability");
+                               */
 
   Preconnection preconnection;
 

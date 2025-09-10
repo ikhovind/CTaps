@@ -6,6 +6,7 @@ extern "C" {
 #include "util/util.h"
 #include "ctaps.h"
 #include "endpoints/local/local_endpoint.h"
+#include "transport_properties/transport_properties.h"
 }
 
 
@@ -19,7 +20,7 @@ TEST(PreconnectionUnitTests, SetsPreconnectionAsExpected) {
 
     transport_properties_build(&transport_properties);
 
-    selection_properties_set_selection_property(&transport_properties, RELIABILITY, PROHIBIT);
+    tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PROHIBIT);
 
     Preconnection preconnection;
     preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);
@@ -43,7 +44,7 @@ TEST(PreconnectionUnitTests, TakesDeepCopyOfRemoteEndpoint) {
 
     transport_properties_build(&transport_properties);
 
-    selection_properties_set_selection_property(&transport_properties, RELIABILITY, PROHIBIT);
+    tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PROHIBIT);
 
     Preconnection preconnection;
     preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);
@@ -70,7 +71,7 @@ TEST(PreconnectionUnitTests, TakesDeepCopyOfRemoteEndpointWhenBuildingWithLocal)
 
     transport_properties_build(&transport_properties);
 
-    selection_properties_set_selection_property(&transport_properties, RELIABILITY, PROHIBIT);
+    tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PROHIBIT);
 
     Preconnection preconnection;
     preconnection_build_with_local(&preconnection, transport_properties, &remote_endpoint, 1, local_endpoint);

@@ -24,7 +24,7 @@ TEST(RemoteEndpointUnitTests, CanDnsLookupHostName) {
     TransportProperties transport_properties;
 
     transport_properties_build(&transport_properties);
-    selection_properties_set_selection_property(&transport_properties, RELIABILITY, PROHIBIT);
+    tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PROHIBIT);
 
     Preconnection preconnection;
     preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);

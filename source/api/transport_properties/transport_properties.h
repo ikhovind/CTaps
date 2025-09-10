@@ -10,6 +10,17 @@
 #include "connection_properties/connection_properties.h"
 #include "selection_properties/selection_properties.h"
 
+#ifndef __cplusplus
+#define selection_properties_set_selection_property(props, prop_enum, value) \
+    _Generic((value), \
+        SelectionPreference:    tp_set_sel_prop_preference, \
+        MultipathEnum:          tp_set_sel_prop_multipath, \
+        bool:                   tp_set_sel_prop_bool, \
+        SelectionPropertyValue: tp_set_sel_prop, \
+        default:                tp_set_sel_prop_preference \
+    )(props, prop_enum, value)
+#endif
+
 typedef struct {
   SelectionProperties selection_properties;
   ConnectionProperties connection_properties;
@@ -17,12 +28,16 @@ typedef struct {
 
 void transport_properties_build(TransportProperties* properties);
 
-void selection_properties_set_selection_property(
-    TransportProperties* transport_properties,
-    SelectionProperty selection_property, SelectionPreference preference);
-
 int transport_properties_protocol_stacks_with_selection_properties(
     TransportProperties* transport_properties,
     ProtocolImplementation* protocol_stacks, int* num_found);
+
+void tp_set_sel_prop_preference(TransportProperties* props, SelectionPropertyEnum prop_enum, SelectionPreference val);
+
+void tp_set_sel_prop_multipath(TransportProperties* props, SelectionPropertyEnum prop_enum, MultipathEnum val);
+
+void tp_set_sel_prop_bool(TransportProperties* props, SelectionPropertyEnum prop_enum, bool val);
+void tp_set_sel_prop(TransportProperties* props, SelectionPropertyEnum prop_enum, SelectionPropertyValue);
+
 
 #endif  // TRANSPORT_PROPERTIES_H
