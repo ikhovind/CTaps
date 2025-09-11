@@ -8,11 +8,11 @@ extern "C" {
 #include "endpoints/remote/remote_endpoint.h"
 #include "transport_properties/transport_properties.h"
 #include "util/util.h"
+#include "fixtures/awaiting_fixture.cpp"
 }
 
 #include <mutex>
 #include <condition_variable>
-#include "fixtures/awaiting_fixture.cpp"
 
 TEST_F(CTapsGenericFixture, sendsSingleUdpPacket) {
     // --- Setup ---

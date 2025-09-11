@@ -65,8 +65,8 @@ typedef struct SelectionProperty {
   SelectionPropertyValue value;
 } SelectionProperty;
 
-#define EMPTY_PREFERENCE_SET_DEFAULT 0
-#define RUNTIME_DEPENDENT_DEFAULT 0
+#define EMPTY_PREFERENCE_SET_DEFAULT NO_PREFERENCE
+#define RUNTIME_DEPENDENT_DEFAULT NO_PREFERENCE
 
 // clang-format off
 #define get_selection_property_list(f)                                                                    \
@@ -84,7 +84,7 @@ typedef struct SelectionProperty {
   f(PVD,                         "pvd",                        TYPE_PREFERENCE_SET,       EMPTY_PREFERENCE_SET_DEFAULT)  \
   f(USE_TEMPORARY_LOCAL_ADDRESS, "useTemporaryLocalAddress",   TYPE_PREFERENCE,           RUNTIME_DEPENDENT_DEFAULT)         \
   f(MULTIPATH,                   "multipath",                  TYPE_MULTIPATH_ENUM,       RUNTIME_DEPENDENT_DEFAULT)  \
-  f(ADVERTISES_ALT_ADDRES,       "advertisesAltAddr",          TYPE_BOOLEAN,              false)  \
+  f(ADVERTISES_ALT_ADDRES,       "advertisesAltAddr",          TYPE_BOOLEAN,              NO_PREFERENCE)  \
   f(DIRECTION,                   "direction",                  TYPE_DIRECTION_ENUM,       DIRECTION_BIDIRECTIONAL)  \
   f(SOFT_ERROR_NOTIFY,           "softErrorNotify",            TYPE_PREFERENCE,           NO_PREFERENCE)  \
   f(ACTIVE_READ_BEFORE_SEND,     "activeReadBeforeSend",       TYPE_PREFERENCE,           NO_PREFERENCE)
@@ -97,6 +97,22 @@ typedef enum { get_selection_property_list(output_enum) SELECTION_PROPERTY_END }
 typedef struct {
   SelectionProperty selection_property[SELECTION_PROPERTY_END];
 } SelectionProperties;
+
+// The value cast is a hack to please the c++ compiler for our tests
+#define create_property_initializer(enum_name, string_name, property_type, default_value) \
+  [enum_name] = {                                                          \
+    .name = string_name,                                                   \
+    .type = property_type,                                                 \
+    .set_by_user = false,                                                  \
+    .value = { (SelectionPreference)default_value }                     \
+},
+
+// Create a single, read-only template with all the default values.
+static SelectionProperties DEFAULT_SELECTION_PROPERTIES = {
+  .selection_property = {
+    get_selection_property_list(create_property_initializer)
+  }
+};
 
 void selection_properties_init(SelectionProperties* selection_properties);
 

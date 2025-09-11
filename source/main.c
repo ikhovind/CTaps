@@ -14,10 +14,15 @@ int main() {
 
   printf("first protocol is: %s\n", get_supported_protocols()[0]->name);
 
+  SelectionProperties selection_properties;
+  selection_properties_init(&selection_properties);
+  selection_properties.selection_property[RELIABILITY].value.simple_preference = REQUIRE;
+  /*
   for (int i = 0; i < 5; i++) {
     printf("Preference[i] is: %d\n",
-           get_supported_protocols()[0]->features.values[i]);
+           get_supported_protocols()[0]->selection_properties.selection_property[i].value);
   }
+  */
 
   TransportProperties transport_properties;
   selection_properties_init(&transport_properties.selection_properties);

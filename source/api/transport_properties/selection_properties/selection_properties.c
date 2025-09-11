@@ -1,20 +1,5 @@
 #include "selection_properties.h"
 
-#define create_property_initializer(enum_name, string_name, property_type, default_value) \
-  [enum_name] = {                                                          \
-    .name = string_name,                                                   \
-    .type = property_type,                                                 \
-    .set_by_user = false,                                                  \
-    .value = { default_value }                                             \
-  },
-
-// Create a single, read-only template with all the default values.
-static const SelectionProperties DEFAULT_SELECTION_PROPERTIES = {
-  .selection_property = {
-    get_selection_property_list(create_property_initializer)
-  }
-};
-
 
 void selection_properties_init(SelectionProperties* selection_properties) {
   memcpy(selection_properties, &DEFAULT_SELECTION_PROPERTIES, sizeof(SelectionProperties));

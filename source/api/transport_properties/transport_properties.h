@@ -30,7 +30,7 @@ typedef struct {
 void transport_properties_build(TransportProperties* properties);
 
 int transport_properties_protocol_stacks_with_selection_properties(
-    TransportProperties* transport_properties,
+    SelectionProperties *selection_properties,
     ProtocolImplementation* protocol_stacks, int* num_found);
 
 void tp_set_sel_prop_preference(TransportProperties* props, SelectionPropertyEnum prop_enum, SelectionPreference val);

@@ -128,8 +128,8 @@ int preconnection_listen(Preconnection* preconnection, Listener* listener, Conne
 
   int num_found_protocols = 0;
   transport_properties_protocol_stacks_with_selection_properties(
-      &preconnection->transport_properties, &socket_manager->protocol_impl,
-      &num_found_protocols);
+    &preconnection->transport_properties.selection_properties, &socket_manager->protocol_impl,
+    &num_found_protocols);
   if (num_found_protocols > 0) {
     printf("Found at least one protocol when listening\n");
   }
@@ -178,8 +178,8 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
 
   int num_found_protocols = 0;
   transport_properties_protocol_stacks_with_selection_properties(
-      &preconnection->transport_properties, &connection->protocol,
-      &num_found_protocols);
+    &preconnection->transport_properties.selection_properties, &connection->protocol,
+    &num_found_protocols);
   if (num_found_protocols > 0) {
     connection->remote_endpoint = g_array_index(resolved_endpoints, RemoteEndpoint, 0);
     g_array_free(resolved_endpoints, true);
