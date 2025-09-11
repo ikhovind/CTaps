@@ -29,6 +29,15 @@ void set_sel_prop_preference(SelectionProperties* props, SelectionPropertyEnum p
   props->selection_property[prop_enum].set_by_user = true;
 }
 
+void set_sel_prop_direction(SelectionProperties* props, SelectionPropertyEnum prop_enum, DirectionOfCommunicationEnum val) {
+  if (props->selection_property[prop_enum].type != TYPE_DIRECTION_ENUM) {
+    fprintf(stderr, "Type mismatch for property %s\n", props->selection_property[prop_enum].name);
+    return;
+  }
+  props->selection_property[prop_enum].value.multipath_enum = val;
+  props->selection_property[prop_enum].set_by_user = true;
+}
+
 void set_sel_prop_multipath(SelectionProperties* props, SelectionPropertyEnum prop_enum, MultipathEnum val) {
   if (props->selection_property[prop_enum].type != TYPE_MULTIPATH_ENUM) {
     fprintf(stderr, "Type mismatch for property %s\n", props->selection_property[prop_enum].name);

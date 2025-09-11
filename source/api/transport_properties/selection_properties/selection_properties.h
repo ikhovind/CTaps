@@ -29,7 +29,7 @@ typedef enum DirectionOfCommunication {
   DIRECTION_BIDIRECTIONAL,
   DIRECTION_UNIDIRECTIONAL_SEND,
   DIRECTION_UNIDIRECTIONAL_RECV
-} DirectionOfCommunication;
+} DirectionOfCommunicationEnum;
 
 typedef enum MultipathEnum {
   MULTIPATH_DISABLED,
@@ -53,7 +53,7 @@ typedef union {
   PreferenceSet preference_set;
   MultipathEnum multipath_enum;
   bool boolean;
-  DirectionOfCommunication direction_enum;
+  DirectionOfCommunicationEnum direction_enum;
 } SelectionPropertyValue;
 
 typedef struct SelectionProperty {
@@ -80,7 +80,7 @@ typedef struct SelectionProperty {
   f(FULL_CHECKSUM_RECV,          "fullChecksumRecv",           TYPE_PREFERENCE,           REQUIRE)        \
   f(CONGESTION_CONTROL,          "congestionControl",          TYPE_PREFERENCE,           REQUIRE)        \
   f(KEEP_ALIVE,                  "keepAlive",                  TYPE_PREFERENCE,           NO_PREFERENCE)  \
-  f(interface,                   "interface",                  TYPE_PREFERENCE_SET,       EMPTY_PREFERENCE_SET_DEFAULT)  \
+  f(INTERFACE,                   "interface",                  TYPE_PREFERENCE_SET,       EMPTY_PREFERENCE_SET_DEFAULT)  \
   f(PVD,                         "pvd",                        TYPE_PREFERENCE_SET,       EMPTY_PREFERENCE_SET_DEFAULT)  \
   f(USE_TEMPORARY_LOCAL_ADDRESS, "useTemporaryLocalAddress",   TYPE_PREFERENCE,           RUNTIME_DEPENDENT_DEFAULT)         \
   f(MULTIPATH,                   "multipath",                  TYPE_MULTIPATH_ENUM,       RUNTIME_DEPENDENT_DEFAULT)  \
@@ -103,6 +103,8 @@ void selection_properties_init(SelectionProperties* selection_properties);
 void set_sel_prop_preference(SelectionProperties* props, SelectionPropertyEnum prop_enum, SelectionPreference val);
 
 void set_sel_prop_multipath(SelectionProperties* props, SelectionPropertyEnum prop_enum, MultipathEnum val);
+
+void set_sel_prop_direction(SelectionProperties* props, SelectionPropertyEnum prop_enum, DirectionOfCommunicationEnum val);
 
 void set_sel_prop_bool(SelectionProperties* props, SelectionPropertyEnum prop_enum, bool val);
 

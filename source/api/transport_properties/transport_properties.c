@@ -33,6 +33,10 @@ void tp_set_sel_prop_multipath(TransportProperties* props, SelectionPropertyEnum
   set_sel_prop_multipath(&props->selection_properties, prop_enum, val);
 }
 
+void tp_set_sel_prop_direction(TransportProperties* props, SelectionPropertyEnum prop_enum, DirectionOfCommunicationEnum val) {
+  set_sel_prop_direction(&props->selection_properties, prop_enum, val);
+}
+
 void tp_set_sel_prop_bool(TransportProperties* props, SelectionPropertyEnum prop_enum, bool val) {
   set_sel_prop_bool(&props->selection_properties, prop_enum, val);
 }
