@@ -105,6 +105,7 @@ void set_sel_prop_preference(SelectionProperties* props, SelectionPropertyEnum p
 void set_sel_prop_multipath(SelectionProperties* props, SelectionPropertyEnum prop_enum, MultipathEnum val);
 
 void set_sel_prop_bool(SelectionProperties* props, SelectionPropertyEnum prop_enum, bool val);
+
 void set_sel_prop(SelectionProperties* props, SelectionPropertyEnum prop_enum, SelectionPropertyValue);
 
 #endif  // SELECTION_PROPERTIES_H
