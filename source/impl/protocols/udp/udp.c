@@ -214,6 +214,7 @@ void socket_listen_callback(uv_udp_t* handle,
 }
 
 int udp_listen(SocketManager* socket_manager) {
+  printf("Listening via UDP\n");
   uv_udp_t* udp_handle = malloc(sizeof(*udp_handle));
   if (udp_handle == NULL) {
     perror("Failed to allocate memory for UDP handle");

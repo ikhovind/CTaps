@@ -52,6 +52,8 @@ TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) 
     TransportProperties listener_props;
     transport_properties_build(&listener_props);
 
+    tp_set_sel_prop_preference(&listener_props, RELIABILITY, PROHIBIT);
+
     Preconnection listener_precon;
     preconnection_build_with_local(&listener_precon, listener_props, &remote_endpoint, 1, listener_endpoint);
 
@@ -64,6 +66,8 @@ TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) 
 
     TransportProperties client_props;
     transport_properties_build(&client_props);
+
+    tp_set_sel_prop_preference(&client_props, RELIABILITY, PROHIBIT);
 
     Preconnection client_precon;
     preconnection_build(&client_precon, client_props, &client_remote, 1);
@@ -129,6 +133,8 @@ TEST_F(CTapsGenericFixture, ClosingListenerDoesNotAffectExistingConnections) {
     TransportProperties listener_props;
     transport_properties_build(&listener_props);
 
+    tp_set_sel_prop_preference(&listener_props, RELIABILITY, PROHIBIT);
+
     Preconnection listener_precon;
     preconnection_build_with_local(&listener_precon, listener_props, &remote_endpoint, 1, listener_endpoint);
 
@@ -141,6 +147,8 @@ TEST_F(CTapsGenericFixture, ClosingListenerDoesNotAffectExistingConnections) {
 
     TransportProperties client_props;
     transport_properties_build(&client_props);
+
+    tp_set_sel_prop_preference(&client_props, RELIABILITY, PROHIBIT);
 
     Preconnection client_precon;
     preconnection_build(&client_precon, client_props, &client_remote, 1);

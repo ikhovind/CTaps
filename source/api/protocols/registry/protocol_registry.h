@@ -6,7 +6,7 @@
 #define MAX_PROTOCOLS 256
 
 // A dynamic list to hold registered protocols
-static ProtocolImplementation* supported_protocols[MAX_PROTOCOLS];
+static ProtocolImplementation* supported_protocols[MAX_PROTOCOLS] = {0};
 static int protocol_count = 0;
 
 void register_protocol(ProtocolImplementation* proto);

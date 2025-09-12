@@ -13,10 +13,7 @@ void socket_manager_alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_
 }
 
 int socket_manager_build(SocketManager* socket_manager, Listener* listener) {
-  printf("Creating socket manager\n");
   socket_manager->listener = listener;
-  printf("Listener local endpoint type is 2 %d\n", listener->local_endpoint.type);
-  printf("Socket manager listener type is 3 %d\n", socket_manager->listener->local_endpoint.type);
 
   socket_manager->protocol_impl.listen(socket_manager);
 
