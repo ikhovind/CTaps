@@ -34,8 +34,7 @@ function(add_gtest test_name test_source_files)
             gtest_main
             gmock
             fff
-            #CTaps
-            c_lib # Add any other common test libraries here
+            c_lib
             ${GLIB_LIBRARIES}
             uv
     )

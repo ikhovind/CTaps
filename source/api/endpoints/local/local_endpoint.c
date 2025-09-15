@@ -16,9 +16,7 @@ void local_endpoint_with_port(LocalEndpoint* local_endpoint, int port) {
 }
 
 void local_endpoint_build(LocalEndpoint* local_endpoint) {
-  local_endpoint->data.address.ss_family = AF_UNSPEC;
-  memset(&local_endpoint->data, 0, sizeof(local_endpoint->data));
-  local_endpoint->type = LOCAL_ENDPOINT_TYPE_UNSPECIFIED;
+  memset(local_endpoint, 0, sizeof(LocalEndpoint));
 }
 
 void local_endpoint_with_ipv4(LocalEndpoint* local_endpoint, in_addr_t ipv4_addr) {
@@ -35,4 +33,8 @@ void local_endpoint_with_ipv6(LocalEndpoint* local_endpoint, struct in6_addr ipv
   addr->sin6_family = AF_INET6;
   addr->sin6_addr = ipv6_addr;
   addr->sin6_port = htons(local_endpoint->port);
+}
+
+void local_endpoint_with_interface(LocalEndpoint* local_endpoint, char* interface_name) {
+  local_endpoint->interface_name = interface_name;
 }

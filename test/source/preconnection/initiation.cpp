@@ -22,11 +22,13 @@ TEST(InitiationTests, respectsLocalEndpoint) {
     printf("Sending UDP packet...\n");
 
     RemoteEndpoint remote_endpoint;
+    remote_endpoint_build(&remote_endpoint);
 
     remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
     remote_endpoint_with_port(&remote_endpoint, 5005);
 
     LocalEndpoint local_endpoint;
+    local_endpoint_build(&local_endpoint);
 
     local_endpoint_with_ipv4(&local_endpoint, inet_addr("127.0.0.1"));
     local_endpoint_with_port(&local_endpoint, 1234);
