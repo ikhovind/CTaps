@@ -29,9 +29,9 @@ typedef struct {
 
 void transport_properties_build(TransportProperties* properties);
 
-int transport_properties_get_candidate_stacks(
+void transport_properties_get_candidate_stacks(
   SelectionProperties *selection_properties,
-  ProtocolImplementation** protocol_stacks,
+  ProtocolImplementation** output_protocol_stacks,
   int* num_found);
 
 void tp_set_sel_prop_preference(TransportProperties* props, SelectionPropertyEnum prop_enum, SelectionPreference val);
