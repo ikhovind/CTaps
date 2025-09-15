@@ -125,7 +125,6 @@ int preconnection_listen(Preconnection* preconnection, Listener* listener, Conne
     .user_data = user_data
   };
   printf("Setting user data pointer to %p\n", user_data);
-  printf("Listener local endpoint type is 1 %d\n", listener->local_endpoint.type);
 
   int num_found_protocols = 0;
   ProtocolImplementation* candidate_stacks[MAX_PROTOCOLS];

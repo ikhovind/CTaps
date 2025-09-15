@@ -41,8 +41,9 @@ TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) 
     callback_context.client_connections.push_back(&client_connection);
 
     LocalEndpoint listener_endpoint;
+    local_endpoint_build(&listener_endpoint);
 
-    local_endpoint_with_ipv4(&listener_endpoint, inet_addr("127.0.0.1"));
+    local_endpoint_with_interface(&listener_endpoint, "lo");
     local_endpoint_with_port(&listener_endpoint, 1234);
 
     RemoteEndpoint remote_endpoint;
@@ -123,7 +124,7 @@ TEST_F(CTapsGenericFixture, ClosingListenerDoesNotAffectExistingConnections) {
 
     LocalEndpoint listener_endpoint;
 
-    local_endpoint_with_ipv4(&listener_endpoint, inet_addr("127.0.0.1"));
+    //local_endpoint_with_ipv4(&listener_endpoint, inet_addr("127.0.0.1"));
     local_endpoint_with_port(&listener_endpoint, 6234);
 
     RemoteEndpoint remote_endpoint;

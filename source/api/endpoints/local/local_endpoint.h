@@ -3,11 +3,6 @@
 #include <arpa/inet.h>  // or <winsock2.h> for Windows
 #include <stdbool.h>
 
-typedef enum {
-  LOCAL_ENDPOINT_TYPE_UNSPECIFIED,
-  LOCAL_ENDPOINT_TYPE_ADDRESS
-} LocalEndpointType;
-
 /* TODO:
  *   - with service?
  *   - with interface
@@ -17,7 +12,6 @@ typedef enum {
 
 typedef struct {
   sa_family_t family;
-  LocalEndpointType type;
   uint16_t port;
   char* interface_name;
   union {
@@ -27,8 +21,6 @@ typedef struct {
 
 void local_endpoint_build(LocalEndpoint* local_endpoint);
 void local_endpoint_with_port(LocalEndpoint* remote_endpoint, int port);
-void local_endpoint_with_ipv4(LocalEndpoint* local_endpoint, in_addr_t ipv4_addr);
-void local_endpoint_with_ipv6(LocalEndpoint* local_endpoint, struct in6_addr ipv6_addr);
 void local_endpoint_with_interface(LocalEndpoint* local_endpoint, char* interface_name);
 
 #endif  // LOCAL_ENDPOINT_H

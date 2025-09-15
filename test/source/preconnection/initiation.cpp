@@ -30,7 +30,6 @@ TEST(InitiationTests, respectsLocalEndpoint) {
     LocalEndpoint local_endpoint;
     local_endpoint_build(&local_endpoint);
 
-    local_endpoint_with_ipv4(&local_endpoint, inet_addr("127.0.0.1"));
     local_endpoint_with_port(&local_endpoint, 1234);
 
     TransportProperties transport_properties;
@@ -71,7 +70,6 @@ TEST(InitiationTests, respectsLocalEndpoint) {
     sockaddr_in* addr = (sockaddr_in*)&connection.local_endpoint.data.address;
     EXPECT_EQ(1234, htons(addr->sin_port));
     EXPECT_EQ(1234, connection.local_endpoint.port);
-    EXPECT_EQ(LOCAL_ENDPOINT_TYPE_ADDRESS, connection.local_endpoint.type);
     EXPECT_EQ(1, uv_udp_bind_fake.call_count);
     EXPECT_EQ(1234, htons(((struct sockaddr_in*)uv_udp_bind_fake.arg1_val)->sin_port));
 }
