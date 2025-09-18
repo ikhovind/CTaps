@@ -147,3 +147,16 @@ TEST_F(CTapsGenericFixture, UsesInterfaceAddress_whenInterfaceIsSpecified) {
     // Verify the port was set correctly
     EXPECT_EQ(ntohs(bound_addr_in->sin_port), 8080);
 }
+
+TEST(LocalEndpointUnitTests, TakesDeepCopyOfService) {
+    LocalEndpoint local_endpoint;
+
+    char test_service[] = "test_service";
+    local_endpoint_build(&local_endpoint);
+    local_endpoint_with_service(&local_endpoint, test_service);
+
+    test_service[0] = 'T';
+
+    EXPECT_STREQ(local_endpoint.service, "test_service");
+    EXPECT_STREQ(test_service, "Test_service");
+}

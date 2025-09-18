@@ -58,8 +58,11 @@ TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) 
     Preconnection listener_precon;
     preconnection_build_with_local(&listener_precon, listener_props, &remote_endpoint, 1, listener_endpoint);
 
-    preconnection_listen(&listener_precon, &listener, receive_message_and_respond_on_connection_received, &callback_context);
-
+    int listen_res = preconnection_listen(&listener_precon, &listener, receive_message_and_respond_on_connection_received, &callback_context);
+    if (listen_res != 0) {
+        printf("Failed to start listener with error code %d\n", listen_res);
+        return;
+    }
     // --- SETUP CLIENT ---
     RemoteEndpoint client_remote;
     remote_endpoint_with_hostname(&client_remote, "127.0.0.1");

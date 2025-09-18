@@ -72,27 +72,6 @@ void on_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
   }
 }
 
-void get_interface_addresses(LocalEndpoint local_endpoint, int *num_found_addresses, struct sockaddr *output_interface_addrs) {
-  *num_found_addresses = 0;
-  if (local_endpoint.interface_name != NULL) {
-    uv_interface_address_t* interfaces;
-    int count;
-    uv_interface_addresses(&interfaces, &count);
-
-    for (int i = 0; i < count; i++) {
-      if (strcmp(interfaces[i].name, local_endpoint.interface_name) == 0) {
-        if (interfaces[i].address.address4.sin_family == AF_INET) {
-          output_interface_addrs[(*num_found_addresses)++] = *(struct sockaddr*)&interfaces[i].address.address4;
-          if (*num_found_addresses >= MAX_FOUND_INTERFACE_ADDRS) {
-            break;
-          }
-        }
-      }
-    }
-    uv_free_interface_addresses(interfaces, count);
-  }
-}
-
 int udp_init(Connection* connection, InitDoneCb init_done_cb) {
   printf("Initiating UDP connection\n");
   connection->received_messages = g_queue_new();
@@ -115,25 +94,7 @@ int udp_init(Connection* connection, InitDoneCb init_done_cb) {
 
   new_udp_handle->data = connection;
 
-  int num_found_addresses;
-  struct sockaddr found_interface_addrs[MAX_FOUND_INTERFACE_ADDRS];
-  get_interface_addresses(connection->local_endpoint, &num_found_addresses, found_interface_addrs);
-
-  struct sockaddr_in bind_addr;
-  if (num_found_addresses > 0) {
-    printf("Using local endpoint from interface\n");
-
-    bind_addr = *(struct sockaddr_in*)&found_interface_addrs[0];
-  }
-  else {
-    printf("No address found from interface, binding to 0.0.0.0\n");
-    uv_ip4_addr("0.0.0.0", 0, &bind_addr);
-  }
-  bind_addr.sin_port = htons(connection->local_endpoint.port);
-
-  connection->local_endpoint.data.address = *(struct sockaddr_storage*)&bind_addr;
-
-  rc = uv_udp_bind(new_udp_handle, (const struct sockaddr*)&bind_addr, 0);
+  rc = uv_udp_bind(new_udp_handle, (const struct sockaddr*)&connection->local_endpoint.data.address, 0);
   if (rc < 0) {
     fprintf(stderr, "Problem with auto-binding: %s\n", uv_strerror(rc));
     free(new_udp_handle);
@@ -262,23 +223,8 @@ int udp_listen(SocketManager* socket_manager) {
     return rc;
   }
 
-  int num_found_addresses;
-  struct sockaddr found_interface_addrs[MAX_FOUND_INTERFACE_ADDRS];
-  get_interface_addresses(listener->local_endpoint, &num_found_addresses, found_interface_addrs);
 
-  struct sockaddr_in bind_addr;
-  if (num_found_addresses > 0) {
-    printf("Using local endpoint from interface\n");
-
-    bind_addr = *(struct sockaddr_in*)&found_interface_addrs[0];
-  }
-  else {
-    printf("No address found from interface, binding to 0.0.0.0\n");
-    uv_ip4_addr("0.0.0.0", listener->local_endpoint.port, &bind_addr);
-  }
-  bind_addr.sin_port = htons(listener->local_endpoint.port);
-
-  rc = uv_udp_bind(udp_handle, (const struct sockaddr*)&bind_addr, 0);
+  rc = uv_udp_bind(udp_handle, (const struct sockaddr*)&listener->local_endpoint.data.address, 0);
   if (rc < 0) {
     fprintf(stderr, "Problem with binding: %s\n", uv_strerror(rc));
     free(udp_handle);

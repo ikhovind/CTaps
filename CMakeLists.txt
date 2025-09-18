@@ -29,6 +29,7 @@ set(API_SOURCES
 set(IMPL_SOURCES
     source/impl/protocols/udp/udp.c
     source/api/connections/listener/socket_manager/socket_manager.c
+    source/impl/endpoints/util.c
 )
 
 add_library(

@@ -1,7 +1,12 @@
 #include "local_endpoint.h"
 
+#include "endpoints/util.h"
+
+#include <netdb.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <uv.h>
 
 void local_endpoint_with_port(LocalEndpoint* local_endpoint, int port) {
   local_endpoint->port = port;
@@ -35,4 +40,44 @@ void local_endpoint_with_ipv6(LocalEndpoint* local_endpoint, struct in6_addr ipv
 
 void local_endpoint_with_interface(LocalEndpoint* local_endpoint, char* interface_name) {
   local_endpoint->interface_name = interface_name;
+}
+
+void local_endpoint_with_service(LocalEndpoint* local_endpoint, char* service) {
+  local_endpoint->service = malloc(strlen(service) + 1);
+  strcpy(local_endpoint->service, service);
+}
+
+int local_endpoint_resolve(LocalEndpoint* local_endpoint) {
+  printf("Resolving local endpoint\n");
+  int num_found_addresses = 0;
+  struct sockaddr_storage found_interface_addrs[MAX_FOUND_INTERFACE_ADDRS];
+  get_interface_addresses(local_endpoint, &num_found_addresses, found_interface_addrs);
+
+  uint16_t assigned_port = 0;
+  if (local_endpoint->port != 0) {
+    assigned_port = local_endpoint->port;
+  }
+  else if (local_endpoint->service != NULL) {
+    assigned_port = get_service_port(local_endpoint);
+  }
+  if (num_found_addresses > 0) {
+    printf("Addigning address from interface %s\n", local_endpoint->interface_name);
+    printf("Assining interface family %d\n", found_interface_addrs[0].ss_family);
+    printf("AF_INET is %d\n", AF_INET);
+    local_endpoint->data.address = found_interface_addrs[0];
+    if (local_endpoint->data.address.ss_family == AF_INET) {
+      struct sockaddr_in* addr = (struct sockaddr_in*)&local_endpoint->data.address;
+      addr->sin_port = htons(assigned_port);
+    }
+    else if (local_endpoint->data.address.ss_family == AF_INET6) {
+      struct sockaddr_in6* addr = (struct sockaddr_in6*)&local_endpoint->data.address;
+      addr->sin6_port = htons(assigned_port);
+    }
+  }
+  else {
+    printf("Resolving local endpoint to 0.0.0.0:%d\n", assigned_port);
+    int rc = uv_ip4_addr("0.0.0.0", assigned_port, (struct sockaddr_in*)&local_endpoint->data.address);
+    printf("Rc is: %d\n", rc);
+  }
+  return 0;
 }
