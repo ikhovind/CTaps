@@ -29,6 +29,8 @@ int socket_manager_build(SocketManager* socket_manager, struct Listener* listene
 
 void socket_manager_multiplex_received_message(SocketManager* socket_manager, Message* message, const struct sockaddr* addr);
 
+void socket_manager_decrement_ref(SocketManager* manager);
+
 void socket_manager_free(SocketManager* manager);
 
 #endif //SOCKET_MANAGER_H

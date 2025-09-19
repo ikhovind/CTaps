@@ -211,7 +211,6 @@ int udp_listen(SocketManager* socket_manager) {
     return -1;
   }
 
-  printf("Listening via UDP\n");
   socket_manager->active_connections = g_hash_table_new(g_bytes_hash, g_bytes_equal);
   socket_manager->ref_count = 1;
   Listener* listener = socket_manager->listener;

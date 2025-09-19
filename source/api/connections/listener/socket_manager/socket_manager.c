@@ -25,18 +25,21 @@ int socket_manager_remove_connection(SocketManager* socket_manager, Connection* 
   GBytes* addr_bytes = g_bytes_new(&connection->remote_endpoint.data.address, sizeof(struct sockaddr_in));
   gboolean removed = g_hash_table_remove(socket_manager->active_connections, addr_bytes);
   if (removed) {
-    socket_manager->ref_count--;
-    printf("Connection removed successfully, new ref count: %d\n", socket_manager->ref_count);
-    if (socket_manager->ref_count == 0) {
-      socket_manager->protocol_impl.stop_listen(socket_manager);
-      free(socket_manager);
-      socket_manager = NULL;
-      return 1; // indicate that the socket manager was freed
-    }
+    printf("Connection removed successfully, new ref count: %d\n", socket_manager->ref_count - 1);
+    socket_manager_decrement_ref(socket_manager);
     return 0;
   }
   printf("Connection not found in hash table\n");
   return -1;
+}
+
+void socket_manager_decrement_ref(SocketManager* socket_manager) {
+  socket_manager->ref_count--;
+  if (socket_manager->ref_count == 0) {
+    socket_manager->protocol_impl.stop_listen(socket_manager);
+    free(socket_manager);
+    socket_manager = NULL;
+  }
 }
 
 void socket_manager_multiplex_received_message(SocketManager* socket_manager, Message* message, const struct sockaddr* addr) {
