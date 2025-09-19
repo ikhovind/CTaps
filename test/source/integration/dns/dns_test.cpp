@@ -16,8 +16,8 @@ TEST(RemoteEndpointUnitTests, CanDnsLookupHostName) {
     printf("Sending UDP packet...\n");
 
     RemoteEndpoint remote_endpoint;
-
     remote_endpoint_build(&remote_endpoint);
+
     remote_endpoint_with_hostname(&remote_endpoint, "google.com");
     remote_endpoint_with_port(&remote_endpoint, 1234);
 
@@ -53,6 +53,15 @@ TEST(RemoteEndpointUnitTests, CanDnsLookupHostName) {
 
     wait_for_callback(&cb_waiter);
 
-    printf("Connection port is: %d\n", connection.remote_endpoint.port);
+    // check address port
+    if (connection.remote_endpoint.data.resolved_address.ss_family == AF_INET) {
+        struct sockaddr_in* addr = (struct sockaddr_in*)&connection.remote_endpoint.data.resolved_address;
+        EXPECT_EQ(1234, ntohs(addr->sin_port));
+    }
+    else {
+        struct sockaddr_in6* addr = (struct sockaddr_in6*)&connection.remote_endpoint.data.resolved_address;
+
+        EXPECT_EQ(1234, ntohs(addr->sin6_port));
+    }
     EXPECT_EQ(1234, connection.remote_endpoint.port);
 }

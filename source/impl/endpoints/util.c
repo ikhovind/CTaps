@@ -1,5 +1,8 @@
 #include "util.h"
 
+#include <ctaps.h>
+#include <endpoints/remote/remote_endpoint.h>
+#include <stdlib.h>
 #include <string.h>
 #include <uv.h>
 
@@ -30,46 +33,58 @@ void get_interface_addresses(LocalEndpoint *local_endpoint, int *num_found_addre
   }
 }
 
+int perform_dns_lookup(const char* hostname, const char* service, RemoteEndpoint** out_list, size_t* out_count, uv_getaddrinfo_cb getaddrinfo_cb) {
+  printf("Performing dns lookup for hostname: %s\n", hostname);
+  uv_getaddrinfo_t request;
 
-int32_t get_service_port(LocalEndpoint* local_endpoint) {
-  struct addrinfo hints;
-  struct addrinfo *result, *rp;
-  int status;
-  char ip_str[INET6_ADDRSTRLEN];
+  int rc = uv_getaddrinfo(
+    ctaps_event_loop,
+    &request,
+    getaddrinfo_cb,
+    hostname,
+    service,
+    NULL//&hints
+  );
 
-  // Initialize hints struct
-  memset(&hints, 0, sizeof(hints));
-  hints.ai_family = AF_UNSPEC;     // Allow IPv4 or IPv6
-  hints.ai_socktype = SOCK_STREAM; // XMPP uses TCP
-
-  // --- The Lookup Invocation ---
-  // Resolve the service "xmpp-client" for the host "jabber.org"
-  status = getaddrinfo(NULL, local_endpoint->service, &hints, &result);
-  if (status != 0) {
-    fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(status));
-    return 1;
+  if (rc < 0) {
+    return rc;
   }
 
-  printf("Results for xmpp-client service at jabber.org:\n\n");
+  *out_count = 0;
+  int count = 0;
 
-  // --- Iterate through the results ---
-  for (rp = result; rp != NULL; rp = rp->ai_next) {
-    void *addr;
-    uint16_t port;
-    // get family of local_endpoint
+  for (struct addrinfo* ptr = request.addrinfo; ptr != NULL; ptr = ptr->ai_next) {
+    count++;
+  }
 
-    if (rp->ai_family == AF_INET && local_endpoint->data.address.ss_family == AF_INET) { // IPv4
-      struct sockaddr_in *ipv4 = (struct sockaddr_in *)rp->ai_addr;
-      return ntohs(ipv4->sin_port);
-    }
-    if (rp->ai_family == AF_INET6 && local_endpoint->data.address.ss_family == AF_INET6) { // IPv6
-      struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)rp->ai_addr;
-      return ntohs(ipv6->sin6_port);
-    }
+  *out_list = malloc(count * sizeof(RemoteEndpoint));
+  if (*out_list == NULL) {
     return -1;
   }
 
-  // Free the linked list
-  freeaddrinfo(result);
+  printf("Found %d addresses\n", count);
+
+  // 3. Loop through the source addrinfo list.
+  for (struct addrinfo* ptr = request.addrinfo; ptr != NULL; ptr = ptr->ai_next) {
+    // 4. Allocate a new RemoteEndpoint node.
+    RemoteEndpoint new_node;
+    remote_endpoint_build(&new_node);
+
+    new_node.type = REMOTE_ENDPOINT_TYPE_ADDRESS;
+
+    if (ptr->ai_family == AF_INET) {
+      memcpy(&new_node.data.resolved_address, ptr->ai_addr, sizeof(struct sockaddr_in));
+      new_node.port = ntohs(((struct sockaddr_in*)ptr->ai_addr)->sin_port);
+    } else if (ptr->ai_family == AF_INET6) {
+      memcpy(&new_node.data.resolved_address, ptr->ai_addr, sizeof(struct sockaddr_in6));
+      new_node.port = ntohs(((struct sockaddr_in6*)ptr->ai_addr)->sin6_port);
+    } else {
+      // Skip resolved_address families we don't handle.
+      continue;
+    }
+    (*out_list)[*out_count] = new_node;
+    (*out_count)++;
+  }
+  printf("Successfully performed lookup\n");
   return 0;
 }

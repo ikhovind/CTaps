@@ -17,6 +17,7 @@ extern "C" {
 TEST_F(CTapsGenericFixture, sendsSingleUdpPacket) {
     // --- Setup ---
     RemoteEndpoint remote_endpoint;
+    remote_endpoint_build(&remote_endpoint);
     remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
     remote_endpoint_with_port(&remote_endpoint, 5005);
 
@@ -79,6 +80,7 @@ TEST_F(CTapsGenericFixture, packetsAreReadInOrder) {
     const size_t TOTAL_EXPECTED_SIGNALS = 3; // 1 ready + 2 receives
 
     RemoteEndpoint remote_endpoint;
+    remote_endpoint_build(&remote_endpoint);
 
     remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
     remote_endpoint_with_port(&remote_endpoint, 5005);
@@ -145,6 +147,7 @@ TEST_F(CTapsGenericFixture, canPingArbitraryBytes) {
     const size_t TOTAL_EXPECTED_SIGNALS = 2;
 
     RemoteEndpoint remote_endpoint;
+    remote_endpoint_build(&remote_endpoint);
 
     remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
     remote_endpoint_with_port(&remote_endpoint, 5005);

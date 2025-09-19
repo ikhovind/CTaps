@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <uv.h>
+#include <endpoints/port_util.h>
 
 void local_endpoint_with_port(LocalEndpoint* local_endpoint, int port) {
   local_endpoint->port = port;
@@ -42,9 +43,13 @@ void local_endpoint_with_interface(LocalEndpoint* local_endpoint, char* interfac
   local_endpoint->interface_name = interface_name;
 }
 
-void local_endpoint_with_service(LocalEndpoint* local_endpoint, char* service) {
+int local_endpoint_with_service(LocalEndpoint* local_endpoint, char* service) {
   local_endpoint->service = malloc(strlen(service) + 1);
+  if (local_endpoint->service == NULL) {
+    return -1;
+  }
   strcpy(local_endpoint->service, service);
+  return 0;
 }
 
 int local_endpoint_resolve(LocalEndpoint* local_endpoint) {
@@ -54,11 +59,11 @@ int local_endpoint_resolve(LocalEndpoint* local_endpoint) {
   get_interface_addresses(local_endpoint, &num_found_addresses, found_interface_addrs);
 
   uint16_t assigned_port = 0;
-  if (local_endpoint->port != 0) {
-    assigned_port = local_endpoint->port;
+  if (local_endpoint->service != NULL) {
+    assigned_port = get_service_port_local(local_endpoint);
   }
-  else if (local_endpoint->service != NULL) {
-    assigned_port = get_service_port(local_endpoint);
+  else {
+    assigned_port = local_endpoint->port;
   }
   if (num_found_addresses > 0) {
     printf("Addigning address from interface %s\n", local_endpoint->interface_name);

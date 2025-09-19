@@ -18,13 +18,19 @@ TEST(RemoteEndpointUnitTests, SetsIpv4FamilyAndAddress) {
     remote_endpoint_with_port(&remote_endpoint, 5005);
     remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
 
-    sockaddr_in* addr = (struct sockaddr_in*)&remote_endpoint.data.address;
+    RemoteEndpoint* out_list;
+    size_t out_count = 0;
+
+    remote_endpoint_resolve(&remote_endpoint, &out_list, &out_count);
+
+    sockaddr_in* addr = (struct sockaddr_in*)&out_list[0].data.resolved_address;
 
     EXPECT_EQ(REMOTE_ENDPOINT_TYPE_ADDRESS, remote_endpoint.type);
     EXPECT_EQ(5005, ntohs(addr->sin_port));
     EXPECT_EQ(5005, remote_endpoint.port);
     EXPECT_EQ(AF_INET, addr->sin_family);
     EXPECT_EQ(inet_addr("127.0.0.1"), addr->sin_addr.s_addr);
+    free(out_list);
 }
 
 TEST(RemoteEndpointUnitTests, SetsIpv6FamilyAndAddress) {
@@ -32,18 +38,25 @@ TEST(RemoteEndpointUnitTests, SetsIpv6FamilyAndAddress) {
 
     remote_endpoint_build(&remote_endpoint);
 
-    // localhost ipv6 address:
+    // localhost ipv6 resolved_address:
     in6_addr ipv6_addr = { .__in6_u = { .__u6_addr8 = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1} } };
 
     remote_endpoint_with_port(&remote_endpoint, 5005);
     remote_endpoint_with_ipv6(&remote_endpoint, ipv6_addr);
-    sockaddr_in6* addr = (struct sockaddr_in6*)&remote_endpoint.data.address;
+
+    RemoteEndpoint* out_list;
+    size_t out_count = 0;
+
+    remote_endpoint_resolve(&remote_endpoint, &out_list, &out_count);
+
+    sockaddr_in6* addr = (struct sockaddr_in6*)&out_list[0].data.resolved_address;
 
     EXPECT_EQ(REMOTE_ENDPOINT_TYPE_ADDRESS, remote_endpoint.type);
     EXPECT_EQ(AF_INET6, addr->sin6_family);
     EXPECT_EQ(5005, ntohs(addr->sin6_port));
     EXPECT_EQ(5005, remote_endpoint.port);
     EXPECT_EQ(0, memcmp(&ipv6_addr, &addr->sin6_addr, sizeof(in6_addr)));
+    free(out_list);
 }
 
 TEST(RemoteEndpointUnitTests, TakesDeepCopyOfHostname) {
@@ -56,10 +69,23 @@ TEST(RemoteEndpointUnitTests, TakesDeepCopyOfHostname) {
 
     ASSERT_EQ(0, rc);
     EXPECT_EQ(REMOTE_ENDPOINT_TYPE_HOSTNAME, remote_endpoint.type);
-    EXPECT_STREQ(hostname, remote_endpoint.data.hostname);
+    EXPECT_STREQ(hostname, remote_endpoint.hostname);
     for (int i = 0; i < strlen(hostname); i++) {
         hostname[i] = 'a';
     }
     EXPECT_STREQ("aaaaaaaaa", hostname);
-    EXPECT_STREQ("hello.com", remote_endpoint.data.hostname);
+    EXPECT_STREQ("hello.com", remote_endpoint.hostname);
+}
+
+TEST(RemoteEndpointUnitTests, TakesDeepCopyOfService) {
+    RemoteEndpoint remote_endpoint;
+
+    char test_service[] = "test_service";
+    remote_endpoint_build(&remote_endpoint);
+    remote_endpoint_with_service(&remote_endpoint, test_service);
+
+    test_service[0] = 'T';
+
+    EXPECT_STREQ(remote_endpoint.service, "test_service");
+    EXPECT_STREQ(test_service, "Test_service");
 }
