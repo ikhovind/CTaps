@@ -151,7 +151,7 @@ int udp_send(Connection* connection, Message* message) {
 
   return uv_udp_send(
       send_req, (uv_udp_t*)connection->protocol_uv_handle, &buffer, 1,
-      (const struct sockaddr*)&connection->remote_endpoint.data.address,
+      (const struct sockaddr*)&connection->remote_endpoint.data.resolved_address,
       on_send);
 }
 

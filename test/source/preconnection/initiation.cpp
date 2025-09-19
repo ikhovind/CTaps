@@ -66,7 +66,7 @@ TEST(InitiationTests, respectsLocalEndpoint) {
     wait_for_callback(&cb_waiter);
 
     // Check that the given local port is actually the one used
-    // cast address to ipvf
+    // cast resolved_address to ipvf
     sockaddr_in* addr = (sockaddr_in*)&connection.local_endpoint.data.address;
     EXPECT_EQ(1234, htons(addr->sin_port));
     EXPECT_EQ(1234, connection.local_endpoint.port);

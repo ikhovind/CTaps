@@ -19,14 +19,20 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(fff)
 
 # ---- Tests ----
-function(add_gtest test_name test_source_files)
-    set(ctaps_source_files ${ARGN})
+function(add_gtest test_name)
+    set(options "")
+    set(oneValueArgs "")
+    set(multiValueArgs SOURCES WRAP_FUNCTIONS)
 
-    add_executable(${test_name}
-            ${test_source_files}
-            #source/util/util.c
-            ${ctaps_source_files}
-    )
+    # Parse the arguments passed to the function (ARGN).
+    cmake_parse_arguments(ARGS "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+    add_executable(${test_name} ${ARGS_SOURCES})
+
+    foreach(func_name ${ARGS_WRAP_FUNCTIONS})
+        target_link_options(${test_name} PRIVATE "-Wl,--wrap=${func_name}")
+    endforeach()
+
 
     target_link_libraries(${test_name}
             PRIVATE
@@ -58,18 +64,44 @@ set(CTAPS_SOURCES
 
 list(TRANSFORM CTAPS_SOURCES PREPEND ${CMAKE_SOURCE_DIR}/)
 
-add_gtest(mocking_test source/mocking_test.cpp ${CTAPS_SOURCES})
-add_gtest(CTaps_test source/integration/udp_ping.cpp ${CTAPS_SOURCES})
-add_gtest(initiation_test source/preconnection/initiation.cpp ${CTAPS_SOURCES} source/util/util.c)
-add_gtest(remote_endpoint_unit_test source/unit/endpoint/remote.cpp ${CTAPS_SOURCES})
-add_gtest(preconnection_unit_test source/unit/connections/preconnection.cpp ${CTAPS_SOURCES})
-add_gtest(local_endpoint_unit_test source/unit/endpoint/local.cpp ${CTAPS_SOURCES})
-add_gtest(dns_integration_test source/integration/dns/dns_test.cpp ${CTAPS_SOURCES} source/util/util.c)
-add_gtest(udp_listener_test source/integration/listener_test.cpp ${CTAPS_SOURCES})
-add_gtest(selection_property_test source/unit/transport_properties/selection_properties/selection_properties_test.cpp ${CTAPS_SOURCES})
+
+add_gtest(mocking_test SOURCES source/mocking_test.cpp ${CTAPS_SOURCES})
+add_gtest(CTaps_test SOURCES source/integration/udp_ping.cpp ${CTAPS_SOURCES})
+add_gtest(initiation_test SOURCES source/preconnection/initiation.cpp ${CTAPS_SOURCES} source/util/util.c)
+add_gtest(remote_endpoint_unit_test SOURCES source/unit/endpoint/remote.cpp ${CTAPS_SOURCES})
+add_gtest(preconnection_unit_test SOURCES source/unit/connections/preconnection.cpp ${CTAPS_SOURCES})
+add_gtest(local_endpoint_unit_test
+        SOURCES
+            source/unit/endpoint/local.cpp ${CTAPS_SOURCES}
+)
+add_gtest(dns_integration_test
+        SOURCES
+            source/integration/dns/dns_test.cpp
+            ${CTAPS_SOURCES}
+            source/util/util.c
+)
+add_gtest(remote_endpoint_integration_test
+        SOURCES
+            source/integration/endpoint/remote_endpoint_test.cpp
+            ${CMAKE_SOURCE_DIR}/source/api/endpoints/remote/remote_endpoint.c
+            ${CMAKE_SOURCE_DIR}/source/impl/endpoints/util.c
+            ${CMAKE_SOURCE_DIR}/source/impl/protocols/udp/udp.c
+            ${CMAKE_SOURCE_DIR}/source/api/ctaps.c
+            ${CMAKE_SOURCE_DIR}/source/api/transport_properties/transport_properties.c
+            ${CMAKE_SOURCE_DIR}/source/api/transport_properties/selection_properties/selection_properties.c
+            ${CMAKE_SOURCE_DIR}/source/api/connections/connection/connection.c
+            ${CMAKE_SOURCE_DIR}/source/api/protocols/registry/protocol_registry.c
+            ${CMAKE_SOURCE_DIR}/source/api/connections/listener/socket_manager/socket_manager.c
+        WRAP_FUNCTIONS
+            uv_getaddrinfo
+
+)
+#add_gtest(udp_listener_test SOURCES source/integration/listener_test.cpp ${CTAPS_SOURCES})
+add_gtest(selection_property_test SOURCES source/unit/transport_properties/selection_properties/selection_properties_test.cpp ${CTAPS_SOURCES})
 # Need to exclude the transport_properties.c since we are mocking a function in it
 add_gtest(
         transport_properties_test
+        SOURCES
         source/unit/transport_properties/transport_properties_test.cpp
         ${CMAKE_SOURCE_DIR}/source/api/transport_properties/transport_properties.c
         ${CMAKE_SOURCE_DIR}/source/api/transport_properties/selection_properties/selection_properties.c

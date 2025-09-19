@@ -22,7 +22,7 @@ int socket_manager_build(SocketManager* socket_manager, Listener* listener) {
 
 int socket_manager_remove_connection(SocketManager* socket_manager, Connection* connection) {
   printf("Removing connection from socket manager\n");
-  GBytes* addr_bytes = g_bytes_new(&connection->remote_endpoint.data.address, sizeof(struct sockaddr_in));
+  GBytes* addr_bytes = g_bytes_new(&connection->remote_endpoint.data.resolved_address, sizeof(struct sockaddr_in));
   gboolean removed = g_hash_table_remove(socket_manager->active_connections, addr_bytes);
   if (removed) {
     printf("Connection removed successfully, new ref count: %d\n", socket_manager->ref_count - 1);
@@ -47,7 +47,7 @@ void socket_manager_multiplex_received_message(SocketManager* socket_manager, Me
 
   Listener* listener = socket_manager->listener;
 
-  // get source address
+  // get source resolved_address
   printf("Bytes pointer is: %p\n", addr);
   GBytes* addr_bytes = g_bytes_new(addr, sizeof(struct sockaddr_in));
   Connection* connection = g_hash_table_lookup(socket_manager->active_connections, addr_bytes);

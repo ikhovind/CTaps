@@ -210,7 +210,7 @@ TEST_F(CTapsGenericFixture, ClosingListenerWithNoConnectionsClosesSocketManager)
     local_endpoint_build(&listener_endpoint);
 
     local_endpoint_with_interface(&listener_endpoint, "lo");
-    local_endpoint_with_port(&listener_endpoint, 6234);
+    local_endpoint_with_port(&listener_endpoint, 6235);
 
     RemoteEndpoint remote_endpoint;
     remote_endpoint_build(&remote_endpoint);

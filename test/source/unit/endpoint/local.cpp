@@ -33,7 +33,7 @@ TEST(LocalEndpointUnitTests, SetsIpv6FamilyAndAddress) {
 
     local_endpoint_build(&local_endpoint);
 
-    // localhost ipv6 address:
+    // localhost ipv6 resolved_address:
     in6_addr ipv6_addr = { .__in6_u = { .__u6_addr8 = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1} } };
 
     local_endpoint_with_port(&local_endpoint, 5005);
@@ -102,6 +102,7 @@ TEST_F(CTapsGenericFixture, UsesInterfaceAddress_whenInterfaceIsSpecified) {
 
     RemoteEndpoint remote_endpoint;
     remote_endpoint_build(&remote_endpoint);
+    remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
 
     TransportProperties transport_properties;
     transport_properties_build(&transport_properties);
@@ -133,7 +134,7 @@ TEST_F(CTapsGenericFixture, UsesInterfaceAddress_whenInterfaceIsSpecified) {
     ASSERT_EQ(uv_udp_bind_fake.call_count, 1);
     ASSERT_EQ(uv_free_interface_addresses_fake.call_count, 1);
 
-    // 2. This is the key assertion: Inspect the address passed to uv_udp_bind
+    // 2. This is the key assertion: Inspect the resolved_address passed to uv_udp_bind
     const struct sockaddr* bound_addr = uv_udp_bind_fake.arg1_val;
     ASSERT_NE(bound_addr, nullptr);
     ASSERT_EQ(bound_addr->sa_family, AF_INET);
@@ -141,7 +142,7 @@ TEST_F(CTapsGenericFixture, UsesInterfaceAddress_whenInterfaceIsSpecified) {
     // Cast to sockaddr_in to check the IP and port
     const struct sockaddr_in* bound_addr_in = (const struct sockaddr_in*)bound_addr;
 
-    // Verify the IP address matches the one we set for "test_if0" in our fake data
+    // Verify the IP resolved_address matches the one we set for "test_if0" in our fake data
     EXPECT_STREQ(inet_ntoa(bound_addr_in->sin_addr), "192.168.1.100");
 
     // Verify the port was set correctly
