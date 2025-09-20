@@ -86,3 +86,64 @@ TEST(RemoteEndpointUnitTests, TakesDeepCopyOfService) {
     EXPECT_STREQ(remote_endpoint.service, "test_service");
     EXPECT_STREQ(test_service, "Test_service");
 }
+
+TEST(RemoteEndpointUnitTests, FailsWhenSpecifyingHostnameAfterIpv4) {
+    int rc;
+    RemoteEndpoint remote_endpoint;
+    remote_endpoint_build(&remote_endpoint);
+
+    rc = remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
+    ASSERT_EQ(rc, 0);
+    rc = remote_endpoint_with_hostname(&remote_endpoint, "hello.com");
+    ASSERT_EQ(rc, -1);
+    EXPECT_STREQ(remote_endpoint.hostname, NULL);
+    sockaddr_in* addr = (struct sockaddr_in*)&remote_endpoint.data.resolved_address;
+    EXPECT_EQ(addr->sin_addr.s_addr, inet_addr("127.0.0.1"));
+}
+
+TEST(RemoteEndpointUnitTests, FailsWhenSpecifyingIpv4AfterHostname) {
+    int rc;
+    RemoteEndpoint remote_endpoint;
+    remote_endpoint_build(&remote_endpoint);
+
+    rc = remote_endpoint_with_hostname(&remote_endpoint, "hello.com");
+    ASSERT_EQ(rc, 0);
+    rc = remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
+    ASSERT_EQ(rc, -1);
+    EXPECT_STREQ(remote_endpoint.hostname, "hello.com");
+    EXPECT_EQ(remote_endpoint.data.resolved_address.ss_family, AF_UNSPEC);
+}
+
+TEST(RemoteEndpointUnitTests, FailsWhenSpecifyingHostnameAfterIpv6) {
+    int rc;
+    RemoteEndpoint remote_endpoint;
+
+    remote_endpoint_build(&remote_endpoint);
+
+    in6_addr ipv6_addr = { .__in6_u = { .__u6_addr8 = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1} } };
+
+    rc = remote_endpoint_with_ipv6(&remote_endpoint, ipv6_addr);
+    ASSERT_EQ(rc, 0);
+    rc = remote_endpoint_with_hostname(&remote_endpoint, "hello.com");
+    ASSERT_EQ(rc, -1);
+    EXPECT_STREQ(remote_endpoint.hostname, NULL);
+    sockaddr_in6* addr = (struct sockaddr_in6*)&remote_endpoint.data.resolved_address;
+    EXPECT_EQ(0, memcmp(&ipv6_addr, &addr->sin6_addr, sizeof(in6_addr)));
+}
+
+TEST(RemoteEndpointUnitTests, FailsWhenSpecifyingIpv6AfterHostname) {
+    int rc;
+    RemoteEndpoint remote_endpoint;
+
+    remote_endpoint_build(&remote_endpoint);
+
+    in6_addr ipv6_addr = { .__in6_u = { .__u6_addr8 = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1} } };
+
+    rc = remote_endpoint_with_hostname(&remote_endpoint, "hello.com");
+
+    ASSERT_EQ(rc, 0);
+    rc = remote_endpoint_with_ipv6(&remote_endpoint, ipv6_addr);
+    ASSERT_EQ(rc, -1);
+    EXPECT_STREQ(remote_endpoint.hostname, "hello.com");
+    EXPECT_EQ(remote_endpoint.data.resolved_address.ss_family, AF_UNSPEC);
+}

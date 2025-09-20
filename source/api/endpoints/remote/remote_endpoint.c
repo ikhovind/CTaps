@@ -14,23 +14,30 @@ void remote_endpoint_build(RemoteEndpoint* remote_endpoint) {
 int remote_endpoint_with_ipv4(RemoteEndpoint* remote_endpoint, in_addr_t ipv4_addr) {
   if (remote_endpoint->hostname != NULL) {
     log_error("Cannot specify both hostname and IP address on single remote endpoint");
+    return -1;
   }
   struct sockaddr_in* addr = (struct sockaddr_in*)&remote_endpoint->data.resolved_address;
   addr->sin_family = AF_INET;
   addr->sin_addr.s_addr = ipv4_addr;
+  return 0;
 }
 
 int remote_endpoint_with_ipv6(RemoteEndpoint* remote_endpoint, struct in6_addr ipv6_addr) {
   if (remote_endpoint->hostname != NULL) {
     log_error("Cannot specify both hostname and IP address on single remote endpoint");
+    return -1;
   }
   struct sockaddr_in6* addr = (struct sockaddr_in6*)&remote_endpoint->data.resolved_address;
   addr->sin6_family = AF_INET6;
   addr->sin6_addr = ipv6_addr;
+  return 0;
 }
 
 int remote_endpoint_from_sockaddr(RemoteEndpoint* remote_endpoint, const struct sockaddr_storage* addr) {
-  memset(remote_endpoint, 0, sizeof(RemoteEndpoint));
+  if (remote_endpoint->hostname != NULL) {
+    log_error("Cannot specify both hostname and IP address on single remote endpoint");
+    return -1;
+  }
   if (addr->ss_family == AF_INET) {
     struct sockaddr_in* in_addr = (struct sockaddr_in*)addr;
     remote_endpoint->port = ntohs(in_addr->sin_port);
@@ -42,16 +49,20 @@ int remote_endpoint_from_sockaddr(RemoteEndpoint* remote_endpoint, const struct 
     remote_endpoint->data.resolved_address = *((struct sockaddr_storage*)addr);
   }
   else {
-    printf("Unsupported resolved_address family: %d\n", addr->ss_family);
+    log_error("Unsupported resolved_address family: %d\n", addr->ss_family);
+    return -1;
   }
+  return 0;
 }
 
 int remote_endpoint_with_hostname(RemoteEndpoint* remote_endpoint, const char* hostname) {
   if (remote_endpoint->data.resolved_address.ss_family != AF_UNSPEC) {
     log_error("Cannot specify both hostname and IP address on single remote endpoint");
+    return -1;
   }
   remote_endpoint->hostname = (char*) malloc(strlen(hostname) + 1);
   if (remote_endpoint->hostname == NULL) {
+    log_error("Could not allocate memory for hostname\n");
     return -1;
   }
   printf("About to memcpy\n");
@@ -62,6 +73,7 @@ int remote_endpoint_with_hostname(RemoteEndpoint* remote_endpoint, const char* h
 int remote_endpoint_with_service(RemoteEndpoint* remote_endpoint, const char* service) {
   remote_endpoint->service = malloc(strlen(service) + 1);
   if (remote_endpoint->service == NULL) {
+    log_error("Could not allocate memory for service\n");
     return -1;
   }
   strcpy(remote_endpoint->service, service);
