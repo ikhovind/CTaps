@@ -1,6 +1,8 @@
 #include "preconnection.h"
 
 #include <ctaps.h>
+#include <logging/log.h>
+
 #include "endpoints/remote/remote_endpoint.h"
 #include <protocols/registry/protocol_registry.h>
 
@@ -80,7 +82,16 @@ int preconnection_listen(Preconnection* preconnection, Listener* listener, Conne
     printf("Found at least one protocol when listening\n");
   }
   socket_manager->protocol_impl = *candidate_stacks[0];
-  local_endpoint_resolve(&listener->local_endpoint);
+  LocalEndpoint* local_endpoint_list = NULL;
+  size_t num_found_local = 0;
+  local_endpoint_resolve(&listener->local_endpoint, &local_endpoint_list, &num_found_local);
+  if (num_found_local == 0) {
+    log_error("No local endpoints found when listening\n");
+    free(socket_manager);
+    return -1;
+  }
+    listener->local_endpoint = local_endpoint_list[0];
+
 
   return socket_manager_build(socket_manager, listener);
 }
@@ -111,7 +122,21 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
 
     connection->open_type = CONNECTION_OPEN_TYPE_ACTIVE;
     connection->local_endpoint = preconnection->local;
-    local_endpoint_resolve(&connection->local_endpoint);
+
+
+    if (num_found_protocols > 0) {
+      printf("Found at least one protocol when listening\n");
+    }
+    LocalEndpoint* local_endpoint_list = NULL;
+    size_t num_found_local = 0;
+    local_endpoint_resolve(&connection->local_endpoint, &local_endpoint_list, &num_found_local);
+
+    if (num_found_local == 0) {
+      log_error("No local endpoints found when initiating connection\n");
+      return -1;
+    }
+
+    connection->local_endpoint = local_endpoint_list[0];
 
     connection->protocol.init(connection, init_done_cb);
     return 0;

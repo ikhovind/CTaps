@@ -6,9 +6,9 @@
 #include <string.h>
 #include <uv.h>
 
-void get_interface_addresses(LocalEndpoint *local_endpoint, int *num_found_addresses, struct sockaddr_storage *output_interface_addrs) {
+void get_interface_addresses(const char *interface_name, int *num_found_addresses, struct sockaddr_storage *output_interface_addrs) {
   *num_found_addresses = 0;
-  if (local_endpoint->interface_name != NULL) {
+  if (interface_name != NULL) {
     uv_interface_address_t* interfaces;
     int count;
     int rc = uv_interface_addresses(&interfaces, &count);
@@ -17,7 +17,7 @@ void get_interface_addresses(LocalEndpoint *local_endpoint, int *num_found_addre
     }
 
     for (int i = 0; i < count; i++) {
-      if (strcmp(interfaces[i].name, local_endpoint->interface_name) == 0) {
+      if (strcmp("any", interface_name) == 0 || strcmp(interfaces[i].name, interface_name) == 0) {
         if (interfaces[i].address.address4.sin_family == AF_INET) {
           memcpy(&output_interface_addrs[(*num_found_addresses)++], &interfaces[i].address, sizeof(struct sockaddr_in));
         }

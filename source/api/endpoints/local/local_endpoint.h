@@ -20,8 +20,8 @@ typedef struct {
 
 void local_endpoint_build(LocalEndpoint* local_endpoint);
 void local_endpoint_with_port(LocalEndpoint* local_endpoint, int port);
-void local_endpoint_with_interface(LocalEndpoint* local_endpoint, char* interface_name);
+int local_endpoint_with_interface(LocalEndpoint* local_endpoint, char* interface_name);
 int local_endpoint_with_service(LocalEndpoint* local_endpoint, char* service);
-int local_endpoint_resolve(LocalEndpoint* local_endpoint);
+int local_endpoint_resolve(const LocalEndpoint* local_endpoint, LocalEndpoint** out_list, size_t* out_count);
 
 #endif  // LOCAL_ENDPOINT_H

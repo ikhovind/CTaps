@@ -66,7 +66,7 @@ list(TRANSFORM CTAPS_SOURCES PREPEND ${CMAKE_SOURCE_DIR}/)
 
 
 add_gtest(mocking_test SOURCES source/mocking_test.cpp ${CTAPS_SOURCES})
-add_gtest(CTaps_test SOURCES source/integration/udp_ping.cpp ${CTAPS_SOURCES})
+add_gtest(udp_ping_test SOURCES source/integration/udp_ping.cpp ${CTAPS_SOURCES})
 add_gtest(initiation_test SOURCES source/preconnection/initiation.cpp ${CTAPS_SOURCES} source/util/util.c)
 add_gtest(remote_endpoint_unit_test SOURCES source/unit/endpoint/remote.cpp ${CTAPS_SOURCES})
 add_gtest(preconnection_unit_test SOURCES source/unit/connections/preconnection.cpp ${CTAPS_SOURCES})
@@ -94,7 +94,6 @@ add_gtest(remote_endpoint_integration_test
             ${CMAKE_SOURCE_DIR}/source/api/connections/listener/socket_manager/socket_manager.c
         WRAP_FUNCTIONS
             uv_getaddrinfo
-
 )
 #add_gtest(udp_listener_test SOURCES source/integration/listener_test.cpp ${CTAPS_SOURCES})
 add_gtest(selection_property_test SOURCES source/unit/transport_properties/selection_properties/selection_properties_test.cpp ${CTAPS_SOURCES})
@@ -105,4 +104,11 @@ add_gtest(
         source/unit/transport_properties/transport_properties_test.cpp
         ${CMAKE_SOURCE_DIR}/source/api/transport_properties/transport_properties.c
         ${CMAKE_SOURCE_DIR}/source/api/transport_properties/selection_properties/selection_properties.c
+)
+
+add_gtest(local_endpoint_resolve_test
+        SOURCES
+            source/unit/endpoint/local/local_endpoint_resolve_test.cpp
+            ${CMAKE_SOURCE_DIR}/source/api/endpoints/local/local_endpoint.c
+            ${CMAKE_SOURCE_DIR}/source/impl/logging/log.c
 )

@@ -8,6 +8,7 @@
 #include <string.h>
 #include <uv.h>
 #include <endpoints/port_util.h>
+#include <logging/log.h>
 
 void local_endpoint_with_port(LocalEndpoint* local_endpoint, int port) {
   local_endpoint->port = port;
@@ -25,22 +26,13 @@ void local_endpoint_build(LocalEndpoint* local_endpoint) {
   memset(local_endpoint, 0, sizeof(LocalEndpoint));
 }
 
-void local_endpoint_with_ipv4(LocalEndpoint* local_endpoint, in_addr_t ipv4_addr) {
-  struct sockaddr_in* addr = (struct sockaddr_in*)&local_endpoint->data.address;
-  addr->sin_family = AF_INET;
-  addr->sin_addr.s_addr = ipv4_addr;
-  addr->sin_port = htons(local_endpoint->port);
-}
-
-void local_endpoint_with_ipv6(LocalEndpoint* local_endpoint, struct in6_addr ipv6_addr) {
-  struct sockaddr_in6* addr = (struct sockaddr_in6*)&local_endpoint->data.address;
-  addr->sin6_family = AF_INET6;
-  addr->sin6_addr = ipv6_addr;
-  addr->sin6_port = htons(local_endpoint->port);
-}
-
-void local_endpoint_with_interface(LocalEndpoint* local_endpoint, char* interface_name) {
+int local_endpoint_with_interface(LocalEndpoint* local_endpoint, char* interface_name) {
   local_endpoint->interface_name = interface_name;
+  local_endpoint->interface_name = malloc(strlen(interface_name) + 1);
+  if (local_endpoint->interface_name == NULL) {
+    return -1;
+  }
+  strcpy(local_endpoint->interface_name, interface_name);
 }
 
 int local_endpoint_with_service(LocalEndpoint* local_endpoint, char* service) {
@@ -52,37 +44,52 @@ int local_endpoint_with_service(LocalEndpoint* local_endpoint, char* service) {
   return 0;
 }
 
-int local_endpoint_resolve(LocalEndpoint* local_endpoint) {
-  printf("Resolving local endpoint\n");
+int local_endpoint_resolve(const LocalEndpoint* local_endpoint, LocalEndpoint** out_list, size_t* out_count) {
+  log_info("Resolving local endpoint");
   int num_found_addresses = 0;
+  *out_count = 0;
   struct sockaddr_storage found_interface_addrs[MAX_FOUND_INTERFACE_ADDRS];
-  get_interface_addresses(local_endpoint, &num_found_addresses, found_interface_addrs);
+  if (local_endpoint->interface_name == NULL) {
+    log_debug("Interface name was NULL, getting addresses for 'any' interface");
+    get_interface_addresses("any", &num_found_addresses, found_interface_addrs);
+  }
+  else {
+    log_debug("Interface name was not NULL, getting addresses for '%s' interface", local_endpoint->interface_name);
+    get_interface_addresses(local_endpoint->interface_name, &num_found_addresses, found_interface_addrs);
+  }
+  log_trace("Found %d addresses for interface %s", num_found_addresses, local_endpoint->interface_name ? local_endpoint->interface_name : "any");
 
   uint16_t assigned_port = 0;
   if (local_endpoint->service != NULL) {
+    log_trace("Service was not NULL, resolving service to port");
     assigned_port = get_service_port_local(local_endpoint);
+    log_trace("Resolved service to port: %d", assigned_port);
   }
   else {
+    log_trace("Service was NULL, using port: %d", local_endpoint->port);
     assigned_port = local_endpoint->port;
   }
   if (num_found_addresses > 0) {
-    printf("Addigning address from interface %s\n", local_endpoint->interface_name);
-    printf("Assining interface family %d\n", found_interface_addrs[0].ss_family);
-    printf("AF_INET is %d\n", AF_INET);
-    local_endpoint->data.address = found_interface_addrs[0];
-    if (local_endpoint->data.address.ss_family == AF_INET) {
-      struct sockaddr_in* addr = (struct sockaddr_in*)&local_endpoint->data.address;
-      addr->sin_port = htons(assigned_port);
+    log_debug("Found %d interface addresses", num_found_addresses);
+    *out_list = malloc(sizeof(LocalEndpoint) * num_found_addresses);
+    *out_count = num_found_addresses;
+
+    for (int i = 0; i < num_found_addresses; i++) {
+      struct sockaddr_storage* sockaddr_storage = &found_interface_addrs[i];
+      local_endpoint_build(&(*out_list)[i]);
+      (*out_list)[i].port = assigned_port;
+      (*out_list)[i].interface_name = local_endpoint->interface_name ? strdup(local_endpoint->interface_name) : NULL;
+      (*out_list)[i].service = local_endpoint->service ? strdup(local_endpoint->service) : NULL;
+      (*out_list)[i].data.address = *sockaddr_storage;
+      if (sockaddr_storage->ss_family == AF_INET) {
+        struct sockaddr_in* addr = (struct sockaddr_in*)&(*out_list)[i].data.address;
+        addr->sin_port = htons(assigned_port);
+      }
+      if (sockaddr_storage->ss_family == AF_INET6) {
+        struct sockaddr_in6* addr = (struct sockaddr_in6*)&(*out_list)[i].data.address;
+        addr->sin6_port = htons(assigned_port);
+      }
     }
-    else if (local_endpoint->data.address.ss_family == AF_INET6) {
-      struct sockaddr_in6* addr = (struct sockaddr_in6*)&local_endpoint->data.address;
-      addr->sin6_port = htons(assigned_port);
-    }
-  }
-  else {
-    printf("Resolving local endpoint to 0.0.0.0:%d\n", assigned_port);
-    int rc = uv_ip4_addr("0.0.0.0", assigned_port, (struct sockaddr_in*)&local_endpoint->data.address);
-    printf("Rc is: %d\n", rc);
   }
   return 0;
 }

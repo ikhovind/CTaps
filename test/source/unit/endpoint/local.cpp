@@ -161,3 +161,17 @@ TEST(LocalEndpointUnitTests, TakesDeepCopyOfService) {
     EXPECT_STREQ(local_endpoint.service, "test_service");
     EXPECT_STREQ(test_service, "Test_service");
 }
+
+TEST(LocalEndpointUnitTests, TakesDeepCopyOfInterface) {
+    LocalEndpoint local_endpoint;
+
+    char test_interface[] = "test_interface";
+    local_endpoint_build(&local_endpoint);
+    local_endpoint_with_interface(&local_endpoint, test_interface);
+
+    test_interface[0] = 'T';
+
+    EXPECT_STREQ(local_endpoint.interface_name, "test_interface");
+    EXPECT_STREQ(test_interface, "Test_interface");
+    free(local_endpoint.interface_name);
+}

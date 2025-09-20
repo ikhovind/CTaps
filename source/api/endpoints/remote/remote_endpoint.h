@@ -1,7 +1,3 @@
-//
-// Created by ikhovind on 16.08.25.
-//
-
 #ifndef REMOTE_ENDPOINT_H
 #define REMOTE_ENDPOINT_H
 #include <sys/socket.h>

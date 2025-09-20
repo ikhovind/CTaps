@@ -31,6 +31,7 @@ set(IMPL_SOURCES
     source/api/connections/listener/socket_manager/socket_manager.c
     source/impl/endpoints/util.c
     source/impl/endpoints/port_util.c
+    source/impl/logging/log.c
 )
 
 add_library(
