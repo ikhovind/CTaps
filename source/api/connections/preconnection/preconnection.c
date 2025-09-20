@@ -16,15 +16,10 @@ int copy_remote_endpoints(Preconnection* preconnection,
   preconnection->num_remote_endpoints = num_remote_endpoints;
   preconnection->remote_endpoints = malloc(num_remote_endpoints * sizeof(RemoteEndpoint));
   for (int i = 0; i < num_remote_endpoints; i++) {
-    if (remote_endpoints[i].type == REMOTE_ENDPOINT_TYPE_UNSPECIFIED) {
-      printf("Remote endpoint is not specified\n");
-      return -1;
-    }
     memcpy(&preconnection->remote_endpoints[i], &remote_endpoints[i], sizeof(RemoteEndpoint));
-    if (remote_endpoints[i].type == REMOTE_ENDPOINT_TYPE_HOSTNAME) {
+    if (remote_endpoints[i].hostname != NULL) {
       // We have copied the pointer, but want a deep copy of the string, so just overwrite the pointer
-      preconnection->remote_endpoints[i].hostname = malloc(strlen(remote_endpoints[i].hostname) + 1);
-      strcpy(preconnection->remote_endpoints[i].hostname, remote_endpoints[i].hostname);
+      preconnection->remote_endpoints[i].hostname = strdup(remote_endpoints[i].hostname);
     }
   }
   return 0;

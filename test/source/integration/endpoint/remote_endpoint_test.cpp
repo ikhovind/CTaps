@@ -1,6 +1,5 @@
 #include <netdb.h>
 #include <arpa/inet.h>
-
 #include <gtest/gtest.h>
 
 
@@ -20,7 +19,6 @@ extern "C" int __wrap_uv_getaddrinfo(uv_loop_t* loop, uv_getaddrinfo_t* req,
                                      uv_getaddrinfo_cb cb, const char* hostname,
                                      const char* service, const struct addrinfo* hints) {
   // Call the fff fake, which allows us to track calls and set return values.
-  printf("wrapper of getaddrinfo called\n");
   return faked_uv_getaddrinfo(loop, req, cb, hostname, service, hints);
 }
 
@@ -98,7 +96,6 @@ TEST_F(RemoteEndpointResolveTest, ResolvesHostnameAndAppliesServicePort) {
 
   // 3. Check the first resolved endpoint (IPv4)
   RemoteEndpoint ipv4_endpoint = resolved_list[0];
-  EXPECT_EQ(ipv4_endpoint.type, REMOTE_ENDPOINT_TYPE_ADDRESS);
   struct sockaddr_in* ipv4_addr = (struct sockaddr_in*)&ipv4_endpoint.data.resolved_address;
   EXPECT_EQ(ipv4_addr->sin_family, AF_INET);
   // Verify the port was correctly set from our fake service lookup
@@ -106,7 +103,6 @@ TEST_F(RemoteEndpointResolveTest, ResolvesHostnameAndAppliesServicePort) {
 
   // 4. Check the second resolved endpoint (IPv6)
   RemoteEndpoint ipv6_endpoint = resolved_list[1];
-  EXPECT_EQ(ipv6_endpoint.type, REMOTE_ENDPOINT_TYPE_ADDRESS);
   struct sockaddr_in6* ipv6_addr = (struct sockaddr_in6*)&ipv6_endpoint.data.resolved_address;
   EXPECT_EQ(ipv6_addr->sin6_family, AF_INET6);
   // Verify the port was also set here

@@ -5,8 +5,7 @@
 // Group C headers and fakes that need C linkage together
 extern "C" {
   #include "endpoints/local/local_endpoint.h"
-#include <logging/log.h>
-  // --- FFF Setup with C Linkage ---
+  #include <logging/log.h>
   #include "fff.h"
   DEFINE_FFF_GLOBALS;
   FAKE_VOID_FUNC(get_interface_addresses, const char*, int*, struct sockaddr_storage*);

@@ -25,7 +25,6 @@ TEST(RemoteEndpointUnitTests, SetsIpv4FamilyAndAddress) {
 
     sockaddr_in* addr = (struct sockaddr_in*)&out_list[0].data.resolved_address;
 
-    EXPECT_EQ(REMOTE_ENDPOINT_TYPE_ADDRESS, remote_endpoint.type);
     EXPECT_EQ(5005, ntohs(addr->sin_port));
     EXPECT_EQ(5005, remote_endpoint.port);
     EXPECT_EQ(AF_INET, addr->sin_family);
@@ -51,7 +50,6 @@ TEST(RemoteEndpointUnitTests, SetsIpv6FamilyAndAddress) {
 
     sockaddr_in6* addr = (struct sockaddr_in6*)&out_list[0].data.resolved_address;
 
-    EXPECT_EQ(REMOTE_ENDPOINT_TYPE_ADDRESS, remote_endpoint.type);
     EXPECT_EQ(AF_INET6, addr->sin6_family);
     EXPECT_EQ(5005, ntohs(addr->sin6_port));
     EXPECT_EQ(5005, remote_endpoint.port);
@@ -68,7 +66,6 @@ TEST(RemoteEndpointUnitTests, TakesDeepCopyOfHostname) {
     int rc = remote_endpoint_with_hostname(&remote_endpoint, hostname);
 
     ASSERT_EQ(0, rc);
-    EXPECT_EQ(REMOTE_ENDPOINT_TYPE_HOSTNAME, remote_endpoint.type);
     EXPECT_STREQ(hostname, remote_endpoint.hostname);
     for (int i = 0; i < strlen(hostname); i++) {
         hostname[i] = 'a';

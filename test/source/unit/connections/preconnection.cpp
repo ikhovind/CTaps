@@ -12,6 +12,7 @@ extern "C" {
 
 TEST(PreconnectionUnitTests, SetsPreconnectionAsExpected) {
     RemoteEndpoint remote_endpoint;
+    remote_endpoint_build(&remote_endpoint);
 
     remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
     remote_endpoint_with_port(&remote_endpoint, 5005);
@@ -36,6 +37,7 @@ TEST(PreconnectionUnitTests, SetsPreconnectionAsExpected) {
 
 TEST(PreconnectionUnitTests, TakesDeepCopyOfRemoteEndpoint) {
     RemoteEndpoint remote_endpoint;
+    remote_endpoint_build(&remote_endpoint);
 
     remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
     remote_endpoint_with_port(&remote_endpoint, 5005);
@@ -58,6 +60,7 @@ TEST(PreconnectionUnitTests, TakesDeepCopyOfRemoteEndpoint) {
 
 TEST(PreconnectionUnitTests, TakesDeepCopyOfRemoteEndpointWhenBuildingWithLocal) {
     RemoteEndpoint remote_endpoint;
+    remote_endpoint_build(&remote_endpoint);
 
     remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
     remote_endpoint_with_port(&remote_endpoint, 5005);

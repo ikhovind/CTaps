@@ -70,8 +70,6 @@ int perform_dns_lookup(const char* hostname, const char* service, RemoteEndpoint
     RemoteEndpoint new_node;
     remote_endpoint_build(&new_node);
 
-    new_node.type = REMOTE_ENDPOINT_TYPE_ADDRESS;
-
     if (ptr->ai_family == AF_INET) {
       memcpy(&new_node.data.resolved_address, ptr->ai_addr, sizeof(struct sockaddr_in));
       new_node.port = ntohs(((struct sockaddr_in*)ptr->ai_addr)->sin_port);

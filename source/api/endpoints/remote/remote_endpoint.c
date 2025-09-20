@@ -5,49 +5,51 @@
 #include <string.h>
 #include <uv.h>
 #include <endpoints/util.h>
+#include <logging/log.h>
 
 void remote_endpoint_build(RemoteEndpoint* remote_endpoint) {
   memset(remote_endpoint, 0, sizeof(RemoteEndpoint));
 }
 
-void remote_endpoint_with_ipv4(RemoteEndpoint* remote_endpoint, in_addr_t ipv4_addr) {
-  remote_endpoint->type = REMOTE_ENDPOINT_TYPE_ADDRESS;
-
+int remote_endpoint_with_ipv4(RemoteEndpoint* remote_endpoint, in_addr_t ipv4_addr) {
+  if (remote_endpoint->hostname != NULL) {
+    log_error("Cannot specify both hostname and IP address on single remote endpoint");
+  }
   struct sockaddr_in* addr = (struct sockaddr_in*)&remote_endpoint->data.resolved_address;
   addr->sin_family = AF_INET;
   addr->sin_addr.s_addr = ipv4_addr;
 }
 
-void remote_endpoint_with_ipv6(RemoteEndpoint* remote_endpoint, struct in6_addr ipv6_addr) {
-  remote_endpoint->type = REMOTE_ENDPOINT_TYPE_ADDRESS;
-
+int remote_endpoint_with_ipv6(RemoteEndpoint* remote_endpoint, struct in6_addr ipv6_addr) {
+  if (remote_endpoint->hostname != NULL) {
+    log_error("Cannot specify both hostname and IP address on single remote endpoint");
+  }
   struct sockaddr_in6* addr = (struct sockaddr_in6*)&remote_endpoint->data.resolved_address;
   addr->sin6_family = AF_INET6;
   addr->sin6_addr = ipv6_addr;
 }
 
-void remote_endpoint_from_sockaddr(RemoteEndpoint* remote_endpoint, const struct sockaddr* addr) {
+int remote_endpoint_from_sockaddr(RemoteEndpoint* remote_endpoint, const struct sockaddr_storage* addr) {
   memset(remote_endpoint, 0, sizeof(RemoteEndpoint));
-  if (addr->sa_family == AF_INET) {
+  if (addr->ss_family == AF_INET) {
     struct sockaddr_in* in_addr = (struct sockaddr_in*)addr;
-    remote_endpoint->type = REMOTE_ENDPOINT_TYPE_ADDRESS;
     remote_endpoint->port = ntohs(in_addr->sin_port);
     remote_endpoint->data.resolved_address = *((struct sockaddr_storage*)addr);
   }
-  else if (addr->sa_family == AF_INET6) {
+  else if (addr->ss_family == AF_INET6) {
     struct sockaddr_in6* in6_addr = (struct sockaddr_in6*)addr;
-    remote_endpoint->type = REMOTE_ENDPOINT_TYPE_ADDRESS;
     remote_endpoint->port = ntohs(in6_addr->sin6_port);
     remote_endpoint->data.resolved_address = *((struct sockaddr_storage*)addr);
   }
   else {
-    printf("Unsupported resolved_address family: %d\n", addr->sa_family);
+    printf("Unsupported resolved_address family: %d\n", addr->ss_family);
   }
 }
 
 int remote_endpoint_with_hostname(RemoteEndpoint* remote_endpoint, const char* hostname) {
-  remote_endpoint->type = REMOTE_ENDPOINT_TYPE_HOSTNAME;
-
+  if (remote_endpoint->data.resolved_address.ss_family != AF_UNSPEC) {
+    log_error("Cannot specify both hostname and IP address on single remote endpoint");
+  }
   remote_endpoint->hostname = (char*) malloc(strlen(hostname) + 1);
   if (remote_endpoint->hostname == NULL) {
     return -1;
@@ -91,31 +93,25 @@ int remote_endpoint_resolve(RemoteEndpoint* remote_endpoint, RemoteEndpoint** ou
   }
   printf("Assigned port is : %d\n", assigned_port);
 
-  if (remote_endpoint->type == REMOTE_ENDPOINT_TYPE_HOSTNAME) {
-    printf("Endpoint was a hostname, performing DNS lookup\n");
+  if (remote_endpoint->hostname != NULL) {
+    log_debug("Endpoint was a hostname, performing DNS lookup\n");
     perform_dns_lookup(remote_endpoint->hostname, NULL, out_list, out_count, NULL);
     for (int i = 0; i < *out_count; i++) {
       (*out_list)[i].port = assigned_port;
       // set port in resolved_address
       if ((*out_list)[i].data.resolved_address.ss_family == AF_INET) {
-        printf("Out[%d] is ipv4\n", i);
         struct sockaddr_in* addr = (struct sockaddr_in*)&(*out_list)[i].data.resolved_address;
         addr->sin_port = htons(assigned_port);
-        printf("add port is: %d\n", assigned_port);
-        printf("(struct sockaddr_in*)&(*out_list)[i].data.resolved_address: %d\n", ntohs(((struct sockaddr_in*)&(*out_list)[i].data.resolved_address)->sin_port));
       }
       else if ((*out_list)[i].data.resolved_address.ss_family == AF_INET6) {
-        printf("Out[%d] is ipv6\n", i);
         struct sockaddr_in6* addr = (struct sockaddr_in6*)&(*out_list)[i].data.resolved_address;
-        printf("Got addr\n");
         addr->sin6_port = htons(assigned_port);
-        printf("Set port to: %d\n", assigned_port);
       }
     }
-    printf("Successfully performed DNS lookup, found %zu addresses\n", *out_count);
+    log_debug("Successfully performed DNS lookup, found %zu addresses\n", *out_count);
   }
-  else if (remote_endpoint->type == REMOTE_ENDPOINT_TYPE_ADDRESS) {
-    printf("Endpoint was an address\n");
+  else if (remote_endpoint->data.resolved_address.ss_family != AF_UNSPEC) {
+    log_debug("Endpoint was an IP address");
     *out_count = 1;
     *out_list = malloc(sizeof(RemoteEndpoint));
     remote_endpoint_build(&(*out_list)[0]);

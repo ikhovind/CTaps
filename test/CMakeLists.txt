@@ -84,6 +84,7 @@ add_gtest(remote_endpoint_integration_test
         SOURCES
             source/integration/endpoint/remote_endpoint_test.cpp
             ${CMAKE_SOURCE_DIR}/source/api/endpoints/remote/remote_endpoint.c
+            ${CMAKE_SOURCE_DIR}/source/impl/logging/log.c
             ${CMAKE_SOURCE_DIR}/source/impl/endpoints/util.c
             ${CMAKE_SOURCE_DIR}/source/impl/protocols/udp/udp.c
             ${CMAKE_SOURCE_DIR}/source/api/ctaps.c
