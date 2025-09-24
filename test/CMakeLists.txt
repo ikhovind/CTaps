@@ -70,6 +70,17 @@ add_gtest(udp_ping_test SOURCES source/integration/udp_ping.cpp ${CTAPS_SOURCES}
 add_gtest(initiation_test SOURCES source/preconnection/initiation.cpp ${CTAPS_SOURCES} source/util/util.c)
 add_gtest(remote_endpoint_unit_test SOURCES source/unit/endpoint/remote.cpp ${CTAPS_SOURCES})
 add_gtest(preconnection_unit_test SOURCES source/unit/connections/preconnection.cpp ${CTAPS_SOURCES})
+add_gtest(candidate_gathering_test
+        SOURCES
+            source/unit/candidate_gathering/candidate_gathering_test.cpp
+            ${CTAPS_SOURCES}
+        WRAP_FUNCTIONS
+            local_endpoint_resolve
+            remote_endpoint_resolve
+            get_supported_protocols
+            get_num_protocols
+)
+
 add_gtest(local_endpoint_unit_test
         SOURCES
             source/unit/endpoint/local.cpp ${CTAPS_SOURCES}
