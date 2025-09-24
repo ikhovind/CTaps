@@ -33,6 +33,6 @@ int remote_endpoint_with_ipv4(RemoteEndpoint* remote_endpoint,
 int remote_endpoint_with_ipv6(RemoteEndpoint* remote_endpoint,
                                struct in6_addr ipv6_addr);
 
-int remote_endpoint_resolve(RemoteEndpoint* remote_endpoint, RemoteEndpoint** out_list, size_t* out_count);
+int remote_endpoint_resolve(const RemoteEndpoint* remote_endpoint, RemoteEndpoint** out_list, size_t* out_count);
 
 #endif  // LOCAL_ENDPOINT_H

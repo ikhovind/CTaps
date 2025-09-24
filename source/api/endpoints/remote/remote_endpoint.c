@@ -92,7 +92,7 @@ void remote_endpoint_with_port(RemoteEndpoint* remote_endpoint, const uint16_t p
   }
 }
 
-int remote_endpoint_resolve(RemoteEndpoint* remote_endpoint, RemoteEndpoint** out_list, size_t* out_count) {
+int remote_endpoint_resolve(const RemoteEndpoint* remote_endpoint, RemoteEndpoint** out_list, size_t* out_count) {
   printf("Resolving remote endpoint\n");
   int32_t assigned_port = 0;
   if (remote_endpoint->service != NULL) {

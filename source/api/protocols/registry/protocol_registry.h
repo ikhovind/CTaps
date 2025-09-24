@@ -6,11 +6,12 @@
 #define MAX_PROTOCOLS 256
 
 // A dynamic list to hold registered protocols
-static ProtocolImplementation* supported_protocols[MAX_PROTOCOLS] = {0};
-static int protocol_count = 0;
+static const ProtocolImplementation* supported_protocols[MAX_PROTOCOLS] = {0};
 
 void register_protocol(ProtocolImplementation* proto);
 
 const ProtocolImplementation** get_supported_protocols();
+
+size_t get_num_protocols();
 
 #endif  // PROTOCOL_REGISTRY_H

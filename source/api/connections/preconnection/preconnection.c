@@ -1,6 +1,7 @@
 #include "preconnection.h"
 
 #include <ctaps.h>
+#include <candidate_gathering/candidate_gathering.h>
 #include <logging/log.h>
 
 #include "endpoints/remote/remote_endpoint.h"
@@ -93,8 +94,9 @@ int preconnection_listen(Preconnection* preconnection, Listener* listener, Conne
 
 int preconnection_initiate(Preconnection* preconnection, Connection* connection,
                            InitDoneCb init_done_cb, uv_getaddrinfo_cb dns_cb) {
-  printf("Initiating connection from preconnection\n");
+  log_info("Initiating connection from preconnection\n");
 
+  //GNode* candidate_tree = create_root_candidate_node(preconnection);
 
   GArray* resolved_endpoints = g_array_new(false, true, sizeof(RemoteEndpoint));
   for (int i = 0; i < preconnection->num_remote_endpoints; i++) {
