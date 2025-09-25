@@ -25,11 +25,13 @@ void build_candidate_tree_recursive(GNode* parent_node);
 const char* get_generic_interface_type(const char* system_interface_name) {
     // This is an example of a simple mapping.
     // A real implementation would have a more comprehensive mapping.
-    if (strstr(system_interface_name, "wlp")) {
+    if (strncmp(system_interface_name, "wl", strlen("wl")) == 0) {
         return "Wi-Fi";
-    } else if (strstr(system_interface_name, "enp")) {
+    }
+    if (strncmp(system_interface_name, "en", strlen("en")) == 0) {
         return "Ethernet";
-    } else if (strcmp(system_interface_name, "lo") == 0) {
+    }
+    if (strcmp(system_interface_name, "lo") == 0) {
         return "Loopback";
     }
     return NULL;
@@ -54,11 +56,14 @@ bool protocol_implementation_supports_selection_properties2(
   return true;
 }
 
-bool interface_is_compatible(char* interface_name, const TransportProperties* transport_properties) {
+bool interface_is_compatible(const char* interface_name, const TransportProperties* transport_properties) {
     // iterate over the interface preferences
     GHashTable* interface_map = (GHashTable*)transport_properties->selection_properties.selection_property[INTERFACE].value.preference_map;
     if (interface_map == NULL) {
         // No preferences set, all interfaces are compatible
+        return true;
+    }
+    if (strcmp(interface_name, "any") == 0) {
         return true;
     }
     // iterate each value in the hash table
@@ -92,7 +97,7 @@ bool interface_is_compatible(char* interface_name, const TransportProperties* tr
 
 
 gboolean gather_incompatible_path_nodes(GNode *node, gpointer user_data) {
-    // check type of node
+    log_trace("Traversing candidate tree to gather incompatible path nodes");
     struct candidate_node* node_data = (struct candidate_node*)node->data;
     if (node_data->type == NODE_TYPE_ROOT) {
         return false;
@@ -101,16 +106,24 @@ gboolean gather_incompatible_path_nodes(GNode *node, gpointer user_data) {
         // No need to traverse further down
         return true;
     }
-
     struct node_pruning_data* pruning_data = (struct node_pruning_data*)user_data;
-    if (!interface_is_compatible(node_data->local_endpoint->interface_name, node_data->transport_properties)) {
+    char* interface_name = "any";
+
+    if (node_data->local_endpoint->interface_name != NULL) {
+        interface_name = node_data->local_endpoint->interface_name;
+    }
+    if (!interface_is_compatible(interface_name, node_data->transport_properties)) {
+        log_trace("Found incompatible path node with interface %s", interface_name);
         pruning_data->undesirable_nodes = g_list_append(pruning_data->undesirable_nodes, node);
+    }
+    else {
+        log_trace("Path node with interface %s is compatible", interface_name);
     }
     return false;
 }
 
 gboolean gather_incompatible_protocol_nodes(GNode *node, gpointer user_data) {
-    // check type of node
+    log_trace("Traversing candidate tree to gather incompatible protocol nodes");
     const struct candidate_node* node_data = (struct candidate_node*)node->data;
     if (node_data->type == NODE_TYPE_ROOT || node_data->type == NODE_TYPE_PATH) {
         return false;
@@ -122,23 +135,28 @@ gboolean gather_incompatible_protocol_nodes(GNode *node, gpointer user_data) {
 
     struct node_pruning_data* pruning_data = (struct node_pruning_data*)user_data;
     if (!protocol_implementation_supports_selection_properties2(node_data->protocol, &node_data->transport_properties->selection_properties)) {
+        log_trace("Found incompatible protocol node with protocol %s", node_data->protocol->name);
         pruning_data->undesirable_nodes = g_list_append(pruning_data->undesirable_nodes, node);
+    }
+    else {
+        log_trace("Protocol node with protocol %s is compatible", node_data->protocol->name);
     }
     return false;
 }
 
 int prune_candidate_tree(GNode* root, SelectionProperties selection_properties) {
+    log_debug("Pruning candidate tree based on selection properties");
 
     struct node_pruning_data pruning_data = {
         .selection_properties = selection_properties,
         .undesirable_nodes = NULL
     };
 
-
     // step 1 prune paths (local endpoints at the PATH level)
+    log_trace("About to gather incompatible path nodes");
     g_node_traverse(root, G_LEVEL_ORDER, G_TRAVERSE_NON_LEAVES, -1, gather_incompatible_path_nodes, &pruning_data);
 
-    // step 2 prune protocols (at the PROTOCOL level)
+    log_trace("About to gather incompatible protocol nodes");
     g_node_traverse(root, G_LEVEL_ORDER, G_TRAVERSE_NON_LEAVES, -1, gather_incompatible_protocol_nodes, &pruning_data);
 
     for (GList* iter = pruning_data.undesirable_nodes; iter != NULL; iter = iter->next) {
@@ -205,6 +223,8 @@ GNode* create_root_candidate_node(const Preconnection* precon) {
         NULL, // Protocol is selected in a later stage
         &precon->transport_properties
     );
+    log_info("About to check precon");
+    log_info("precon->local.interface_name: %s", precon->local.interface_name);
 
     if (root_data == NULL) {
         log_error("Could not create root candidate node data");
@@ -217,9 +237,10 @@ GNode* create_root_candidate_node(const Preconnection* precon) {
 
     log_trace("Building candidate tree recursively from root");
     build_candidate_tree_recursive(root_node);
+
     log_trace("Successfully built candidate tree, pruning");
     prune_candidate_tree(root_node, precon->transport_properties.selection_properties);
-    log_trace("Successfully pruned candidate tree, returning root node");
+
     return root_node;
 }
 
@@ -271,12 +292,15 @@ void build_candidate_tree_recursive(GNode* parent_node) {
             // Create a child node for each local endpoint found.
             struct candidate_node* path_node_data = candidate_node_new(
                 NODE_TYPE_PATH,
-                &local_endpoint_list[i],
+                malloc(sizeof(LocalEndpoint)), // TODO - perhaps this would be better as a non-pointer
                 parent_data->remote_endpoint,
                 NULL, // Protocol not yet specified
                 parent_data->transport_properties
             );
+            memcpy((void*)path_node_data->local_endpoint, (void*)&local_endpoint_list[i], sizeof(LocalEndpoint));
             g_node_append_data(parent_node, path_node_data);
+
+            // print interface name of last_child:
 
             // Recurse to the next level of the tree.
             build_candidate_tree_recursive(g_node_last_child(parent_node));
@@ -310,6 +334,7 @@ void build_candidate_tree_recursive(GNode* parent_node) {
                 candidate_stacks[i],
                 parent_data->transport_properties
             );
+            log_info("proto_node_daata local endpoint interface_name: %s", proto_node_data->local_endpoint->interface_name);
 
             g_node_append_data(parent_node, proto_node_data);
 
@@ -332,10 +357,12 @@ void build_candidate_tree_recursive(GNode* parent_node) {
             struct candidate_node* leaf_node_data = candidate_node_new(
                 NODE_TYPE_ENDPOINT,
                 parent_data->local_endpoint,
-                &resolved_remote_endpoints[i],
+                malloc(sizeof(RemoteEndpoint)), // TODO - perhaps this would be better as a non-pointer
                 parent_data->protocol,
                 parent_data->transport_properties
             );
+            memcpy((void*)leaf_node_data->remote_endpoint, (void*)&resolved_remote_endpoints[i], sizeof(RemoteEndpoint));
+            log_info("leaf node data local endpoint interface_name: %s", leaf_node_data->local_endpoint->interface_name);
             g_node_append_data(parent_node, leaf_node_data);
         }
 
