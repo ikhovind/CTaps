@@ -1,6 +1,8 @@
 #include "selection_properties.h"
 
 #include <glib.h>
+#include <logging/log.h>
+
 #include "glibconfig.h"
 
 
@@ -45,8 +47,10 @@ void set_sel_prop_bool(SelectionProperties* props, SelectionPropertyEnum prop_en
 }
 
 void set_sel_prop_interface(SelectionProperties* props, const char* interface_name, SelectionPreference preference) {
+  log_debug("Setting interface preference: %s -> %d", interface_name, preference);
   // Check if the property has been initialized.
   if (props->selection_property[INTERFACE].value.preference_map == NULL) {
+    log_trace("No existing interface map, creating a new one.");
     // This is an internal function to create the GHashTable.
     // It is not exposed in the header file.
     props->selection_property[INTERFACE].value.preference_map = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);

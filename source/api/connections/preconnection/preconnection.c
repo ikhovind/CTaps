@@ -4,6 +4,7 @@
 #include <candidate_gathering/candidate_gathering.h>
 #include <logging/log.h>
 
+#include "endpoints/local/local_endpoint.h"
 #include "endpoints/remote/remote_endpoint.h"
 #include <protocols/registry/protocol_registry.h>
 
@@ -32,7 +33,6 @@ int preconnection_build(Preconnection* preconnection,
                          size_t num_remote_endpoints
                          ) {
   memset(preconnection, 0, sizeof(Preconnection));
-  printf("initializing preconnection\n");
   preconnection->transport_properties = transport_properties;
   local_endpoint_build(&preconnection->local);
   return copy_remote_endpoints(preconnection, remote_endpoints, num_remote_endpoints);
