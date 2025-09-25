@@ -16,7 +16,6 @@
         SelectionPreference:            tp_set_sel_prop_preference, \
         MultipathEnum:                  tp_set_sel_prop_multipath, \
         bool:                           tp_set_sel_prop_bool, \
-        SelectionPropertyValue:         tp_set_sel_prop, \
         DirectionOfCommunicationEnum:   tp_set_sel_prop_direction, \
         default:                        tp_set_sel_prop_preference \
     )(props, prop_enum, value)
@@ -41,6 +40,8 @@ void tp_set_sel_prop_direction(TransportProperties* props, SelectionPropertyEnum
 
 void tp_set_sel_prop_bool(TransportProperties* props, SelectionPropertyEnum prop_enum, bool val);
 void tp_set_sel_prop(TransportProperties* props, SelectionPropertyEnum prop_enum, SelectionPropertyValue);
+// TODO - this should be more generic, not only for interface
+void tp_set_sel_prop_interface(TransportProperties* props, char* interface_name, SelectionPreference preference);
 
 
 #endif  // TRANSPORT_PROPERTIES_H

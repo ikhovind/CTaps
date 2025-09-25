@@ -119,6 +119,7 @@ void tp_set_sel_prop_direction(TransportProperties* props, SelectionPropertyEnum
 void tp_set_sel_prop_bool(TransportProperties* props, SelectionPropertyEnum prop_enum, bool val) {
   set_sel_prop_bool(&props->selection_properties, prop_enum, val);
 }
-void tp_set_sel_prop(TransportProperties* props, SelectionPropertyEnum prop_enum, SelectionPropertyValue val) {
-  set_sel_prop(&props->selection_properties, prop_enum, val);
+
+void tp_set_sel_prop_interface(TransportProperties* props, char* interface_name, SelectionPreference preference) {
+   set_sel_prop_interface(&props->selection_properties, interface_name, preference);
 }

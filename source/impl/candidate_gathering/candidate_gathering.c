@@ -14,8 +14,143 @@
 
 #include "protocols/registry/protocol_registry.h"
 
+struct node_pruning_data {
+    SelectionProperties selection_properties;
+    GList* undesirable_nodes;
+};
+
 // Forward declaration of the function to build the tree recursively
 void build_candidate_tree_recursive(GNode* parent_node);
+
+const char* get_generic_interface_type(const char* system_interface_name) {
+    // This is an example of a simple mapping.
+    // A real implementation would have a more comprehensive mapping.
+    if (strstr(system_interface_name, "wlp")) {
+        return "Wi-Fi";
+    } else if (strstr(system_interface_name, "enp")) {
+        return "Ethernet";
+    } else if (strcmp(system_interface_name, "lo") == 0) {
+        return "Loopback";
+    }
+    return NULL;
+}
+
+bool protocol_implementation_supports_selection_properties2(
+  const ProtocolImplementation* protocol,
+  const SelectionProperties* selection_properties) {
+  for (int i = 0; i < SELECTION_PROPERTY_END; i++) {
+    SelectionProperty desired_value = selection_properties->selection_property[i];
+    SelectionProperty protocol_value = protocol->selection_properties.selection_property[i];
+
+    if (desired_value.type == TYPE_PREFERENCE) {
+      if (desired_value.value.simple_preference == REQUIRE && protocol_value.value.simple_preference == PROHIBIT) {
+        return false;
+      }
+      if (desired_value.value.simple_preference == PROHIBIT && protocol_value.value.simple_preference == REQUIRE) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+bool interface_is_compatible(char* interface_name, const TransportProperties* transport_properties) {
+    // iterate over the interface preferences
+    GHashTable* interface_map = (GHashTable*)transport_properties->selection_properties.selection_property[INTERFACE].value.preference_map;
+    if (interface_map == NULL) {
+        // No preferences set, all interfaces are compatible
+        return true;
+    }
+    // iterate each value in the hash table
+    GList* keys = g_hash_table_get_keys(interface_map);
+    const char* interface_type = get_generic_interface_type(interface_name);
+    if (interface_type == NULL) {
+        // Unknown interface type, consider it incompatible
+        g_list_free(keys);
+        return false;
+    }
+    for (GList* iter = keys; iter != NULL; iter = iter->next) {
+        char* key = (char*)iter->data;
+        SelectionPreference preference = GPOINTER_TO_INT(g_hash_table_lookup(interface_map, key));
+        if (strcmp(key, interface_type) == 0) {
+            if (preference == PROHIBIT) {
+                g_list_free(keys);
+                return false;
+            }
+        }
+        else {
+            // If any other interface is set to REQUIRE, this one is incompatible
+            if (preference == REQUIRE) {
+                g_list_free(keys);
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+
+
+gboolean gather_incompatible_path_nodes(GNode *node, gpointer user_data) {
+    // check type of node
+    struct candidate_node* node_data = (struct candidate_node*)node->data;
+    if (node_data->type == NODE_TYPE_ROOT) {
+        return false;
+    }
+    if (node_data->type != NODE_TYPE_PATH) {
+        // No need to traverse further down
+        return true;
+    }
+
+    struct node_pruning_data* pruning_data = (struct node_pruning_data*)user_data;
+    if (!interface_is_compatible(node_data->local_endpoint->interface_name, node_data->transport_properties)) {
+        pruning_data->undesirable_nodes = g_list_append(pruning_data->undesirable_nodes, node);
+    }
+    return false;
+}
+
+gboolean gather_incompatible_protocol_nodes(GNode *node, gpointer user_data) {
+    // check type of node
+    const struct candidate_node* node_data = (struct candidate_node*)node->data;
+    if (node_data->type == NODE_TYPE_ROOT || node_data->type == NODE_TYPE_PATH) {
+        return false;
+    }
+    if (node_data->type != NODE_TYPE_PROTOCOL) {
+        // No need to traverse further down
+        return true;
+    }
+
+    struct node_pruning_data* pruning_data = (struct node_pruning_data*)user_data;
+    if (!protocol_implementation_supports_selection_properties2(node_data->protocol, &node_data->transport_properties->selection_properties)) {
+        pruning_data->undesirable_nodes = g_list_append(pruning_data->undesirable_nodes, node);
+    }
+    return false;
+}
+
+int prune_candidate_tree(GNode* root, SelectionProperties selection_properties) {
+
+    struct node_pruning_data pruning_data = {
+        .selection_properties = selection_properties,
+        .undesirable_nodes = NULL
+    };
+
+
+    // step 1 prune paths (local endpoints at the PATH level)
+    g_node_traverse(root, G_LEVEL_ORDER, G_TRAVERSE_NON_LEAVES, -1, gather_incompatible_path_nodes, &pruning_data);
+
+    // step 2 prune protocols (at the PROTOCOL level)
+    g_node_traverse(root, G_LEVEL_ORDER, G_TRAVERSE_NON_LEAVES, -1, gather_incompatible_protocol_nodes, &pruning_data);
+
+    for (GList* iter = pruning_data.undesirable_nodes; iter != NULL; iter = iter->next) {
+        GNode* node_to_remove = (GNode*)iter->data;
+        g_node_destroy(node_to_remove);
+    }
+    return 0;
+}
+
+int sort_candidate_tree(GNode* root, SelectionProperties selection_properties) {
+
+}
 
 
 /**
@@ -82,7 +217,9 @@ GNode* create_root_candidate_node(const Preconnection* precon) {
 
     log_trace("Building candidate tree recursively from root");
     build_candidate_tree_recursive(root_node);
-    log_trace("Successfully built candidate tree, returning root node");
+    log_trace("Successfully built candidate tree, pruning");
+    prune_candidate_tree(root_node, precon->transport_properties.selection_properties);
+    log_trace("Successfully pruned candidate tree, returning root node");
     return root_node;
 }
 

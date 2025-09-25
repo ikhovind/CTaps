@@ -37,20 +37,9 @@ typedef enum MultipathEnum {
   MULTIPATH_PASSIVE
 } MultipathEnum;
 
-
-typedef struct {
-  char* name;   // e.g., "eth0", "en1", "Wi-Fi", "Cellular"
-  SelectionPreference preference;    // Your existing Preference enum (Require, Prohibit, etc.)
-} StringPreference;
-
-typedef struct {
-  size_t count;
-  StringPreference* preferences;
-} PreferenceSet;
-
 typedef union {
   SelectionPreference simple_preference;
-  PreferenceSet preference_set;
+  void* preference_map;
   MultipathEnum multipath_enum;
   bool boolean;
   DirectionOfCommunicationEnum direction_enum;
@@ -118,12 +107,12 @@ void selection_properties_init(SelectionProperties* selection_properties);
 
 void set_sel_prop_preference(SelectionProperties* props, SelectionPropertyEnum prop_enum, SelectionPreference val);
 
+void set_sel_prop_interface(SelectionProperties* props, const char* interface_name, SelectionPreference preference);
+
 void set_sel_prop_multipath(SelectionProperties* props, SelectionPropertyEnum prop_enum, MultipathEnum val);
 
 void set_sel_prop_direction(SelectionProperties* props, SelectionPropertyEnum prop_enum, DirectionOfCommunicationEnum val);
 
 void set_sel_prop_bool(SelectionProperties* props, SelectionPropertyEnum prop_enum, bool val);
-
-void set_sel_prop(SelectionProperties* props, SelectionPropertyEnum prop_enum, SelectionPropertyValue);
 
 #endif  // SELECTION_PROPERTIES_H

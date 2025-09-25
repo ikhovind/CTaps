@@ -57,8 +57,22 @@ int local_endpoint_resolve_fake_custom(const LocalEndpoint* local_endpoint, Loca
 }
 
 // Fake data for get_supported_protocols
-static ProtocolImplementation mock_proto_1 = {.name = "MockProto1"};
-static ProtocolImplementation mock_proto_2 = {.name = "MockProto2"};
+static ProtocolImplementation mock_proto_1 = {
+    .name = "MockProto1",
+    .selection_properties = {
+      .selection_property = {
+        [RELIABILITY] = {.value = {.simple_preference = PROHIBIT}},
+      }
+    }
+};
+static ProtocolImplementation mock_proto_2 = {
+    .name = "MockProto2",
+    .selection_properties = {
+      .selection_property = {
+        [RELIABILITY] = {.value = {.simple_preference = REQUIRE}},
+      }
+    }
+};
 static const ProtocolImplementation* fake_protocol_list[] = {&mock_proto_1, &mock_proto_2, nullptr};
 const ProtocolImplementation** get_supported_protocols_fake_custom() {
     return fake_protocol_list;
@@ -111,6 +125,9 @@ TEST_F(CandidateTreeTest, CreatesAndResolvesFullTree) {
     Preconnection preconnection;
     TransportProperties props;
     transport_properties_build(&props);
+    // need to overwrite the default to allow both protocols
+    tp_set_sel_prop_preference(&props, RELIABILITY, NO_PREFERENCE);
+
     RemoteEndpoint remote_endpoint;
     remote_endpoint_build(&remote_endpoint);
     remote_endpoint_with_hostname(&remote_endpoint, "test.com");
@@ -148,6 +165,56 @@ TEST_F(CandidateTreeTest, CreatesAndResolvesFullTree) {
     ASSERT_EQ(leaf_data->protocol, &mock_proto_1);
     ASSERT_EQ(leaf_data->remote_endpoint, &fake_remote_endpoint_list[0]);
     
+    // --- CLEANUP ---
+    free_candidate_tree(root);
+}
+
+TEST_F(CandidateTreeTest, PrunesPathAndProtocol) {
+    // --- ARRANGE ---
+    // 1. Create a minimal preconnection object
+    Preconnection preconnection;
+
+    TransportProperties props;
+    transport_properties_build(&props);
+    tp_set_sel_prop_preference(&props, RELIABILITY, REQUIRE);
+
+    RemoteEndpoint remote_endpoint;
+    remote_endpoint_build(&remote_endpoint);
+    remote_endpoint_with_hostname(&remote_endpoint, "test.com");
+    preconnection_build(&preconnection, props, &remote_endpoint, 1);
+
+    // 2. Mock behavior of internal functions
+    faked_local_endpoint_resolve_fake.return_val = 0;
+    faked_remote_endpoint_resolve_fake.return_val = 0;
+    faked_get_supported_protocols_fake.return_val = fake_protocol_list;
+
+    // --- ACT ---
+    GNode* root = create_root_candidate_node(&preconnection);
+
+    // --- ASSERT ---
+    // 1. Verify the root node
+    ASSERT_NE(root, nullptr);
+
+    // Check that the tree was built
+    ASSERT_EQ(g_node_n_children(root), 2); // 2 local endpoints
+
+    ASSERT_EQ(g_node_n_children(g_node_first_child(root)), 1); // 2 protocol
+    ASSERT_EQ(g_node_n_children(g_node_last_child(g_node_last_child(root))), 1); // 1 remote endpoint resolved
+
+    // 2. Verify the calls to mocked functions
+    ASSERT_EQ(faked_local_endpoint_resolve_fake.call_count, 1);
+    ASSERT_EQ(faked_get_supported_protocols_fake.call_count, 2); // Called for each path child
+    ASSERT_EQ(faked_remote_endpoint_resolve_fake.call_count, 4); // Called for each protocol leaf
+
+    // 3. Verify data in a leaf node
+    GNode* leaf_node = g_node_first_child(g_node_first_child(g_node_first_child(root)));
+    struct candidate_node* leaf_data = (struct candidate_node*)leaf_node->data;
+
+    ASSERT_EQ(leaf_data->type, NODE_TYPE_ENDPOINT);
+    ASSERT_EQ(leaf_data->local_endpoint, &fake_local_endpoint_list[0]);
+    ASSERT_EQ(leaf_data->protocol, &mock_proto_2);
+    ASSERT_EQ(leaf_data->remote_endpoint, &fake_remote_endpoint_list[0]);
+
     // --- CLEANUP ---
     free_candidate_tree(root);
 }
