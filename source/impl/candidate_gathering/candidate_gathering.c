@@ -219,7 +219,6 @@ int sort_candidate_tree(GArray* root, SelectionProperties selection_properties) 
     log_debug("Sorting candidate tree based on selection properties");
     // TODO - give more importance to properties set by the user
 
-    g_array_sort_with_data(root, compare_prefer_and_avoid_preferences, &selection_properties);
 }
 
 
@@ -249,6 +248,11 @@ struct CandidateNode* candidate_node_new(NodeType type, const LocalEndpoint* loc
     node->protocol = proto;
     node->transport_properties = props;
     return node;
+}
+
+gboolean free_node_data(GNode *node, gpointer user_data) {
+    // Don't free the endpoint, since that pointer is actually owned by the array
+    free(node->data);
 }
 
 gboolean get_leaf_nodes(GNode *node, gpointer user_data) {
@@ -289,11 +293,9 @@ GArray* get_ordered_candidate_nodes(const Preconnection* precon) {
 
     if (root_data == NULL) {
         log_error("Could not create root candidate node data");
-        return NULL; // Handle memory allocation failure
+        return NULL;
     }
 
-    // 2. Create and return a GNode with the root data
-    log_trace("Creating root candidate node");
     GNode* root_node = g_node_new(root_data);
 
     build_candidate_tree_recursive(root_node);
@@ -304,10 +306,12 @@ GArray* get_ordered_candidate_nodes(const Preconnection* precon) {
 
     // Get leaf nodes and insert them in array
     g_node_traverse(root_node, G_IN_ORDER, G_TRAVERSE_LEAVES, -1, get_leaf_nodes, root_array);
+
+    // Free data owned by tree
+    g_node_traverse(root_node, G_IN_ORDER, G_TRAVERSE_ALL, -1, free_node_data, root_array);
     g_node_destroy(root_node);
 
-    sort_candidate_tree(root_array, precon->transport_properties.selection_properties);
-
+    g_array_sort_with_data(root_array, compare_prefer_and_avoid_preferences, &precon->transport_properties.selection_properties);
 
     return root_array;
 }
