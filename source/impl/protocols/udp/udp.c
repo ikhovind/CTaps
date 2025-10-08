@@ -134,10 +134,6 @@ int udp_stop_listen(struct SocketManager* socket_manager) {
   return 0;
 }
 
-void register_udp_support() {
-  register_protocol(&udp_protocol_interface);
-}
-
 int udp_send(Connection* connection, Message* message) {
   printf("Sending message: %s\n", message->content);
   const uv_buf_t buffer =

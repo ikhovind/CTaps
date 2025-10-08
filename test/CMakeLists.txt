@@ -116,6 +116,7 @@ add_gtest(
         source/unit/transport_properties/transport_properties_test.cpp
         ${CMAKE_SOURCE_DIR}/source/api/transport_properties/transport_properties.c
         ${CMAKE_SOURCE_DIR}/source/api/transport_properties/selection_properties/selection_properties.c
+        ${CMAKE_SOURCE_DIR}/source/impl/logging/log.c
 )
 
 add_gtest(local_endpoint_resolve_test

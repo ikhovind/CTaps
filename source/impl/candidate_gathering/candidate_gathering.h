@@ -17,7 +17,7 @@ typedef enum {
   NODE_TYPE_ENDPOINT,
 } NodeType;
 
-struct candidate_node {
+typedef struct CandidateNode {
   NodeType type;
   int score;
 
@@ -26,8 +26,8 @@ struct candidate_node {
   const ProtocolImplementation* protocol;
 
   const TransportProperties* transport_properties;
-};
+} CandidateNode;
 
-GNode* create_root_candidate_node(const Preconnection* precon);
+GArray* get_ordered_candidate_nodes(const Preconnection* precon);
 
 #endif //CANDIDATE_GATHERING_H

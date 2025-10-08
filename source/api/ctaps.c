@@ -1,5 +1,7 @@
 #include "ctaps.h"
 
+#include <protocols/registry/protocol_registry.h>
+
 #include "protocols/udp/udp.h"
 #include "uv.h"
 
@@ -8,7 +10,8 @@ uv_loop_t* ctaps_event_loop;
 int ctaps_initialize() {
   ctaps_event_loop = malloc(sizeof(uv_loop_t));
   uv_loop_init(ctaps_event_loop);
-  register_udp_support();
+
+  register_protocol(&udp_protocol_interface);
   return 0;
 }
 

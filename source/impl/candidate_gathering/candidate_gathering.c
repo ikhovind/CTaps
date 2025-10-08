@@ -98,7 +98,7 @@ bool interface_is_compatible(const char* interface_name, const TransportProperti
 
 gboolean gather_incompatible_path_nodes(GNode *node, gpointer user_data) {
     log_trace("Traversing candidate tree to gather incompatible path nodes");
-    struct candidate_node* node_data = (struct candidate_node*)node->data;
+    struct CandidateNode* node_data = (struct CandidateNode*)node->data;
     if (node_data->type == NODE_TYPE_ROOT) {
         return false;
     }
@@ -124,7 +124,7 @@ gboolean gather_incompatible_path_nodes(GNode *node, gpointer user_data) {
 
 gboolean gather_incompatible_protocol_nodes(GNode *node, gpointer user_data) {
     log_trace("Traversing candidate tree to gather incompatible protocol nodes");
-    const struct candidate_node* node_data = (struct candidate_node*)node->data;
+    const struct CandidateNode* node_data = (struct CandidateNode*)node->data;
     if (node_data->type == NODE_TYPE_ROOT || node_data->type == NODE_TYPE_PATH) {
         return false;
     }
@@ -166,8 +166,60 @@ int prune_candidate_tree(GNode* root, SelectionProperties selection_properties) 
     return 0;
 }
 
-int sort_candidate_tree(GNode* root, SelectionProperties selection_properties) {
+gint compare_prefer_and_avoid_preferences(gconstpointer a, gconstpointer b, gpointer desired_selection_properties) {
+    const CandidateNode* candidate_a = (const CandidateNode*)a;
+    const CandidateNode* candidate_b = (const CandidateNode*)b;
+    log_trace("Comparing protocol with name %s to protocol with name %s", candidate_a->protocol->name, candidate_b->protocol->name);
+    const SelectionProperties* selection_properties = (const SelectionProperties*)desired_selection_properties;
 
+    // order the branches according to the preferred Properties and use any avoided Properties as a tiebreaker
+    int a_prefer_score = 0;
+    int a_avoid_score = 0;
+    for (int i = 0; i < SELECTION_PROPERTY_END; i++) {
+        if (selection_properties->selection_property[i].type == TYPE_PREFERENCE) {
+            if (selection_properties->selection_property[i].value.simple_preference == PREFER) {
+                log_trace("Found PREFER property at index %d", i);
+                // If A can provide this property then bump its score
+                if (candidate_a->protocol->selection_properties.selection_property[i].value.simple_preference != PROHIBIT) {
+                    log_trace("A could supply prefer property at index %d", i);
+                    a_prefer_score++;
+                }
+                // But if B can provide it too, then do not bump it after all
+                // If A cannot provide but B can, then A's score should decrease
+                if (candidate_b->protocol->selection_properties.selection_property[i].value.simple_preference != PROHIBIT) {
+                    log_trace("B could supply prefer property at index %d", i);
+                    log_trace("B simple preference: %d", candidate_b->transport_properties->selection_properties.selection_property[i].value.simple_preference);
+                    a_prefer_score--;
+                }
+            }
+            else if (selection_properties->selection_property[i].value.simple_preference == AVOID) {
+                log_trace("Found AVOID property at index %d", i);
+
+                if (candidate_a->protocol->selection_properties.selection_property[i].value.simple_preference != REQUIRE) {
+                    log_trace("A could unsupply avoid property at index %d", i);
+                    a_avoid_score++;
+                }
+                if (candidate_b->protocol->selection_properties.selection_property[i].value.simple_preference != REQUIRE) {
+                    log_trace("B could unsupply avoid property at index %d", i);
+                    a_avoid_score--;
+                }
+            }
+        }
+    }
+    //  "The function should return a negative integer if the first value comes before the second"
+    if (a_prefer_score != 0) {
+        log_trace("Prefer score difference: %d", a_prefer_score);
+        return -a_prefer_score;
+    }
+    log_trace("No prefer score difference, using avoid score difference: %d", a_avoid_score);
+    return -a_avoid_score;
+}
+
+int sort_candidate_tree(GArray* root, SelectionProperties selection_properties) {
+    log_debug("Sorting candidate tree based on selection properties");
+    // TODO - give more importance to properties set by the user
+
+    g_array_sort_with_data(root, compare_prefer_and_avoid_preferences, &selection_properties);
 }
 
 
@@ -180,14 +232,14 @@ int sort_candidate_tree(GNode* root, SelectionProperties selection_properties) {
  * @param props The transport properties.
  * @return A new candidate_node object.
  */
-struct candidate_node* candidate_node_new(NodeType type, const LocalEndpoint* local_ep,
+struct CandidateNode* candidate_node_new(NodeType type, const LocalEndpoint* local_ep,
                                            const RemoteEndpoint* remote_ep,
                                            const ProtocolImplementation* proto,
                                            const TransportProperties* props) {
     log_info("Creating new candidate node of type %d", type);
-    struct candidate_node* node = malloc(sizeof(struct candidate_node));
+    struct CandidateNode* node = malloc(sizeof(struct CandidateNode));
     if (node == NULL) {
-        log_error("Could not allocate memory for candidate_node");
+        log_error("Could not allocate memory for CandidateNode");
         return NULL;
     }
     node->type = type;
@@ -199,6 +251,16 @@ struct candidate_node* candidate_node_new(NodeType type, const LocalEndpoint* lo
     return node;
 }
 
+gboolean get_leaf_nodes(GNode *node, gpointer user_data) {
+    GArray* node_array = (GArray*)user_data;
+
+    if (G_NODE_IS_LEAF(node)) {
+        g_array_append_val(node_array, *(CandidateNode*)node->data);
+    }
+
+    return false;
+}
+
 /**
  * @brief Creates the root node of the candidate tree from a Preconnection.
  * * This function takes a fully configured Preconnection and uses its
@@ -208,15 +270,15 @@ struct candidate_node* candidate_node_new(NodeType type, const LocalEndpoint* lo
  * @param precon A pointer to a valid Preconnection object.
  * @return A GNode representing the root of the candidate tree, or NULL on error.
  */
-GNode* create_root_candidate_node(const Preconnection* precon) {
+GArray* get_ordered_candidate_nodes(const Preconnection* precon) {
     log_info("Creating root candidate node from preconnection");
     if (precon == NULL) {
         log_error("NULL preconnection provided");
         return NULL;
     }
 
-    // 1. Create a new candidate_node struct for the root
-    struct candidate_node* root_data = candidate_node_new(
+    // 1. Create a new CandidateNode struct for the root
+    struct CandidateNode* root_data = candidate_node_new(
         NODE_TYPE_ROOT,
         &precon->local,
         (precon->num_remote_endpoints > 0) ? &precon->remote_endpoints[0] : NULL,
@@ -224,7 +286,6 @@ GNode* create_root_candidate_node(const Preconnection* precon) {
         &precon->transport_properties
     );
     log_info("About to check precon");
-    log_info("precon->local.interface_name: %s", precon->local.interface_name);
 
     if (root_data == NULL) {
         log_error("Could not create root candidate node data");
@@ -235,33 +296,22 @@ GNode* create_root_candidate_node(const Preconnection* precon) {
     log_trace("Creating root candidate node");
     GNode* root_node = g_node_new(root_data);
 
-    log_trace("Building candidate tree recursively from root");
     build_candidate_tree_recursive(root_node);
 
-    log_trace("Successfully built candidate tree, pruning");
     prune_candidate_tree(root_node, precon->transport_properties.selection_properties);
 
-    return root_node;
-}
+    GArray *root_array = g_array_new(FALSE, FALSE, sizeof(CandidateNode));
+
+    // Get leaf nodes and insert them in array
+    g_node_traverse(root_node, G_IN_ORDER, G_TRAVERSE_LEAVES, -1, get_leaf_nodes, root_array);
+    g_node_destroy(root_node);
+
+    sort_candidate_tree(root_array, precon->transport_properties.selection_properties);
 
 
-/**
- * @brief Expands the candidate tree from a root node for racing.
- *
- * This function takes the root node of the candidate tree and populates it
- * with all possible combinations of local endpoints, protocols, and resolved
- * remote endpoints, following the hierarchical structure described in RFC 9623.
- * The resulting tree contains leaf nodes that represent fully-specified
- * connection candidates ready for racing.
- *
- * @param root_node The root GNode containing the initial preconnection data.
- */
-void expand_candidate_tree_for_racing(GNode* root_node) {
-    if (root_node == NULL) {
-        return;
-    }
-    build_candidate_tree_recursive(root_node);
+    return root_array;
 }
+
 
 /**
  * @brief Recursively builds the candidate tree by applying the branching logic.
@@ -269,8 +319,8 @@ void expand_candidate_tree_for_racing(GNode* root_node) {
  * @param parent_node The current node to expand.
  */
 void build_candidate_tree_recursive(GNode* parent_node) {
-    log_info("Expanding candidate tree node of type %d", ((struct candidate_node*)parent_node->data)->type);
-    struct candidate_node* parent_data = (struct candidate_node*)parent_node->data;
+    log_info("Expanding candidate tree node of type %d", ((struct CandidateNode*)parent_node->data)->type);
+    struct CandidateNode* parent_data = (struct CandidateNode*)parent_node->data;
 
     // According to RFC 9623, the branching order should be:
     // 1. Network Paths (Local Endpoints)
@@ -290,7 +340,7 @@ void build_candidate_tree_recursive(GNode* parent_node) {
 
         for (size_t i = 0; i < num_found_local; i++) {
             // Create a child node for each local endpoint found.
-            struct candidate_node* path_node_data = candidate_node_new(
+            struct CandidateNode* path_node_data = candidate_node_new(
                 NODE_TYPE_PATH,
                 malloc(sizeof(LocalEndpoint)), // TODO - perhaps this would be better as a non-pointer
                 parent_data->remote_endpoint,
@@ -318,23 +368,22 @@ void build_candidate_tree_recursive(GNode* parent_node) {
     // Step 2: Branch by Protocols, they are pruned later
     else if (parent_data->type == NODE_TYPE_PATH) {
         log_trace("Expanding node of type PATH to PROTOCOL nodes");
-        int num_found_protocols = 0;
+        size_t num_found_protocols = 0;
 
         // Get all protocols that fit the selection properties.
         ProtocolImplementation **candidate_stacks = get_supported_protocols();
-        // TODO this is bug
         num_found_protocols = get_num_protocols(); // Assume one protocol for demonstration purposes.
 
         for (int i = 0; i < num_found_protocols; i++) {
             // Create a child node for each supported protocol.
-            struct candidate_node* proto_node_data = candidate_node_new(
+            CandidateNode* proto_node_data = candidate_node_new(
                 NODE_TYPE_PROTOCOL,
                 parent_data->local_endpoint,
                 parent_data->remote_endpoint,
                 candidate_stacks[i],
                 parent_data->transport_properties
             );
-            log_info("proto_node_daata local endpoint interface_name: %s", proto_node_data->local_endpoint->interface_name);
+            log_info("proto_node_data local endpoint interface_name: %s", proto_node_data->local_endpoint->interface_name);
 
             g_node_append_data(parent_node, proto_node_data);
 
@@ -354,7 +403,7 @@ void build_candidate_tree_recursive(GNode* parent_node) {
 
         for (size_t i = 0; i < num_found_remote; i++) {
             // Create a leaf node for each resolved IP address.
-            struct candidate_node* leaf_node_data = candidate_node_new(
+            CandidateNode* leaf_node_data = candidate_node_new(
                 NODE_TYPE_ENDPOINT,
                 parent_data->local_endpoint,
                 malloc(sizeof(RemoteEndpoint)), // TODO - perhaps this would be better as a non-pointer
