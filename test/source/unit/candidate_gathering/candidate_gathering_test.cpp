@@ -34,7 +34,7 @@ extern "C" const ProtocolImplementation** __wrap_get_supported_protocols() {
 }
 
 extern "C" size_t __wrap_get_num_protocols() {
-    return 2;
+    return 3;
 }
 
 static LocalEndpoint* fake_local_endpoint_list;
@@ -64,6 +64,9 @@ static ProtocolImplementation mock_proto_1 = {
     .selection_properties = {
       .selection_property = {
         [RELIABILITY] = {.value = {.simple_preference = PROHIBIT}},
+        [PRESERVE_MSG_BOUNDARIES] = {.value = {.simple_preference = PROHIBIT}},
+        [PER_MSG_RELIABILITY] = {.value = {.simple_preference = PROHIBIT}},
+        [PRESERVE_ORDER] = {.value = {.simple_preference = NO_PREFERENCE}},
       }
     }
 };
@@ -72,10 +75,26 @@ static ProtocolImplementation mock_proto_2 = {
     .selection_properties = {
       .selection_property = {
         [RELIABILITY] = {.value = {.simple_preference = REQUIRE}},
+        [PRESERVE_MSG_BOUNDARIES] = {.value = {.simple_preference = REQUIRE}},
+        [PER_MSG_RELIABILITY] = {.value = {.simple_preference = REQUIRE}},
+        [PRESERVE_ORDER] = {.value = {.simple_preference = REQUIRE}},
       }
     }
 };
-static const ProtocolImplementation* fake_protocol_list[] = {&mock_proto_1, &mock_proto_2, nullptr};
+static ProtocolImplementation mock_proto_3 = {
+    .name = "MockProto3",
+    .selection_properties = {
+      .selection_property = {
+        [RELIABILITY] = {.value = {.simple_preference = REQUIRE}},
+        [PRESERVE_MSG_BOUNDARIES] = {.value = {.simple_preference = PROHIBIT}},
+        [PER_MSG_RELIABILITY] = {.value = {.simple_preference = PROHIBIT}},
+        [PRESERVE_ORDER] = {.value = {.simple_preference = PROHIBIT}},
+      }
+    }
+};
+
+
+static const ProtocolImplementation* fake_protocol_list[] = {&mock_proto_1, &mock_proto_2, &mock_proto_3, nullptr};
 const ProtocolImplementation** get_supported_protocols_fake_custom() {
     return fake_protocol_list;
 }
@@ -129,6 +148,7 @@ TEST_F(CandidateTreeTest, CreatesAndResolvesFullTree) {
     transport_properties_build(&props);
     // need to overwrite the default to allow both protocols
     tp_set_sel_prop_preference(&props, RELIABILITY, NO_PREFERENCE);
+    tp_set_sel_prop_preference(&props, PRESERVE_ORDER, NO_PREFERENCE);
 
     RemoteEndpoint remote_endpoint;
     remote_endpoint_build(&remote_endpoint);
@@ -148,12 +168,12 @@ TEST_F(CandidateTreeTest, CreatesAndResolvesFullTree) {
     ASSERT_NE(root, nullptr);
 
     // Check that the tree was built
-    ASSERT_EQ(root->len, 2 * 2 * 1); // 2 local endpoints, 2 protocols, 1 remote endpoint each
+    ASSERT_EQ(root->len, 2 * 3 * 1); // 2 local endpoints, 3 protocols, 1 remote endpoint each
 
     // 2. Verify the calls to mocked functions
     ASSERT_EQ(faked_local_endpoint_resolve_fake.call_count, 1);
     ASSERT_EQ(faked_get_supported_protocols_fake.call_count, 2); // Called for each path child
-    ASSERT_EQ(faked_remote_endpoint_resolve_fake.call_count, 4); // Called for each protocol leaf
+    ASSERT_EQ(faked_remote_endpoint_resolve_fake.call_count, 6); // Called for each protocol leaf
 
     // 3. Verify data in a leaf node
     CandidateNode first_node = g_array_index(root, CandidateNode, 0);
@@ -176,6 +196,7 @@ TEST_F(CandidateTreeTest, PrunesPathAndProtocol) {
     TransportProperties props;
     transport_properties_build(&props);
     tp_set_sel_prop_preference(&props, RELIABILITY, REQUIRE);
+    tp_set_sel_prop_preference(&props, PRESERVE_ORDER, NO_PREFERENCE);
     tp_set_sel_prop_interface(&props, "Ethernet", REQUIRE);
 
 
@@ -197,36 +218,48 @@ TEST_F(CandidateTreeTest, PrunesPathAndProtocol) {
     ASSERT_NE(root, nullptr);
 
     // Check that the tree was built
-    ASSERT_EQ(root->len, 1 * 1 * 1); // 1 local endpoint, 1 protocol, 1 remote endpoint each
+    ASSERT_EQ(root->len, 1 * 2 * 1); // 1 local endpoint, 2 protocol, 1 remote endpoint each
 
     // 2. Verify the calls to mocked functions
     ASSERT_EQ(faked_local_endpoint_resolve_fake.call_count, 1);
     ASSERT_EQ(faked_get_supported_protocols_fake.call_count, 2); // Called for each path child
-    ASSERT_EQ(faked_remote_endpoint_resolve_fake.call_count, 4); // Called for each protocol leaf
+    ASSERT_EQ(faked_remote_endpoint_resolve_fake.call_count, 6); // Called for each protocol leaf
 
     // 3. Verify data in a leaf node
-    CandidateNode leaf_data = g_array_index(root, CandidateNode, 0);
+    CandidateNode first_candidate = g_array_index(root, CandidateNode, 0);
 
-    ASSERT_EQ(leaf_data.type, NODE_TYPE_ENDPOINT);
-    // compare memory instead
-    ASSERT_EQ(memcmp(&leaf_data.local_endpoint->data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_STREQ(first_candidate.protocol->name, "MockProto2");
+    ASSERT_EQ(first_candidate.type, NODE_TYPE_ENDPOINT);
+    ASSERT_EQ(memcmp(&first_candidate.local_endpoint->data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&first_candidate.remote_endpoint->data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
 
-    //ASSERT_EQ(leaf_data->local_endpoint, &fake_local_endpoint_list[0]);
-    ASSERT_EQ(leaf_data.protocol, &mock_proto_2);
-    ASSERT_EQ(memcmp(&leaf_data.remote_endpoint->data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+    CandidateNode second_candidate = g_array_index(root, CandidateNode, 1);
+
+    ASSERT_STREQ(second_candidate.protocol->name, "MockProto3");
+    ASSERT_EQ(second_candidate.type, NODE_TYPE_ENDPOINT);
+    ASSERT_EQ(memcmp(&second_candidate.local_endpoint->data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&second_candidate.remote_endpoint->data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
 
     // --- CLEANUP ---
     free_candidate_tree(root);
 }
 
-TEST_F(CandidateTreeTest, SortsWhenAvoidingProperty) {
+TEST_F(CandidateTreeTest, SortsOnPreferOverAvoid) {
     // --- ARRANGE ---
     // 1. Create a minimal preconnection object
     Preconnection preconnection;
     TransportProperties props;
     transport_properties_build(&props);
-    // need to overwrite the default to allow both protocols
-    tp_set_sel_prop_preference(&props, RELIABILITY, PREFER);
+
+    // This selects p2 and p3
+    tp_set_sel_prop_preference(&props, RELIABILITY, REQUIRE);
+
+    // this prefers p2
+    tp_set_sel_prop_preference(&props, PRESERVE_MSG_BOUNDARIES, PREFER);
+
+    // These favor p3, but the one preference should still win
+    tp_set_sel_prop_preference(&props, PER_MSG_RELIABILITY, AVOID);
+    tp_set_sel_prop_preference(&props, PRESERVE_ORDER, AVOID);
 
     RemoteEndpoint remote_endpoint;
     remote_endpoint_build(&remote_endpoint);
@@ -251,15 +284,105 @@ TEST_F(CandidateTreeTest, SortsWhenAvoidingProperty) {
     // 2. Verify the calls to mocked functions
     ASSERT_EQ(faked_local_endpoint_resolve_fake.call_count, 1);
     ASSERT_EQ(faked_get_supported_protocols_fake.call_count, 2); // Called for each path child
-    ASSERT_EQ(faked_remote_endpoint_resolve_fake.call_count, 4); // Called for each protocol leaf
+    ASSERT_EQ(faked_remote_endpoint_resolve_fake.call_count, 6); // Called for each protocol leaf
 
-    // 3. Verify data in a leaf node
-    CandidateNode leaf_data = g_array_index(root, CandidateNode, 0);
+    CandidateNode first_candidate = g_array_index(root, CandidateNode, 0);
 
-    ASSERT_STREQ(leaf_data.protocol->name, "MockProto2");
-    ASSERT_EQ(leaf_data.type, NODE_TYPE_ENDPOINT);
-    ASSERT_EQ(memcmp(&leaf_data.local_endpoint->data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
-    ASSERT_EQ(memcmp(&leaf_data.remote_endpoint->data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_STREQ(first_candidate.protocol->name, "MockProto2");
+    ASSERT_EQ(first_candidate.type, NODE_TYPE_ENDPOINT);
+    ASSERT_EQ(memcmp(&first_candidate.local_endpoint->data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&first_candidate.remote_endpoint->data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+
+    CandidateNode second_candidate = g_array_index(root, CandidateNode, 1);
+
+    ASSERT_STREQ(second_candidate.protocol->name, "MockProto2");
+    ASSERT_EQ(second_candidate.type, NODE_TYPE_ENDPOINT);
+    ASSERT_EQ(memcmp(&second_candidate.local_endpoint->data, &fake_local_endpoint_list[1].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&second_candidate.remote_endpoint->data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+
+    CandidateNode third_candidate = g_array_index(root, CandidateNode, 2);
+    ASSERT_STREQ(third_candidate.protocol->name, "MockProto3");
+    ASSERT_EQ(third_candidate.type, NODE_TYPE_ENDPOINT);
+    ASSERT_EQ(memcmp(&third_candidate.local_endpoint->data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&third_candidate.remote_endpoint->data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+
+    CandidateNode fourth_candidate = g_array_index(root, CandidateNode, 3);
+    ASSERT_STREQ(fourth_candidate.protocol->name, "MockProto3");
+    ASSERT_EQ(fourth_candidate.type, NODE_TYPE_ENDPOINT);
+    ASSERT_EQ(memcmp(&fourth_candidate.local_endpoint->data, &fake_local_endpoint_list[1].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&fourth_candidate.remote_endpoint->data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+
+    // --- CLEANUP ---
+    free_candidate_tree(root);
+
+}
+
+TEST_F(CandidateTreeTest, UsesAvoidAsTieBreaker) {
+    // --- ARRANGE ---
+    // 1. Create a minimal preconnection object
+    Preconnection preconnection;
+    TransportProperties props;
+    transport_properties_build(&props);
+
+    // Override default to get all protocols
+    tp_set_sel_prop_preference(&props, RELIABILITY, NO_PREFERENCE);
+    tp_set_sel_prop_preference(&props, PRESERVE_ORDER, NO_PREFERENCE);
+
+    // protocol 2 and 3 are preferred
+    tp_set_sel_prop_preference(&props, RELIABILITY, PREFER);
+    // But 3 should win tiebreaker with avoid
+    tp_set_sel_prop_preference(&props, PRESERVE_MSG_BOUNDARIES, AVOID);
+
+    RemoteEndpoint remote_endpoint;
+    remote_endpoint_build(&remote_endpoint);
+    remote_endpoint_with_hostname(&remote_endpoint, "test.com");
+    preconnection_build(&preconnection, props, &remote_endpoint, 1);
+
+    // 2. Mock behavior of internal functions
+    faked_local_endpoint_resolve_fake.return_val = 0;
+    faked_remote_endpoint_resolve_fake.return_val = 0;
+    faked_get_supported_protocols_fake.return_val = fake_protocol_list;
+
+    // --- ACT ---
+    GArray* root = get_ordered_candidate_nodes(&preconnection);
+
+    // --- ASSERT ---
+    // 1. Verify the root node
+    ASSERT_NE(root, nullptr);
+
+    // Check that the tree was built
+    ASSERT_EQ(root->len, 2 * 3 * 1); // 2 local endpoint, 3 protocol, 1 remote endpoint each
+
+    // 2. Verify the calls to mocked functions
+    ASSERT_EQ(faked_local_endpoint_resolve_fake.call_count, 1);
+    ASSERT_EQ(faked_get_supported_protocols_fake.call_count, 2); // Called for each path child
+    ASSERT_EQ(faked_remote_endpoint_resolve_fake.call_count, 6); // Called for each protocol leaf
+
+    CandidateNode first_candidate = g_array_index(root, CandidateNode, 0);
+
+    ASSERT_STREQ(first_candidate.protocol->name, "MockProto3");
+    ASSERT_EQ(first_candidate.type, NODE_TYPE_ENDPOINT);
+    ASSERT_EQ(memcmp(&first_candidate.local_endpoint->data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&first_candidate.remote_endpoint->data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+
+    CandidateNode second_candidate = g_array_index(root, CandidateNode, 1);
+
+    ASSERT_STREQ(second_candidate.protocol->name, "MockProto3");
+    ASSERT_EQ(second_candidate.type, NODE_TYPE_ENDPOINT);
+    ASSERT_EQ(memcmp(&second_candidate.local_endpoint->data, &fake_local_endpoint_list[1].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&second_candidate.remote_endpoint->data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+
+    CandidateNode third_candidate = g_array_index(root, CandidateNode, 2);
+    ASSERT_STREQ(third_candidate.protocol->name, "MockProto2");
+    ASSERT_EQ(third_candidate.type, NODE_TYPE_ENDPOINT);
+    ASSERT_EQ(memcmp(&third_candidate.local_endpoint->data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&third_candidate.remote_endpoint->data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+
+    CandidateNode fourth_candidate = g_array_index(root, CandidateNode, 3);
+    ASSERT_STREQ(fourth_candidate.protocol->name, "MockProto2");
+    ASSERT_EQ(fourth_candidate.type, NODE_TYPE_ENDPOINT);
+    ASSERT_EQ(memcmp(&fourth_candidate.local_endpoint->data, &fake_local_endpoint_list[1].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&fourth_candidate.remote_endpoint->data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
 
     // --- CLEANUP ---
     free_candidate_tree(root);
