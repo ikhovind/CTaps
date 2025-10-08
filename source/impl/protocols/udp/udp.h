@@ -10,7 +10,6 @@ struct SocketManager;
 
 int udp_init(Connection* connection, InitDoneCb init_done_cb);
 int udp_close(const Connection* connection);
-void register_udp_support();
 int udp_send(Connection* connection, Message* message);
 int udp_receive(Connection* connection, ReceiveMessageRequest receive_message_cb);
 int udp_listen(struct SocketManager* socket_manager);

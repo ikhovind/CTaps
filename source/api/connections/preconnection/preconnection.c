@@ -96,7 +96,7 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
                            InitDoneCb init_done_cb, uv_getaddrinfo_cb dns_cb) {
   log_info("Initiating connection from preconnection\n");
 
-  //GNode* candidate_tree = create_root_candidate_node(preconnection);
+  //GNode* candidate_tree = get_ordered_candidate_nodes(preconnection);
 
   GArray* resolved_endpoints = g_array_new(false, true, sizeof(RemoteEndpoint));
   for (int i = 0; i < preconnection->num_remote_endpoints; i++) {
