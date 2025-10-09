@@ -21,8 +21,8 @@ typedef struct CandidateNode {
   NodeType type;
   int score;
 
-  const LocalEndpoint* local_endpoint;
-  const RemoteEndpoint* remote_endpoint;
+  LocalEndpoint local_endpoint;
+  RemoteEndpoint remote_endpoint;
   const ProtocolImplementation* protocol;
 
   const TransportProperties* transport_properties;
