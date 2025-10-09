@@ -84,26 +84,6 @@ int transport_properties_sort_on_preferences(
   return num_with_max_score;
 }
 
-void transport_properties_get_candidate_stacks(
-  SelectionProperties* desired_selection_properties,
-  ProtocolImplementation** output_protocol_stacks,
-  int* num_found) {
-  ProtocolImplementation** supported_protocols = get_supported_protocols();
-  *num_found = 0;
-
-  for (int i = 0; i < MAX_PROTOCOLS && supported_protocols[i] != NULL; i++) {
-    if (protocol_implementation_supports_selection_properties(supported_protocols[i], desired_selection_properties)) {
-      output_protocol_stacks[*num_found] = supported_protocols[i];
-      (*num_found)++;
-    }
-  }
-
-  int num_with_max_score = transport_properties_sort_on_preferences(desired_selection_properties, output_protocol_stacks, *num_found);
-
-  *num_found = num_with_max_score;
-}
-
-
 void tp_set_sel_prop_preference(TransportProperties* props, SelectionPropertyEnum prop_enum, SelectionPreference val) {
   set_sel_prop_preference(&props->selection_properties, prop_enum, val);  // Call the actual function to
 }
