@@ -266,13 +266,12 @@ gboolean get_leaf_nodes(GNode *node, gpointer user_data) {
 }
 
 /**
- * @brief Creates the root node of the candidate tree from a Preconnection.
- * * This function takes a fully configured Preconnection and uses its
- * properties to create the root node of a candidate tree. The root node
- * represents the highest level of abstraction before branching begins.
+ * @brief Get an array of candidate nodes. Internally builds a tree
+ * as described in RFC9623 and then prunes it. It then gets all the
+ * leaf nodes and sorts them according to preferences/avoids
  *
  * @param precon A pointer to a valid Preconnection object.
- * @return A GNode representing the root of the candidate tree, or NULL on error.
+ * @return A GArray Containing all the candidate nodes, ordered by preference.
  */
 GArray* get_ordered_candidate_nodes(const Preconnection* precon) {
     log_info("Creating root candidate node from preconnection");

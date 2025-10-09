@@ -109,15 +109,6 @@ add_gtest(remote_endpoint_integration_test
 )
 #add_gtest(udp_listener_test SOURCES source/integration/listener_test.cpp ${CTAPS_SOURCES})
 add_gtest(selection_property_test SOURCES source/unit/transport_properties/selection_properties/selection_properties_test.cpp ${CTAPS_SOURCES})
-# Need to exclude the transport_properties.c since we are mocking a function in it
-add_gtest(
-        transport_properties_test
-        SOURCES
-        source/unit/transport_properties/transport_properties_test.cpp
-        ${CMAKE_SOURCE_DIR}/source/api/transport_properties/transport_properties.c
-        ${CMAKE_SOURCE_DIR}/source/api/transport_properties/selection_properties/selection_properties.c
-        ${CMAKE_SOURCE_DIR}/source/impl/logging/log.c
-)
 
 add_gtest(local_endpoint_resolve_test
         SOURCES
