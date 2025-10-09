@@ -65,7 +65,7 @@ int preconnection_listen(Preconnection* preconnection, Listener* listener, Conne
 
     *listener = (Listener){
       .connection_received_cb = connection_received_cb,
-      .local_endpoint = *first_node.local_endpoint,
+      .local_endpoint = first_node.local_endpoint,
       .num_local_endpoints = 1,
       .socket_manager = socket_manager,
       .transport_properties = preconnection->transport_properties,
@@ -88,12 +88,11 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
   if (candidate_nodes->len > 0) {
     CandidateNode first_node = g_array_index(candidate_nodes, CandidateNode, 0);
     connection->protocol = *first_node.protocol;
-    connection->remote_endpoint = *first_node.remote_endpoint;
+    connection->remote_endpoint = first_node.remote_endpoint;
 
     connection->open_type = CONNECTION_OPEN_TYPE_ACTIVE;
-    connection->local_endpoint = *first_node.local_endpoint;
+    connection->local_endpoint = first_node.local_endpoint;
 
-    // TODO - currently we do not free the local or remote endpoints, should not really be pointers anyways
     g_array_free(candidate_nodes, true);
 
     connection->protocol.init(connection, init_done_cb);

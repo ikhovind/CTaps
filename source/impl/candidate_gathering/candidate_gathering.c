@@ -109,8 +109,8 @@ gboolean gather_incompatible_path_nodes(GNode *node, gpointer user_data) {
     struct node_pruning_data* pruning_data = (struct node_pruning_data*)user_data;
     char* interface_name = "any";
 
-    if (node_data->local_endpoint->interface_name != NULL) {
-        interface_name = node_data->local_endpoint->interface_name;
+    if (node_data->local_endpoint.interface_name != NULL) {
+        interface_name = node_data->local_endpoint.interface_name;
     }
     if (!interface_is_compatible(interface_name, node_data->transport_properties)) {
         log_trace("Found incompatible path node with interface %s", interface_name);
@@ -231,8 +231,8 @@ int sort_candidate_tree(GArray* root, SelectionProperties selection_properties) 
  * @param props The transport properties.
  * @return A new candidate_node object.
  */
-struct CandidateNode* candidate_node_new(NodeType type, const LocalEndpoint* local_ep,
-                                           const RemoteEndpoint* remote_ep,
+struct CandidateNode* candidate_node_new(NodeType type, const LocalEndpoint local_ep,
+                                           const RemoteEndpoint remote_ep,
                                            const ProtocolImplementation* proto,
                                            const TransportProperties* props) {
     log_info("Creating new candidate node of type %d", type);
@@ -283,8 +283,8 @@ GArray* get_ordered_candidate_nodes(const Preconnection* precon) {
     // 1. Create a new CandidateNode struct for the root
     struct CandidateNode* root_data = candidate_node_new(
         NODE_TYPE_ROOT,
-        &precon->local,
-        (precon->num_remote_endpoints > 0) ? &precon->remote_endpoints[0] : NULL,
+        precon->local,
+        precon->remote_endpoints[0],
         NULL, // Protocol is selected in a later stage
         &precon->transport_properties
     );
@@ -338,22 +338,19 @@ void build_candidate_tree_recursive(GNode* parent_node) {
 
         // Resolve the local endpoint. The `local_endpoint_resolve` function
         // will find all available interfaces when the interface is not specified.
-        local_endpoint_resolve(parent_data->local_endpoint, &local_endpoint_list, &num_found_local);
+        local_endpoint_resolve(&parent_data->local_endpoint, &local_endpoint_list, &num_found_local);
         log_trace("Found %zu local endpoints, adding as children to ROOT node", num_found_local);
 
         for (size_t i = 0; i < num_found_local; i++) {
             // Create a child node for each local endpoint found.
             struct CandidateNode* path_node_data = candidate_node_new(
                 NODE_TYPE_PATH,
-                malloc(sizeof(LocalEndpoint)), // TODO - perhaps this would be better as a non-pointer
+                local_endpoint_list[i],
                 parent_data->remote_endpoint,
                 NULL, // Protocol not yet specified
                 parent_data->transport_properties
             );
-            memcpy((void*)path_node_data->local_endpoint, (void*)&local_endpoint_list[i], sizeof(LocalEndpoint));
             g_node_append_data(parent_node, path_node_data);
-
-            // print interface name of last_child:
 
             // Recurse to the next level of the tree.
             build_candidate_tree_recursive(g_node_last_child(parent_node));
@@ -386,7 +383,7 @@ void build_candidate_tree_recursive(GNode* parent_node) {
                 candidate_stacks[i],
                 parent_data->transport_properties
             );
-            log_info("proto_node_data local endpoint interface_name: %s", proto_node_data->local_endpoint->interface_name);
+            log_info("proto_node_data local endpoint interface_name: %s", proto_node_data->local_endpoint.interface_name);
 
             g_node_append_data(parent_node, proto_node_data);
 
@@ -402,19 +399,18 @@ void build_candidate_tree_recursive(GNode* parent_node) {
         size_t num_found_remote = 0;
 
         // Resolve the remote endpoint (hostname to IP address).
-        remote_endpoint_resolve(parent_data->remote_endpoint, &resolved_remote_endpoints, &num_found_remote);
+        remote_endpoint_resolve(&parent_data->remote_endpoint, &resolved_remote_endpoints, &num_found_remote);
 
         for (size_t i = 0; i < num_found_remote; i++) {
             // Create a leaf node for each resolved IP address.
             CandidateNode* leaf_node_data = candidate_node_new(
                 NODE_TYPE_ENDPOINT,
                 parent_data->local_endpoint,
-                malloc(sizeof(RemoteEndpoint)), // TODO - perhaps this would be better as a non-pointer
+                resolved_remote_endpoints[i],
                 parent_data->protocol,
                 parent_data->transport_properties
             );
-            memcpy((void*)leaf_node_data->remote_endpoint, (void*)&resolved_remote_endpoints[i], sizeof(RemoteEndpoint));
-            log_info("leaf node data local endpoint interface_name: %s", leaf_node_data->local_endpoint->interface_name);
+            log_info("leaf node data local endpoint interface_name: %s", leaf_node_data->local_endpoint.interface_name);
             g_node_append_data(parent_node, leaf_node_data);
         }
 

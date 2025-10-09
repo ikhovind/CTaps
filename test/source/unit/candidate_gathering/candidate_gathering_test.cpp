@@ -113,7 +113,7 @@ int remote_endpoint_resolve_fake_custom(const RemoteEndpoint* remote_endpoint, R
 }
 
 // Helper function to free the GNode tree
-void free_candidate_tree(GArray* candidate_list) {
+void free_candidate_array(GArray* candidate_list) {
     //g_node_destroy_and_unref(node);
 }
 
@@ -180,9 +180,9 @@ TEST_F(CandidateTreeTest, CreatesAndResolvesFullTree) {
 
     ASSERT_STREQ(first_node.protocol->name, "MockProto1");
     ASSERT_EQ(first_node.type, NODE_TYPE_ENDPOINT);
-    ASSERT_EQ(memcmp(&first_node.local_endpoint->data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&first_node.local_endpoint.data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
     ASSERT_EQ(first_node.protocol, &mock_proto_1);
-    ASSERT_EQ(memcmp(&first_node.remote_endpoint->data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&first_node.remote_endpoint.data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
 
     // --- CLEANUP ---
     g_array_free(root, true);
@@ -211,14 +211,14 @@ TEST_F(CandidateTreeTest, PrunesPathAndProtocol) {
     faked_get_supported_protocols_fake.return_val = fake_protocol_list;
 
     // --- ACT ---
-    GArray* root = get_ordered_candidate_nodes(&preconnection);
+    GArray* candidates = get_ordered_candidate_nodes(&preconnection);
 
     // --- ASSERT ---
     // 1. Verify the root node
-    ASSERT_NE(root, nullptr);
+    ASSERT_NE(candidates, nullptr);
 
     // Check that the tree was built
-    ASSERT_EQ(root->len, 1 * 2 * 1); // 1 local endpoint, 2 protocol, 1 remote endpoint each
+    ASSERT_EQ(candidates->len, 1 * 2 * 1); // 1 local endpoint, 2 protocol, 1 remote endpoint each
 
     // 2. Verify the calls to mocked functions
     ASSERT_EQ(faked_local_endpoint_resolve_fake.call_count, 1);
@@ -226,22 +226,22 @@ TEST_F(CandidateTreeTest, PrunesPathAndProtocol) {
     ASSERT_EQ(faked_remote_endpoint_resolve_fake.call_count, 6); // Called for each protocol leaf
 
     // 3. Verify data in a leaf node
-    CandidateNode first_candidate = g_array_index(root, CandidateNode, 0);
+    CandidateNode first_candidate = g_array_index(candidates, CandidateNode, 0);
 
     ASSERT_STREQ(first_candidate.protocol->name, "MockProto2");
     ASSERT_EQ(first_candidate.type, NODE_TYPE_ENDPOINT);
-    ASSERT_EQ(memcmp(&first_candidate.local_endpoint->data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
-    ASSERT_EQ(memcmp(&first_candidate.remote_endpoint->data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&first_candidate.local_endpoint.data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&first_candidate.remote_endpoint.data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
 
-    CandidateNode second_candidate = g_array_index(root, CandidateNode, 1);
+    CandidateNode second_candidate = g_array_index(candidates, CandidateNode, 1);
 
     ASSERT_STREQ(second_candidate.protocol->name, "MockProto3");
     ASSERT_EQ(second_candidate.type, NODE_TYPE_ENDPOINT);
-    ASSERT_EQ(memcmp(&second_candidate.local_endpoint->data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
-    ASSERT_EQ(memcmp(&second_candidate.remote_endpoint->data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&second_candidate.local_endpoint.data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&second_candidate.remote_endpoint.data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
 
     // --- CLEANUP ---
-    free_candidate_tree(root);
+    free_candidate_array(candidates);
 }
 
 TEST_F(CandidateTreeTest, SortsOnPreferOverAvoid) {
@@ -290,30 +290,30 @@ TEST_F(CandidateTreeTest, SortsOnPreferOverAvoid) {
 
     ASSERT_STREQ(first_candidate.protocol->name, "MockProto2");
     ASSERT_EQ(first_candidate.type, NODE_TYPE_ENDPOINT);
-    ASSERT_EQ(memcmp(&first_candidate.local_endpoint->data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
-    ASSERT_EQ(memcmp(&first_candidate.remote_endpoint->data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&first_candidate.local_endpoint.data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&first_candidate.remote_endpoint.data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
 
     CandidateNode second_candidate = g_array_index(root, CandidateNode, 1);
 
     ASSERT_STREQ(second_candidate.protocol->name, "MockProto2");
     ASSERT_EQ(second_candidate.type, NODE_TYPE_ENDPOINT);
-    ASSERT_EQ(memcmp(&second_candidate.local_endpoint->data, &fake_local_endpoint_list[1].data, sizeof(struct sockaddr_storage)), 0);
-    ASSERT_EQ(memcmp(&second_candidate.remote_endpoint->data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&second_candidate.local_endpoint.data, &fake_local_endpoint_list[1].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&second_candidate.remote_endpoint.data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
 
     CandidateNode third_candidate = g_array_index(root, CandidateNode, 2);
     ASSERT_STREQ(third_candidate.protocol->name, "MockProto3");
     ASSERT_EQ(third_candidate.type, NODE_TYPE_ENDPOINT);
-    ASSERT_EQ(memcmp(&third_candidate.local_endpoint->data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
-    ASSERT_EQ(memcmp(&third_candidate.remote_endpoint->data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&third_candidate.local_endpoint.data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&third_candidate.remote_endpoint.data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
 
     CandidateNode fourth_candidate = g_array_index(root, CandidateNode, 3);
     ASSERT_STREQ(fourth_candidate.protocol->name, "MockProto3");
     ASSERT_EQ(fourth_candidate.type, NODE_TYPE_ENDPOINT);
-    ASSERT_EQ(memcmp(&fourth_candidate.local_endpoint->data, &fake_local_endpoint_list[1].data, sizeof(struct sockaddr_storage)), 0);
-    ASSERT_EQ(memcmp(&fourth_candidate.remote_endpoint->data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&fourth_candidate.local_endpoint.data, &fake_local_endpoint_list[1].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&fourth_candidate.remote_endpoint.data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
 
     // --- CLEANUP ---
-    free_candidate_tree(root);
+    free_candidate_array(root);
 
 }
 
@@ -362,29 +362,29 @@ TEST_F(CandidateTreeTest, UsesAvoidAsTieBreaker) {
 
     ASSERT_STREQ(first_candidate.protocol->name, "MockProto3");
     ASSERT_EQ(first_candidate.type, NODE_TYPE_ENDPOINT);
-    ASSERT_EQ(memcmp(&first_candidate.local_endpoint->data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
-    ASSERT_EQ(memcmp(&first_candidate.remote_endpoint->data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&first_candidate.local_endpoint.data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&first_candidate.remote_endpoint.data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
 
     CandidateNode second_candidate = g_array_index(root, CandidateNode, 1);
 
     ASSERT_STREQ(second_candidate.protocol->name, "MockProto3");
     ASSERT_EQ(second_candidate.type, NODE_TYPE_ENDPOINT);
-    ASSERT_EQ(memcmp(&second_candidate.local_endpoint->data, &fake_local_endpoint_list[1].data, sizeof(struct sockaddr_storage)), 0);
-    ASSERT_EQ(memcmp(&second_candidate.remote_endpoint->data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&second_candidate.local_endpoint.data, &fake_local_endpoint_list[1].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&second_candidate.remote_endpoint.data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
 
     CandidateNode third_candidate = g_array_index(root, CandidateNode, 2);
     ASSERT_STREQ(third_candidate.protocol->name, "MockProto2");
     ASSERT_EQ(third_candidate.type, NODE_TYPE_ENDPOINT);
-    ASSERT_EQ(memcmp(&third_candidate.local_endpoint->data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
-    ASSERT_EQ(memcmp(&third_candidate.remote_endpoint->data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&third_candidate.local_endpoint.data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&third_candidate.remote_endpoint.data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
 
     CandidateNode fourth_candidate = g_array_index(root, CandidateNode, 3);
     ASSERT_STREQ(fourth_candidate.protocol->name, "MockProto2");
     ASSERT_EQ(fourth_candidate.type, NODE_TYPE_ENDPOINT);
-    ASSERT_EQ(memcmp(&fourth_candidate.local_endpoint->data, &fake_local_endpoint_list[1].data, sizeof(struct sockaddr_storage)), 0);
-    ASSERT_EQ(memcmp(&fourth_candidate.remote_endpoint->data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&fourth_candidate.local_endpoint.data, &fake_local_endpoint_list[1].data, sizeof(struct sockaddr_storage)), 0);
+    ASSERT_EQ(memcmp(&fourth_candidate.remote_endpoint.data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
 
     // --- CLEANUP ---
-    free_candidate_tree(root);
+    free_candidate_array(root);
 
 }
