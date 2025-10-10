@@ -23,14 +23,14 @@ typedef struct SocketManager{
   struct Listener* listener;
 } SocketManager;
 
-int socket_manager_remove_connection(SocketManager* socket_manager, Connection* connection);
+int socket_manager_remove_connection(SocketManager* socket_manager, const Connection* connection);
 
 int socket_manager_build(SocketManager* socket_manager, struct Listener* listener);
 
 void socket_manager_multiplex_received_message(SocketManager* socket_manager, Message* message, const struct sockaddr* addr);
 
-void socket_manager_decrement_ref(SocketManager* manager);
+void socket_manager_decrement_ref(SocketManager* socket_manager);
 
-void socket_manager_free(SocketManager* manager);
+void socket_manager_free(SocketManager* socket_manager);
 
 #endif //SOCKET_MANAGER_H

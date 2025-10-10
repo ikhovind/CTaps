@@ -1,4 +1,5 @@
 #include "protocol_registry.h"
+#include <stddef.h>
 
 static int protocol_count = 0;
 // Function to add a new protocol to our list
@@ -9,7 +10,6 @@ void register_protocol(ProtocolImplementation* proto) {
 }
 
 const ProtocolImplementation** get_supported_protocols() {
-  printf("Num Supported protocols is: %d\n", protocol_count);
   return supported_protocols;
 }
 

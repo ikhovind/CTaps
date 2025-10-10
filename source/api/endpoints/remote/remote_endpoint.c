@@ -1,11 +1,11 @@
 #include "remote_endpoint.h"
 
 #include <endpoints/port_util.h>
+#include <endpoints/util.h>
+#include <errno.h>
+#include <logging/log.h>
 #include <stdlib.h>
 #include <string.h>
-#include <uv.h>
-#include <endpoints/util.h>
-#include <logging/log.h>
 
 void remote_endpoint_build(RemoteEndpoint* remote_endpoint) {
   memset(remote_endpoint, 0, sizeof(RemoteEndpoint));
@@ -14,7 +14,7 @@ void remote_endpoint_build(RemoteEndpoint* remote_endpoint) {
 int remote_endpoint_with_ipv4(RemoteEndpoint* remote_endpoint, in_addr_t ipv4_addr) {
   if (remote_endpoint->hostname != NULL) {
     log_error("Cannot specify both hostname and IP address on single remote endpoint");
-    return -1;
+    return -EINVAL;
   }
   struct sockaddr_in* addr = (struct sockaddr_in*)&remote_endpoint->data.resolved_address;
   addr->sin_family = AF_INET;
@@ -25,7 +25,7 @@ int remote_endpoint_with_ipv4(RemoteEndpoint* remote_endpoint, in_addr_t ipv4_ad
 int remote_endpoint_with_ipv6(RemoteEndpoint* remote_endpoint, struct in6_addr ipv6_addr) {
   if (remote_endpoint->hostname != NULL) {
     log_error("Cannot specify both hostname and IP address on single remote endpoint");
-    return -1;
+    return -EINVAL;
   }
   struct sockaddr_in6* addr = (struct sockaddr_in6*)&remote_endpoint->data.resolved_address;
   addr->sin6_family = AF_INET6;
@@ -36,7 +36,7 @@ int remote_endpoint_with_ipv6(RemoteEndpoint* remote_endpoint, struct in6_addr i
 int remote_endpoint_from_sockaddr(RemoteEndpoint* remote_endpoint, const struct sockaddr_storage* addr) {
   if (remote_endpoint->hostname != NULL) {
     log_error("Cannot specify both hostname and IP address on single remote endpoint");
-    return -1;
+    return -EINVAL;
   }
   if (addr->ss_family == AF_INET) {
     struct sockaddr_in* in_addr = (struct sockaddr_in*)addr;
@@ -50,7 +50,7 @@ int remote_endpoint_from_sockaddr(RemoteEndpoint* remote_endpoint, const struct 
   }
   else {
     log_error("Unsupported resolved_address family: %d\n", addr->ss_family);
-    return -1;
+    return -EINVAL;
   }
   return 0;
 }
@@ -58,14 +58,13 @@ int remote_endpoint_from_sockaddr(RemoteEndpoint* remote_endpoint, const struct 
 int remote_endpoint_with_hostname(RemoteEndpoint* remote_endpoint, const char* hostname) {
   if (remote_endpoint->data.resolved_address.ss_family != AF_UNSPEC) {
     log_error("Cannot specify both hostname and IP address on single remote endpoint");
-    return -1;
+    return -EINVAL;
   }
   remote_endpoint->hostname = (char*) malloc(strlen(hostname) + 1);
   if (remote_endpoint->hostname == NULL) {
     log_error("Could not allocate memory for hostname\n");
-    return -1;
+    return -errno;
   }
-  printf("About to memcpy\n");
   memcpy(remote_endpoint->hostname, hostname, strlen(hostname) + 1);
   return 0;
 }
@@ -74,7 +73,7 @@ int remote_endpoint_with_service(RemoteEndpoint* remote_endpoint, const char* se
   remote_endpoint->service = malloc(strlen(service) + 1);
   if (remote_endpoint->service == NULL) {
     log_error("Could not allocate memory for service\n");
-    return -1;
+    return -errno;
   }
   strcpy(remote_endpoint->service, service);
   return 0;
@@ -93,20 +92,17 @@ void remote_endpoint_with_port(RemoteEndpoint* remote_endpoint, const uint16_t p
 }
 
 int remote_endpoint_resolve(const RemoteEndpoint* remote_endpoint, RemoteEndpoint** out_list, size_t* out_count) {
-  printf("Resolving remote endpoint\n");
+  log_debug("Resolving remote endpoint");
   int32_t assigned_port = 0;
   if (remote_endpoint->service != NULL) {
-    printf("Service was not null\n");
     assigned_port = get_service_port_remote(remote_endpoint);
   }
   else {
-    printf("Service was null, setting to port: %d\n", remote_endpoint->port);
     assigned_port = remote_endpoint->port;
   }
-  printf("Assigned port is : %d\n", assigned_port);
 
   if (remote_endpoint->hostname != NULL) {
-    log_debug("Endpoint was a hostname, performing DNS lookup\n");
+    log_debug("Endpoint was a hostname, performing DNS lookup");
     perform_dns_lookup(remote_endpoint->hostname, NULL, out_list, out_count, NULL);
     for (int i = 0; i < *out_count; i++) {
       (*out_list)[i].port = assigned_port;
@@ -139,8 +135,8 @@ int remote_endpoint_resolve(const RemoteEndpoint* remote_endpoint, RemoteEndpoin
     }
   }
   else {
-    printf("endpoint type was unspecified, cannot resolve\n");
-    return -1;
+    log_error("endpoint type was unspecified, cannot resolve\n");
+    return -EINVAL;
   }
   return 0;
 }

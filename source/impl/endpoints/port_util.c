@@ -1,49 +1,49 @@
 #include "port_util.h"
 
+#include <sys/socket.h>
 #include <endpoints/remote/remote_endpoint.h>
+#include <netdb.h>
+#include <netinet/in.h>
 #include <stdlib.h>
 #include <string.h>
+#include <logging/log.h>
+#include <errno.h>
+
 #include "endpoints/local/local_endpoint.h"
 
 int32_t get_service_port_inner(char* service, int family) {
   struct addrinfo hints;
-  struct addrinfo *result, *rp;
-  int status;
-  char ip_str[INET6_ADDRSTRLEN];
+  struct addrinfo *result;
 
   // Initialize hints struct
   memset(&hints, 0, sizeof(hints));
   hints.ai_family = AF_UNSPEC;     // Allow IPv4 or IPv6
   hints.ai_socktype = SOCK_STREAM; // XMPP uses TCP
 
-  // --- The Lookup Invocation ---
-  // Resolve the service "xmpp-client" for the host "jabber.org"
-  status = getaddrinfo(NULL, service, &hints, &result);
+  const int status = getaddrinfo(NULL, service, &hints, &result);
   if (status != 0) {
-    fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(status));
-    return 1;
+    log_error("getaddrinfo error: %s\n", gai_strerror(status));
+    return status;
   }
 
+  int32_t res = -1;
   // --- Iterate through the results ---
-  for (rp = result; rp != NULL; rp = rp->ai_next) {
-    void *addr;
-    uint16_t port;
-    // get family of local_endpoint
-
+  for (const struct addrinfo* rp = result; rp != NULL; rp = rp->ai_next) {
     if (rp->ai_family == AF_INET && (family == AF_INET || family == AF_UNSPEC)) {
       struct sockaddr_in *ipv4 = (struct sockaddr_in *)rp->ai_addr;
-      return ntohs(ipv4->sin_port);
+      res = ntohs(ipv4->sin_port);
     }
     if (rp->ai_family == AF_INET6 && family == AF_INET6) {
       struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)rp->ai_addr;
-      return ntohs(ipv6->sin6_port);
+      res = ntohs(ipv6->sin6_port);
     }
-    return -1;
   }
 
-  // Free the linked list
   freeaddrinfo(result);
-  return -1;
+  if (res == -1) {
+    log_warn("Could not find port for service %s\n", service);
+  }
+  return res;
 }
 
 int32_t get_service_port_local(const LocalEndpoint* local_endpoint) {

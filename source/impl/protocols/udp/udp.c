@@ -8,8 +8,11 @@
 #include <unistd.h>
 #include <uv.h>
 #include <connections/listener/listener.h>
+#include <logging/log.h>
+#include <errno.h>
 
 #include "connections/connection/connection.h"
+#include "connections/listener/socket_manager/socket_manager.h"
 #include "ctaps.h"
 #include "message/message_context/message_context.h"
 #include "protocols/registry/protocol_registry.h"
@@ -25,7 +28,7 @@ void alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
 
 void on_send(uv_udp_send_t* req, int status) {
   if (status) {
-    fprintf(stderr, "Send error: %s\n", uv_strerror(status));
+    log_error("Send error: %s\n", uv_strerror(status));
   }
   if (req) {
     free(req);  // Free the send request
@@ -36,7 +39,7 @@ void on_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
              const struct sockaddr* addr, unsigned flags) {
   Connection* connection = (Connection*)handle->data;
   if (nread < 0) {
-    fprintf(stderr, "Read error: %s\n", uv_err_name(nread));
+    log_error("Read error: %s\n", uv_strerror(nread));
     uv_close((uv_handle_t*)handle, NULL);
     free(buf->base);
     return;
@@ -49,10 +52,12 @@ void on_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
 
   Message* received_message = malloc(sizeof(Message));
   if (!received_message) {
+    log_error("Failed to allocate send request\n");
     return;
   }
   received_message->content = malloc(nread);
   if (!received_message->content) {
+    log_error("Failed to allocate message content\n");
     return;
   }
   received_message->length = nread;
@@ -60,11 +65,12 @@ void on_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
   memcpy(received_message->content, buf->base, nread);
 
   if (g_queue_is_empty(connection->received_callbacks)) {
+    log_debug("No receive callback ready, queueing message");
     g_queue_push_tail(connection->received_messages, received_message);
   }
 
   else {
-    printf("We have a receive callback ready\n");
+    log_debug("Receive callback ready, calling it");
     ReceiveMessageRequest* receive_callback =
         g_queue_pop_head(connection->received_callbacks);
 
@@ -74,7 +80,7 @@ void on_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
 }
 
 int udp_init(Connection* connection, InitDoneCb init_done_cb) {
-  printf("Initiating UDP connection\n");
+  log_debug("Initiating UDP connection\n");
   connection->received_messages = g_queue_new();
   connection->received_callbacks = g_queue_new();
 
@@ -82,13 +88,16 @@ int udp_init(Connection* connection, InitDoneCb init_done_cb) {
 
   new_udp_handle = malloc(sizeof(*new_udp_handle));
   if (new_udp_handle == NULL) {
-    perror("Failed to allocate memory for UDP handle");
-    return -1; // Indicate memory allocation failure
+    log_error("Failed to allocate memory for UDP handle");
+    if (errno == 0) {
+      return -ENOMEM;
+    }
+    return errno;
   }
 
   int rc = uv_udp_init(ctaps_event_loop, new_udp_handle);
   if (rc < 0) {
-    fprintf(stderr, "Error initializing udp handle: %s\n", uv_strerror(rc));
+    log_error( "Error initializing udp handle: %s", uv_strerror(rc));
     free(new_udp_handle); // CRITICAL: Clean up allocated memory on failure
     return rc;
   }
@@ -97,14 +106,14 @@ int udp_init(Connection* connection, InitDoneCb init_done_cb) {
 
   rc = uv_udp_bind(new_udp_handle, (const struct sockaddr*)&connection->local_endpoint.data.address, 0);
   if (rc < 0) {
-    fprintf(stderr, "Problem with auto-binding: %s\n", uv_strerror(rc));
+    log_error("Problem with auto-binding: %s", uv_strerror(rc));
     free(new_udp_handle);
     return rc;
   }
 
   rc = uv_udp_recv_start(new_udp_handle, alloc_buffer, on_read);
   if (rc < 0) {
-    fprintf(stderr, "Problem with starting receive: %s\n", uv_strerror(rc));
+    log_error("Problem with starting receive: %s\n", uv_strerror(rc));
     free(new_udp_handle);
     return rc;
   }
@@ -113,12 +122,12 @@ int udp_init(Connection* connection, InitDoneCb init_done_cb) {
 
   init_done_cb.init_done_callback(connection, init_done_cb.user_data);
 
-  printf("Successfully initiated UDP connection\n");
+  log_trace("Successfully initiated UDP connection");
   return 0;
 }
 
 void closed_handle_cb(uv_handle_t* handle) {
-  printf("Successfully closed UDP handle\n");
+  log_info("Successfully closed UDP handle");
 }
 
 int udp_close(const Connection* connection) {
@@ -130,20 +139,23 @@ int udp_close(const Connection* connection) {
 }
 
 int udp_stop_listen(struct SocketManager* socket_manager) {
-  printf("Trying to stop listening via UDP\n");
+  log_debug("Stopping UDP listen");
   uv_udp_recv_stop((uv_udp_t*)socket_manager->protocol_uv_handle);
   return 0;
 }
 
 int udp_send(Connection* connection, Message* message, MessageContext* message_context) {
-  printf("Sending message: %s\n", message->content);
+  log_debug("Sending via UDP");
   const uv_buf_t buffer =
       uv_buf_init(message->content, message->length);
 
   uv_udp_send_t* send_req = malloc(sizeof(uv_udp_send_t));
   if (!send_req) {
-    fprintf(stderr, "Failed to allocate send request\n");
-    return 1;
+    log_error("Failed to allocate send request\n");
+    if (errno == 0) {
+      return -ENOMEM;
+    }
+    return -errno;
   }
 
   return uv_udp_send(
@@ -154,13 +166,13 @@ int udp_send(Connection* connection, Message* message, MessageContext* message_c
 
 int udp_receive(Connection* connection, ReceiveMessageRequest receive_msg_cb) {
   // If we have a message to receive then simply return that
-  printf("UDP receiving\n");
+  log_debug("UDP receiving");
   if (!g_queue_is_empty(connection->received_messages)) {
+    log_debug("Calling receive callback immediately");
     Message* received_message = g_queue_pop_head(connection->received_messages);
     receive_msg_cb.receive_cb(connection, &received_message, receive_msg_cb.user_data);
     return 0;
   }
-  printf("Adding received callback to callback queue\n");
 
   ReceiveMessageRequest* ptr = malloc(sizeof(receive_msg_cb));
   memcpy(ptr, &receive_msg_cb, sizeof(receive_msg_cb));
@@ -176,10 +188,9 @@ void socket_listen_callback(uv_udp_t* handle,
                                const uv_buf_t* buf,
                                const struct sockaddr* addr,
                                unsigned flags) {
-  printf("Socket manager read callback\n");
   if (nread == 0 && addr == NULL) {
     // No more data to read, or an empty packet.
-    printf("Nothing to read from udp socket\n");
+    log_info("Socket listen callback invoked, but nothing to read from udp socket or empty packet");
     return;
   }
   SocketManager *socket_manager = (SocketManager*)handle->data;
@@ -191,6 +202,7 @@ void socket_listen_callback(uv_udp_t* handle,
   received_message->content = malloc(nread);
   if (!received_message->content) {
     free(received_message);
+    log_error("Could not allocate memory for received message content");
     return;
   }
   received_message->length = nread;
@@ -201,11 +213,14 @@ void socket_listen_callback(uv_udp_t* handle,
 }
 
 int udp_listen(SocketManager* socket_manager) {
-  printf("Listening via UDP\n");
+  log_debug("Listening via UDP");
   uv_udp_t* udp_handle = malloc(sizeof(*udp_handle));
   if (udp_handle == NULL) {
     perror("Failed to allocate memory for UDP handle");
-    return -1;
+    if (errno == 0) {
+      return -ENOMEM;
+    }
+    return -errno;
   }
 
   socket_manager->active_connections = g_hash_table_new(g_bytes_hash, g_bytes_equal);
@@ -214,7 +229,7 @@ int udp_listen(SocketManager* socket_manager) {
 
   int rc = uv_udp_init(ctaps_event_loop, udp_handle);
   if (rc < 0) {
-    fprintf(stderr, "Error initializing udp handle: %s\n", uv_strerror(rc));
+    log_error("Error initializing udp handle: %s\n", uv_strerror(rc));
     free(udp_handle); // CRITICAL: Clean up memory on failure
     return rc;
   }
@@ -222,7 +237,7 @@ int udp_listen(SocketManager* socket_manager) {
 
   rc = uv_udp_bind(udp_handle, (const struct sockaddr*)&listener->local_endpoint.data.address, 0);
   if (rc < 0) {
-    fprintf(stderr, "Problem with binding: %s\n", uv_strerror(rc));
+    log_error("Problem with binding: %s\n", uv_strerror(rc));
     free(udp_handle);
     return rc;
   }
@@ -231,7 +246,7 @@ int udp_listen(SocketManager* socket_manager) {
 
   rc = uv_udp_recv_start(udp_handle, alloc_buffer, socket_listen_callback);
   if (rc < 0) {
-    fprintf(stderr, "Problem with starting receive: %s\n", uv_strerror(rc));
+    log_error("Problem with starting receive: %s\n", uv_strerror(rc));
     free(udp_handle);
     return rc;
   }

@@ -95,7 +95,7 @@ TEST(RemoteEndpointUnitTests, FailsWhenSpecifyingHostnameAfterIpv4) {
     rc = remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
     ASSERT_EQ(rc, 0);
     rc = remote_endpoint_with_hostname(&remote_endpoint, "hello.com");
-    ASSERT_EQ(rc, -1);
+    ASSERT_EQ(rc, -EINVAL);
     EXPECT_STREQ(remote_endpoint.hostname, NULL);
     sockaddr_in* addr = (struct sockaddr_in*)&remote_endpoint.data.resolved_address;
     EXPECT_EQ(addr->sin_addr.s_addr, inet_addr("127.0.0.1"));
@@ -107,9 +107,9 @@ TEST(RemoteEndpointUnitTests, FailsWhenSpecifyingIpv4AfterHostname) {
     remote_endpoint_build(&remote_endpoint);
 
     rc = remote_endpoint_with_hostname(&remote_endpoint, "hello.com");
-    ASSERT_EQ(rc, 0);
+    EXPECT_EQ(rc, 0);
     rc = remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
-    ASSERT_EQ(rc, -1);
+    EXPECT_EQ(rc, -EINVAL);
     EXPECT_STREQ(remote_endpoint.hostname, "hello.com");
     EXPECT_EQ(remote_endpoint.data.resolved_address.ss_family, AF_UNSPEC);
 }
@@ -125,7 +125,7 @@ TEST(RemoteEndpointUnitTests, FailsWhenSpecifyingHostnameAfterIpv6) {
     rc = remote_endpoint_with_ipv6(&remote_endpoint, ipv6_addr);
     ASSERT_EQ(rc, 0);
     rc = remote_endpoint_with_hostname(&remote_endpoint, "hello.com");
-    ASSERT_EQ(rc, -1);
+    ASSERT_EQ(rc, -EINVAL);
     EXPECT_STREQ(remote_endpoint.hostname, NULL);
     sockaddr_in6* addr = (struct sockaddr_in6*)&remote_endpoint.data.resolved_address;
     EXPECT_EQ(0, memcmp(&ipv6_addr, &addr->sin6_addr, sizeof(in6_addr)));
@@ -143,7 +143,7 @@ TEST(RemoteEndpointUnitTests, FailsWhenSpecifyingIpv6AfterHostname) {
 
     ASSERT_EQ(rc, 0);
     rc = remote_endpoint_with_ipv6(&remote_endpoint, ipv6_addr);
-    ASSERT_EQ(rc, -1);
+    ASSERT_EQ(rc, -EINVAL);
     EXPECT_STREQ(remote_endpoint.hostname, "hello.com");
     EXPECT_EQ(remote_endpoint.data.resolved_address.ss_family, AF_UNSPEC);
 }

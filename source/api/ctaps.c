@@ -1,5 +1,6 @@
 #include "ctaps.h"
 
+#include <logging/log.h>
 #include <protocols/registry/protocol_registry.h>
 
 #include "protocols/udp/udp.h"
@@ -16,7 +17,7 @@ int ctaps_initialize() {
 }
 
 void ctaps_start_event_loop() {
-  printf("Starting the libuv event ctaps_event_loop...\n");
+  log_info("Starting the libuv event ctaps_event_loop...\n");
 
   // Run until there are no more waiting tasks
   uv_run(ctaps_event_loop, UV_RUN_DEFAULT);

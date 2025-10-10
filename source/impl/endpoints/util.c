@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <uv.h>
+#include <logging/log.h>
+#include <errno.h>
 
 void get_interface_addresses(const char *interface_name, int *num_found_addresses, struct sockaddr_storage *output_interface_addrs) {
   *num_found_addresses = 0;
@@ -34,7 +36,7 @@ void get_interface_addresses(const char *interface_name, int *num_found_addresse
 }
 
 int perform_dns_lookup(const char* hostname, const char* service, RemoteEndpoint** out_list, size_t* out_count, uv_getaddrinfo_cb getaddrinfo_cb) {
-  printf("Performing dns lookup for hostname: %s\n", hostname);
+  log_debug("Performing dns lookup for hostname: %s\n", hostname);
   uv_getaddrinfo_t request;
 
   int rc = uv_getaddrinfo(
@@ -59,14 +61,12 @@ int perform_dns_lookup(const char* hostname, const char* service, RemoteEndpoint
 
   *out_list = malloc(count * sizeof(RemoteEndpoint));
   if (*out_list == NULL) {
-    return -1;
+    log_error("Could not allocate memory for RemoteEndpoint output list");
+    return -errno;
   }
 
-  printf("Found %d addresses\n", count);
-
-  // 3. Loop through the source addrinfo list.
+  // Build a single RemoteEndpoint for each resolved address
   for (struct addrinfo* ptr = request.addrinfo; ptr != NULL; ptr = ptr->ai_next) {
-    // 4. Allocate a new RemoteEndpoint node.
     RemoteEndpoint new_node;
     remote_endpoint_build(&new_node);
 
@@ -83,6 +83,5 @@ int perform_dns_lookup(const char* hostname, const char* service, RemoteEndpoint
     (*out_list)[*out_count] = new_node;
     (*out_count)++;
   }
-  printf("Successfully performed lookup\n");
   return 0;
 }

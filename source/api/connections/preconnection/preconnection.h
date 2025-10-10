@@ -30,7 +30,7 @@ typedef struct {
 // TODO - change other init functions to build, to avoid confusing with initiate
 int preconnection_build(Preconnection* preconnection,
                          const TransportProperties transport_properties,
-                         RemoteEndpoint* remote_endpoints,
+                         const RemoteEndpoint* remote_endpoints,
                          size_t num_remote_endpoints
                          );
 

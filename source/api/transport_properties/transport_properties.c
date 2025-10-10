@@ -1,10 +1,9 @@
-//
-// Created by ikhovind on 12.08.25.
-//
+#include <stdbool.h>
 
 #include "transport_properties.h"
 
 #include "connection_properties/connection_properties.h"
+#include "protocols/protocol_interface.h"
 #include "selection_properties/selection_properties.h"
 
 void transport_properties_build(TransportProperties* properties) {
@@ -16,8 +15,8 @@ void transport_properties_build(TransportProperties* properties) {
 // so it assumes that the selection properties have been set according to
 // what kind of connection is desired.
 bool protocol_implementation_supports_selection_properties(
-  ProtocolImplementation* protocol,
-  SelectionProperties* selection_properties) {
+  const ProtocolImplementation* protocol,
+  const SelectionProperties* selection_properties) {
   for (int i = 0; i < SELECTION_PROPERTY_END; i++) {
     SelectionProperty desired_value = selection_properties->selection_property[i];
     SelectionProperty protocol_value = protocol->selection_properties.selection_property[i];
@@ -32,56 +31,6 @@ bool protocol_implementation_supports_selection_properties(
     }
   }
   return true;
-}
-
-int transport_properties_sort_on_preferences(
-  SelectionProperties *selection_properties,
-  ProtocolImplementation** output_protocol_stacks,
-  int num_found) {
-  // Count the number of prefers and avoids that are satisfied by each protocol
-  int protocol_scores[num_found];
-  for (int i = 0; i < num_found; i++) {
-    protocol_scores[i] = 0;
-    for (int j = 0; j < SELECTION_PROPERTY_END; j++) {
-      SelectionProperty desired_value = selection_properties->selection_property[j];
-      SelectionProperty protocol_value = output_protocol_stacks[i]->selection_properties.selection_property[j];
-
-      if (desired_value.type == TYPE_PREFERENCE) {
-        // NO_PREFERENCE means that the protocol supports both, so it always satisfies the preference
-        if (desired_value.value.simple_preference == PREFER && protocol_value.value.simple_preference != PROHIBIT) {
-          protocol_scores[i]++;
-        }
-        if (desired_value.value.simple_preference == AVOID && protocol_value.value.simple_preference != REQUIRE) {
-          protocol_scores[i]++;
-        }
-      }
-    }
-  }
-
-  // stable sort output_protocol_stacks based on protocol_scores in descending order
-  for (int i = 0; i < num_found - 1; i++) {
-    for (int j = 0; j < num_found - i - 1; j++) {
-      if (protocol_scores[j] < protocol_scores[j + 1]) {
-        // Swap scores
-        int temp_score = protocol_scores[j];
-        protocol_scores[j] = protocol_scores[j + 1];
-        protocol_scores[j + 1] = temp_score;
-
-        // Swap protocols
-        ProtocolImplementation* temp_protocol = output_protocol_stacks[j];
-        output_protocol_stacks[j] = output_protocol_stacks[j + 1];
-        output_protocol_stacks[j + 1] = temp_protocol;
-      }
-    }
-  }
-  int num_with_max_score = 0;
-  int max_score = protocol_scores[0];
-  for (int i = 0; i < num_found; i++) {
-    if (protocol_scores[i] == max_score) {
-      num_with_max_score++;
-    }
-  }
-  return num_with_max_score;
 }
 
 void tp_set_sel_prop_preference(TransportProperties* props, SelectionPropertyEnum prop_enum, SelectionPreference val) {

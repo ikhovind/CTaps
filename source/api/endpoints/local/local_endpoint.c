@@ -2,13 +2,14 @@
 
 #include "endpoints/util.h"
 
-#include <netdb.h>
+#include <endpoints/port_util.h>
+#include <errno.h>
+#include <logging/log.h>
+#include <netinet/in.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <uv.h>
-#include <endpoints/port_util.h>
-#include <logging/log.h>
 
 void local_endpoint_with_port(LocalEndpoint* local_endpoint, int port) {
   local_endpoint->port = port;
@@ -30,15 +31,16 @@ int local_endpoint_with_interface(LocalEndpoint* local_endpoint, char* interface
   local_endpoint->interface_name = interface_name;
   local_endpoint->interface_name = malloc(strlen(interface_name) + 1);
   if (local_endpoint->interface_name == NULL) {
-    return -1;
+    return -errno;
   }
   strcpy(local_endpoint->interface_name, interface_name);
+  return 0;
 }
 
 int local_endpoint_with_service(LocalEndpoint* local_endpoint, char* service) {
   local_endpoint->service = malloc(strlen(service) + 1);
   if (local_endpoint->service == NULL) {
-    return -1;
+    return -errno;
   }
   strcpy(local_endpoint->service, service);
   return 0;

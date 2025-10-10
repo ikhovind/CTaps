@@ -12,7 +12,7 @@ void selection_properties_build(SelectionProperties* selection_properties) {
 
 void set_sel_prop_preference(SelectionProperties* props, SelectionPropertyEnum prop_enum, SelectionPreference val) {
   if (props->selection_property[prop_enum].type != TYPE_PREFERENCE) {
-    fprintf(stderr, "Type mismatch for property %s\n", props->selection_property[prop_enum].name);
+    log_error("Type mismatch for property %s", props->selection_property[prop_enum].name);
     return;
   }
   props->selection_property[prop_enum].value.simple_preference = val;
@@ -21,7 +21,7 @@ void set_sel_prop_preference(SelectionProperties* props, SelectionPropertyEnum p
 
 void set_sel_prop_direction(SelectionProperties* props, SelectionPropertyEnum prop_enum, DirectionOfCommunicationEnum val) {
   if (props->selection_property[prop_enum].type != TYPE_DIRECTION_ENUM) {
-    fprintf(stderr, "Type mismatch for property %s\n", props->selection_property[prop_enum].name);
+    log_error("Type mismatch for property %s", props->selection_property[prop_enum].name);
     return;
   }
   props->selection_property[prop_enum].value.multipath_enum = val;
@@ -30,7 +30,7 @@ void set_sel_prop_direction(SelectionProperties* props, SelectionPropertyEnum pr
 
 void set_sel_prop_multipath(SelectionProperties* props, SelectionPropertyEnum prop_enum, MultipathEnum val) {
   if (props->selection_property[prop_enum].type != TYPE_MULTIPATH_ENUM) {
-    fprintf(stderr, "Type mismatch for property %s\n", props->selection_property[prop_enum].name);
+    log_error("Type mismatch for property %s", props->selection_property[prop_enum].name);
     return;
   }
   props->selection_property[prop_enum].value.multipath_enum = val;
@@ -39,7 +39,7 @@ void set_sel_prop_multipath(SelectionProperties* props, SelectionPropertyEnum pr
 
 void set_sel_prop_bool(SelectionProperties* props, SelectionPropertyEnum prop_enum, bool val) {
   if (props->selection_property[prop_enum].type != TYPE_BOOLEAN) {
-    fprintf(stderr, "Type mismatch for property %s\n", props->selection_property[prop_enum].name);
+    log_error("Type mismatch for property %s", props->selection_property[prop_enum].name);
     return;
   }
   props->selection_property[prop_enum].value.boolean = val;

@@ -2,6 +2,7 @@
 
 #include <glib.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include "candidate_gathering.h" // Assuming the struct definition is in this file
 #include "connections/preconnection/preconnection.h"
 #include "endpoints/local/local_endpoint.h"
