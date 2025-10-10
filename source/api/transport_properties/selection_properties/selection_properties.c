@@ -6,7 +6,7 @@
 #include "glibconfig.h"
 
 
-void selection_properties_init(SelectionProperties* selection_properties) {
+void selection_properties_build(SelectionProperties* selection_properties) {
   memcpy(selection_properties, &DEFAULT_SELECTION_PROPERTIES, sizeof(SelectionProperties));
 }
 

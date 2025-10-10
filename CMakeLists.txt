@@ -16,6 +16,7 @@ include(format)
 set(API_SOURCES
     source/api/transport_properties/transport_properties.c
     source/api/transport_properties/selection_properties/selection_properties.c
+    source/api/transport_properties/connection_properties/connection_properties.c
     source/api/connections/preconnection/preconnection.c
     source/api/endpoints/remote/remote_endpoint.c
     source/api/message/message.c

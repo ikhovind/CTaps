@@ -96,14 +96,13 @@ typedef struct {
     .value = { (SelectionPreference)default_value }                     \
 },
 
-// Create a single, read-only template with all the default values.
 static SelectionProperties DEFAULT_SELECTION_PROPERTIES = {
   .selection_property = {
     get_selection_property_list(create_property_initializer)
   }
 };
 
-void selection_properties_init(SelectionProperties* selection_properties);
+void selection_properties_build(SelectionProperties* selection_properties);
 
 void set_sel_prop_preference(SelectionProperties* props, SelectionPropertyEnum prop_enum, SelectionPreference val);
 

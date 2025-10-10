@@ -4,12 +4,12 @@
 
 #include "transport_properties.h"
 
-#include "protocols/registry/protocol_registry.h"
-
+#include "connection_properties/connection_properties.h"
 #include "selection_properties/selection_properties.h"
 
 void transport_properties_build(TransportProperties* properties) {
-  selection_properties_init(&properties->selection_properties);
+  selection_properties_build(&properties->selection_properties);
+  connection_properties_build(&properties->connection_properties);
 }
 
 // This is supposed to be invoked when initiating a preconnection,
