@@ -27,7 +27,7 @@ typedef enum {
 
 // 8.1.6: Capacity Profile (connCapacityProfile)
 typedef enum {
-  CAPACITY_PROFILE_DEFAULT = 0,
+  CAPACITY_PROFILE_BEST_EFFORT = 0,
   CAPACITY_PROFILE_SCAVENGER,
   CAPACITY_PROFILE_LOW_LATENCY_INTERACTIVE,
   CAPACITY_PROFILE_LOW_LATENCY_NON_INTERACTIVE,
@@ -64,7 +64,7 @@ f(CONN_PRIORITY,              "connPriority",             uint32_t,             
 f(CONN_TIMEOUT,               "connTimeout",              uint32_t,                CONN_TIMEOUT_DISABLED)              \
 f(KEEP_ALIVE_TIMEOUT,         "keepAliveTimeout",         uint32_t,                CONN_TIMEOUT_DISABLED)              \
 f(CONN_SCHEDULER,             "connScheduler",            ConnectionSchedulerEnum, CONN_SCHEDULER_WEIGHTED_FAIR_QUEUEING) \
-f(CONN_CAPACITY_PROFILE,      "connCapacityProfile",      CapacityProfileEnum,     CAPACITY_PROFILE_DEFAULT)           \
+f(CONN_CAPACITY_PROFILE,      "connCapacityProfile",      CapacityProfileEnum,     CAPACITY_PROFILE_BEST_EFFORT)           \
 f(MULTIPATH_POLICY,           "multipathPolicy",          MultipathPolicyEnum,     MULTIPATH_POLICY_HANDOVER)          \
 f(MIN_SEND_RATE,              "minSendRate",              uint64_t,                CONN_RATE_UNLIMITED)                \
 f(MIN_RECV_RATE,              "minRecvRate",              uint64_t,                CONN_RATE_UNLIMITED)                \

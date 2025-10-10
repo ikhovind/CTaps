@@ -1,6 +1,8 @@
 #ifndef PROTOCOL_INTERFACE_H
 #define PROTOCOL_INTERFACE_H
 
+#include <message/message_context/message_context.h>
+
 #include "message/message.h"
 #include "transport_properties/selection_properties/selection_properties.h"
 
@@ -29,7 +31,7 @@ typedef struct ProtocolImplementation {
   const char* name;
   SelectionProperties selection_properties;
   int (*init)(struct Connection* connection, InitDoneCb init_done_cb);
-  int (*send)(struct Connection*, Message*);
+  int (*send)(struct Connection*, Message*, MessageContext*);
   int (*receive)(struct Connection*, ReceiveMessageRequest receive_cb);
   int (*listen)(struct SocketManager* socket_manager);
   int (*stop_listen)(struct SocketManager*);

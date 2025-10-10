@@ -11,6 +11,7 @@
 
 #include "connections/connection/connection.h"
 #include "ctaps.h"
+#include "message/message_context/message_context.h"
 #include "protocols/registry/protocol_registry.h"
 
 #define MAX_FOUND_INTERFACE_ADDRS 64
@@ -134,7 +135,7 @@ int udp_stop_listen(struct SocketManager* socket_manager) {
   return 0;
 }
 
-int udp_send(Connection* connection, Message* message) {
+int udp_send(Connection* connection, Message* message, MessageContext* message_context) {
   printf("Sending message: %s\n", message->content);
   const uv_buf_t buffer =
       uv_buf_init(message->content, message->length);

@@ -2,12 +2,19 @@
 
 #include <connections/listener/listener.h>
 
+#include "glib.h"
 #include "message/message.h"
+#include "message/message_context/message_context.h"
 #include "protocols/protocol_interface.h"
 
 int send_message(Connection* connection, Message* message) {
   printf("Sending message to port %d\n", connection->remote_endpoint.port);
-  return connection->protocol.send(connection, message);
+  return connection->protocol.send(connection, message, NULL);
+}
+
+int send_message_full(Connection* connection, Message* message, MessageContext* message_context) {
+  printf("Sending message to port %d\n", connection->remote_endpoint.port);
+  return connection->protocol.send(connection, message, message_context);
 }
 
 int receive_message(Connection* connection,
@@ -17,7 +24,7 @@ int receive_message(Connection* connection,
   return connection->protocol.receive(connection, receive_message_cb);
 }
 
-void connection_build_from_listener(Connection* connection, Listener* listener, RemoteEndpoint* remote_endpoint) {
+void connection_build_from_listener(Connection* connection, const Listener* listener, const RemoteEndpoint* remote_endpoint) {
   memset(connection, 0, sizeof(Connection));
   connection->local_endpoint = listener->local_endpoint;
   connection->transport_properties = listener->transport_properties;

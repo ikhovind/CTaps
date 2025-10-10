@@ -7,6 +7,7 @@
 #include "endpoints/local/local_endpoint.h"
 #include "endpoints/remote/remote_endpoint.h"
 #include "message/message.h"
+#include "message/message_context/message_context.h"
 #include "transport_properties/transport_properties.h"
 
 typedef enum {
@@ -31,8 +32,9 @@ typedef struct Connection {
 } Connection;
 
 int send_message(Connection* connection, Message* message);
+int send_message_full(Connection* connection, Message* message, MessageContext* message_context);
 int receive_message(Connection* connection,
                     ReceiveMessageRequest receive_message_cb);
-void connection_build_from_listener(Connection* connection, struct Listener* listener, RemoteEndpoint* remote_endpoint);
+void connection_build_from_listener(Connection* connection, const struct Listener* listener, const RemoteEndpoint* remote_endpoint);
 void connection_close(Connection* connection);
 #endif  // CONNECTION_H

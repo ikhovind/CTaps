@@ -1,7 +1,3 @@
-//
-// Created by ikhovind on 12.08.25.
-//
-
 #ifndef SELECTION_PROPERTIES_H
 #define SELECTION_PROPERTIES_H
 
