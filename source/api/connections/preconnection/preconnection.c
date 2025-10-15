@@ -94,7 +94,7 @@ int preconnection_listen(Preconnection* preconnection, Listener* listener, Conne
 }
 
 int preconnection_initiate(Preconnection* preconnection, Connection* connection,
-                           InitDoneCb init_done_cb, uv_getaddrinfo_cb dns_cb) {
+                           ConnectionCallbacks connection_callbacks) {
   log_info("Initiating connection from preconnection\n");
 
   GArray* candidate_nodes = get_ordered_candidate_nodes(preconnection);
@@ -109,7 +109,9 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
 
     g_array_free(candidate_nodes, true);
 
-    connection->protocol.init(connection, init_done_cb);
+    connection->connection_callbacks = connection_callbacks;
+
+    connection->protocol.init(connection, &connection->connection_callbacks);
     return 0;
   }
   log_error("No candidate node for Connection found\n");

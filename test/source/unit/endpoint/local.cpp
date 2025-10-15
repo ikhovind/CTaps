@@ -116,8 +116,8 @@ TEST_F(CTapsGenericFixture, UsesInterfaceAddress_whenInterfaceIsSpecified) {
         .messages = &received_messages,
     };
 
-    InitDoneCb init_done_cb = {
-        .init_done_callback = on_connection_ready,
+    ConnectionCallbacks connection_callbacks = {
+        .ready = on_connection_ready,
         .user_data = &callback_context
     };
 
@@ -125,7 +125,7 @@ TEST_F(CTapsGenericFixture, UsesInterfaceAddress_whenInterfaceIsSpecified) {
     // --- ACT ---
 
     Connection connection;
-    preconnection_initiate(&preconnection, &connection, init_done_cb, nullptr);
+    preconnection_initiate(&preconnection, &connection, connection_callbacks);
     awaiter.await(1);
 
     // --- ASSERT ---

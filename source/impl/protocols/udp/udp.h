@@ -8,7 +8,7 @@
 
 struct SocketManager;
 
-int udp_init(Connection* connection, InitDoneCb init_done_cb);
+int udp_init(Connection* connection, const ConnectionCallbacks* connection_callbacks);
 int udp_close(const Connection* connection);
 int udp_send(Connection* connection, Message* message, MessageContext*);
 int udp_receive(Connection* connection, ReceiveMessageRequest receive_message_cb);

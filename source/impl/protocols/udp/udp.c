@@ -12,6 +12,7 @@
 #include <errno.h>
 
 #include "connections/connection/connection.h"
+#include "connections/connection/connection_callbacks.h"
 #include "connections/listener/socket_manager/socket_manager.h"
 #include "ctaps.h"
 #include "message/message_context/message_context.h"
@@ -79,7 +80,7 @@ void on_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
   }
 }
 
-int udp_init(Connection* connection, InitDoneCb init_done_cb) {
+int udp_init(Connection* connection, const ConnectionCallbacks* connection_callbacks) {
   log_debug("Initiating UDP connection\n");
   connection->received_messages = g_queue_new();
   connection->received_callbacks = g_queue_new();
@@ -120,7 +121,7 @@ int udp_init(Connection* connection, InitDoneCb init_done_cb) {
 
   connection->protocol_uv_handle = (uv_handle_t*)new_udp_handle;
 
-  init_done_cb.init_done_callback(connection, init_done_cb.user_data);
+  connection_callbacks->ready(connection, connection_callbacks->user_data);
 
   log_trace("Successfully initiated UDP connection");
   return 0;

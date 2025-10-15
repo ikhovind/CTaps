@@ -44,12 +44,12 @@ TEST_F(CTapsGenericFixture, sendsSingleUdpPacket) {
         .total_expected_signals = 2
     };
 
-    InitDoneCb init_done_cb = {
-        .init_done_callback = on_connection_ready,
+    ConnectionCallbacks connection_callbacks = {
+        .ready = on_connection_ready,
         .user_data = &callback_context
     };
 
-    preconnection_initiate(&preconnection, &connection, init_done_cb, nullptr);
+    preconnection_initiate(&preconnection, &connection, connection_callbacks);
 
     // "Await" the connection to be ready (1 signal expected)
     awaiter.await(1);
@@ -110,8 +110,12 @@ TEST_F(CTapsGenericFixture, packetsAreReadInOrder) {
         .total_expected_signals = TOTAL_EXPECTED_SIGNALS
     };
 
-    InitDoneCb init_done_cb = { .init_done_callback = on_connection_ready, .user_data = &callback_context };
-    preconnection_initiate(&preconnection, &connection, init_done_cb, nullptr);
+    ConnectionCallbacks connection_callbacks = {
+        .ready = on_connection_ready,
+        .user_data = &callback_context
+    };
+
+    preconnection_initiate(&preconnection, &connection, connection_callbacks);
     awaiter.await(1);
 
     // --- Action ---
@@ -177,11 +181,12 @@ TEST_F(CTapsGenericFixture, canPingArbitraryBytes) {
         .total_expected_signals = TOTAL_EXPECTED_SIGNALS
     };
 
-    InitDoneCb init_done_cb = {
-        .init_done_callback = on_connection_ready,
+    ConnectionCallbacks connection_callbacks = {
+        .ready = on_connection_ready,
         .user_data = &callback_context
     };
-    preconnection_initiate(&preconnection, &connection, init_done_cb, nullptr);
+
+    preconnection_initiate(&preconnection, &connection, connection_callbacks);
 
     // "Await" the connection to be ready before we send anything.
     awaiter.await(1);

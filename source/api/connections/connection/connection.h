@@ -24,6 +24,7 @@ typedef struct Connection {
   ProtocolImplementation protocol;
   uv_handle_t* protocol_uv_handle;
   ConnectionOpenType open_type;
+  ConnectionCallbacks connection_callbacks;
   struct SocketManager* socket_manager;
   // TODO this is shared state and should be locked
   // Queue for pending receive() calls that arrived before the data

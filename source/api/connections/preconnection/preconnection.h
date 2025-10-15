@@ -41,7 +41,7 @@ int preconnection_build_with_local(Preconnection* preconnection,
                                     LocalEndpoint local_endpoint);
 
 int preconnection_initiate(Preconnection* preconnection, Connection* connection,
-                           InitDoneCb init_done_cb, uv_getaddrinfo_cb dns_cb);
+                           ConnectionCallbacks connection_callbacks);
 
 int preconnection_listen(Preconnection* preconnection, Listener* listener, ConnectionReceivedCb connection_received_cb, void* user_data);
 
