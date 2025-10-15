@@ -43,7 +43,7 @@ int preconnection_build_with_local(Preconnection* preconnection,
 int preconnection_initiate(Preconnection* preconnection, Connection* connection,
                            ConnectionCallbacks connection_callbacks);
 
-int preconnection_listen(Preconnection* preconnection, Listener* listener, ConnectionReceivedCb connection_received_cb, void* user_data);
+int preconnection_listen(Preconnection* preconnection, Listener* listener, ListenerCallbacks listener_callback);
 
 void preconnection_initiate_with_timeout(Preconnection* preconnection,
                                          Connection* connection,

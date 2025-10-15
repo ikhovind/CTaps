@@ -64,7 +64,7 @@ int preconnection_build_with_local(Preconnection* preconnection,
 }
 
 
-int preconnection_listen(Preconnection* preconnection, Listener* listener, ConnectionReceivedCb connection_received_cb, void* user_data) {
+int preconnection_listen(Preconnection* preconnection, Listener* listener, ListenerCallbacks listener_callbacks) {
   SocketManager* socket_manager = malloc(sizeof(SocketManager));
   if (socket_manager == NULL) {
     return -errno;
@@ -75,12 +75,11 @@ int preconnection_listen(Preconnection* preconnection, Listener* listener, Conne
     const CandidateNode first_node = g_array_index(candidate_nodes, CandidateNode, 0);
 
     *listener = (Listener){
-      .connection_received_cb = connection_received_cb,
+      .listener_callbacks = listener_callbacks,
       .local_endpoint = first_node.local_endpoint,
       .num_local_endpoints = 1,
       .socket_manager = socket_manager,
       .transport_properties = preconnection->transport_properties,
-      .user_data = user_data
     };
     socket_manager->protocol_impl = *first_node.protocol;
 

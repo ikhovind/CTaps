@@ -71,7 +71,7 @@ void socket_manager_multiplex_received_message(SocketManager* socket_manager, Me
     socket_manager->ref_count++;
 
     g_queue_push_tail(connection->received_messages, message);
-    listener->connection_received_cb(listener, connection);
+    listener->listener_callbacks.connection_received(listener, connection, listener->listener_callbacks.user_data);
   }
   else if (connection != NULL) {
     log_debug("Connection found, using existing one\n");

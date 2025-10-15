@@ -122,7 +122,7 @@ protected:
 
     static int on_connection_received(Listener* listener, Connection* new_connection) {
         printf("Callback: New connection received.\n");
-        auto* context = static_cast<CallbackContext*>(listener->user_data);
+        auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_data);
         context->server_connections.push_back(new_connection);
         context->awaiter->signal();
         return 0;
@@ -193,13 +193,13 @@ protected:
 
     static int receive_message_and_respond_on_connection_received(Listener* listener, Connection* new_connection) {
         printf("Callback: receive_message_on_connection_received.\n");
-        auto* context = static_cast<CallbackContext*>(listener->user_data);
+        auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_data);
         context->server_connections.push_back(new_connection);
         context->awaiter->signal();
 
         ReceiveCallbacks receive_message_request = {
           .receive_callback = respond_on_message_received,
-          .user_data = listener->user_data,
+          .user_data = listener->listener_callbacks.user_data,
         };
 
         receive_message(new_connection, receive_message_request);
@@ -208,14 +208,14 @@ protected:
 
     static int on_connection_received_receive_message_close_listener_and_send_new_message(Listener* listener, Connection* new_connection) {
         printf("Callback: on_connection_received_receive_message_close_listener_and_send_new_message\n");
-        auto* context = static_cast<CallbackContext*>(listener->user_data);
+        auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_data);
         listener_close(listener);
         context->server_connections.push_back(new_connection);
         context->awaiter->signal();
 
         ReceiveCallbacks receive_message_request = {
           .receive_callback = on_message_receive_send_new_message_and_receive,
-          .user_data = listener->user_data,
+          .user_data = listener->listener_callbacks.user_data,
         };
 
         receive_message(new_connection, receive_message_request);
