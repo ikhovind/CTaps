@@ -20,9 +20,9 @@ int send_message_full(Connection* connection, Message* message, MessageContext* 
 }
 
 int receive_message(Connection* connection,
-                    ReceiveMessageRequest receive_message_cb
+                    ReceiveCallbacks receive_callbacks
                     ) {
-  return connection->protocol.receive(connection, receive_message_cb);
+  return connection->protocol.receive(connection, receive_callbacks);
 }
 
 void connection_build_from_listener(Connection* connection, const Listener* listener, const RemoteEndpoint* remote_endpoint) {

@@ -61,7 +61,7 @@ TEST_F(CTapsGenericFixture, sendsSingleUdpPacket) {
     send_message(&connection, &message);
     message_free_content(&message);
 
-    ReceiveMessageRequest receive_req = { .receive_cb = on_message_received, .user_data = &callback_context };
+    ReceiveCallbacks receive_req = { .receive_callback = on_message_received, .user_data = &callback_context };
     receive_message(&connection, receive_req);
 
     ctaps_start_event_loop();
@@ -130,7 +130,7 @@ TEST_F(CTapsGenericFixture, packetsAreReadInOrder) {
     message_build_with_content(&message2, hello2, strlen(hello2) + 1);
     send_message(&connection, &message2);
 
-    ReceiveMessageRequest receive_req = { .receive_cb = on_message_received, .user_data = &callback_context };
+    ReceiveCallbacks receive_req = { .receive_callback = on_message_received, .user_data = &callback_context };
 
     // Post two receive requests
     receive_message(&connection, receive_req);
@@ -200,8 +200,8 @@ TEST_F(CTapsGenericFixture, canPingArbitraryBytes) {
     send_message(&connection, &message);
     message_free_content(&message);
 
-    ReceiveMessageRequest receive_req = {
-        .receive_cb = on_message_received,
+    ReceiveCallbacks receive_req = {
+        .receive_callback = on_message_received,
         .user_data = &callback_context
     };
 

@@ -35,7 +35,7 @@ typedef struct Connection {
 int send_message(Connection* connection, Message* message);
 int send_message_full(Connection* connection, Message* message, MessageContext* message_context);
 int receive_message(Connection* connection,
-                    ReceiveMessageRequest receive_message_cb);
+                    ReceiveCallbacks receive_callbacks);
 void connection_build_from_listener(Connection* connection, const struct Listener* listener, const RemoteEndpoint* remote_endpoint);
 void connection_close(Connection* connection);
 #endif  // CONNECTION_H

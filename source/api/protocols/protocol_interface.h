@@ -11,22 +11,12 @@ struct Listener;
 struct Connection;
 struct SocketManager;
 
-typedef int (*ReceiveCallback)(struct Connection* connection,
-                                Message** received_message,
-                                void* user_data
-                                );
-
-typedef struct {
-  ReceiveCallback receive_cb;
-  void* user_data;
-} ReceiveMessageRequest;
-
 typedef struct ProtocolImplementation {
   const char* name;
   SelectionProperties selection_properties;
   int (*init)(struct Connection* connection, const ConnectionCallbacks* connection_callbacks);
   int (*send)(struct Connection*, Message*, MessageContext*);
-  int (*receive)(struct Connection*, ReceiveMessageRequest receive_cb);
+  int (*receive)(struct Connection*, ReceiveCallbacks receive_callbacks);
   int (*listen)(struct SocketManager* socket_manager);
   int (*stop_listen)(struct SocketManager*);
   int (*close)(const struct Connection*);

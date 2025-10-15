@@ -1,7 +1,3 @@
-//
-// Created by ikhovind on 16.08.25.
-//
-
 #ifndef MESSAGE_H
 #define MESSAGE_H
 #include <stddef.h>

@@ -81,9 +81,9 @@ void socket_manager_multiplex_received_message(SocketManager* socket_manager, Me
     }
     else {
       log_debug("Found Connection has receive callback ready, invoking it");
-      ReceiveMessageRequest* receive_callback = g_queue_pop_head(connection->received_callbacks);
+      ReceiveCallbacks* receive_callback = g_queue_pop_head(connection->received_callbacks);
 
-      receive_callback->receive_cb(connection, &message, receive_callback->user_data);
+      receive_callback->receive_callback(connection, &message, NULL, receive_callback->user_data);
       free(receive_callback);
     }
   } else {

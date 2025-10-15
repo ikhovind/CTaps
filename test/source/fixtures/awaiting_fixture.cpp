@@ -113,7 +113,7 @@ protected:
         message_free_content(&message);
 
         receive_message(connection, {
-            .receive_cb = on_message_received,
+            .receive_callback = on_message_received,
             .user_data = user_data,
         });
         context->awaiter->signal();
@@ -128,7 +128,7 @@ protected:
         return 0;
     }
 
-    static int on_message_received(Connection* connection, Message** received_message, void* user_data) {
+    static int on_message_received(Connection* connection, Message** received_message, MessageContext* message_context, void* user_data) {
         printf("Callback: on_message_received.\n");
         auto* ctx = static_cast<CallbackContext*>(user_data);
 
@@ -147,7 +147,7 @@ protected:
         return 0;
     }
 
-    static int respond_on_message_received(Connection* connection, Message** received_message, void* user_data) {
+    static int respond_on_message_received(Connection* connection, Message** received_message, MessageContext* message_context, void* user_data) {
         printf("Callback: respond_on_message_received.\n");
         auto* ctx = static_cast<CallbackContext*>(user_data);
 
@@ -165,7 +165,7 @@ protected:
     }
 
 
-    static int on_message_receive_send_new_message_and_receive(Connection* connection, Message** received_message, void* user_data) {
+    static int on_message_receive_send_new_message_and_receive(Connection* connection, Message** received_message, MessageContext* message_context, void* user_data) {
         printf("Callback: on_message_receive_send_new_message_and_receive.\n");
         auto* ctx = static_cast<CallbackContext*>(user_data);
 
@@ -181,8 +181,8 @@ protected:
         ctx->messages->push_back(*received_message);
         ctx->awaiter->signal();
 
-        ReceiveMessageRequest receive_message_request = {
-          .receive_cb = on_message_received,
+        ReceiveCallbacks receive_message_request = {
+          .receive_callback = on_message_received,
           .user_data = user_data,
         };
 
@@ -197,8 +197,8 @@ protected:
         context->server_connections.push_back(new_connection);
         context->awaiter->signal();
 
-        ReceiveMessageRequest receive_message_request = {
-          .receive_cb = respond_on_message_received,
+        ReceiveCallbacks receive_message_request = {
+          .receive_callback = respond_on_message_received,
           .user_data = listener->user_data,
         };
 
@@ -213,8 +213,8 @@ protected:
         context->server_connections.push_back(new_connection);
         context->awaiter->signal();
 
-        ReceiveMessageRequest receive_message_request = {
-          .receive_cb = on_message_receive_send_new_message_and_receive,
+        ReceiveCallbacks receive_message_request = {
+          .receive_callback = on_message_receive_send_new_message_and_receive,
           .user_data = listener->user_data,
         };
 
