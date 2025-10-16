@@ -1,14 +1,10 @@
-#include <stdio.h>
-
-#include "connections/preconnection/preconnection.h"
 #include "ctaps.h"
-#include "lib.h"
+#include "connections/preconnection/preconnection.h"
 #include "protocols/registry/protocol_registry.h"
 #include "transport_properties/selection_properties/selection_properties.h"
 #include "transport_properties/transport_properties.h"
 
 int main() {
-  struct library lib = create_library();
 
   ctaps_initialize();
 
@@ -38,10 +34,6 @@ int main() {
   remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
   remote_endpoint_with_port(&remote_endpoint, 5005);
   preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);
-
-  if (printf("Hello from %s!\n", lib.name) < 0) {
-    return 1;
-  }
 
   return 0;
 }

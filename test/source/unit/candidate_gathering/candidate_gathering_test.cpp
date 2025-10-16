@@ -12,7 +12,7 @@ extern "C" {
   #include "transport_properties/transport_properties.h"
   #include "protocols/protocol_interface.h"
   #include "protocols/registry/protocol_registry.h"
-  #include "impl/candidate_gathering/candidate_gathering.h"
+  #include "candidate_gathering/candidate_gathering.h"
 }
 
 DEFINE_FFF_GLOBALS;

@@ -172,9 +172,9 @@ int prune_candidate_tree(GNode* root, SelectionProperties selection_properties) 
 }
 
 gint compare_prefer_and_avoid_preferences(gconstpointer a, gconstpointer b, gpointer desired_selection_properties) {
+
   const CandidateNode* candidate_a = (const CandidateNode*)a;
   const CandidateNode* candidate_b = (const CandidateNode*)b;
-  log_trace("Comparing protocol with name %s to protocol with name %s", candidate_a->protocol->name, candidate_b->protocol->name);
   const SelectionProperties* selection_properties = (const SelectionProperties*)desired_selection_properties;
 
   // order the branches according to the preferred Properties and use any avoided Properties as a tiebreaker
@@ -306,6 +306,8 @@ GArray* get_ordered_candidate_nodes(const Preconnection* precon) {
 
   prune_candidate_tree(root_node, precon->transport_properties.selection_properties);
 
+  log_info("Candidate tree has been pruned, extracting leaf nodes");
+
   GArray *root_array = g_array_new(FALSE, FALSE, sizeof(CandidateNode));
 
   // Get leaf nodes and insert them in array
@@ -313,6 +315,7 @@ GArray* get_ordered_candidate_nodes(const Preconnection* precon) {
 
   // Free data owned by tree
   g_node_traverse(root_node, G_IN_ORDER, G_TRAVERSE_ALL, -1, free_node_data, root_array);
+
   g_node_destroy(root_node);
 
   g_array_sort_with_data(root_array, compare_prefer_and_avoid_preferences, &precon->transport_properties.selection_properties);

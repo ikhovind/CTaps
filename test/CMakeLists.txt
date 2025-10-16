@@ -40,7 +40,6 @@ function(add_gtest test_name)
             gtest_main
             gmock
             fff
-            c_lib
             ${GLIB_LIBRARIES}
             uv
     )
@@ -65,7 +64,6 @@ set(CTAPS_SOURCES
 list(TRANSFORM CTAPS_SOURCES PREPEND ${CMAKE_SOURCE_DIR}/)
 
 
-add_gtest(mocking_test SOURCES source/mocking_test.cpp ${CTAPS_SOURCES})
 add_gtest(udp_ping_test SOURCES source/integration/udp_ping.cpp ${CTAPS_SOURCES})
 add_gtest(tcp_ping_test SOURCES source/integration/tcp/tcp_ping.cpp ${CTAPS_SOURCES})
 add_gtest(initiation_test SOURCES source/preconnection/initiation.cpp ${CTAPS_SOURCES} source/util/util.c)

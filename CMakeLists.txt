@@ -9,6 +9,7 @@ project(
 )
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(tidy)
 include(format)
@@ -67,29 +68,20 @@ target_link_libraries(CTaps PUBLIC ${GLIB_LIBRARIES})
 
 
 # ---- library for testing etc. -----
-add_library(
-    c_lib SHARED
-    source/lib.c
-    source/mocked_lib.c
-)
 
-target_include_directories(
-    c_lib ${warning_guard}
-    PUBLIC
-    "\$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/source>"
-)
-
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # ---- Declare executable ----
 
 add_executable(mocking_exe source/main.c)
 
+target_link_libraries(mocking_exe
+        PRIVATE
+        CTaps
+)
+
 set_property(TARGET mocking_exe PROPERTY OUTPUT_NAME mocking)
 
 target_compile_features(mocking_exe PRIVATE c_std_99)
-
-target_link_libraries(mocking_exe PRIVATE c_lib CTaps)
 
 enable_testing()
 
