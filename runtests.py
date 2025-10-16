@@ -34,6 +34,7 @@ def main():
     build_path = os.path.join(project_root, build_dir)
 
     # Build the project
+    run_command(["cmake", ".", "-B", build_path])
     build_command = ["cmake", "--build", build_path, "--target", "all", "-j", "6"]
     run_command(build_command)
 
