@@ -98,6 +98,7 @@ add_gtest(remote_endpoint_integration_test
             ${CMAKE_SOURCE_DIR}/source/impl/logging/log.c
             ${CMAKE_SOURCE_DIR}/source/impl/endpoints/util.c
             ${CMAKE_SOURCE_DIR}/source/impl/protocols/udp/udp.c
+            ${CMAKE_SOURCE_DIR}/source/impl/protocols/tcp/tcp.c
             ${CMAKE_SOURCE_DIR}/source/api/ctaps.c
             ${CMAKE_SOURCE_DIR}/source/api/transport_properties/transport_properties.c
             ${CMAKE_SOURCE_DIR}/source/api/transport_properties/selection_properties/selection_properties.c

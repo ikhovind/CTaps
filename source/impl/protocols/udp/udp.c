@@ -99,7 +99,7 @@ int udp_init(Connection* connection, const ConnectionCallbacks* connection_callb
   int rc = uv_udp_init(ctaps_event_loop, new_udp_handle);
   if (rc < 0) {
     log_error( "Error initializing udp handle: %s", uv_strerror(rc));
-    free(new_udp_handle); // CRITICAL: Clean up allocated memory on failure
+    free(new_udp_handle);
     return rc;
   }
 
