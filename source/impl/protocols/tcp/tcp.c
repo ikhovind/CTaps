@@ -52,10 +52,7 @@ int tcp_init(Connection* connection, const ConnectionCallbacks* connection_callb
   if (keepalive_timeout != CONN_TIMEOUT_DISABLED) {
     rc = uv_tcp_keepalive(new_tcp_handle, true, keepalive_timeout);
     if (rc < 0) {
-      log_error("Error setting TCP keepalive: %s", uv_strerror(rc));
-      uv_close((uv_handle_t*)new_tcp_handle, NULL);
-      free(new_tcp_handle);
-      return rc;
+      log_warn("Error setting TCP keepalive: %s", uv_strerror(rc));
     }
   }
 
