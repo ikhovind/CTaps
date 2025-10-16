@@ -5,16 +5,16 @@ enable_testing()
 include(FetchContent)
 FetchContent_Declare(
   googletest
-  URL https://github.com/google/googletest/archive/refs/heads/main.zip
   DOWNLOAD_EXTRACT_TIMESTAMP TRUE  # Ensure the extracted files use the timestamp of extraction
+  URL https://github.com/google/googletest/archive/refs/heads/main.zip
 )
 
 FetchContent_MakeAvailable(googletest)
 
 FetchContent_Declare(
   fff
-  URL https://github.com/meekrosoft/fff/archive/refs/heads/master.zip
   DOWNLOAD_EXTRACT_TIMESTAMP TRUE  # Ensure the extracted files use the timestamp of extraction
+  URL https://github.com/meekrosoft/fff/archive/refs/heads/master.zip
 )
 FetchContent_MakeAvailable(fff)
 
