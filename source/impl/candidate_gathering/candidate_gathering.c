@@ -24,6 +24,7 @@ typedef struct NodePruningData {
 void build_candidate_tree_recursive(GNode* parent_node);
 
 const char* get_generic_interface_type(const char* system_interface_name) {
+  log_debug("Getting generic interface type for system interface name: %s", system_interface_name);
   // This is an example of a simple mapping.
   // A real implementation would have a more comprehensive mapping.
   if (strncmp(system_interface_name, "wl", strlen("wl")) == 0) {
@@ -35,6 +36,7 @@ const char* get_generic_interface_type(const char* system_interface_name) {
   if (strcmp(system_interface_name, "lo") == 0) {
     return "Loopback";
   }
+  log_trace("No generic interface type found for %s", system_interface_name);
   return NULL;
 }
 
@@ -58,6 +60,7 @@ bool protocol_implementation_supports_selection_properties(
 }
 
 bool interface_is_compatible(const char* interface_name, const TransportProperties* transport_properties) {
+  log_trace("Checking if interface %s is compatible with transport properties", interface_name);
   // iterate over the interface preferences
   GHashTable* interface_map = (GHashTable*)transport_properties->selection_properties.selection_property[INTERFACE].value.preference_map;
   if (interface_map == NULL) {
@@ -71,16 +74,20 @@ bool interface_is_compatible(const char* interface_name, const TransportProperti
   GList* keys = g_hash_table_get_keys(interface_map);
   const char* interface_type = get_generic_interface_type(interface_name);
   if (interface_type == NULL) {
+    log_trace("Could not determine generic interface type for %s", interface_name);
     // Unknown interface type, consider it incompatible
     g_list_free(keys);
     return false;
   }
+  log_trace("Checking compatibility for generic interface type: %s", interface_type);
   for (GList* iter = keys; iter != NULL; iter = iter->next) {
     char* key = (char*)iter->data;
     SelectionPreference preference = GPOINTER_TO_INT(g_hash_table_lookup(interface_map, key));
+    log_trace("Preference for interface type %s is %d", key, preference);
     if (strcmp(key, interface_type) == 0) {
       if (preference == PROHIBIT) {
         g_list_free(keys);
+        log_trace("Interface %s is prohibited", interface_name);
         return false;
       }
     }
@@ -88,10 +95,12 @@ bool interface_is_compatible(const char* interface_name, const TransportProperti
       // If any other interface is set to REQUIRE, this one is incompatible
       if (preference == REQUIRE) {
         g_list_free(keys);
+        log_trace("Interface %s is incompatible due to %s being required", interface_name, key);
         return false;
       }
     }
   }
+  log_trace("Interface %s is compatible", interface_name);
   return true;
 }
 
@@ -151,34 +160,31 @@ gboolean gather_incompatible_protocol_nodes(GNode *node, gpointer user_data) {
 int prune_candidate_tree(GNode* root, SelectionProperties selection_properties) {
   log_debug("Pruning candidate tree based on selection properties");
 
-  struct NodePruningData pruning_data = {
+  NodePruningData pruning_data = {
     .selection_properties = selection_properties,
     .undesirable_nodes = NULL // This is fince since g_list_append handles initialization
   };
 
-  // step 1 prune paths (local endpoints at the PATH level)
-  log_trace("About to gather incompatible path nodes");
-  g_node_traverse(root, G_LEVEL_ORDER, G_TRAVERSE_NON_LEAVES, -1, gather_incompatible_path_nodes, &pruning_data);
 
+  // Prune from the bottom up, otherwise we may remove a parent first, then try to remove the child
   log_trace("About to gather incompatible protocol nodes");
   g_node_traverse(root, G_LEVEL_ORDER, G_TRAVERSE_NON_LEAVES, -1, gather_incompatible_protocol_nodes, &pruning_data);
 
-  log_trace("Iterating incompatible nodes to remove them from the tree");
-  log_trace("Removing %d undesirable nodes", g_list_length(pruning_data.undesirable_nodes));
-  // check if any of the undesirable nodes are children of other undesirable nodes
-  for (GList* iter = pruning_data.undesirable_nodes; iter != NULL; iter = iter->next) {
-    GNode* node_to_remove = (GNode*)iter->data;
-    for (GList* inner_iter = pruning_data.undesirable_nodes; inner_iter != NULL; inner_iter = inner_iter->next) {
-      GNode* potential_parent = (GNode*)inner_iter->data;
-      if (node_to_remove != potential_parent && g_node_is_ancestor(potential_parent, node_to_remove)) {
-        log_trace("Node to remove is a descendant of another undesirable node, skipping removal");
-      }
-    }
-  }
-  for (GList* iter = pruning_data.undesirable_nodes; iter != NULL; iter = iter->next) {
-    log_trace("Removing a node from the tree");
-    GNode* node_to_remove = (GNode*)iter->data;
+  log_trace("About to gather incompatible path nodes");
+  g_node_traverse(root, G_LEVEL_ORDER, G_TRAVERSE_NON_LEAVES, -1, gather_incompatible_path_nodes, &pruning_data);
+
+  log_trace("Now removing %d undesirable nodes", g_list_length(pruning_data.undesirable_nodes));
+  GList* current_node_list = pruning_data.undesirable_nodes;
+  while (current_node_list != NULL) {
+    GNode* node_to_remove = (GNode*)current_node_list->data;
+    GList* next_iter = current_node_list->next;
+
+    log_trace("Removing undesirable node of type %d", ((CandidateNode*)node_to_remove->data)->type);
+    // First remove it from the tree, to trying to free it twice, when later freeing a parent
+    g_node_unlink(node_to_remove);
     g_node_destroy(node_to_remove);
+
+    current_node_list = next_iter;
   }
   return 0;
 }
@@ -268,7 +274,6 @@ struct CandidateNode* candidate_node_new(NodeType type, const LocalEndpoint loca
 }
 
 gboolean free_node_data(GNode *node, gpointer user_data) {
-  // Don't free the endpoint, since that pointer is actually owned by the array
   free(node->data);
 }
 
