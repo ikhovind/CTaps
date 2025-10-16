@@ -164,6 +164,7 @@ int prune_candidate_tree(GNode* root, SelectionProperties selection_properties) 
   g_node_traverse(root, G_LEVEL_ORDER, G_TRAVERSE_NON_LEAVES, -1, gather_incompatible_protocol_nodes, &pruning_data);
 
   log_trace("Iterating incompatible nodes to remove them from the tree");
+  log_trace("Removing %d undesirable nodes", g_list_length(pruning_data.undesirable_nodes));
   for (GList* iter = pruning_data.undesirable_nodes; iter != NULL; iter = iter->next) {
     GNode* node_to_remove = (GNode*)iter->data;
     g_node_destroy(node_to_remove);

@@ -104,16 +104,20 @@ add_gtest(remote_endpoint_integration_test
             ${CMAKE_SOURCE_DIR}/source/api/transport_properties/connection_properties/connection_properties.c
             ${CMAKE_SOURCE_DIR}/source/api/connections/connection/connection.c
             ${CMAKE_SOURCE_DIR}/source/api/protocols/registry/protocol_registry.c
-            ${CMAKE_SOURCE_DIR}/source/api/connections/listener/socket_manager/socket_manager.c
+            ${CMAKE_SOURCE_DIR}/source/impl/connections/listener/socket_manager/socket_manager.c
         WRAP_FUNCTIONS
             uv_getaddrinfo
 )
 #add_gtest(udp_listener_test SOURCES source/integration/listener_test.cpp ${CTAPS_SOURCES})
-add_gtest(selection_property_test SOURCES source/unit/transport_properties/selection_properties/selection_properties_test.cpp ${CTAPS_SOURCES})
+add_gtest(selection_property_test 
+  SOURCES 
+    source/unit/transport_properties/selection_properties/selection_properties_test.cpp 
+    ${CTAPS_SOURCES}
+)
 
 add_gtest(local_endpoint_resolve_test
-        SOURCES
-            source/unit/endpoint/local/local_endpoint_resolve_test.cpp
-            ${CMAKE_SOURCE_DIR}/source/api/endpoints/local/local_endpoint.c
-            ${CMAKE_SOURCE_DIR}/source/impl/logging/log.c
+  SOURCES
+    source/unit/endpoint/local/local_endpoint_resolve_test.cpp
+    ${CMAKE_SOURCE_DIR}/source/api/endpoints/local/local_endpoint.c
+    ${CMAKE_SOURCE_DIR}/source/impl/logging/log.c
 )
