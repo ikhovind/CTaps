@@ -110,6 +110,9 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
 
     connection->connection_callbacks = connection_callbacks;
 
+    connection->received_messages = g_queue_new();
+    connection->received_callbacks = g_queue_new();
+
     connection->protocol.init(connection, &connection->connection_callbacks);
     return 0;
   }

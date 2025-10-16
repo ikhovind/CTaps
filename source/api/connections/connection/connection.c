@@ -10,6 +10,7 @@
 #include "message/message.h"
 #include "message/message_context/message_context.h"
 #include "protocols/protocol_interface.h"
+#include "transport_properties/connection_properties/connection_properties.h"
 
 int send_message(Connection* connection, Message* message) {
   return connection->protocol.send(connection, message, NULL);
@@ -46,5 +47,6 @@ void connection_close(Connection* connection) {
   else {
     log_info("Closing independent connection");
     connection->protocol.close(connection);
+    connection->transport_properties.connection_properties.list[STATE].value.uint32_val = CONN_STATE_CLOSED;
   }
 }

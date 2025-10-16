@@ -6,6 +6,7 @@
 #define CONNECTION_CALLBACKS_H
 
 #include "message/message.h"
+#include "message/message_context/message_context.h"
 
 typedef struct ReceiveCallbacks {
   int (*receive_callback)(struct Connection* connection, Message** received_message, MessageContext* ctx, void* user_data);

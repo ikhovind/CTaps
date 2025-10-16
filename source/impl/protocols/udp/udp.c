@@ -82,12 +82,11 @@ void on_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
 
 int udp_init(Connection* connection, const ConnectionCallbacks* connection_callbacks) {
   log_debug("Initiating UDP connection\n");
-  connection->received_messages = g_queue_new();
-  connection->received_callbacks = g_queue_new();
 
   uv_udp_t* new_udp_handle;
 
   new_udp_handle = malloc(sizeof(*new_udp_handle));
+  connection->protocol_uv_handle = (uv_handle_t*)new_udp_handle;
   if (new_udp_handle == NULL) {
     log_error("Failed to allocate memory for UDP handle");
     if (errno == 0) {
@@ -119,7 +118,6 @@ int udp_init(Connection* connection, const ConnectionCallbacks* connection_callb
     return rc;
   }
 
-  connection->protocol_uv_handle = (uv_handle_t*)new_udp_handle;
 
   connection_callbacks->ready(connection, connection_callbacks->user_data);
 
