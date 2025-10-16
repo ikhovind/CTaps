@@ -165,7 +165,18 @@ int prune_candidate_tree(GNode* root, SelectionProperties selection_properties) 
 
   log_trace("Iterating incompatible nodes to remove them from the tree");
   log_trace("Removing %d undesirable nodes", g_list_length(pruning_data.undesirable_nodes));
+  // check if any of the undesirable nodes are children of other undesirable nodes
   for (GList* iter = pruning_data.undesirable_nodes; iter != NULL; iter = iter->next) {
+    GNode* node_to_remove = (GNode*)iter->data;
+    for (GList* inner_iter = pruning_data.undesirable_nodes; inner_iter != NULL; inner_iter = inner_iter->next) {
+      GNode* potential_parent = (GNode*)inner_iter->data;
+      if (node_to_remove != potential_parent && g_node_is_ancestor(potential_parent, node_to_remove)) {
+        log_trace("Node to remove is a descendant of another undesirable node, skipping removal");
+      }
+    }
+  }
+  for (GList* iter = pruning_data.undesirable_nodes; iter != NULL; iter = iter->next) {
+    log_trace("Removing a node from the tree");
     GNode* node_to_remove = (GNode*)iter->data;
     g_node_destroy(node_to_remove);
   }
