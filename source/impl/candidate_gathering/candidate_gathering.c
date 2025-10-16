@@ -125,10 +125,7 @@ gboolean gather_incompatible_path_nodes(GNode *node, gpointer user_data) {
 
 gboolean gather_incompatible_protocol_nodes(GNode *node, gpointer user_data) {
   log_trace("Traversing candidate tree to gather incompatible protocol nodes");
-  log_trace("Checking if node of type %d is protocol node", ((struct CandidateNode*)node->data)->type);
-  log_trace("Node data pointer: %p", node->data);
   const struct CandidateNode* node_data = (struct CandidateNode*)node->data;
-  log_trace("successful dereference");
   if (node_data->type == NODE_TYPE_ROOT || node_data->type == NODE_TYPE_PATH) {
     log_trace("Skipping node since it is not a protocol node, returning false");
     return false;
@@ -139,7 +136,6 @@ gboolean gather_incompatible_protocol_nodes(GNode *node, gpointer user_data) {
     return true;
   }
 
-  log_trace("Done checking type");
   log_trace("Checking protocol node with protocol %s", node_data->protocol->name);
   NodePruningData* pruning_data = (NodePruningData*)user_data;
   if (!protocol_implementation_supports_selection_properties(node_data->protocol, &node_data->transport_properties->selection_properties)) {
@@ -167,6 +163,7 @@ int prune_candidate_tree(GNode* root, SelectionProperties selection_properties) 
   log_trace("About to gather incompatible protocol nodes");
   g_node_traverse(root, G_LEVEL_ORDER, G_TRAVERSE_NON_LEAVES, -1, gather_incompatible_protocol_nodes, &pruning_data);
 
+  log_trace("Iterating incompatible nodes to remove them from the tree");
   for (GList* iter = pruning_data.undesirable_nodes; iter != NULL; iter = iter->next) {
     GNode* node_to_remove = (GNode*)iter->data;
     g_node_destroy(node_to_remove);
