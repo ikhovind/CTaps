@@ -26,7 +26,10 @@ def run_ping_server(ping_server_path: str):
 
 def main():
     """Builds and runs tests."""
-    build_dir = "cmake-build-debug-coverage"
+    # if build directory does not exist, create it
+    if not os.path.exists("build"):
+        os.makedirs("build")
+    build_dir = "build"
     project_root = os.path.dirname(os.path.abspath(__file__))
     build_path = os.path.join(project_root, build_dir)
 
