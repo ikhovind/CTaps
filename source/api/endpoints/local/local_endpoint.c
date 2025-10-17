@@ -27,13 +27,9 @@ void local_endpoint_build(LocalEndpoint* local_endpoint) {
   memset(local_endpoint, 0, sizeof(LocalEndpoint));
 }
 
-int local_endpoint_with_interface(LocalEndpoint* local_endpoint, char* interface_name) {
-  local_endpoint->interface_name = interface_name;
-  local_endpoint->interface_name = malloc(strlen(interface_name) + 1);
-  if (local_endpoint->interface_name == NULL) {
-    return -errno;
-  }
-  strcpy(local_endpoint->interface_name, interface_name);
+int local_endpoint_with_interface(LocalEndpoint* local_endpoint, const char* interface_name) {
+  log_trace("Allocating %d bytes of memory for interface name", strlen(interface_name) + 1);
+  local_endpoint->interface_name = strdup(interface_name);
   return 0;
 }
 
@@ -77,6 +73,7 @@ int local_endpoint_resolve(const LocalEndpoint* local_endpoint, LocalEndpoint** 
     *out_count = num_found_addresses;
 
     for (int i = 0; i < num_found_addresses; i++) {
+      log_trace("Assigned port is: %d", assigned_port);
       struct sockaddr_storage* sockaddr_storage = &found_interface_addrs[i];
       local_endpoint_build(&(*out_list)[i]);
       (*out_list)[i].port = assigned_port;
@@ -94,4 +91,33 @@ int local_endpoint_resolve(const LocalEndpoint* local_endpoint, LocalEndpoint** 
     }
   }
   return 0;
+}
+
+void free_local_endpoint(LocalEndpoint* local_endpoint) {
+  if (local_endpoint->interface_name) {
+    log_trace("Freeing local endpoint interface name");
+    free(local_endpoint->interface_name);
+    local_endpoint->interface_name = NULL;
+    log_trace("local endpoint interface after freeing is: %p", local_endpoint->interface_name);
+  }
+  if (local_endpoint->service) {
+    log_trace("Freeing local endpoint service name");
+    free(local_endpoint->service);
+    local_endpoint->service = NULL;
+  }
+  free(local_endpoint);
+}
+
+LocalEndpoint* local_endpoint_copy(const LocalEndpoint* local_endpoint) {
+  LocalEndpoint* res = malloc(sizeof(LocalEndpoint));
+  memcpy(res, local_endpoint, sizeof(LocalEndpoint));
+
+  if (local_endpoint->interface_name) {
+    res->interface_name = strdup(local_endpoint->interface_name);
+  }
+  if (local_endpoint->service) {
+    res->service = strdup(local_endpoint->service);
+  }
+
+  return res;
 }

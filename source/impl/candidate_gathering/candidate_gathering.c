@@ -23,6 +23,23 @@ typedef struct NodePruningData {
 // Forward declaration of the function to build the tree recursively
 void build_candidate_tree_recursive(GNode* parent_node);
 
+gboolean free_node_data(GNode *node, gpointer user_data) {
+  free(node->data);
+  return false;
+}
+
+gboolean free_undesirable_node(GNode *node, gpointer user_data) {
+  const CandidateNode* candidate_node = (CandidateNode*)node->data;
+  if (candidate_node->local_endpoint) {
+    free_local_endpoint(candidate_node->local_endpoint);
+  }
+  if (candidate_node->remote_endpoint) {
+    free_remote_endpoint(candidate_node->remote_endpoint);
+  }
+  free(node->data);
+  return false;
+}
+
 const char* get_generic_interface_type(const char* system_interface_name) {
   log_debug("Getting generic interface type for system interface name: %s", system_interface_name);
   // This is an example of a simple mapping.
@@ -119,8 +136,8 @@ gboolean gather_incompatible_path_nodes(GNode *node, gpointer user_data) {
   struct NodePruningData* pruning_data = (struct NodePruningData*)user_data;
   char* interface_name = "any";
 
-  if (node_data->local_endpoint.interface_name != NULL) {
-    interface_name = node_data->local_endpoint.interface_name;
+  if (node_data->local_endpoint->interface_name != NULL) {
+    interface_name = node_data->local_endpoint->interface_name;
   }
   if (!interface_is_compatible(interface_name, node_data->transport_properties)) {
     log_trace("Found incompatible path node with interface %s", interface_name);
@@ -174,18 +191,21 @@ int prune_candidate_tree(GNode* root, SelectionProperties selection_properties) 
   g_node_traverse(root, G_LEVEL_ORDER, G_TRAVERSE_NON_LEAVES, -1, gather_incompatible_path_nodes, &pruning_data);
 
   log_trace("Now removing %d undesirable nodes", g_list_length(pruning_data.undesirable_nodes));
+  log_trace("Total nodes in tree before pruning: %d", g_node_n_nodes(root, G_TRAVERSE_ALL));
   GList* current_node_list = pruning_data.undesirable_nodes;
   while (current_node_list != NULL) {
     GNode* node_to_remove = (GNode*)current_node_list->data;
     GList* next_iter = current_node_list->next;
 
-    log_trace("Removing undesirable node of type %d", ((CandidateNode*)node_to_remove->data)->type);
-    // First remove it from the tree, to trying to free it twice, when later freeing a parent
+    g_node_traverse(node_to_remove, G_IN_ORDER, G_TRAVERSE_ALL, -1, free_undesirable_node, NULL);
+    // First remove it from the tree, to avoid trying to free it twice, when later freeing a parent
     g_node_unlink(node_to_remove);
     g_node_destroy(node_to_remove);
 
     current_node_list = next_iter;
   }
+
+  log_trace("Total nodes in tree after pruning: %d", g_node_n_nodes(root, G_TRAVERSE_ALL));
   return 0;
 }
 
@@ -254,34 +274,35 @@ int sort_candidate_tree(GArray* root, SelectionProperties selection_properties) 
  * @param props The transport properties.
  * @return A new candidate_node object.
  */
-struct CandidateNode* candidate_node_new(NodeType type, const LocalEndpoint local_ep,
-                                         const RemoteEndpoint remote_ep,
+struct CandidateNode* candidate_node_new(NodeType type,
+                                         const LocalEndpoint* local_ep,
+                                         const RemoteEndpoint* remote_ep,
                                          const ProtocolImplementation* proto,
                                          const TransportProperties* props) {
   log_info("Creating new candidate node of type %d", type);
-  struct CandidateNode* node = malloc(sizeof(struct CandidateNode));
+  CandidateNode* node = malloc(sizeof(struct CandidateNode));
   if (node == NULL) {
     log_error("Could not allocate memory for CandidateNode");
     return NULL;
   }
   node->type = type;
   node->score = 0;
-  node->local_endpoint = local_ep;
-  node->remote_endpoint = remote_ep;
+  node->local_endpoint = local_endpoint_copy(local_ep);
+  node->remote_endpoint = remote_endpoint_copy(remote_ep);
   node->protocol = proto;
   node->transport_properties = props;
   return node;
-}
-
-gboolean free_node_data(GNode *node, gpointer user_data) {
-  free(node->data);
 }
 
 gboolean get_leaf_nodes(GNode *node, gpointer user_data) {
   GArray* node_array = (GArray*)user_data;
 
   if (G_NODE_IS_LEAF(node)) {
-    g_array_append_val(node_array, *(CandidateNode*)node->data);
+    CandidateNode candidate_node = *(CandidateNode*)node->data;
+    candidate_node.local_endpoint = local_endpoint_copy(candidate_node.local_endpoint);
+    candidate_node.remote_endpoint = remote_endpoint_copy(candidate_node.remote_endpoint);
+
+    g_array_append_val(node_array, candidate_node);
   }
 
   return false;
@@ -297,20 +318,23 @@ gboolean get_leaf_nodes(GNode *node, gpointer user_data) {
  */
 GArray* get_ordered_candidate_nodes(const Preconnection* precon) {
   log_info("Creating root candidate node from preconnection");
+  log_trace("Preconnection local endpoint port is: %d", precon->local.port);
   if (precon == NULL) {
     log_error("NULL preconnection provided");
     return NULL;
   }
 
+  log_trace("Preconnection local interface name: %s", precon->local.interface_name);
   // 1. Create a new CandidateNode struct for the root
   struct CandidateNode* root_data = candidate_node_new(
     NODE_TYPE_ROOT,
-    precon->local,
-    precon->remote_endpoints[0],
+    &precon->local,
+    &precon->remote_endpoints[0],
     NULL, // Protocol is selected in a later stage
     &precon->transport_properties
   );
-  log_info("About to check precon");
+
+  log_info("Local port of root is: %d", root_data->local_endpoint->port);
 
   if (root_data == NULL) {
     log_error("Could not create root candidate node data");
@@ -327,12 +351,15 @@ GArray* get_ordered_candidate_nodes(const Preconnection* precon) {
 
   GArray *root_array = g_array_new(FALSE, FALSE, sizeof(CandidateNode));
 
+  log_trace("Fetching leaf nodes from candidate tree");
   // Get leaf nodes and insert them in array
   g_node_traverse(root_node, G_IN_ORDER, G_TRAVERSE_LEAVES, -1, get_leaf_nodes, root_array);
 
+  log_trace("Freeing undesirable nodes from candidate tree");
   // Free data owned by tree
-  g_node_traverse(root_node, G_IN_ORDER, G_TRAVERSE_ALL, -1, free_node_data, root_array);
+  g_node_traverse(root_node, G_IN_ORDER, G_TRAVERSE_ALL, -1, free_undesirable_node, NULL);
 
+  log_trace("Sorting candidates based in desirability");
   g_node_destroy(root_node);
 
   g_array_sort_with_data(root_array, compare_prefer_and_avoid_preferences, &precon->transport_properties.selection_properties);
@@ -361,16 +388,18 @@ void build_candidate_tree_recursive(GNode* parent_node) {
     LocalEndpoint* local_endpoint_list = NULL;
     size_t num_found_local = 0;
 
+    log_trace("Resovling local endpoint with port: %d", parent_data->local_endpoint->port);
     // Resolve the local endpoint. The `local_endpoint_resolve` function
     // will find all available interfaces when the interface is not specified.
-    local_endpoint_resolve(&parent_data->local_endpoint, &local_endpoint_list, &num_found_local);
+    local_endpoint_resolve(parent_data->local_endpoint, &local_endpoint_list, &num_found_local);
     log_trace("Found %zu local endpoints, adding as children to ROOT node", num_found_local);
+    log_trace("Port of first is: %d", local_endpoint_list[0].port);
 
     for (size_t i = 0; i < num_found_local; i++) {
       // Create a child node for each local endpoint found.
       struct CandidateNode* path_node_data = candidate_node_new(
         NODE_TYPE_PATH,
-        local_endpoint_list[i],
+        &local_endpoint_list[i],
         parent_data->remote_endpoint,
         NULL, // Protocol not yet specified
         parent_data->transport_properties
@@ -384,8 +413,6 @@ void build_candidate_tree_recursive(GNode* parent_node) {
     // Clean up the allocated memory for the list of local endpoints
     if (local_endpoint_list != NULL) {
       log_trace("Freeing list of local endpoints after building path nodes");
-      // free(local_endpoint_list[0].interface_name);
-      // free(local_endpoint_list[0].service);
       free(local_endpoint_list);
     }
   }
@@ -423,18 +450,18 @@ void build_candidate_tree_recursive(GNode* parent_node) {
     size_t num_found_remote = 0;
 
     // Resolve the remote endpoint (hostname to IP address).
-    remote_endpoint_resolve(&parent_data->remote_endpoint, &resolved_remote_endpoints, &num_found_remote);
+    remote_endpoint_resolve(parent_data->remote_endpoint, &resolved_remote_endpoints, &num_found_remote);
 
     for (size_t i = 0; i < num_found_remote; i++) {
       // Create a leaf node for each resolved IP address.
       CandidateNode* leaf_node_data = candidate_node_new(
         NODE_TYPE_ENDPOINT,
         parent_data->local_endpoint,
-        resolved_remote_endpoints[i],
+        &resolved_remote_endpoints[i],
         parent_data->protocol,
         parent_data->transport_properties
       );
-      log_info("leaf node data local endpoint interface_name: %s", leaf_node_data->local_endpoint.interface_name);
+      log_info("leaf node data local endpoint interface_name: %s", leaf_node_data->local_endpoint->interface_name);
       g_node_append_data(parent_node, leaf_node_data);
     }
 

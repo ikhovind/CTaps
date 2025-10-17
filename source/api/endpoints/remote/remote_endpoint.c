@@ -140,3 +140,27 @@ int remote_endpoint_resolve(const RemoteEndpoint* remote_endpoint, RemoteEndpoin
   }
   return 0;
 }
+
+void free_remote_endpoint(RemoteEndpoint* remote_endpoint) {
+  if (remote_endpoint->hostname) {
+    free(remote_endpoint->hostname);
+    remote_endpoint->hostname = NULL;
+  }
+  if (remote_endpoint->service) {
+    free(remote_endpoint->service);
+    remote_endpoint->service = NULL;
+  }
+  free(remote_endpoint);
+}
+
+RemoteEndpoint* remote_endpoint_copy(const RemoteEndpoint* remote_endpoint) {
+  RemoteEndpoint* res = malloc(sizeof(RemoteEndpoint));
+  memcpy(res, remote_endpoint, sizeof(RemoteEndpoint));
+  if (remote_endpoint->hostname) {
+    res->hostname = strdup(remote_endpoint->hostname);
+  }
+  if (remote_endpoint->service) {
+    res->service = strdup(remote_endpoint->service);
+  }
+  return res;
+}

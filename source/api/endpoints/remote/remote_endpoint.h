@@ -35,4 +35,8 @@ int remote_endpoint_with_ipv6(RemoteEndpoint* remote_endpoint,
 
 int remote_endpoint_resolve(const RemoteEndpoint* remote_endpoint, RemoteEndpoint** out_list, size_t* out_count);
 
+void free_remote_endpoint(RemoteEndpoint* remote_endpoint);
+
+RemoteEndpoint* remote_endpoint_copy(const RemoteEndpoint* remote_endpoint);
+
 #endif  // LOCAL_ENDPOINT_H
