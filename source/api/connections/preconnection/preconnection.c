@@ -76,7 +76,7 @@ int preconnection_listen(Preconnection* preconnection, Listener* listener, Liste
 
     *listener = (Listener){
       .listener_callbacks = listener_callbacks,
-      .local_endpoint = first_node.local_endpoint,
+      .local_endpoint = *first_node.local_endpoint,
       .num_local_endpoints = 1,
       .socket_manager = socket_manager,
       .transport_properties = preconnection->transport_properties,
@@ -98,13 +98,15 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
 
   GArray* candidate_nodes = get_ordered_candidate_nodes(preconnection);
 
+  log_trace("Found %d candidate nodes", candidate_nodes->len);
+
   if (candidate_nodes->len > 0) {
     CandidateNode first_node = g_array_index(candidate_nodes, CandidateNode, 0);
     connection->protocol = *first_node.protocol;
-    connection->remote_endpoint = first_node.remote_endpoint;
+    connection->remote_endpoint = *first_node.remote_endpoint;
 
     connection->open_type = CONNECTION_OPEN_TYPE_ACTIVE;
-    connection->local_endpoint = first_node.local_endpoint;
+    connection->local_endpoint = *first_node.local_endpoint;
 
     g_array_free(candidate_nodes, true);
 
@@ -113,6 +115,7 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
     connection->received_messages = g_queue_new();
     connection->received_callbacks = g_queue_new();
 
+
     connection->protocol.init(connection, &connection->connection_callbacks);
     return 0;
   }
@@ -120,3 +123,18 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
   return -EINVAL;
 }
 
+void preconnection_free(Preconnection* preconnection) {
+  if (preconnection->remote_endpoints != NULL) {
+    for (int i = 0; i < preconnection->num_remote_endpoints; i++) {
+      if (preconnection->remote_endpoints[i].hostname != NULL) {
+        free(preconnection->remote_endpoints[i].hostname);
+      }
+    }
+    free(preconnection->remote_endpoints);
+    preconnection->remote_endpoints = NULL;
+  }
+  if (preconnection->local.interface_name != NULL) {
+    free(preconnection->local.interface_name);
+    preconnection->local.interface_name = NULL;
+  }
+}
