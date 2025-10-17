@@ -412,6 +412,9 @@ void build_candidate_tree_recursive(GNode* parent_node) {
 
     // Clean up the allocated memory for the list of local endpoints
     if (local_endpoint_list != NULL) {
+      for (int i = 0; i < num_found_local; i++) {
+        free_local_endpoint_strings(&local_endpoint_list[i]);
+      }
       log_trace("Freeing list of local endpoints after building path nodes");
       free(local_endpoint_list);
     }

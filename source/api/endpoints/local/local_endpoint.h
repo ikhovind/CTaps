@@ -24,6 +24,7 @@ int local_endpoint_with_interface(LocalEndpoint* local_endpoint, const char* int
 int local_endpoint_with_service(LocalEndpoint* local_endpoint, char* service);
 int local_endpoint_resolve(const LocalEndpoint* local_endpoint, LocalEndpoint** out_list, size_t* out_count);
 void free_local_endpoint(LocalEndpoint* local_endpoint);
+void free_local_endpoint_strings(LocalEndpoint* local_endpoint);
 LocalEndpoint* local_endpoint_copy(const LocalEndpoint* local_endpoint);
 
 #endif  // LOCAL_ENDPOINT_H
