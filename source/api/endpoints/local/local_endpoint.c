@@ -93,7 +93,7 @@ int local_endpoint_resolve(const LocalEndpoint* local_endpoint, LocalEndpoint** 
   return 0;
 }
 
-void free_local_endpoint(LocalEndpoint* local_endpoint) {
+void free_local_endpoint_strings(LocalEndpoint* local_endpoint) {
   if (local_endpoint->interface_name) {
     log_trace("Freeing local endpoint interface name");
     free(local_endpoint->interface_name);
@@ -105,6 +105,10 @@ void free_local_endpoint(LocalEndpoint* local_endpoint) {
     free(local_endpoint->service);
     local_endpoint->service = NULL;
   }
+}
+
+void free_local_endpoint(LocalEndpoint* local_endpoint) {
+  free_local_endpoint_strings(local_endpoint);
   free(local_endpoint);
 }
 

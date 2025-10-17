@@ -202,7 +202,6 @@ TEST_F(CandidateTreeTest, CreatesAndResolvesFullTree) {
       remote_endpoint.service = NULL;
     }
 }
-/*
 
 TEST_F(CandidateTreeTest, PrunesPathAndProtocol) {
     // --- ARRANGE ---
@@ -257,7 +256,6 @@ TEST_F(CandidateTreeTest, PrunesPathAndProtocol) {
     preconnection_free(&preconnection);
     free(remote_endpoint.hostname);
 }
-/*
 
 TEST_F(CandidateTreeTest, SortsOnPreferOverAvoid) {
     // --- ARRANGE ---
@@ -321,7 +319,8 @@ TEST_F(CandidateTreeTest, SortsOnPreferOverAvoid) {
 
     // --- CLEANUP ---
     free_candidate_array(root);
-
+    preconnection_free(&preconnection);
+    free(remote_endpoint.hostname);
 }
 
 TEST_F(CandidateTreeTest, UsesAvoidAsTieBreaker) {
@@ -385,5 +384,6 @@ TEST_F(CandidateTreeTest, UsesAvoidAsTieBreaker) {
 
     // --- CLEANUP ---
     free_candidate_array(root);
+    preconnection_free(&preconnection);
+    free(remote_endpoint.hostname);
 }
-*/
