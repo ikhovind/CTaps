@@ -20,7 +20,7 @@ FetchContent_MakeAvailable(fff)
 
 # ---- Tests ----
 function(add_gtest test_name)
-    set(options "")
+    set(options "ASAN_ENABLED") # Option to selectively enable ASan
     set(oneValueArgs "")
     set(multiValueArgs SOURCES WRAP_FUNCTIONS)
 
@@ -28,6 +28,23 @@ function(add_gtest test_name)
     cmake_parse_arguments(ARGS "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
     add_executable(${test_name} ${ARGS_SOURCES})
+
+    # --- ADD ASAN FLAGS HERE ---
+    if (ARGS_ASAN_ENABLED)
+        # Compilation flags for AddressSanitizer
+        target_compile_options(${test_name} PRIVATE
+                -fsanitize=address
+                -g
+                -O1
+                -fno-omit-frame-pointer
+        )
+
+        # Linker flag to link with the ASan runtime library
+        target_link_options(${test_name} PRIVATE
+                -fsanitize=address
+        )
+    endif()
+
 
     foreach(func_name ${ARGS_WRAP_FUNCTIONS})
         target_link_options(${test_name} PRIVATE "-Wl,--wrap=${func_name}")
@@ -78,6 +95,7 @@ add_gtest(candidate_gathering_test
             remote_endpoint_resolve
             get_supported_protocols
             get_num_protocols
+        ASAN_ENABLED # Needed to make sure we prune candidate tree in correct order
 )
 
 add_gtest(local_endpoint_unit_test

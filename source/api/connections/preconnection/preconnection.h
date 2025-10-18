@@ -45,6 +45,8 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
 
 int preconnection_listen(Preconnection* preconnection, Listener* listener, ListenerCallbacks listener_callback);
 
+void preconnection_free(Preconnection* preconnection);
+
 void preconnection_initiate_with_timeout(Preconnection* preconnection,
                                          Connection* connection,
                                          int timeout_ms);

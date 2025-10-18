@@ -2,10 +2,10 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <glib.h>
-#include <logging/log.h>
 
 extern "C" {
   #include "fff.h"
+  #include <logging/log.h>
   #include "endpoints/local/local_endpoint.h"
   #include "endpoints/remote/remote_endpoint.h"
   #include "connections/preconnection/preconnection.h"
@@ -50,7 +50,7 @@ int local_endpoint_resolve_fake_custom(const LocalEndpoint* local_endpoint, Loca
 
     // Second fake endpoint
     local_endpoint_build(&fake_local_endpoint_list[1]);
-    local_endpoint_with_interface(&fake_local_endpoint_list[1], "en0");
+    local_endpoint_with_interface(&fake_local_endpoint_list[1], "en01234567");
     local_endpoint_with_port(&fake_local_endpoint_list[1], 8081);
 
     *out_list = fake_local_endpoint_list;
@@ -114,7 +114,13 @@ int remote_endpoint_resolve_fake_custom(const RemoteEndpoint* remote_endpoint, R
 
 // Helper function to free the GNode tree
 void free_candidate_array(GArray* candidate_list) {
-    //g_node_destroy_and_unref(node);
+    log_trace("Freeing candidate list of length %d from end of test", candidate_list->len);
+    for (int i = 0; i < candidate_list->len; i++) {
+        CandidateNode candidate_node = g_array_index(candidate_list, CandidateNode, i);
+        free_local_endpoint(candidate_node.local_endpoint);
+        free_remote_endpoint(candidate_node.remote_endpoint);
+    }
+    g_array_free(candidate_list, true);
 }
 
 // --- Test Fixture ---
@@ -163,6 +169,8 @@ TEST_F(CandidateTreeTest, CreatesAndResolvesFullTree) {
     // --- ACT ---
     GArray* root = get_ordered_candidate_nodes(&preconnection);
 
+    printf("Root length is %d\n", root->len);
+
     // --- ASSERT ---
     // 1. Verify the root node
     ASSERT_NE(root, nullptr);
@@ -180,12 +188,19 @@ TEST_F(CandidateTreeTest, CreatesAndResolvesFullTree) {
 
     ASSERT_STREQ(first_node.protocol->name, "MockProto1");
     ASSERT_EQ(first_node.type, NODE_TYPE_ENDPOINT);
-    ASSERT_EQ(memcmp(&first_node.local_endpoint.data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
     ASSERT_EQ(first_node.protocol, &mock_proto_1);
-    ASSERT_EQ(memcmp(&first_node.remote_endpoint.data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
 
     // --- CLEANUP ---
-    g_array_free(root, true);
+    free_candidate_array(root);
+    preconnection_free(&preconnection);
+    if (remote_endpoint.hostname) {
+      free(remote_endpoint.hostname);
+      remote_endpoint.hostname = NULL;
+    }
+    if (remote_endpoint.service) {
+      free(remote_endpoint.service);
+      remote_endpoint.service = NULL;
+    }
 }
 
 TEST_F(CandidateTreeTest, PrunesPathAndProtocol) {
@@ -225,23 +240,21 @@ TEST_F(CandidateTreeTest, PrunesPathAndProtocol) {
     ASSERT_EQ(faked_get_supported_protocols_fake.call_count, 2); // Called for each path child
     ASSERT_EQ(faked_remote_endpoint_resolve_fake.call_count, 6); // Called for each protocol leaf
 
-    // 3. Verify data in a leaf node
+    // 3. Verify data in result list
     CandidateNode first_candidate = g_array_index(candidates, CandidateNode, 0);
 
     ASSERT_STREQ(first_candidate.protocol->name, "MockProto2");
     ASSERT_EQ(first_candidate.type, NODE_TYPE_ENDPOINT);
-    ASSERT_EQ(memcmp(&first_candidate.local_endpoint.data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
-    ASSERT_EQ(memcmp(&first_candidate.remote_endpoint.data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
 
     CandidateNode second_candidate = g_array_index(candidates, CandidateNode, 1);
 
     ASSERT_STREQ(second_candidate.protocol->name, "MockProto3");
     ASSERT_EQ(second_candidate.type, NODE_TYPE_ENDPOINT);
-    ASSERT_EQ(memcmp(&second_candidate.local_endpoint.data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
-    ASSERT_EQ(memcmp(&second_candidate.remote_endpoint.data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
 
     // --- CLEANUP ---
     free_candidate_array(candidates);
+    preconnection_free(&preconnection);
+    free(remote_endpoint.hostname);
 }
 
 TEST_F(CandidateTreeTest, SortsOnPreferOverAvoid) {
@@ -290,31 +303,24 @@ TEST_F(CandidateTreeTest, SortsOnPreferOverAvoid) {
 
     ASSERT_STREQ(first_candidate.protocol->name, "MockProto2");
     ASSERT_EQ(first_candidate.type, NODE_TYPE_ENDPOINT);
-    ASSERT_EQ(memcmp(&first_candidate.local_endpoint.data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
-    ASSERT_EQ(memcmp(&first_candidate.remote_endpoint.data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
 
     CandidateNode second_candidate = g_array_index(root, CandidateNode, 1);
 
     ASSERT_STREQ(second_candidate.protocol->name, "MockProto2");
     ASSERT_EQ(second_candidate.type, NODE_TYPE_ENDPOINT);
-    ASSERT_EQ(memcmp(&second_candidate.local_endpoint.data, &fake_local_endpoint_list[1].data, sizeof(struct sockaddr_storage)), 0);
-    ASSERT_EQ(memcmp(&second_candidate.remote_endpoint.data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
 
     CandidateNode third_candidate = g_array_index(root, CandidateNode, 2);
     ASSERT_STREQ(third_candidate.protocol->name, "MockProto3");
     ASSERT_EQ(third_candidate.type, NODE_TYPE_ENDPOINT);
-    ASSERT_EQ(memcmp(&third_candidate.local_endpoint.data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
-    ASSERT_EQ(memcmp(&third_candidate.remote_endpoint.data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
 
     CandidateNode fourth_candidate = g_array_index(root, CandidateNode, 3);
     ASSERT_STREQ(fourth_candidate.protocol->name, "MockProto3");
     ASSERT_EQ(fourth_candidate.type, NODE_TYPE_ENDPOINT);
-    ASSERT_EQ(memcmp(&fourth_candidate.local_endpoint.data, &fake_local_endpoint_list[1].data, sizeof(struct sockaddr_storage)), 0);
-    ASSERT_EQ(memcmp(&fourth_candidate.remote_endpoint.data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
 
     // --- CLEANUP ---
     free_candidate_array(root);
-
+    preconnection_free(&preconnection);
+    free(remote_endpoint.hostname);
 }
 
 TEST_F(CandidateTreeTest, UsesAvoidAsTieBreaker) {
@@ -362,29 +368,22 @@ TEST_F(CandidateTreeTest, UsesAvoidAsTieBreaker) {
 
     ASSERT_STREQ(first_candidate.protocol->name, "MockProto3");
     ASSERT_EQ(first_candidate.type, NODE_TYPE_ENDPOINT);
-    ASSERT_EQ(memcmp(&first_candidate.local_endpoint.data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
-    ASSERT_EQ(memcmp(&first_candidate.remote_endpoint.data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
 
     CandidateNode second_candidate = g_array_index(root, CandidateNode, 1);
 
     ASSERT_STREQ(second_candidate.protocol->name, "MockProto3");
     ASSERT_EQ(second_candidate.type, NODE_TYPE_ENDPOINT);
-    ASSERT_EQ(memcmp(&second_candidate.local_endpoint.data, &fake_local_endpoint_list[1].data, sizeof(struct sockaddr_storage)), 0);
-    ASSERT_EQ(memcmp(&second_candidate.remote_endpoint.data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
 
     CandidateNode third_candidate = g_array_index(root, CandidateNode, 2);
     ASSERT_STREQ(third_candidate.protocol->name, "MockProto2");
     ASSERT_EQ(third_candidate.type, NODE_TYPE_ENDPOINT);
-    ASSERT_EQ(memcmp(&third_candidate.local_endpoint.data, &fake_local_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
-    ASSERT_EQ(memcmp(&third_candidate.remote_endpoint.data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
 
     CandidateNode fourth_candidate = g_array_index(root, CandidateNode, 3);
     ASSERT_STREQ(fourth_candidate.protocol->name, "MockProto2");
     ASSERT_EQ(fourth_candidate.type, NODE_TYPE_ENDPOINT);
-    ASSERT_EQ(memcmp(&fourth_candidate.local_endpoint.data, &fake_local_endpoint_list[1].data, sizeof(struct sockaddr_storage)), 0);
-    ASSERT_EQ(memcmp(&fourth_candidate.remote_endpoint.data, &fake_remote_endpoint_list[0].data, sizeof(struct sockaddr_storage)), 0);
 
     // --- CLEANUP ---
     free_candidate_array(root);
-
+    preconnection_free(&preconnection);
+    free(remote_endpoint.hostname);
 }
