@@ -11,9 +11,9 @@
 #include "transport_properties/transport_properties.h"
 
 typedef enum {
-  CONNECTION_OPEN_TYPE_ACTIVE = 0,
-  CONNECTION_OPEN_TYPE_PASSIVE,
-} ConnectionOpenType;
+  CONNECTION_TYPE_STANDALONE = 0,
+  CONNECTION_OPEN_TYPE_MULTIPLEXED,
+} ConnectionType;
 
 
 typedef struct Connection {
@@ -23,7 +23,7 @@ typedef struct Connection {
   // TODO - decide on if this has to be a pointer
   ProtocolImplementation protocol;
   uv_handle_t* protocol_uv_handle;
-  ConnectionOpenType open_type;
+  ConnectionType open_type;
   ConnectionCallbacks connection_callbacks;
   struct SocketManager* socket_manager;
   // TODO this is shared state and should be locked
@@ -37,5 +37,6 @@ int send_message_full(Connection* connection, Message* message, MessageContext* 
 int receive_message(Connection* connection,
                     ReceiveCallbacks receive_callbacks);
 void connection_build_from_listener(Connection* connection, const struct Listener* listener, const RemoteEndpoint* remote_endpoint);
+Connection* connection_build_from_received_handle(const struct Listener* listener, uv_stream_t* received_handle);
 void connection_close(Connection* connection);
 #endif  // CONNECTION_H

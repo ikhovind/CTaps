@@ -7,7 +7,9 @@
 #include <netinet/in.h>
 #include <stdlib.h>
 #include <errno.h>
+
 #include "protocols/protocol_interface.h"
+#include "ctaps.h"
 
 void socket_manager_alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
   // We'll use a static buffer for this simple example, but in a real
@@ -17,6 +19,7 @@ void socket_manager_alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_
 }
 
 int socket_manager_build(SocketManager* socket_manager, Listener* listener) {
+  log_debug("Building socket manager for listener");
   socket_manager->listener = listener;
 
   return socket_manager->protocol_impl.listen(socket_manager);
@@ -37,8 +40,12 @@ int socket_manager_remove_connection(SocketManager* socket_manager, const Connec
 
 void socket_manager_decrement_ref(SocketManager* socket_manager) {
   socket_manager->ref_count--;
+  log_debug("Decremented socket manager reference count, updated count: %d", socket_manager->ref_count);
   if (socket_manager->ref_count == 0) {
-    socket_manager->protocol_impl.stop_listen(socket_manager);
+    int rc = socket_manager->protocol_impl.stop_listen(socket_manager);
+    if (rc < 0) {
+      log_error("Error stopping socket manager listen: %d", rc);
+    }
     free(socket_manager);
     socket_manager = NULL;
   }

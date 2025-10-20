@@ -83,7 +83,6 @@ int preconnection_listen(Preconnection* preconnection, Listener* listener, Liste
     };
     socket_manager->protocol_impl = *first_node.protocol;
 
-
     return socket_manager_build(socket_manager, listener);
   }
   g_array_free(candidate_nodes, true);
@@ -105,7 +104,7 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
     connection->protocol = *first_node.protocol;
     connection->remote_endpoint = *first_node.remote_endpoint;
 
-    connection->open_type = CONNECTION_OPEN_TYPE_ACTIVE;
+    connection->open_type = CONNECTION_TYPE_STANDALONE;
     connection->local_endpoint = *first_node.local_endpoint;
 
     free_candidate_array(candidate_nodes);

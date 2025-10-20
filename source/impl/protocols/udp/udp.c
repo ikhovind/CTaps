@@ -139,7 +139,11 @@ int udp_close(const Connection* connection) {
 
 int udp_stop_listen(struct SocketManager* socket_manager) {
   log_debug("Stopping UDP listen");
-  uv_udp_recv_stop((uv_udp_t*)socket_manager->protocol_uv_handle);
+  int rc = uv_udp_recv_stop((uv_udp_t*)socket_manager->protocol_uv_handle);
+  if (rc < 0) {
+    log_error("Problem with stopping receive: %s\n", uv_strerror(rc));
+    return rc;
+  }
   return 0;
 }
 
@@ -229,7 +233,7 @@ int udp_listen(SocketManager* socket_manager) {
   int rc = uv_udp_init(ctaps_event_loop, udp_handle);
   if (rc < 0) {
     log_error("Error initializing udp handle: %s\n", uv_strerror(rc));
-    free(udp_handle); // CRITICAL: Clean up memory on failure
+    free(udp_handle);
     return rc;
   }
 

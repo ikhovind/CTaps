@@ -1,5 +1,7 @@
 #include "tcp.h"
 #include "connections/connection/connection.h"
+#include "connections/listener/listener.h"
+#include "connections/listener/socket_manager/socket_manager.h"
 #include "ctaps.h"
 #include <errno.h>
 #include <logging/log.h>
@@ -41,7 +43,6 @@ void tcp_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
     log_debug("No receive callback ready, queueing message");
     g_queue_push_tail(connection->received_messages, received_message);
   }
-
   else {
     log_debug("Receive callback ready, calling it");
     ReceiveCallbacks* receive_callback = g_queue_pop_head(connection->received_callbacks);
@@ -63,7 +64,7 @@ void on_connect(struct uv_connect_s *req, int status) {
     return;
   }
   log_info("Successfully connected to remote endpoint using TCP");
-  uv_read_start(connection->protocol_uv_handle, alloc_cb, tcp_on_read);
+  uv_read_start((uv_stream_t*)connection->protocol_uv_handle, alloc_cb, tcp_on_read);
   if (connection->connection_callbacks.ready) {
     connection->connection_callbacks.ready(connection, connection->connection_callbacks.user_data);
   }
@@ -100,7 +101,7 @@ int tcp_init(Connection* connection, const ConnectionCallbacks* connection_callb
   rc = uv_tcp_init(ctaps_event_loop, new_tcp_handle);
 
   if (rc < 0) {
-    log_error( "Error initializing udp handle: %s", uv_strerror(rc));
+    log_error("Error initializing udp handle: %s", uv_strerror(rc));
     free(new_tcp_handle);
     return rc;
   }
@@ -165,7 +166,7 @@ int tcp_send(Connection* connection, Message* message, MessageContext* ctx) {
 }
 int tcp_receive(Connection* connection, ReceiveCallbacks receive_callbacks) {
   // If we have a message to receive then simply return that
-  log_debug("TCP receiving");
+  log_debug("Attempting to receive message via TCP");
   if (!g_queue_is_empty(connection->received_messages)) {
     log_debug("Calling receive callback immediately");
     Message* received_message = g_queue_pop_head(connection->received_messages);
@@ -174,19 +175,120 @@ int tcp_receive(Connection* connection, ReceiveCallbacks receive_callbacks) {
     return 0;
   }
 
+  log_debug("Pushing receive callback to queue");
   ReceiveCallbacks* ptr = malloc(sizeof(ReceiveCallbacks));
   memcpy(ptr, &receive_callbacks, sizeof(ReceiveCallbacks));
 
   // If we don't have a message to receive, add the callback to the queue of
   // waiting callbacks
   g_queue_push_tail(connection->received_callbacks, ptr);
+  log_trace("Length of received_callbacks queue after adding: %d", g_queue_get_length(connection->received_callbacks));
   return 0;
 }
 
-int tcp_listen(struct SocketManager* socket_manager) {
-  return -ENOSYS;
+
+int tcp_listen(SocketManager* socket_manager) {
+  log_debug("Listening via TCP");
+  int rc;
+  uv_tcp_t* new_tcp_handle = malloc(sizeof(uv_tcp_t));
+  if (new_tcp_handle == NULL) {
+    log_error("Failed to allocate memory for TCP handle");
+    if (errno == 0) {
+      return -ENOMEM;
+    }
+    return -errno;
+  }
+
+  socket_manager->ref_count = 1;
+
+  socket_manager->protocol_uv_handle = (uv_handle_t*)new_tcp_handle;
+
+  Listener* listener = socket_manager->listener;
+
+  rc = uv_tcp_init(ctaps_event_loop, new_tcp_handle);
+  if (rc < 0) {
+    log_error( "Error initializing tcp handle: %s", uv_strerror(rc));
+    free(new_tcp_handle);
+    return rc;
+  }
+
+  new_tcp_handle->data = listener;
+
+  rc = uv_tcp_bind(new_tcp_handle, (const struct sockaddr*)&listener->local_endpoint.data.address, 0);
+  if (rc < 0) {
+    log_error("Error binding TCP handle: %s", uv_strerror(rc));
+    free(new_tcp_handle);
+    return rc;
+  }
+
+  rc = uv_listen((uv_stream_t*)new_tcp_handle, SOMAXCONN, new_stream_connection_cb);
+
+  if (rc < 0) {
+    log_error("Error starting TCP listen: %s", uv_strerror(rc));
+    free(new_tcp_handle);
+    return rc;
+  }
+
+  return 0;
 }
 
-int tcp_stop_listen(struct SocketManager* listener) {
-  return -ENOSYS;
+void new_stream_connection_cb(uv_stream_t *server, int status) {
+  log_debug("New TCP connection received for Listener");
+  int rc;
+  if (status < 0) {
+    log_error("New connection error: %s", uv_strerror(status));
+    return;
+  }
+  uv_tcp_t *client = malloc(sizeof(uv_tcp_t));
+  if (!client) {
+    log_error("Failed to allocate memory for new TCP client");
+    return;
+  }
+  rc = uv_tcp_init(ctaps_event_loop, client);
+  if (rc < 0) {
+    log_error("Error initializing TCP client handle: %s", uv_strerror(rc));
+    free(client);
+    return;
+  }
+
+  Listener* listener = server->data;
+
+  rc = uv_accept(server, (uv_stream_t*)client);
+  if (rc < 0) {
+    log_error("Error accepting new TCP connection: %s", uv_strerror(rc));
+    uv_close((uv_handle_t*)client, on_close);
+    return;
+  }
+
+  Connection* connection = connection_build_from_received_handle(listener, (uv_stream_t*)client);
+
+  if (!connection) {
+    log_error("Failed to build connection from received handle");
+    uv_close((uv_handle_t*)client, on_close);
+    return;
+  }
+
+  client->data = connection;
+
+  rc = uv_read_start((uv_stream_t*)client, alloc_cb, tcp_on_read);
+  if (rc < 0) {
+    log_error("Could not start reading from TCP connection: %s", uv_strerror(rc));
+    uv_close((uv_handle_t*)client, on_close);
+    connection_close(connection);
+    free(connection);
+    return;
+  }
+
+  log_trace("TCP invoking new connection callback");
+  listener->listener_callbacks.connection_received(listener, connection, listener->listener_callbacks.user_data);
+}
+
+int tcp_stop_listen(SocketManager* socket_manager) {
+  log_debug("Stopping TCP listen for SocketManager %p", (void*)socket_manager);
+
+  if (socket_manager->protocol_uv_handle) {
+    uv_close(socket_manager->protocol_uv_handle, on_close);
+    socket_manager->protocol_uv_handle = NULL;
+  }
+  return 0;
 }
