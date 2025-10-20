@@ -20,15 +20,9 @@ typedef struct NodePruningData {
   GList* undesirable_nodes;
 } NodePruningData;
 
-// Forward declaration of the function to build the tree recursively
 void build_candidate_tree_recursive(GNode* parent_node);
 
-gboolean free_node_data(GNode *node, gpointer user_data) {
-  free(node->data);
-  return false;
-}
-
-gboolean free_undesirable_node(GNode *node, gpointer user_data) {
+gboolean free_candidate_node(GNode *node, gpointer user_data) {
   const CandidateNode* candidate_node = (CandidateNode*)node->data;
   if (candidate_node->local_endpoint) {
     free_local_endpoint(candidate_node->local_endpoint);
@@ -117,6 +111,7 @@ bool interface_is_compatible(const char* interface_name, const TransportProperti
       }
     }
   }
+  g_list_free(keys);
   log_trace("Interface %s is compatible", interface_name);
   return true;
 }
@@ -190,14 +185,13 @@ int prune_candidate_tree(GNode* root, SelectionProperties selection_properties) 
   log_trace("About to gather incompatible path nodes");
   g_node_traverse(root, G_LEVEL_ORDER, G_TRAVERSE_NON_LEAVES, -1, gather_incompatible_path_nodes, &pruning_data);
 
-  log_trace("Now removing %d undesirable nodes", g_list_length(pruning_data.undesirable_nodes));
   log_trace("Total nodes in tree before pruning: %d", g_node_n_nodes(root, G_TRAVERSE_ALL));
   GList* current_node_list = pruning_data.undesirable_nodes;
   while (current_node_list != NULL) {
     GNode* node_to_remove = (GNode*)current_node_list->data;
     GList* next_iter = current_node_list->next;
 
-    g_node_traverse(node_to_remove, G_IN_ORDER, G_TRAVERSE_ALL, -1, free_undesirable_node, NULL);
+    g_node_traverse(node_to_remove, G_IN_ORDER, G_TRAVERSE_ALL, -1, free_candidate_node, NULL);
     // First remove it from the tree, to avoid trying to free it twice, when later freeing a parent
     g_node_unlink(node_to_remove);
     g_node_destroy(node_to_remove);
@@ -288,7 +282,20 @@ struct CandidateNode* candidate_node_new(NodeType type,
   node->type = type;
   node->score = 0;
   node->local_endpoint = local_endpoint_copy(local_ep);
+  if (node->local_endpoint == NULL) {
+    log_error("Could not copy local endpoint for CandidateNode");
+    free(node);
+    return NULL;
+  }
+
   node->remote_endpoint = remote_endpoint_copy(remote_ep);
+  if (node->remote_endpoint == NULL) {
+    log_error("Could not allocate memory for remote_endpoint");
+    free_local_endpoint(node->local_endpoint);
+    free(node);
+    return NULL;
+  }
+
   node->protocol = proto;
   node->transport_properties = props;
   return node;
@@ -318,7 +325,6 @@ gboolean get_leaf_nodes(GNode *node, gpointer user_data) {
  */
 GArray* get_ordered_candidate_nodes(const Preconnection* precon) {
   log_info("Creating root candidate node from preconnection");
-  log_trace("Preconnection local endpoint port is: %d", precon->local.port);
   if (precon == NULL) {
     log_error("NULL preconnection provided");
     return NULL;
@@ -357,7 +363,7 @@ GArray* get_ordered_candidate_nodes(const Preconnection* precon) {
 
   log_trace("Freeing undesirable nodes from candidate tree");
   // Free data owned by tree
-  g_node_traverse(root_node, G_IN_ORDER, G_TRAVERSE_ALL, -1, free_undesirable_node, NULL);
+  g_node_traverse(root_node, G_IN_ORDER, G_TRAVERSE_ALL, -1, free_candidate_node, NULL);
 
   log_trace("Sorting candidates based in desirability");
   g_node_destroy(root_node);
@@ -388,7 +394,7 @@ void build_candidate_tree_recursive(GNode* parent_node) {
     LocalEndpoint* local_endpoint_list = NULL;
     size_t num_found_local = 0;
 
-    log_trace("Resovling local endpoint with port: %d", parent_data->local_endpoint->port);
+    log_trace("Resolving local endpoint with port: %d", parent_data->local_endpoint->port);
     // Resolve the local endpoint. The `local_endpoint_resolve` function
     // will find all available interfaces when the interface is not specified.
     local_endpoint_resolve(parent_data->local_endpoint, &local_endpoint_list, &num_found_local);
@@ -474,4 +480,13 @@ void build_candidate_tree_recursive(GNode* parent_node) {
       free(resolved_remote_endpoints);
     }
   }
+}
+
+void free_candidate_array(GArray* candidate_array) {
+  for (int i = 0; i < candidate_array->len; i++) {
+    const CandidateNode candidate_node = g_array_index(candidate_array, CandidateNode, i);
+    free_local_endpoint(candidate_node.local_endpoint);
+    free_remote_endpoint(candidate_node.remote_endpoint);
+  }
+  g_array_free(candidate_array, true);
 }

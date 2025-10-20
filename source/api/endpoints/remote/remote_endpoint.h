@@ -37,6 +37,8 @@ int remote_endpoint_resolve(const RemoteEndpoint* remote_endpoint, RemoteEndpoin
 
 void free_remote_endpoint(RemoteEndpoint* remote_endpoint);
 
+void free_remote_endpoint_strings(RemoteEndpoint* remote_endpoint);
+
 RemoteEndpoint* remote_endpoint_copy(const RemoteEndpoint* remote_endpoint);
 
 #endif  // LOCAL_ENDPOINT_H

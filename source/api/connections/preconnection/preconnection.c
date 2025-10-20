@@ -108,7 +108,7 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
     connection->open_type = CONNECTION_OPEN_TYPE_ACTIVE;
     connection->local_endpoint = *first_node.local_endpoint;
 
-    g_array_free(candidate_nodes, true);
+    free_candidate_array(candidate_nodes);
 
     connection->connection_callbacks = connection_callbacks;
 
@@ -119,6 +119,8 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
     connection->protocol.init(connection, &connection->connection_callbacks);
     return 0;
   }
+
+  free_candidate_array(candidate_nodes);
   log_error("No candidate node for Connection found\n");
   return -EINVAL;
 }
@@ -126,15 +128,10 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
 void preconnection_free(Preconnection* preconnection) {
   if (preconnection->remote_endpoints != NULL) {
     for (int i = 0; i < preconnection->num_remote_endpoints; i++) {
-      if (preconnection->remote_endpoints[i].hostname != NULL) {
-        free(preconnection->remote_endpoints[i].hostname);
-      }
+      free_remote_endpoint_strings(&preconnection->remote_endpoints[i]);
     }
     free(preconnection->remote_endpoints);
     preconnection->remote_endpoints = NULL;
   }
-  if (preconnection->local.interface_name != NULL) {
-    free(preconnection->local.interface_name);
-    preconnection->local.interface_name = NULL;
-  }
+  free_local_endpoint_strings(&preconnection->local);
 }

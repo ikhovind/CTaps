@@ -141,7 +141,7 @@ int remote_endpoint_resolve(const RemoteEndpoint* remote_endpoint, RemoteEndpoin
   return 0;
 }
 
-void free_remote_endpoint(RemoteEndpoint* remote_endpoint) {
+void free_remote_endpoint_strings(RemoteEndpoint* remote_endpoint) {
   if (remote_endpoint->hostname) {
     free(remote_endpoint->hostname);
     remote_endpoint->hostname = NULL;
@@ -150,6 +150,10 @@ void free_remote_endpoint(RemoteEndpoint* remote_endpoint) {
     free(remote_endpoint->service);
     remote_endpoint->service = NULL;
   }
+}
+
+void free_remote_endpoint(RemoteEndpoint* remote_endpoint) {
+  free_remote_endpoint_strings(remote_endpoint);
   free(remote_endpoint);
 }
 

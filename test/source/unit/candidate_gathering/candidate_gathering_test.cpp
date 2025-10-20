@@ -112,17 +112,6 @@ int remote_endpoint_resolve_fake_custom(const RemoteEndpoint* remote_endpoint, R
     return 0;
 }
 
-// Helper function to free the GNode tree
-void free_candidate_array(GArray* candidate_list) {
-    log_trace("Freeing candidate list of length %d from end of test", candidate_list->len);
-    for (int i = 0; i < candidate_list->len; i++) {
-        CandidateNode candidate_node = g_array_index(candidate_list, CandidateNode, i);
-        free_local_endpoint(candidate_node.local_endpoint);
-        free_remote_endpoint(candidate_node.remote_endpoint);
-    }
-    g_array_free(candidate_list, true);
-}
-
 // --- Test Fixture ---
 class CandidateTreeTest : public ::testing::Test {
 protected:
@@ -193,14 +182,7 @@ TEST_F(CandidateTreeTest, CreatesAndResolvesFullTree) {
     // --- CLEANUP ---
     free_candidate_array(root);
     preconnection_free(&preconnection);
-    if (remote_endpoint.hostname) {
-      free(remote_endpoint.hostname);
-      remote_endpoint.hostname = NULL;
-    }
-    if (remote_endpoint.service) {
-      free(remote_endpoint.service);
-      remote_endpoint.service = NULL;
-    }
+    free_remote_endpoint_strings(&remote_endpoint);
 }
 
 TEST_F(CandidateTreeTest, PrunesPathAndProtocol) {
@@ -254,7 +236,7 @@ TEST_F(CandidateTreeTest, PrunesPathAndProtocol) {
     // --- CLEANUP ---
     free_candidate_array(candidates);
     preconnection_free(&preconnection);
-    free(remote_endpoint.hostname);
+    free_remote_endpoint_strings(&remote_endpoint);
 }
 
 TEST_F(CandidateTreeTest, SortsOnPreferOverAvoid) {
@@ -320,7 +302,7 @@ TEST_F(CandidateTreeTest, SortsOnPreferOverAvoid) {
     // --- CLEANUP ---
     free_candidate_array(root);
     preconnection_free(&preconnection);
-    free(remote_endpoint.hostname);
+    free_remote_endpoint_strings(&remote_endpoint);
 }
 
 TEST_F(CandidateTreeTest, UsesAvoidAsTieBreaker) {
@@ -385,5 +367,5 @@ TEST_F(CandidateTreeTest, UsesAvoidAsTieBreaker) {
     // --- CLEANUP ---
     free_candidate_array(root);
     preconnection_free(&preconnection);
-    free(remote_endpoint.hostname);
+    free_remote_endpoint_strings(&remote_endpoint);
 }
