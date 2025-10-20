@@ -4,6 +4,7 @@
 extern "C" {
 #include "connections/preconnection/preconnection.h"
 #include "ctaps.h"
+#include <logging/log.h>
 }
 
 #include <mutex>
@@ -149,11 +150,16 @@ protected:
 
 
     static int respond_on_message_received2(Connection* connection, Message** received_message, MessageContext* message_context, void* user_data) {
-        printf("Callback: respond_on_message_received.\n");
+        log_info("Callback: respond_on_message_received2.\n");
+
+        log_trace("Received message with content: %s", (*received_message)->content);
+        CallbackContext* ctx = static_cast<CallbackContext*>(user_data);
+        ctx->messages->push_back(*received_message);
 
         Message message;
         message_build_with_content(&message, "pong", strlen("pong") + 1);
-        int send_rc = send_message(connection, &message);
+        send_message(connection, &message);
+
         message_free_content(&message);
 
         connection_close(connection);
@@ -162,6 +168,12 @@ protected:
     }
 
     static int close_on_message_received(Connection* connection, Message** received_message, MessageContext* message_context, void* user_data) {
+        log_info("Callback: close_on_message_received.\n");
+        log_trace("Received message with content: %s", (*received_message)->content);
+        auto* ctx = static_cast<CallbackContext*>(user_data);
+
+        ctx->messages->push_back(*received_message);
+
         connection_close(connection);
         return 0;
     }
@@ -225,7 +237,8 @@ protected:
         return 0;
     }
 
-    static int receive_message_respond_and_close_listener_on_connection_received2(Listener* listener, Connection* new_connection, void* user_data) {
+    static int receive_message_respond_and_close_listener_on_connection_received(Listener* listener, Connection* new_connection, void* user_data) {
+        log_trace("Connection received callback from listener");
         ReceiveCallbacks receive_message_request = {
           .receive_callback = respond_on_message_received2,
           .user_data = listener->listener_callbacks.user_data,
@@ -233,6 +246,7 @@ protected:
 
         listener_close(listener);
 
+        log_trace("Adding receive callback from Listener");
         receive_message(new_connection, receive_message_request);
         return 0;
     }
@@ -248,6 +262,7 @@ protected:
           .user_data = udata,
         };
 
+        log_trace("Adding receive callback from Connection");
         receive_message(connection, receive_message_request);
         return 0;
     }

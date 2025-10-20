@@ -4,36 +4,44 @@
 #include "transport_properties/selection_properties/selection_properties.h"
 #include "transport_properties/transport_properties.h"
 
+ int connection_received(struct Listener* listener, struct Connection* new_conn, void* udata) {
+   printf("Connection received\n");
+ }
+ int establishment_error(struct Listener* listener, const char* reason, void* udata) {
+   printf("Establishment error: %s\n", reason);
+ }
+
 int main() {
 
   ctaps_initialize();
+  Listener listener;
+  Connection client_connection;
 
-  printf("first protocol is: %s\n", get_supported_protocols()[0]->name);
+  LocalEndpoint listener_endpoint;
+  local_endpoint_build(&listener_endpoint);
 
-  SelectionProperties selection_properties;
-  selection_properties_build(&selection_properties);
-  selection_properties.selection_property[RELIABILITY].value.simple_preference = REQUIRE;
-  /*
-  for (int i = 0; i < 5; i++) {
-    printf("Preference[i] is: %d\n",
-           get_supported_protocols()[0]->selection_properties.selection_property[i].value);
-  }
-  */
+  local_endpoint_with_interface(&listener_endpoint, "lo");
+  local_endpoint_with_port(&listener_endpoint, 1239);
 
-  TransportProperties transport_properties;
-  selection_properties_build(&transport_properties.selection_properties);
-  /*
-  selection_properties_require(&transport_properties.selection_properties,
-                               "reliability");
-                               */
+  RemoteEndpoint listener_remote;
+  remote_endpoint_build(&listener_remote);
+  remote_endpoint_with_hostname(&listener_remote, "127.0.0.1");
 
-  Preconnection preconnection;
+  TransportProperties listener_props;
+  transport_properties_build(&listener_props);
 
-  RemoteEndpoint remote_endpoint;
+  tp_set_sel_prop_preference(&listener_props, RELIABILITY, REQUIRE);
 
-  remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
-  remote_endpoint_with_port(&remote_endpoint, 5005);
-  preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);
+  Preconnection listener_precon;
+  preconnection_build_with_local(&listener_precon, listener_props, &listener_remote, 1, listener_endpoint);
+
+  ListenerCallbacks listener_callbacks = {
+      .connection_received = connection_received,
+  };
+
+  int listen_res = preconnection_listen(&listener_precon, &listener, listener_callbacks);
+
+  ctaps_start_event_loop();
 
   return 0;
 }

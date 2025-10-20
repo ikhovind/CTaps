@@ -26,5 +26,4 @@ typedef struct Listener {
 } Listener;
 
 void listener_close(const Listener* listener);
-
 #endif //LISTENER_H

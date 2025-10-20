@@ -33,4 +33,7 @@ void socket_manager_decrement_ref(SocketManager* socket_manager);
 
 void socket_manager_free(SocketManager* socket_manager);
 
+void new_stream_connection_cb(uv_stream_t *server, int status);
+
+
 #endif //SOCKET_MANAGER_H

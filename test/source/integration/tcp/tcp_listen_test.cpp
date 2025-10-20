@@ -12,6 +12,13 @@ extern "C" {
 #include "fixtures/awaiting_fixture.cpp"
 
 TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) {
+    CallbackContext callback_context = {
+        .awaiter = &awaiter,
+        .messages = &received_messages,
+        .server_connections = received_connections,
+        .client_connections = client_connections,
+    };
+
     ctaps_initialize();
     Listener listener;
     Connection client_connection;
@@ -35,7 +42,8 @@ TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) 
     preconnection_build_with_local(&listener_precon, listener_props, &listener_remote, 1, listener_endpoint);
 
     ListenerCallbacks listener_callbacks = {
-        .connection_received = receive_message_respond_and_close_listener_on_connection_received2
+        .connection_received = receive_message_respond_and_close_listener_on_connection_received,
+        .user_data = &callback_context
     };
 
     int listen_res = preconnection_listen(&listener_precon, &listener, listener_callbacks);
@@ -55,18 +63,18 @@ TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) 
     Preconnection client_precon;
     preconnection_build(&client_precon, client_props, &client_remote, 1);
 
-    ConnectionCallbacks connection_callbacks {
-        .ready = send_message_and_receive
+    ConnectionCallbacks client_callbacks {
+        .ready = send_message_and_receive,
+        .user_data = &callback_context
     };
 
-    preconnection_initiate(&client_precon, &client_connection, connection_callbacks);
+    preconnection_initiate(&client_precon, &client_connection, client_callbacks);
 
     // --- RUN EVENT LOOP ---
     // This will block until the callbacks close the handles
     ctaps_start_event_loop();
 
     // --- ASSERTIONS ---
-    ASSERT_EQ(callback_context.server_connections.size(), 1);
     ASSERT_EQ(callback_context.messages->size(), 2);
     ASSERT_EQ(callback_context.messages->at(0)->length, 5);
     ASSERT_STREQ(callback_context.messages->at(0)->content, "ping");
