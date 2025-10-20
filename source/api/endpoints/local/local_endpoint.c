@@ -28,7 +28,7 @@ void local_endpoint_build(LocalEndpoint* local_endpoint) {
 }
 
 int local_endpoint_with_interface(LocalEndpoint* local_endpoint, const char* interface_name) {
-  log_trace("Allocating %d bytes of memory for interface name", strlen(interface_name) + 1);
+  log_trace("Allocating %zu bytes of memory for interface name", strlen(interface_name) + 1);
   local_endpoint->interface_name = strdup(interface_name);
   return 0;
 }
@@ -73,7 +73,6 @@ int local_endpoint_resolve(const LocalEndpoint* local_endpoint, LocalEndpoint** 
     *out_count = num_found_addresses;
 
     for (int i = 0; i < num_found_addresses; i++) {
-      log_trace("Assigned port is: %d", assigned_port);
       struct sockaddr_storage* sockaddr_storage = &found_interface_addrs[i];
       local_endpoint_build(&(*out_list)[i]);
       (*out_list)[i].port = assigned_port;

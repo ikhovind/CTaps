@@ -30,4 +30,6 @@ typedef struct CandidateNode {
 
 GArray* get_ordered_candidate_nodes(const Preconnection* precon);
 
+void free_candidate_array(GArray* candidate_array);
+
 #endif //CANDIDATE_GATHERING_H
