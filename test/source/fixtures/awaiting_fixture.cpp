@@ -147,6 +147,25 @@ protected:
         return 0;
     }
 
+
+    static int respond_on_message_received2(Connection* connection, Message** received_message, MessageContext* message_context, void* user_data) {
+        printf("Callback: respond_on_message_received.\n");
+
+        Message message;
+        message_build_with_content(&message, "pong", strlen("pong") + 1);
+        int send_rc = send_message(connection, &message);
+        message_free_content(&message);
+
+        connection_close(connection);
+
+        return 0;
+    }
+
+    static int close_on_message_received(Connection* connection, Message** received_message, MessageContext* message_context, void* user_data) {
+        connection_close(connection);
+        return 0;
+    }
+
     static int respond_on_message_received(Connection* connection, Message** received_message, MessageContext* message_context, void* user_data) {
         printf("Callback: respond_on_message_received.\n");
         auto* ctx = static_cast<CallbackContext*>(user_data);
@@ -203,6 +222,33 @@ protected:
         };
 
         receive_message(new_connection, receive_message_request);
+        return 0;
+    }
+
+    static int receive_message_respond_and_close_listener_on_connection_received2(Listener* listener, Connection* new_connection, void* user_data) {
+        ReceiveCallbacks receive_message_request = {
+          .receive_callback = respond_on_message_received2,
+          .user_data = listener->listener_callbacks.user_data,
+        };
+
+        listener_close(listener);
+
+        receive_message(new_connection, receive_message_request);
+        return 0;
+    }
+
+    static int send_message_and_receive(struct Connection* connection, void* udata) {
+        Message message;
+        message_build_with_content(&message, "ping", strlen("ping") + 1);
+        send_message(connection, &message);
+        message_free_content(&message);
+
+        ReceiveCallbacks receive_message_request = {
+          .receive_callback = close_on_message_received,
+          .user_data = udata,
+        };
+
+        receive_message(connection, receive_message_request);
         return 0;
     }
 
