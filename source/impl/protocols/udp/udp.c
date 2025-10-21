@@ -89,10 +89,7 @@ int udp_init(Connection* connection, const ConnectionCallbacks* connection_callb
   connection->protocol_uv_handle = (uv_handle_t*)new_udp_handle;
   if (new_udp_handle == NULL) {
     log_error("Failed to allocate memory for UDP handle");
-    if (errno == 0) {
-      return -ENOMEM;
-    }
-    return errno;
+    return -ENOMEM;
   }
 
   int rc = uv_udp_init(ctaps_event_loop, new_udp_handle);
@@ -155,10 +152,7 @@ int udp_send(Connection* connection, Message* message, MessageContext* message_c
   uv_udp_send_t* send_req = malloc(sizeof(uv_udp_send_t));
   if (!send_req) {
     log_error("Failed to allocate send request\n");
-    if (errno == 0) {
-      return -ENOMEM;
-    }
-    return -errno;
+    return -ENOMEM;
   }
 
   return uv_udp_send(
@@ -220,10 +214,7 @@ int udp_listen(SocketManager* socket_manager) {
   uv_udp_t* udp_handle = malloc(sizeof(*udp_handle));
   if (udp_handle == NULL) {
     perror("Failed to allocate memory for UDP handle");
-    if (errno == 0) {
-      return -ENOMEM;
-    }
-    return -errno;
+    return -ENOMEM;
   }
 
   socket_manager->active_connections = g_hash_table_new(g_bytes_hash, g_bytes_equal);

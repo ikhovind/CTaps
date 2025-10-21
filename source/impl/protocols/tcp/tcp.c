@@ -90,10 +90,7 @@ int tcp_init(Connection* connection, const ConnectionCallbacks* connection_callb
   uv_tcp_t* new_tcp_handle = malloc(sizeof(uv_tcp_t));
   if (new_tcp_handle == NULL) {
     log_error("Failed to allocate memory for TCP handle");
-    if (errno == 0) {
-      return -ENOMEM;
-    }
-    return errno;
+    return -ENOMEM;
   }
 
   connection->protocol_uv_handle = (uv_handle_t*)new_tcp_handle;
@@ -193,10 +190,7 @@ int tcp_listen(SocketManager* socket_manager) {
   uv_tcp_t* new_tcp_handle = malloc(sizeof(uv_tcp_t));
   if (new_tcp_handle == NULL) {
     log_error("Failed to allocate memory for TCP handle");
-    if (errno == 0) {
-      return -ENOMEM;
-    }
-    return -errno;
+    return -ENOMEM;
   }
 
   socket_manager->ref_count = 1;
