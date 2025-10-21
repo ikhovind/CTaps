@@ -47,7 +47,6 @@ void socket_manager_decrement_ref(SocketManager* socket_manager) {
       log_error("Error stopping socket manager listen: %d", rc);
     }
     free(socket_manager);
-    socket_manager = NULL;
   }
 }
 
@@ -72,7 +71,7 @@ void socket_manager_multiplex_received_message(SocketManager* socket_manager, Me
       g_bytes_unref(addr_bytes);
       return;
     }
-    connection_build_from_listener(connection, listener, &remote_endpoint);
+    connection_build_multiplexed(connection, listener, &remote_endpoint);
     // insert connection into hash table
     g_hash_table_insert(socket_manager->active_connections, addr_bytes, connection);
     socket_manager->ref_count++;

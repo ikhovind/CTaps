@@ -86,6 +86,7 @@ add_gtest(tcp_ping_test SOURCES source/integration/tcp/tcp_ping.cpp ${CTAPS_SOUR
 add_gtest(initiation_test SOURCES source/preconnection/initiation.cpp ${CTAPS_SOURCES} source/util/util.c)
 add_gtest(remote_endpoint_unit_test SOURCES source/unit/endpoint/remote.cpp ${CTAPS_SOURCES})
 add_gtest(preconnection_unit_test SOURCES source/unit/connections/preconnection.cpp ${CTAPS_SOURCES})
+add_gtest(connection_unit_test SOURCES source/unit/connections/connection_test.cpp ${CTAPS_SOURCES})
 add_gtest(candidate_gathering_test
         SOURCES
             source/unit/candidate_gathering/candidate_gathering_test.cpp

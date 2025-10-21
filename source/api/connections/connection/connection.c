@@ -28,7 +28,7 @@ int receive_message(Connection* connection,
   return connection->protocol.receive(connection, receive_callbacks);
 }
 
-void connection_build_from_listener(Connection* connection, const Listener* listener, const RemoteEndpoint* remote_endpoint) {
+void connection_build_multiplexed(Connection* connection, const Listener* listener, const RemoteEndpoint* remote_endpoint) {
   memset(connection, 0, sizeof(Connection));
   connection->local_endpoint = listener->local_endpoint;
   connection->transport_properties = listener->transport_properties;
@@ -63,7 +63,6 @@ Connection* connection_build_from_received_handle(const struct Listener* listene
   }
   memset(connection, 0, sizeof(Connection));
 
-  // TODO - deep copy of transport properties
   connection->transport_properties = listener->transport_properties;
   connection->local_endpoint = listener->local_endpoint;
   struct sockaddr_storage remote_addr;
