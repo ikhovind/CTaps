@@ -62,7 +62,7 @@ int perform_dns_lookup(const char* hostname, const char* service, RemoteEndpoint
   *out_list = malloc(count * sizeof(RemoteEndpoint));
   if (*out_list == NULL) {
     log_error("Could not allocate memory for RemoteEndpoint output list");
-    return -errno;
+    return -ENOMEM;
   }
 
   // Build a single RemoteEndpoint for each resolved address
