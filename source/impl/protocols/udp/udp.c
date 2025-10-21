@@ -249,3 +249,20 @@ int udp_listen(SocketManager* socket_manager) {
 
   return 0;
 }
+
+int udp_remote_endpoint_from_peer(uv_handle_t* peer, RemoteEndpoint* resolved_peer) {
+  int rc;
+  struct sockaddr_storage remote_addr;
+  int addr_len = sizeof(remote_addr);
+  rc = uv_udp_getpeername((uv_udp_t*)peer, (struct sockaddr *)&remote_addr, &addr_len);
+  if (rc < 0) {
+    log_error("Could not get remote address from received handle: %s", uv_strerror(rc));
+    return rc;
+  }
+  rc = remote_endpoint_from_sockaddr(resolved_peer, &remote_addr);
+  if (rc < 0) {
+    log_error("Could not build remote endpoint from received handle's remote address");
+    return rc;
+  }
+  return 0;
+}
