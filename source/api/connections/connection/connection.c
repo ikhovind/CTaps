@@ -65,16 +65,7 @@ Connection* connection_build_from_received_handle(const struct Listener* listene
 
   connection->transport_properties = listener->transport_properties;
   connection->local_endpoint = listener->local_endpoint;
-  struct sockaddr_storage remote_addr;
-  int addr_len = sizeof(remote_addr);
-  // TODO - this is TCP specific for now
-  rc = uv_tcp_getpeername((uv_tcp_t*)received_handle, (struct sockaddr *)&remote_addr, &addr_len);
-  if (rc < 0) {
-    log_error("Could not get remote address from received handle: %s", uv_strerror(rc));
-    free(connection);
-    return NULL;
-  }
-  rc = remote_endpoint_from_sockaddr(&connection->remote_endpoint, &remote_addr);
+  rc = listener->socket_manager->protocol_impl.remote_endpoint_from_peer((uv_handle_t*)received_handle, &connection->remote_endpoint);
   if (rc < 0) {
     log_error("Could not build remote endpoint from received handle's remote address");
     free(connection);

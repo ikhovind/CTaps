@@ -3,6 +3,7 @@
 #include "connections/listener/listener.h"
 #include "connections/listener/socket_manager/socket_manager.h"
 #include "ctaps.h"
+#include "endpoints/remote/remote_endpoint.h"
 #include <errno.h>
 #include <logging/log.h>
 #include <stdbool.h>
@@ -283,6 +284,24 @@ int tcp_stop_listen(SocketManager* socket_manager) {
   if (socket_manager->protocol_uv_handle) {
     uv_close(socket_manager->protocol_uv_handle, on_close);
     socket_manager->protocol_uv_handle = NULL;
+  }
+  return 0;
+}
+
+int tcp_remote_endpoint_from_peer(uv_handle_t* peer, RemoteEndpoint* resolved_peer) {
+  int rc;
+  struct sockaddr_storage remote_addr;
+  int addr_len = sizeof(remote_addr);
+  // TODO - this is TCP specific for now
+  rc = uv_tcp_getpeername((uv_tcp_t*)peer, (struct sockaddr *)&remote_addr, &addr_len);
+  if (rc < 0) {
+    log_error("Could not get remote address from received handle: %s", uv_strerror(rc));
+    return rc;
+  }
+  rc = remote_endpoint_from_sockaddr(resolved_peer, &remote_addr);
+  if (rc < 0) {
+    log_error("Could not build remote endpoint from received handle's remote address");
+    return rc;
   }
   return 0;
 }

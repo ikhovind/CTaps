@@ -3,7 +3,10 @@
 
 #include <message/message_context/message_context.h>
 #include <connections/connection/connection_callbacks.h>
+#include <sys/socket.h>
+#include <uv.h>
 
+#include "endpoints/remote/remote_endpoint.h"
 #include "message/message.h"
 #include "transport_properties/selection_properties/selection_properties.h"
 
@@ -20,6 +23,7 @@ typedef struct ProtocolImplementation {
   int (*listen)(struct SocketManager* socket_manager);
   int (*stop_listen)(struct SocketManager*);
   int (*close)(const struct Connection*);
+  int (*remote_endpoint_from_peer)(uv_handle_t* peer, RemoteEndpoint* resolved_peer);
 } ProtocolImplementation;
 
 #endif  // PROTOCOL_INTERFACE_H
