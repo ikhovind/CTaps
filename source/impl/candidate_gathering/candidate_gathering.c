@@ -148,11 +148,11 @@ gboolean gather_incompatible_protocol_nodes(GNode *node, gpointer user_data) {
   log_trace("Traversing candidate tree to gather incompatible protocol nodes");
   const struct CandidateNode* node_data = (struct CandidateNode*)node->data;
   if (node_data->type == NODE_TYPE_ROOT || node_data->type == NODE_TYPE_PATH) {
-    log_trace("Skipping node since it is not a protocol node, returning false");
+    log_trace("Skipping node since it is not a protocol node");
     return false;
   }
   if (node_data->type == NODE_TYPE_ENDPOINT) {
-    log_trace("Protocol node iteration finished");
+    log_trace("Done traversing tree for finding incompatible protocol nodes");
     // No need to traverse further down
     return true;
   }
@@ -302,9 +302,11 @@ struct CandidateNode* candidate_node_new(NodeType type,
 }
 
 gboolean get_leaf_nodes(GNode *node, gpointer user_data) {
-  GArray* node_array = (GArray*)user_data;
+  log_trace("Iterating candidate tree for getting candidate leaf nodes");
+  GArray* node_array = user_data;
 
-  if (G_NODE_IS_LEAF(node)) {
+  if (((CandidateNode*)node->data)->type == NODE_TYPE_ENDPOINT) {
+    log_trace("Found candidate node of type ENDPOINT in candidate tree, adding to output array");
     CandidateNode candidate_node = *(CandidateNode*)node->data;
     candidate_node.local_endpoint = local_endpoint_copy(candidate_node.local_endpoint);
     candidate_node.remote_endpoint = remote_endpoint_copy(candidate_node.remote_endpoint);
@@ -355,7 +357,7 @@ GArray* get_ordered_candidate_nodes(const Preconnection* precon) {
 
   log_info("Candidate tree has been pruned, extracting leaf nodes");
 
-  GArray *root_array = g_array_new(FALSE, FALSE, sizeof(CandidateNode));
+  GArray *root_array = g_array_new(false, false, sizeof(CandidateNode));
 
   log_trace("Fetching leaf nodes from candidate tree");
   // Get leaf nodes and insert them in array
