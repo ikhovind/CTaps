@@ -1,6 +1,7 @@
 #include "ctaps.h"
 
 #include <logging/log.h>
+#include <protocols/quic/quic.h>
 #include <protocols/registry/protocol_registry.h>
 
 #include "protocols/udp/udp.h"
@@ -15,6 +16,7 @@ int ctaps_initialize() {
 
   register_protocol(&udp_protocol_interface);
   register_protocol(&tcp_protocol_interface);
+  register_protocol(&quic_protocol_interface);
   return 0;
 }
 
