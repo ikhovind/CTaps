@@ -83,6 +83,7 @@ list(TRANSFORM CTAPS_SOURCES PREPEND ${CMAKE_SOURCE_DIR}/)
 
 add_gtest(udp_ping_test SOURCES source/integration/udp_ping.cpp ${CTAPS_SOURCES})
 add_gtest(tcp_ping_test SOURCES source/integration/tcp/tcp_ping.cpp ${CTAPS_SOURCES})
+add_gtest(quic_ping_test SOURCES source/integration/quic/quic_ping_test.cpp ${CTAPS_SOURCES})
 add_gtest(initiation_test SOURCES source/preconnection/initiation.cpp ${CTAPS_SOURCES} source/util/util.c)
 add_gtest(remote_endpoint_unit_test SOURCES source/unit/endpoint/remote.cpp ${CTAPS_SOURCES})
 add_gtest(preconnection_unit_test SOURCES source/unit/connections/preconnection.cpp ${CTAPS_SOURCES})

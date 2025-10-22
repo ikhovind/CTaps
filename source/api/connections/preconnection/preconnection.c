@@ -101,6 +101,7 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
 
   if (candidate_nodes->len > 0) {
     CandidateNode first_node = g_array_index(candidate_nodes, CandidateNode, 0);
+    log_debug("Selected protocol: %s\n", first_node.protocol->name);
     connection->protocol = *first_node.protocol;
     connection->remote_endpoint = *first_node.remote_endpoint;
 
