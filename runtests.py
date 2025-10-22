@@ -3,11 +3,12 @@
 import subprocess
 import sys
 import os
+import time
 
 def run_command(command, cwd=None):
     """Runs a command and checks for errors."""
     print(f"Running command: {' '.join(command)}")
-    result = subprocess.run(command, cwd=cwd, check=False)
+    result = subprocess.run(command, cwd=cwd)
     if result.returncode != 0:
         print(f"Error running command: {' '.join(command)}")
         sys.exit(1)
@@ -21,6 +22,8 @@ def run_ping_server(ping_server_path: str):
             close_fds=True # Close file descriptors in the child process
         )
         print(f"Started {ping_server_path} in the background.")
+        stdout, _ = p.communicate(timeout=2)
+        print(f"{ping_server_path} output: {stdout}")
     except Exception as e:
         print(f"Error starting {ping_server_path}: {e}")
 
@@ -46,6 +49,7 @@ def main():
 
     run_ping_server(os.path.join(project_root, "test", "tcp_ping.py"))
     run_ping_server(os.path.join(project_root, "test", "udp_ping.py"))
+    run_ping_server(os.path.join(project_root, "test/quic", "quic_ping_server.py"))
 
     run_command(test_command, cwd=build_path)
 
