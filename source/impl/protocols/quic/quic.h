@@ -23,9 +23,9 @@ static ProtocolImplementation quic_protocol_interface = {
         get_selection_property_list(create_property_initializer)
         [RELIABILITY] = {.value = {.simple_preference = NO_PREFERENCE}},
         [PRESERVE_ORDER] = {.value = {.simple_preference = REQUIRE}},
-        [PRESERVE_ORDER] = {.value = {.simple_preference = REQUIRE}},
         [PRESERVE_MSG_BOUNDARIES] = {.value = {.simple_preference = NO_PREFERENCE}},
         [MULTISTREAMING] = {.value = {.simple_preference = NO_PREFERENCE}},
+        [ACTIVE_READ_BEFORE_SEND] = {.value = {.simple_preference = PROHIBIT}}, // Temporary - to make it easy to ban quic
       }
     },
     .send = quic_send,
