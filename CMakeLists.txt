@@ -32,6 +32,7 @@ set(API_SOURCES
 set(IMPL_SOURCES
     source/impl/protocols/udp/udp.c
     source/impl/protocols/tcp/tcp.c
+    source/impl/protocols/quic/quic.c
     source/impl/connections/listener/socket_manager/socket_manager.c
     source/impl/endpoints/util.c
     source/impl/endpoints/port_util.c
