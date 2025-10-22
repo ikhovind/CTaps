@@ -52,6 +52,7 @@ TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) 
 
     // --- SETUP CLIENT ---
     RemoteEndpoint client_remote;
+    remote_endpoint_build(&client_remote);
     remote_endpoint_with_hostname(&client_remote, "127.0.0.1");
     remote_endpoint_with_port(&client_remote, 1239);
 
