@@ -59,6 +59,7 @@ function(add_gtest test_name)
             fff
             ${GLIB_LIBRARIES}
             uv
+            picoquic-core
     )
 
     target_compile_features(${test_name} PRIVATE c_std_99)
