@@ -23,6 +23,7 @@ static ProtocolImplementation udp_protocol_interface = {
       .selection_property = {
         get_selection_property_list(create_property_initializer)
         [RELIABILITY] = {.value = {.simple_preference = PROHIBIT}},
+        [PRESERVE_ORDER] = {.value = {.simple_preference = PROHIBIT}},
       }
     },
     .send = udp_send,
