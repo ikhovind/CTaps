@@ -13,6 +13,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(tidy)
 include(format)
+include(dependencies)
 
 set(API_SOURCES
     source/api/transport_properties/transport_properties.c
@@ -55,9 +56,12 @@ target_include_directories(CTaps
         ${CMAKE_CURRENT_SOURCE_DIR}/source/impl
 )
 
-#target_include_directories(CTaps PUBLIC source/api)
-
-target_link_libraries(CTaps PRIVATE uv)
+target_link_libraries(
+        CTaps
+        PRIVATE
+            uv
+            picoquic-core
+)
 
 find_package(PkgConfig REQUIRED)
 
