@@ -22,6 +22,7 @@ TEST(PreconnectionUnitTests, SetsPreconnectionAsExpected) {
     transport_properties_build(&transport_properties);
 
     tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PROHIBIT);
+    tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
 
     Preconnection preconnection;
     preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);
@@ -47,6 +48,7 @@ TEST(PreconnectionUnitTests, TakesDeepCopyOfRemoteEndpoint) {
     transport_properties_build(&transport_properties);
 
     tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PROHIBIT);
+    tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
 
     Preconnection preconnection;
     preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);
@@ -75,6 +77,7 @@ TEST(PreconnectionUnitTests, TakesDeepCopyOfRemoteEndpointWhenBuildingWithLocal)
     transport_properties_build(&transport_properties);
 
     tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PROHIBIT);
+    tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
 
     Preconnection preconnection;
     preconnection_build_with_local(&preconnection, transport_properties, &remote_endpoint, 1, local_endpoint);

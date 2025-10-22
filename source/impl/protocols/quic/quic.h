@@ -22,6 +22,10 @@ static ProtocolImplementation quic_protocol_interface = {
       .selection_property = {
         get_selection_property_list(create_property_initializer)
         [RELIABILITY] = {.value = {.simple_preference = NO_PREFERENCE}},
+        [PRESERVE_ORDER] = {.value = {.simple_preference = REQUIRE}},
+        [PRESERVE_ORDER] = {.value = {.simple_preference = REQUIRE}},
+        [PRESERVE_MSG_BOUNDARIES] = {.value = {.simple_preference = NO_PREFERENCE}},
+        [MULTISTREAMING] = {.value = {.simple_preference = NO_PREFERENCE}},
       }
     },
     .send = quic_send,
