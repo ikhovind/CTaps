@@ -10,7 +10,10 @@
 #include "connections/connection/connection.h"
 #include "uv.h"
 
-#define MAX_QUIC_PACKET_SIZE 1500
+#define MAX_QUIC_PACKET_SIZE 3500
+
+void on_quic_timer(uv_timer_t* timer_handle);
+
 static picoquic_quic_t* global_quic_ctx;
 
 typedef struct QuicConnectionContext {
@@ -43,13 +46,27 @@ picoquic_quic_t* get_global_quic_ctx() {
   return global_quic_ctx;
 }
 
+int sample_client_callback(picoquic_cnx_t* cnx,
+    uint64_t stream_id, uint8_t* bytes, size_t length,
+    picoquic_call_back_event_t fin_or_event, void* callback_ctx, void* v_stream_ctx)
+{
+  log_trace("Received sample callback event: %d", fin_or_event);
+  return 0;
+}
+
 void notify_if_cnx_ready(Connection* connection, picoquic_cnx_t* cnx) {
+  log_debug("Checking if connection is ready");
+  log_trace("cnx: %p, connection: %p, callback: %p", (void*)cnx, (void*)connection, (void*)connection->connection_callbacks.ready);
   if (cnx == NULL || connection == NULL || connection->connection_callbacks.ready == NULL) {
+    log_debug("cnx, Connection or callback is NULL, not notifying");
     return;
   }
   picoquic_state_enum state = picoquic_get_cnx_state(cnx);
   if (state == picoquic_state_ready) {
     connection->connection_callbacks.ready(connection, connection->connection_callbacks.user_data);
+  }
+  else {
+    log_debug("Connection not ready yet, current state: %d", state);
   }
 }
 
@@ -77,11 +94,13 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
   }
 
   if (addr_from == NULL) {
+    log_warn("No source address for incoming QUIC packet");
     // No more data to read, or an empty packet.
     return;
   }
 
   picoquic_quic_t* quic_ctx = get_global_quic_ctx();
+
   picoquic_cnx_t *cnx = NULL;
 
   QuicConnectionContext* quic_ctx_data = (QuicConnectionContext*)udp_handle->data;
@@ -103,7 +122,11 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
     // TODO - error handling
   }
 
-  notify_if_cnx_ready(quic_ctx_data->connection, cnx);
+  log_debug("State after reading is %d", picoquic_get_cnx_state(cnx));
+  uint64_t next_wake_delay = picoquic_get_next_wake_delay(quic_ctx, picoquic_get_quic_time(quic_ctx), INT64_MAX - 1);
+  log_trace("hypothetical %llu ms", (unsigned long long)next_wake_delay);
+  // TODO - this throws error, reason about it tomorrow
+  //uv_timer_start(quic_ctx_data->timer_handle, on_quic_timer, next_wake_delay, 0);
 }
 
 void on_quic_timer(uv_timer_t* timer_handle) {
@@ -126,12 +149,14 @@ void on_quic_timer(uv_timer_t* timer_handle) {
   // step 1: Process all the packets that have arrived and submit them through the {{incoming-api}}
   // this is handled through the on_read callback for data
   // Poll the QUIC context through the {{prepare-api}} and send packets if they are ready
+  log_debug("QUIC timer triggered, preparing packets to send");
   unsigned char send_buffer_base[MAX_QUIC_PACKET_SIZE];
   QuicConnectionContext* quic_ctx_data = (QuicConnectionContext*)timer_handle->data;
   uv_udp_t* udp_handle = quic_ctx_data->udp_handle;
 
   picoquic_quic_t* quic_ctx = get_global_quic_ctx();
   size_t send_length = 0;
+  size_t send_message_size = 0;
 
   uv_buf_t send_buffer = uv_buf_init(send_buffer_base, MAX_QUIC_PACKET_SIZE);
 
@@ -141,8 +166,12 @@ void on_quic_timer(uv_timer_t* timer_handle) {
   picoquic_cnx_t* last_cnx = NULL;
   size_t send_msg_size = 0;
 
+log_debug("Packet sending loop");
   do {
-    int rc = picoquic_prepare_next_packet_ex(
+    send_length = 0;
+    send_message_size = 0;
+    log_debug("Preparing next QUIC packet");
+    int rc = picoquic_prepare_next_packet(
       quic_ctx,
       picoquic_get_quic_time(quic_ctx),
       send_buffer_base,
@@ -152,12 +181,17 @@ void on_quic_timer(uv_timer_t* timer_handle) {
       &from_address,
       &if_index,
       NULL,
-      &last_cnx,
-      &send_msg_size
+      &last_cnx
     );
     if (rc != 0) {
       log_error("Error preparing next QUIC packet: %d", rc);
       // TODO - error handling
+      break;
+    }
+    log_debug("Prepared QUIC packet of length %zu", send_length);
+    if (send_length == 0) {
+      log_debug("No more QUIC packets to send");
+      log_debug("cnx is %p", (void*)last_cnx);
       break;
     }
     uv_udp_send_t* send_req = malloc(sizeof(uv_udp_send_t));
@@ -174,10 +208,14 @@ void on_quic_timer(uv_timer_t* timer_handle) {
       // TODO - error handling
       break;
     }
-    notify_if_cnx_ready(quic_ctx_data->connection, last_cnx);
+    log_debug("Sent QUIC packet of length %zu", send_length);
+    //notify_if_cnx_ready(quic_ctx_data->connection, last_cnx);
+    log_trace("Notified if applicable");
   } while (send_length > 0);
+  log_debug("Finished sending QUIC packets");
 
   uint64_t next_wake_delay = picoquic_get_next_wake_delay(quic_ctx, picoquic_get_quic_time(quic_ctx), INT64_MAX - 1);
+  log_trace("Next QUIC timer in %llu ns", (unsigned long long)next_wake_delay);
   uv_timer_start(timer_handle, on_quic_timer, next_wake_delay, 0);
   // step 3: Report issues through the {{error-notify-API}}
 }
@@ -204,6 +242,11 @@ uv_udp_t* set_up_udp_handle(Connection* connection) {
   }
 
   rc = uv_udp_recv_start(new_udp_handle, alloc_quic_buf, on_quic_udp_read);
+  if (rc < 0) {
+    log_error("Error starting UDP receive: %s", uv_strerror(rc));
+    free(new_udp_handle);
+    return NULL;
+  }
   return new_udp_handle;
 }
 
@@ -306,6 +349,7 @@ int quic_init(Connection* connection, const ConnectionCallbacks* connection_call
       1
   );
 
+  picoquic_set_callback(cnx, sample_client_callback, NULL);
   rc = picoquic_start_client_cnx(cnx);
   if (rc != 0) {
     log_error("Error starting QUIC client connection: %d", rc);
@@ -316,6 +360,7 @@ int quic_init(Connection* connection, const ConnectionCallbacks* connection_call
 
   uint64_t next_wake_delay = picoquic_get_next_wake_delay(quic_ctx, picoquic_get_quic_time(quic_ctx), INT64_MAX - 1);
 
+  log_trace("Next QUIC timer in %llu s", (unsigned long long)next_wake_delay);
   uv_timer_start(timer_handle, on_quic_timer, next_wake_delay, 0);
   return 0;
 }
