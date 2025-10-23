@@ -73,6 +73,7 @@ TEST(TcpGenericTests, successfullyConnectsToTcpServer) {
   transport_properties_build(&transport_properties);
 
   tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
+  tp_set_sel_prop_preference(&transport_properties, ACTIVE_READ_BEFORE_SEND, REQUIRE);
 
   Preconnection preconnection;
   preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);
@@ -107,6 +108,7 @@ TEST(TcpGenericTests, connectionErrorCalledWhenNoServer) {
   transport_properties_build(&transport_properties);
 
   tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
+  tp_set_sel_prop_preference(&transport_properties, ACTIVE_READ_BEFORE_SEND, REQUIRE);
 
   Preconnection preconnection;
   preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);
@@ -145,6 +147,7 @@ TEST(TcpGenericTests, sendsSingleTcpMessage) {
   transport_properties_build(&transport_properties);
 
   tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
+  tp_set_sel_prop_preference(&transport_properties, ACTIVE_READ_BEFORE_SEND, REQUIRE);
 
   Preconnection preconnection;
   preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);
