@@ -22,7 +22,7 @@ typedef struct Connection {
   RemoteEndpoint remote_endpoint;
   // TODO - decide on if this has to be a pointer
   ProtocolImplementation protocol;
-  uv_handle_t* protocol_uv_handle;
+  void* protocol_state;
   ConnectionType open_type;
   ConnectionCallbacks connection_callbacks;
   struct SocketManager* socket_manager;

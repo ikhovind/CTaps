@@ -26,7 +26,7 @@ TEST(ConnectionUnitTests, TakesDeepCopyOfTransportProperties) {
     Connection connection;
     LocalEndpoint local_endpoint;
     SocketManager socket_manager = {
-        .protocol_uv_handle = nullptr,
+        .protocol_state = nullptr,
         .protocol_impl = nullptr
     };
 
