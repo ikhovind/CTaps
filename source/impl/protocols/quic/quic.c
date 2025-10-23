@@ -306,6 +306,14 @@ int quic_init(Connection* connection, const ConnectionCallbacks* connection_call
       1
   );
 
+  rc = picoquic_start_client_cnx(cnx);
+  if (rc != 0) {
+    log_error("Error starting QUIC client connection: %d", rc);
+    free(connection_context->udp_sock_name);
+    free(connection_context);
+    return rc;
+  }
+
   uint64_t next_wake_delay = picoquic_get_next_wake_delay(quic_ctx, picoquic_get_quic_time(quic_ctx), INT64_MAX - 1);
 
   uv_timer_start(timer_handle, on_quic_timer, next_wake_delay, 0);
