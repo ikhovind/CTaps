@@ -86,7 +86,7 @@ int udp_init(Connection* connection, const ConnectionCallbacks* connection_callb
   uv_udp_t* new_udp_handle;
 
   new_udp_handle = malloc(sizeof(*new_udp_handle));
-  connection->protocol_uv_handle = (uv_handle_t*)new_udp_handle;
+  connection->protocol_state = (uv_handle_t*)new_udp_handle;
   if (new_udp_handle == NULL) {
     log_error("Failed to allocate memory for UDP handle");
     return -ENOMEM;
@@ -129,14 +129,14 @@ void closed_handle_cb(uv_handle_t* handle) {
 int udp_close(const Connection* connection) {
   g_queue_free(connection->received_messages);
   g_queue_free(connection->received_callbacks);
-  uv_udp_recv_stop((uv_udp_t*)connection->protocol_uv_handle);
-  uv_close(connection->protocol_uv_handle, closed_handle_cb);
+  uv_udp_recv_stop((uv_udp_t*)connection->protocol_state);
+  uv_close(connection->protocol_state, closed_handle_cb);
   return 0;
 }
 
 int udp_stop_listen(struct SocketManager* socket_manager) {
   log_debug("Stopping UDP listen");
-  int rc = uv_udp_recv_stop((uv_udp_t*)socket_manager->protocol_uv_handle);
+  int rc = uv_udp_recv_stop((uv_udp_t*)socket_manager->protocol_state);
   if (rc < 0) {
     log_error("Problem with stopping receive: %s\n", uv_strerror(rc));
     return rc;
@@ -156,7 +156,7 @@ int udp_send(Connection* connection, Message* message, MessageContext* message_c
   }
 
   return uv_udp_send(
-      send_req, (uv_udp_t*)connection->protocol_uv_handle, &buffer, 1,
+      send_req, (uv_udp_t*)connection->protocol_state, &buffer, 1,
       (const struct sockaddr*)&connection->remote_endpoint.data.resolved_address,
       on_send);
 }
@@ -245,7 +245,7 @@ int udp_listen(SocketManager* socket_manager) {
     return rc;
   }
 
-  socket_manager->protocol_uv_handle = (uv_handle_t*)udp_handle;
+  socket_manager->protocol_state = (uv_handle_t*)udp_handle;
 
   return 0;
 }
