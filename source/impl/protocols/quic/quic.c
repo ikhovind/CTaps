@@ -51,6 +51,9 @@ int sample_client_callback(picoquic_cnx_t* cnx,
     picoquic_call_back_event_t fin_or_event, void* callback_ctx, void* v_stream_ctx)
 {
   log_trace("Received sample callback event: %d", fin_or_event);
+  if (fin_or_event == picoquic_callback_ready) {
+    log_debug("QUIC connection is ready, invoking CTaps callback");
+  }
   return 0;
 }
 
@@ -109,7 +112,7 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
   int rc = picoquic_incoming_packet_ex(
     quic_ctx,
     buf->base,
-    buf->len,
+    nread,
     addr_from,
     addr_to,
     0,
@@ -122,11 +125,9 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
     // TODO - error handling
   }
 
-  log_debug("State after reading is %d", picoquic_get_cnx_state(cnx));
   uint64_t next_wake_delay = picoquic_get_next_wake_delay(quic_ctx, picoquic_get_quic_time(quic_ctx), INT64_MAX - 1);
-  log_trace("hypothetical %llu ms", (unsigned long long)next_wake_delay);
-  // TODO - this throws error, reason about it tomorrow
-  //uv_timer_start(quic_ctx_data->timer_handle, on_quic_timer, next_wake_delay, 0);
+  log_trace("After receive, next QUIC timer in %llu ns", (unsigned long long)next_wake_delay);
+  uv_timer_start(quic_ctx_data->timer_handle, on_quic_timer, next_wake_delay, 0);
 }
 
 void on_quic_timer(uv_timer_t* timer_handle) {
@@ -156,7 +157,6 @@ void on_quic_timer(uv_timer_t* timer_handle) {
 
   picoquic_quic_t* quic_ctx = get_global_quic_ctx();
   size_t send_length = 0;
-  size_t send_message_size = 0;
 
   uv_buf_t send_buffer = uv_buf_init(send_buffer_base, MAX_QUIC_PACKET_SIZE);
 
@@ -164,12 +164,9 @@ void on_quic_timer(uv_timer_t* timer_handle) {
   struct sockaddr_storage to_address;
   int if_index = -1;
   picoquic_cnx_t* last_cnx = NULL;
-  size_t send_msg_size = 0;
 
-log_debug("Packet sending loop");
   do {
     send_length = 0;
-    send_message_size = 0;
     log_debug("Preparing next QUIC packet");
     int rc = picoquic_prepare_next_packet(
       quic_ctx,
@@ -189,35 +186,33 @@ log_debug("Packet sending loop");
       break;
     }
     log_debug("Prepared QUIC packet of length %zu", send_length);
-    if (send_length == 0) {
-      log_debug("No more QUIC packets to send");
-      log_debug("cnx is %p", (void*)last_cnx);
-      break;
+    if (send_length > 0) {
+      log_trace("Send buffer size: %zu", send_buffer.len);
+      // TODO - is it actually correct to modify the buffer directly like this?
+      send_buffer.len = send_length;
+      uv_udp_send_t* send_req = malloc(sizeof(uv_udp_send_t));
+      rc = uv_udp_send(
+        send_req,
+        udp_handle,
+        &send_buffer,
+        1,
+        (struct sockaddr*)&to_address,
+        on_quic_udp_send);
+      if (rc < 0) {
+        log_error("Error sending QUIC packet over UDP: %s", uv_strerror(rc));
+        free(send_req);
+        // TODO - error handling
+        break;
+      }
+      log_debug("Sent QUIC packet of length %zu", send_length);
     }
-    uv_udp_send_t* send_req = malloc(sizeof(uv_udp_send_t));
-    rc = uv_udp_send(
-      send_req,
-      udp_handle,
-      &send_buffer,
-      1,
-      &to_address,
-      on_quic_udp_send);
-    if (rc < 0) {
-      log_error("Error sending QUIC packet over UDP: %s", uv_strerror(rc));
-      free(send_req);
-      // TODO - error handling
-      break;
-    }
-    log_debug("Sent QUIC packet of length %zu", send_length);
-    //notify_if_cnx_ready(quic_ctx_data->connection, last_cnx);
-    log_trace("Notified if applicable");
   } while (send_length > 0);
   log_debug("Finished sending QUIC packets");
+
 
   uint64_t next_wake_delay = picoquic_get_next_wake_delay(quic_ctx, picoquic_get_quic_time(quic_ctx), INT64_MAX - 1);
   log_trace("Next QUIC timer in %llu ns", (unsigned long long)next_wake_delay);
   uv_timer_start(timer_handle, on_quic_timer, next_wake_delay, 0);
-  // step 3: Report issues through the {{error-notify-API}}
 }
 
 uv_udp_t* set_up_udp_handle(Connection* connection) {
