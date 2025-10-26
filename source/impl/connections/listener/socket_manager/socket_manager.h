@@ -15,7 +15,7 @@ struct Listener;
  * This means that the protocol_uv_handle is only used for UDP right now
  */
 typedef struct SocketManager{
-  uv_handle_t* protocol_uv_handle;
+  void* protocol_state;
   int ref_count; // Number of objects using this socket (Listener + Connections)
   GHashTable* active_connections;
   uv_udp_recv_cb on_read;

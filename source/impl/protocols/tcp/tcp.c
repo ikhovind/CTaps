@@ -65,7 +65,7 @@ void on_connect(struct uv_connect_s *req, int status) {
     return;
   }
   log_info("Successfully connected to remote endpoint using TCP");
-  uv_read_start((uv_stream_t*)connection->protocol_uv_handle, alloc_cb, tcp_on_read);
+  uv_read_start((uv_stream_t*)connection->protocol_state, alloc_cb, tcp_on_read);
   if (connection->connection_callbacks.ready) {
     connection->connection_callbacks.ready(connection, connection->connection_callbacks.user_data);
   }
@@ -94,7 +94,7 @@ int tcp_init(Connection* connection, const ConnectionCallbacks* connection_callb
     return -ENOMEM;
   }
 
-  connection->protocol_uv_handle = (uv_handle_t*)new_tcp_handle;
+  connection->protocol_state = (uv_handle_t*)new_tcp_handle;
 
   rc = uv_tcp_init(ctaps_event_loop, new_tcp_handle);
 
@@ -132,8 +132,8 @@ int tcp_init(Connection* connection, const ConnectionCallbacks* connection_callb
 
 int tcp_close(const Connection* connection) {
   log_info("Closing TCP connection");
-  if (connection->protocol_uv_handle) {
-    uv_close(connection->protocol_uv_handle, on_close);
+  if (connection->protocol_state) {
+    uv_close(connection->protocol_state, on_close);
   }
   return 0;
 }
@@ -150,7 +150,7 @@ int tcp_send(Connection* connection, Message* message, MessageContext* ctx) {
     log_error("Failed to allocate memory for write request");
     return -errno;
   }
-  int rc = uv_write(req, (uv_tcp_t*)connection->protocol_uv_handle, buffer, 1, on_write);
+  int rc = uv_write(req, (uv_tcp_t*)connection->protocol_state, buffer, 1, on_write);
   if (rc < 0) {
     log_error("Error sending message over TCP: %s", uv_strerror(rc));
     free(req);
@@ -196,7 +196,7 @@ int tcp_listen(SocketManager* socket_manager) {
 
   socket_manager->ref_count = 1;
 
-  socket_manager->protocol_uv_handle = (uv_handle_t*)new_tcp_handle;
+  socket_manager->protocol_state = (uv_handle_t*)new_tcp_handle;
 
   Listener* listener = socket_manager->listener;
 
@@ -281,9 +281,9 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
 int tcp_stop_listen(SocketManager* socket_manager) {
   log_debug("Stopping TCP listen for SocketManager %p", (void*)socket_manager);
 
-  if (socket_manager->protocol_uv_handle) {
-    uv_close(socket_manager->protocol_uv_handle, on_close);
-    socket_manager->protocol_uv_handle = NULL;
+  if (socket_manager->protocol_state) {
+    uv_close(socket_manager->protocol_state, on_close);
+    socket_manager->protocol_state = NULL;
   }
   return 0;
 }
@@ -292,7 +292,6 @@ int tcp_remote_endpoint_from_peer(uv_handle_t* peer, RemoteEndpoint* resolved_pe
   int rc;
   struct sockaddr_storage remote_addr;
   int addr_len = sizeof(remote_addr);
-  // TODO - this is TCP specific for now
   rc = uv_tcp_getpeername((uv_tcp_t*)peer, (struct sockaddr *)&remote_addr, &addr_len);
   if (rc < 0) {
     log_error("Could not get remote address from received handle: %s", uv_strerror(rc));

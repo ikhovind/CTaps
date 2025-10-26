@@ -10,18 +10,21 @@
 #include "connections/connection/connection.h"
 #include "uv.h"
 
-#define MAX_QUIC_PACKET_SIZE 3500
+#define MAX_QUIC_PACKET_SIZE 1500
+
+#define CONNECTION_FROM_HANDLE(handle) (Connection*)(handle->data)
+#define QUIC_STATE_FROM_HANDLE(handle) (QuicConnectionState*)(CONNECTION_FROM_HANDLE(handle))->protocol_state;
 
 void on_quic_timer(uv_timer_t* timer_handle);
 
 static picoquic_quic_t* global_quic_ctx;
 
-typedef struct QuicConnectionContext {
+typedef struct QuicConnectionState {
   Connection* connection;
   uv_udp_t* udp_handle;
   uv_timer_t* timer_handle;
   struct sockaddr_storage* udp_sock_name;
-} QuicConnectionContext;
+} QuicConnectionState;
 
 picoquic_quic_t* get_global_quic_ctx() {
   if (global_quic_ctx == NULL) {
@@ -52,25 +55,15 @@ int sample_client_callback(picoquic_cnx_t* cnx,
 {
   log_trace("Received sample callback event: %d", fin_or_event);
   if (fin_or_event == picoquic_callback_ready) {
+    Connection* connection = (Connection*)callback_ctx;
     log_debug("QUIC connection is ready, invoking CTaps callback");
+    if (connection->connection_callbacks.ready != NULL) {
+      connection->connection_callbacks.ready(connection, connection->connection_callbacks.user_data);
+    } else {
+      log_info("No ready callback set for connection");
+    }
   }
   return 0;
-}
-
-void notify_if_cnx_ready(Connection* connection, picoquic_cnx_t* cnx) {
-  log_debug("Checking if connection is ready");
-  log_trace("cnx: %p, connection: %p, callback: %p", (void*)cnx, (void*)connection, (void*)connection->connection_callbacks.ready);
-  if (cnx == NULL || connection == NULL || connection->connection_callbacks.ready == NULL) {
-    log_debug("cnx, Connection or callback is NULL, not notifying");
-    return;
-  }
-  picoquic_state_enum state = picoquic_get_cnx_state(cnx);
-  if (state == picoquic_state_ready) {
-    connection->connection_callbacks.ready(connection, connection->connection_callbacks.user_data);
-  }
-  else {
-    log_debug("Connection not ready yet, current state: %d", state);
-  }
 }
 
 static void alloc_quic_buf(uv_handle_t* handle, size_t size, uv_buf_t* buf) {
@@ -106,8 +99,8 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
 
   picoquic_cnx_t *cnx = NULL;
 
-  QuicConnectionContext* quic_ctx_data = (QuicConnectionContext*)udp_handle->data;
-  struct sockaddr_storage* addr_to = quic_ctx_data->udp_sock_name;
+  QuicConnectionState* quic_state = QUIC_STATE_FROM_HANDLE(udp_handle);
+  struct sockaddr_storage* addr_to = quic_state->udp_sock_name;
 
   int rc = picoquic_incoming_packet_ex(
     quic_ctx,
@@ -127,7 +120,7 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
 
   uint64_t next_wake_delay = picoquic_get_next_wake_delay(quic_ctx, picoquic_get_quic_time(quic_ctx), INT64_MAX - 1);
   log_trace("After receive, next QUIC timer in %llu ns", (unsigned long long)next_wake_delay);
-  uv_timer_start(quic_ctx_data->timer_handle, on_quic_timer, next_wake_delay, 0);
+  uv_timer_start(quic_state->timer_handle, on_quic_timer, next_wake_delay, 0);
 }
 
 void on_quic_timer(uv_timer_t* timer_handle) {
@@ -152,7 +145,7 @@ void on_quic_timer(uv_timer_t* timer_handle) {
   // Poll the QUIC context through the {{prepare-api}} and send packets if they are ready
   log_debug("QUIC timer triggered, preparing packets to send");
   unsigned char send_buffer_base[MAX_QUIC_PACKET_SIZE];
-  QuicConnectionContext* quic_ctx_data = (QuicConnectionContext*)timer_handle->data;
+  QuicConnectionState* quic_ctx_data = QUIC_STATE_FROM_HANDLE(timer_handle);
   uv_udp_t* udp_handle = quic_ctx_data->udp_handle;
 
   picoquic_quic_t* quic_ctx = get_global_quic_ctx();
@@ -307,11 +300,9 @@ int quic_init(Connection* connection, const ConnectionCallbacks* connection_call
 
   uv_timer_t *timer_handle = set_up_timer_handle();
 
-  timer_handle->data = udp_handle;
+  QuicConnectionState* connection_state = malloc(sizeof(QuicConnectionState));
 
-  QuicConnectionContext* connection_context = malloc(sizeof(QuicConnectionContext));
-
-  *connection_context = (QuicConnectionContext){
+  *connection_state = (QuicConnectionState){
     .connection = connection,
     .timer_handle = timer_handle,
     .udp_handle = udp_handle,
@@ -319,17 +310,18 @@ int quic_init(Connection* connection, const ConnectionCallbacks* connection_call
   };
 
   int namelen = sizeof(struct sockaddr_storage);
-  int rc = uv_udp_getsockname(udp_handle, (struct sockaddr*)connection_context->udp_sock_name, &namelen);
+  int rc = uv_udp_getsockname(udp_handle, (struct sockaddr*)connection_state->udp_sock_name, &namelen);
   if (rc < 0) {
     log_error("Error getting UDP socket name: %s", uv_strerror(rc));
     log_error("Error code: %d", rc);
-    free(connection_context->udp_sock_name);
-    free(connection_context);
+    free(connection_state->udp_sock_name);
+    free(connection_state);
     return rc;
   }
 
-  udp_handle->data = connection_context;
-  timer_handle->data = connection_context;
+  udp_handle->data = connection;
+  timer_handle->data = connection;
+  connection->protocol_state = connection_state;
 
   // Creates the connection object and sends the first (Initial) packet.
   cnx = picoquic_create_cnx(
@@ -344,12 +336,12 @@ int quic_init(Connection* connection, const ConnectionCallbacks* connection_call
       1
   );
 
-  picoquic_set_callback(cnx, sample_client_callback, NULL);
+  picoquic_set_callback(cnx, sample_client_callback, connection);
   rc = picoquic_start_client_cnx(cnx);
   if (rc != 0) {
     log_error("Error starting QUIC client connection: %d", rc);
-    free(connection_context->udp_sock_name);
-    free(connection_context);
+    free(connection_state->udp_sock_name);
+    free(connection_state);
     return rc;
   }
 

@@ -33,7 +33,7 @@ void connection_build_multiplexed(Connection* connection, const Listener* listen
   connection->local_endpoint = listener->local_endpoint;
   connection->transport_properties = listener->transport_properties;
   connection->remote_endpoint = *remote_endpoint;
-  connection->protocol_uv_handle = listener->socket_manager->protocol_uv_handle;
+  connection->protocol_state = listener->socket_manager->protocol_state;
   connection->protocol = listener->socket_manager->protocol_impl;
   connection->socket_manager = listener->socket_manager;
   connection->received_callbacks = g_queue_new();
@@ -42,13 +42,20 @@ void connection_build_multiplexed(Connection* connection, const Listener* listen
 }
 
 void connection_close(Connection* connection) {
+  int rc;
   if (connection->open_type == CONNECTION_OPEN_TYPE_MULTIPLEXED) {
     log_info("Closing Connection relying on socket manager, removing from socket manager\n");
-    socket_manager_remove_connection(connection->socket_manager, connection);
+    rc = socket_manager_remove_connection(connection->socket_manager, connection);
+    if (rc < 0) {
+      log_error("Error removing connection from socket manager: %d", rc);
+    }
   }
   else {
     log_info("Closing standalone connection");
-    connection->protocol.close(connection);
+    rc = connection->protocol.close(connection);
+    if (rc < 0) {
+      log_error("Error closing connection: %d", rc);
+    }
     connection->transport_properties.connection_properties.list[STATE].value.uint32_val = CONN_STATE_CLOSED;
   }
 }
@@ -76,7 +83,7 @@ Connection* connection_build_from_received_handle(const struct Listener* listene
   connection->open_type = CONNECTION_TYPE_STANDALONE;
   connection->received_callbacks = g_queue_new();
   connection->received_messages = g_queue_new();
-  connection->protocol_uv_handle = (uv_handle_t*)received_handle;
+  connection->protocol_state = (uv_handle_t*)received_handle;
 
   return connection;
 }
