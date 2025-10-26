@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import logging
 
+import os
 from aioquic.asyncio import QuicConnectionProtocol, serve
 from aioquic.quic.configuration import QuicConfiguration
 from aioquic.quic.events import StreamDataReceived, ProtocolNegotiated, QuicEvent
@@ -61,10 +62,11 @@ if __name__ == "__main__":
         alpn_protocols=ECHO_ALPN,  # Use our custom protocol identifier
         is_client=False,
     )
-    cert_name = "cert.pem"
+    cert_abs_path = os.path.join(os.path.dirname(__file__), "cert.pem")
+    key_abs_path = os.path.join(os.path.dirname(__file__), "key.pem")
     configuration.load_cert_chain(
-        "cert.pem",
-        "key.pem")
+        cert_abs_path,
+        key_abs_path)
 
     try:
         asyncio.run(
