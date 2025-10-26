@@ -50,7 +50,7 @@ int local_endpoint_resolve_fake_custom(const LocalEndpoint* local_endpoint, Loca
 
     // Second fake endpoint
     local_endpoint_build(&fake_local_endpoint_list[1]);
-    local_endpoint_with_interface(&fake_local_endpoint_list[1], "en01234567");
+    local_endpoint_with_interface(&fake_local_endpoint_list[1], "en0");
     local_endpoint_with_port(&fake_local_endpoint_list[1], 8081);
 
     *out_list = fake_local_endpoint_list;
