@@ -108,8 +108,27 @@ int sample_client_callback(picoquic_cnx_t* cnx,
       }
       break;
     case picoquic_callback_stream_data:
-      log_debug("Received data on stream %d, length %zu", stream_id, length);
-      // Handle incoming stream data
+      log_debug("Received %zu bytes on stream %d", length, stream_id);
+      // Store received data for later delivery
+      Message* msg = malloc(sizeof(Message));
+      if (msg) {
+        msg->content = malloc(length);
+        if (msg->content) {
+          memcpy(msg->content, bytes, length);
+          msg->length = length;
+          if (g_queue_is_empty(connection->received_callbacks)) {
+            g_queue_push_tail(connection->received_messages, msg);
+          }
+          else {
+            ReceiveCallbacks* cb = g_queue_pop_head(connection->received_callbacks);
+            cb->receive_callback(connection, &msg, NULL, cb->user_data);
+            free(cb);
+          }
+        } else {
+          log_error("Failed to allocate memory for received message content");
+          free(msg);
+        }
+      }
       break;
     case picoquic_callback_stream_fin:
       log_debug("Received FIN on stream %d", stream_id);
@@ -425,11 +444,77 @@ int quic_close(const Connection* connection) {
 
   return rc;
 }
-int quic_send(Connection* connection, Message* message, MessageContext*) {
-  return -ENOSYS;
+
+
+int quic_send(Connection* connection, Message* message, MessageContext* ctx) {
+  log_debug("Sending message over QUIC");
+  QuicConnectionState* quic_state = (QuicConnectionState*)connection->protocol_state;
+  picoquic_cnx_t* cnx = quic_state->picoquic_connection;
+
+  if (!cnx) {
+    log_error("No picoquic connection available for sending");
+    return -ENOTCONN;
+  }
+
+  // Check if connection is ready to send data
+  if (picoquic_get_cnx_state(cnx) < picoquic_state_ready) {
+    log_warn("Connection not ready to send data, state: %d", picoquic_get_cnx_state(cnx));
+    return -EAGAIN;
+  }
+
+  // Using stream 0 (default bidirectional stream)
+  uint64_t stream_id = 0;
+
+  log_debug("Queuing %zu bytes for sending on stream %llu", message->length, (unsigned long long)stream_id);
+
+  // Add data to the stream (set_fin=0 since we're not closing the stream)
+  int rc = picoquic_add_to_stream(cnx, stream_id, message->content, message->length, 0);
+
+  if (rc != 0) {
+    log_error("Error queuing data to QUIC stream: %d", rc);
+    return -EIO;
+  }
+
+  // Reset the timer to ensure data gets processed and sent immediately
+  reset_quic_timer(connection);
+
+  // Trigger the sent callback if registered (queuing is synchronous)
+  if (connection->connection_callbacks.sent) {
+    connection->connection_callbacks.sent(connection, connection->connection_callbacks.user_data);
+  }
+
+  return 0;
 }
+
+
+
 int quic_receive(Connection* connection, ReceiveCallbacks receive_callbacks) {
-  return -ENOSYS;
+  log_debug("Attempting to receive message via QUIC");
+
+  // If we have a message to receive then simply return that
+  if (!g_queue_is_empty(connection->received_messages)) {
+    log_debug("Calling receive callback immediately");
+    Message* received_message = g_queue_pop_head(connection->received_messages);
+    receive_callbacks.receive_callback(connection, &received_message, NULL, receive_callbacks.user_data);
+    return 0;
+  }
+
+  log_debug("Pushing receive callback to queue");
+  // Allocate memory for the callback structure
+  ReceiveCallbacks* ptr = malloc(sizeof(ReceiveCallbacks));
+  if (!ptr) {
+    log_error("Failed to allocate memory for receive callback");
+    return -ENOMEM;
+  }
+  // Copy the callback structure
+  memcpy(ptr, &receive_callbacks, sizeof(ReceiveCallbacks));
+
+  // Add the callback to the queue of waiting callbacks
+  g_queue_push_tail(connection->received_callbacks, ptr);
+  log_trace("Length of received_callbacks queue after adding: %d", 
+           g_queue_get_length(connection->received_callbacks));
+
+  return 0;
 }
 int quic_listen(struct SocketManager* socket_manager) {
   return -ENOSYS;

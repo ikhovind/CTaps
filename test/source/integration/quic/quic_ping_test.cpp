@@ -27,7 +27,17 @@ extern "C" {
     return 0;
   }
 
-  int send_message_on_connection_ready(struct Connection* connection, void* udata) {
+  int receive_and_close_on_message_received(struct Connection* connection, Message** received_message, MessageContext* ctx, void* udata) {
+    log_info("Message received");
+    // set user data to received message
+    Message** output_addr = (Message**)udata;
+    *output_addr = *received_message;
+
+    connection_close(connection);
+    return 0;
+  }
+
+  int quic_send_message_on_connection_ready(struct Connection* connection, void* udata) {
     log_info("Connection is ready, sending message");
     // --- Action ---
     Message message;
@@ -81,7 +91,7 @@ TEST(QuicGenericTests, successfullyConnectsToQuicServer) {
   bool quic_connection_succeeded = false;
   ConnectionCallbacks connection_callbacks = {
     .establishment_error = quic_establishment_error,
-    .ready = quic_mark_connection_as_success_and_close,
+    .ready = quic_send_message_on_connection_ready,
     .user_data = &quic_connection_succeeded,
   };
 
@@ -89,7 +99,18 @@ TEST(QuicGenericTests, successfullyConnectsToQuicServer) {
 
   ASSERT_EQ(rc, 0);
 
+  Message* msg_received = nullptr;
+
+  ReceiveCallbacks receive_req = { .receive_callback = on_msg_received, .user_data = &msg_received };
+
+  rc = receive_message(&connection, receive_req);
+
+  ASSERT_EQ(rc, 0);
+
   ctaps_start_event_loop();
 
-  ASSERT_TRUE(quic_connection_succeeded);
+  ASSERT_EQ(connection.transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
+  ASSERT_NE(msg_received, nullptr);
+  ASSERT_STREQ((const char*)msg_received->content, "Pong: hello world");
+  message_free_content(msg_received);
 }

@@ -145,7 +145,7 @@ int udp_stop_listen(struct SocketManager* socket_manager) {
 }
 
 int udp_send(Connection* connection, Message* message, MessageContext* message_context) {
-  log_debug("Sending via UDP");
+  log_debug("Sending message over UDP");
   const uv_buf_t buffer =
       uv_buf_init(message->content, message->length);
 
