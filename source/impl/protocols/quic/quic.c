@@ -12,6 +12,8 @@
 
 #define MAX_QUIC_PACKET_SIZE 1500
 
+#define MICRO_TO_MILLI(us) ((us) / 1000)
+
 #define CONNECTION_FROM_HANDLE(handle) (Connection*)(handle->data)
 #define QUIC_STATE_FROM_HANDLE(handle) (QuicConnectionState*)(CONNECTION_FROM_HANDLE(handle))->protocol_state;
 
@@ -52,8 +54,8 @@ picoquic_quic_t* get_global_quic_ctx() {
 void reset_quic_timer(Connection* connection) {
   QuicConnectionState* quic_state = (QuicConnectionState*)connection->protocol_state;
   uint64_t next_wake_delay = picoquic_get_next_wake_delay(get_global_quic_ctx(), picoquic_get_quic_time(get_global_quic_ctx()), INT64_MAX - 1);
-  log_trace("Resetting QUIC timer to fire in %llu ns", (unsigned long long)next_wake_delay);
-  uv_timer_start(quic_state->timer_handle, on_quic_timer, next_wake_delay, 0);
+  log_trace("Resetting QUIC timer to fire in %llu us", (unsigned long long)next_wake_delay);
+  uv_timer_start(quic_state->timer_handle, on_quic_timer, MICRO_TO_MILLI(next_wake_delay), 0);
 }
 
 void quic_closed_udp_handle_cb(uv_handle_t* handle) {
@@ -115,10 +117,6 @@ int sample_client_callback(picoquic_cnx_t* cnx,
       break;
     case picoquic_callback_close:
       log_info("Connection closed");
-      rc = close_underlying_handles(connection);
-      if (rc != 0) {
-        log_error("Error closing underlying handles: %d", rc);
-      }
       break;
     case picoquic_callback_application_close:
       log_info("Application closed by peer");
@@ -207,8 +205,8 @@ void on_quic_timer(uv_timer_t* timer_handle) {
   // Poll the QUIC context through the {{prepare-api}} and send packets if they are ready
   log_debug("QUIC timer triggered, preparing packets to send");
   unsigned char send_buffer_base[MAX_QUIC_PACKET_SIZE];
-  QuicConnectionState* quic_ctx_data = QUIC_STATE_FROM_HANDLE(timer_handle);
-  uv_udp_t* udp_handle = quic_ctx_data->udp_handle;
+  QuicConnectionState* quic_state = QUIC_STATE_FROM_HANDLE(timer_handle);
+  uv_udp_t* udp_handle = quic_state->udp_handle;
 
   picoquic_quic_t* quic_ctx = get_global_quic_ctx();
   size_t send_length = 0;
@@ -219,6 +217,12 @@ void on_quic_timer(uv_timer_t* timer_handle) {
   struct sockaddr_storage to_address;
   int if_index = -1;
   picoquic_cnx_t* last_cnx = NULL;
+
+  if (picoquic_get_cnx_state(quic_state->picoquic_connection) == picoquic_state_disconnected) {
+    log_info("QUIC connection is disconnected, closing underlying handles");
+    close_underlying_handles(CONNECTION_FROM_HANDLE(udp_handle));
+    return;
+  }
 
   do {
     send_length = 0;
@@ -260,7 +264,7 @@ void on_quic_timer(uv_timer_t* timer_handle) {
         break;
       }
       log_debug("Sent QUIC packet of length %zu", send_length);
-      log_debug("Connection state is: %d", picoquic_get_cnx_state(quic_ctx_data->picoquic_connection));
+      log_debug("Connection state is: %d", picoquic_get_cnx_state(quic_state->picoquic_connection));
     }
   } while (send_length > 0);
   log_debug("Finished sending QUIC packets");

@@ -204,6 +204,7 @@ int prune_candidate_tree(GNode* root, SelectionProperties selection_properties) 
 }
 
 gint compare_prefer_and_avoid_preferences(gconstpointer a, gconstpointer b, gpointer desired_selection_properties) {
+  log_trace("In candidate sorting - comparing two candidate nodes based on prefer and avoid selection properties");
 
   const CandidateNode* candidate_a = (const CandidateNode*)a;
   const CandidateNode* candidate_b = (const CandidateNode*)b;
@@ -367,10 +368,17 @@ GArray* get_ordered_candidate_nodes(const Preconnection* precon) {
   // Free data owned by tree
   g_node_traverse(root_node, G_IN_ORDER, G_TRAVERSE_ALL, -1, free_candidate_node, NULL);
 
-  log_trace("Sorting candidates based in desirability");
   g_node_destroy(root_node);
 
+  log_trace("Sorting candidates based in desirability");
   g_array_sort_with_data(root_array, compare_prefer_and_avoid_preferences, &precon->transport_properties.selection_properties);
+
+  if (root_array->len > 0) {
+    log_trace("Most desirable candidate protocol is: %s", (g_array_index(root_array, CandidateNode, 0)).protocol->name);
+  }
+  else {
+    log_warn("No candidate nodes found after pruning");
+  }
 
   return root_array;
 }
