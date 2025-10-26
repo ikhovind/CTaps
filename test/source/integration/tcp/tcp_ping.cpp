@@ -28,7 +28,7 @@ extern "C" {
     return 0;
   }
 
-  int send_message_on_connection_ready(struct Connection* connection, void* udata) {
+  int tcp_send_message_on_connection_ready(struct Connection* connection, void* udata) {
     log_info("Connection is ready, sending message");
     // --- Action ---
     Message message;
@@ -156,7 +156,7 @@ TEST(TcpGenericTests, sendsSingleTcpMessage) {
   // Set to true, since only on_connection_error will set it to false
   ConnectionCallbacks connection_callbacks = {
     .establishment_error = on_establishment_error,
-    .ready = send_message_on_connection_ready,
+    .ready = tcp_send_message_on_connection_ready,
     .user_data = NULL,
   };
 

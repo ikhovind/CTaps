@@ -26,11 +26,14 @@ class QuicEchoProtocol(QuicConnectionProtocol):
         if isinstance(event, StreamDataReceived):
             # 1. Log the incoming data
             logging.info("Received on stream %d: %s", event.stream_id, event.data.decode(errors='ignore'))
+            receive_string = event.data.decode(errors='ignore')
+            receive_string = "Pong: " + receive_string
+            send_bytes = receive_string.encode()
             
             # 2. Echo the data back
             self._quic.send_stream_data(
                 stream_id=event.stream_id,
-                data=event.data,
+                data=send_bytes,
                 end_stream=event.end_stream, # Keep the end_stream flag from the received data
             )
 

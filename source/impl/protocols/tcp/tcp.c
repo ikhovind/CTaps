@@ -139,6 +139,7 @@ int tcp_close(const Connection* connection) {
 }
 
 int tcp_send(Connection* connection, Message* message, MessageContext* ctx) {
+  log_debug("Sending message over TCP");
   uv_buf_t buffer[] = {
     {
       .base = message->content,
