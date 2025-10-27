@@ -8,3 +8,7 @@ void listener_close(const Listener* listener) {
   listener->socket_manager->listener = NULL;
   socket_manager_decrement_ref(listener->socket_manager);
 }
+
+LocalEndpoint listener_get_local_endpoint(const Listener* listener) {
+  return listener->local_endpoint;
+}

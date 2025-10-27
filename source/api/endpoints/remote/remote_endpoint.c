@@ -34,6 +34,7 @@ int remote_endpoint_with_ipv6(RemoteEndpoint* remote_endpoint, struct in6_addr i
 }
 
 int remote_endpoint_from_sockaddr(RemoteEndpoint* remote_endpoint, const struct sockaddr_storage* addr) {
+  log_trace("Building remote endpoint from sockaddr");
   if (remote_endpoint->hostname != NULL) {
     log_error("Cannot specify both hostname and IP address on single remote endpoint");
     return -EINVAL;
