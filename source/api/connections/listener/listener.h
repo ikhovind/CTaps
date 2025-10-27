@@ -26,4 +26,6 @@ typedef struct Listener {
 } Listener;
 
 void listener_close(const Listener* listener);
+
+LocalEndpoint listener_get_local_endpoint(const Listener* listener);
 #endif //LISTENER_H
