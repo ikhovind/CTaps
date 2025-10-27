@@ -89,6 +89,17 @@ protected:
         return 0;
     }
 
+    static int send_message_and_close_on_connection_ready(Connection* connection, void* user_data) {
+        log_info("Callback: Connection is ready.");
+        Message message;
+        message_build_with_content(&message, "ping", strlen("ping") + 1);
+        send_message(connection, &message);
+        message_free_content(&message);
+
+        connection_close(connection);
+        return 0;
+    }
+
     static int send_message_on_connection_ready(Connection* connection, void* user_data) {
         printf("Callback: Connection is ready, sending message.\n");
         auto* context = static_cast<CallbackContext*>(user_data);
@@ -252,6 +263,7 @@ protected:
     }
 
     static int send_message_and_receive(struct Connection* connection, void* udata) {
+        log_trace("Callback: Ready - send_message_and_receive");
         Message message;
         message_build_with_content(&message, "ping", strlen("ping") + 1);
         send_message(connection, &message);
