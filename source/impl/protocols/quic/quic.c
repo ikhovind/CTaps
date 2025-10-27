@@ -8,6 +8,8 @@
 
 #include <picoquic.h>
 #include "connections/connection/connection.h"
+#include "connections/listener/listener.h"
+#include "connections/listener/socket_manager/socket_manager.h"
 #include "uv.h"
 
 #define MAX_QUIC_PACKET_SIZE 1500
@@ -19,25 +21,39 @@
 
 void on_quic_timer(uv_timer_t* timer_handle);
 
-static picoquic_quic_t* global_quic_ctx;
+int quic_callback(picoquic_cnx_t* cnx,
+    uint64_t stream_id, uint8_t* bytes, size_t length,
+    picoquic_call_back_event_t fin_or_event, void* callback_ctx, void* v_stream_ctx);
+
+typedef struct QuicGlobalState {
+  struct Listener* listener;
+  uv_timer_t* timer_handle;
+} QuicGlobalState;
+
 
 typedef struct QuicConnectionState {
   uv_udp_t* udp_handle;
-  uv_timer_t* timer_handle;
   struct sockaddr_storage* udp_sock_name;
   picoquic_cnx_t* picoquic_connection;
 } QuicConnectionState;
 
+static picoquic_quic_t* global_quic_ctx;
+
+static QuicGlobalState default_global_quic_state = {
+  .timer_handle = NULL,
+  .listener = NULL
+};
+
 picoquic_quic_t* get_global_quic_ctx() {
   if (global_quic_ctx == NULL) {
     global_quic_ctx = picoquic_create(
-       1,
-       NULL,
-       NULL,
+       8,
+       "/home/ikhovind/Documents/Skole/taps/test/quic/cert.pem",
+       "/home/ikhovind/Documents/Skole/taps/test/quic/key.pem",
        NULL,
        "simple-ping",
-       NULL,
-       NULL,
+       quic_callback,
+       &default_global_quic_state,
        NULL,
        NULL,
        NULL,
@@ -51,11 +67,10 @@ picoquic_quic_t* get_global_quic_ctx() {
   return global_quic_ctx;
 }
 
-void reset_quic_timer(Connection* connection) {
-  QuicConnectionState* quic_state = (QuicConnectionState*)connection->protocol_state;
+void reset_quic_timer() {
   uint64_t next_wake_delay = picoquic_get_next_wake_delay(get_global_quic_ctx(), picoquic_get_quic_time(get_global_quic_ctx()), INT64_MAX - 1);
   log_trace("Resetting QUIC timer to fire in %llu us", (unsigned long long)next_wake_delay);
-  uv_timer_start(quic_state->timer_handle, on_quic_timer, MICRO_TO_MILLI(next_wake_delay), 0);
+  uv_timer_start(default_global_quic_state.timer_handle, on_quic_timer, MICRO_TO_MILLI(next_wake_delay), 0);
 }
 
 void quic_closed_udp_handle_cb(uv_handle_t* handle) {
@@ -66,16 +81,16 @@ void quic_closed_udp_handle_cb(uv_handle_t* handle) {
 
 int close_underlying_handles(Connection* connection) {
   int rc;
-  QuicConnectionState* quic_state = (QuicConnectionState*)connection->protocol_state;
-  rc = uv_timer_stop(quic_state->timer_handle);
+  rc = uv_timer_stop(default_global_quic_state.timer_handle);
   if (rc < 0) {
     log_error("Error stopping QUIC timer: %s", uv_strerror(rc));
   } 
-  uv_close((uv_handle_t*) quic_state->timer_handle, quic_closed_udp_handle_cb);
+  uv_close((uv_handle_t*) default_global_quic_state.timer_handle, quic_closed_udp_handle_cb);
 
   g_queue_free(connection->received_messages);
   g_queue_free(connection->received_callbacks);
 
+  QuicConnectionState* quic_state = (QuicConnectionState*)connection->protocol_state;
   rc = uv_udp_recv_stop(quic_state->udp_handle);
   if (rc < 0) {
     log_error("Problem with stopping QUIC UDP receive: %s\n", uv_strerror(rc));
@@ -89,13 +104,70 @@ int close_underlying_handles(Connection* connection) {
   return 0;
 }
 
-int sample_client_callback(picoquic_cnx_t* cnx,
+int quic_callback(picoquic_cnx_t* cnx,
     uint64_t stream_id, uint8_t* bytes, size_t length,
     picoquic_call_back_event_t fin_or_event, void* callback_ctx, void* v_stream_ctx)
 {
   int rc;
+  Connection* connection = NULL;
   log_trace("Received sample callback event: %d", fin_or_event);
-  Connection* connection = (Connection*)callback_ctx;
+  /* If this is the first reference to the connection, the application context is set
+   * to the default value defined for the server. TODO - define this lol
+   */
+  log_trace("Callback context pointer: %p", callback_ctx);
+  log_trace("Default callback context pointer: %p", picoquic_get_default_callback_context(picoquic_get_quic_ctx(cnx)));
+  log_trace("Equal: %d", (callback_ctx == picoquic_get_default_callback_context(picoquic_get_quic_ctx(cnx))));
+  if (callback_ctx == NULL || callback_ctx == picoquic_get_default_callback_context(picoquic_get_quic_ctx(cnx))) {
+    // TODO - invoke listener callback for new connection
+    // TODO - avoid invoking default connection ready callback (Or maybe this can be used to signal new connection for listener?)
+    log_info("New connection received in QUIC callback");
+    connection = malloc(sizeof(Connection));
+
+    memset(connection, 0, sizeof(Connection));
+    picoquic_set_callback(cnx, quic_callback, connection);
+    Listener* listener = default_global_quic_state.listener;
+
+    struct sockaddr_storage remote_addr;
+    rc = picoquic_get_path_addr(cnx, stream_id, 0, &remote_addr);
+    if (rc != 0) {
+      log_error("Could not get remote address from picoquic connection: %d", rc);
+    }
+    log_trace("remote address is 0: %d", memcmp(&remote_addr, &(struct sockaddr_storage){0}, sizeof(struct sockaddr_storage)) == 0);
+    RemoteEndpoint remote_endpoint;
+    //remote_endpoint_build(&remote_endpoint);
+    //remote_endpoint_from_sockaddr(&remote_endpoint, &remote_addr);
+    connection_build_multiplexed(connection, listener, &remote_endpoint); // TODO - figure out how to get remote endpoint
+
+    QuicConnectionState* quic_state = malloc(sizeof(QuicConnectionState));
+    if (!quic_state) {
+      log_error("Failed to allocate memory for QUIC connection state");
+      free(connection);
+      return -ENOMEM;
+    }
+    quic_state->picoquic_connection = cnx;
+
+    log_trace("Setting up received QUIC connection state");
+    QuicConnectionState* listener_state = (QuicConnectionState*)listener->socket_manager->protocol_state;
+    quic_state->udp_handle = listener_state->udp_handle;
+    quic_state->udp_sock_name = malloc(sizeof(struct sockaddr_storage));
+    int namelen = sizeof(struct sockaddr_storage);
+    int rc = uv_udp_getsockname(quic_state->udp_handle, (struct sockaddr*)quic_state->udp_sock_name, &namelen);
+    connection->protocol_state = quic_state;
+    log_trace("Done setting up received QUIC connection state");
+
+    quic_state->udp_handle->data = connection;
+    if (rc < 0) {
+      log_error("Could not get UDP socket name for QUIC connection: %s", uv_strerror(rc));
+      free(quic_state->udp_sock_name);
+      free(quic_state);
+      free(connection);
+      return rc;
+    }
+  }
+  else {
+    connection = (Connection*)callback_ctx;
+  }
+
   QuicConnectionState* quic_state = (QuicConnectionState*)connection->protocol_state;
   log_debug("Connection state is: %d", picoquic_get_cnx_state(quic_state->picoquic_connection));
   switch (fin_or_event) {
@@ -181,15 +253,16 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
 
   picoquic_cnx_t *cnx = NULL;
 
-  QuicConnectionState* quic_state = QUIC_STATE_FROM_HANDLE(udp_handle);
-  struct sockaddr_storage* addr_to = quic_state->udp_sock_name;
+  struct sockaddr_storage addr_to_storage;
+  int namelen = sizeof(struct sockaddr_storage);
+  int rc = uv_udp_getsockname(udp_handle, (struct sockaddr*)&addr_to_storage, &namelen);
 
-  int rc = picoquic_incoming_packet_ex(
+  rc = picoquic_incoming_packet_ex(
     quic_ctx,
     buf->base,
     nread,
     addr_from,
-    addr_to,
+    &addr_to_storage,
     0,
     0,
     &cnx,
@@ -199,7 +272,7 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
     log_error("Error processing incoming QUIC packet: %d", rc);
     // TODO - error handling
   }
-  reset_quic_timer(CONNECTION_FROM_HANDLE(udp_handle));
+  reset_quic_timer();
 }
 
 void on_quic_timer(uv_timer_t* timer_handle) {
@@ -288,7 +361,7 @@ void on_quic_timer(uv_timer_t* timer_handle) {
   } while (send_length > 0);
   log_debug("Finished sending QUIC packets");
 
-  reset_quic_timer(CONNECTION_FROM_HANDLE(udp_handle));
+  reset_quic_timer();
 }
 
 uv_udp_t* set_up_udp_handle(Connection* connection) {
@@ -382,13 +455,21 @@ int quic_init(Connection* connection, const ConnectionCallbacks* connection_call
 
   uv_timer_t *timer_handle = set_up_timer_handle();
 
+  if (default_global_quic_state.timer_handle == NULL) {
+    default_global_quic_state.timer_handle = timer_handle;
+  }
+  else {
+    log_error("QUIC global timer handle already set");
+    return -EALREADY;
+  }
+
   QuicConnectionState* connection_state = malloc(sizeof(QuicConnectionState));
 
   *connection_state = (QuicConnectionState){
-    .timer_handle = timer_handle,
     .udp_handle = udp_handle,
     .udp_sock_name = malloc(sizeof(struct sockaddr_storage)),
   };
+  connection->protocol_state = connection_state;
 
   int namelen = sizeof(struct sockaddr_storage);
   int rc = uv_udp_getsockname(udp_handle, (struct sockaddr*)connection_state->udp_sock_name, &namelen);
@@ -415,9 +496,8 @@ int quic_init(Connection* connection, const ConnectionCallbacks* connection_call
 
   udp_handle->data = connection;
   timer_handle->data = connection;
-  connection->protocol_state = connection_state;
 
-  picoquic_set_callback(connection_state->picoquic_connection, sample_client_callback, connection);
+  picoquic_set_callback(connection_state->picoquic_connection, quic_callback, connection);
   rc = picoquic_start_client_cnx(connection_state->picoquic_connection);
   if (rc != 0) {
     log_error("Error starting QUIC client connection: %d", rc);
@@ -426,7 +506,7 @@ int quic_init(Connection* connection, const ConnectionCallbacks* connection_call
     return rc;
   }
 
-  reset_quic_timer(connection);
+  reset_quic_timer();
   return 0;
 }
 
@@ -438,7 +518,7 @@ int quic_close(const Connection* connection) {
   if (rc != 0) {
     log_error("Error closing picoquic connection: %d", rc);
   }
-  reset_quic_timer(connection);
+  reset_quic_timer();
 
   log_trace("Initiated closing of picoquic connection with return code %d", rc);
 
@@ -476,7 +556,7 @@ int quic_send(Connection* connection, Message* message, MessageContext* ctx) {
   }
 
   // Reset the timer to ensure data gets processed and sent immediately
-  reset_quic_timer(connection);
+  reset_quic_timer();
 
   // Trigger the sent callback if registered (queuing is synchronous)
   if (connection->connection_callbacks.sent) {
@@ -516,8 +596,53 @@ int quic_receive(Connection* connection, ReceiveCallbacks receive_callbacks) {
 
   return 0;
 }
-int quic_listen(struct SocketManager* socket_manager) {
-  return -ENOSYS;
+int quic_listen(SocketManager* socket_manager) {
+  picoquic_quic_t* quic_ctx = get_global_quic_ctx();
+  if (default_global_quic_state.listener != NULL) {
+    log_error("QUIC listener already set up for SocketManager %p", (void*)socket_manager);
+    return -EALREADY;
+  }
+  default_global_quic_state.listener = socket_manager->listener;
+
+  QuicConnectionState* listener_state = malloc(sizeof(QuicConnectionState));
+
+  uv_udp_t* new_udp_handle = malloc(sizeof(uv_udp_t));
+  if (new_udp_handle == NULL) {
+    log_error("Failed to allocate memory for UDP handle");
+    return -ENOMEM;
+  }
+  memset(new_udp_handle, 0, sizeof(uv_udp_t));
+
+  // ############# INIT UDP HANDLE #############
+  int rc = uv_udp_init(ctaps_event_loop, new_udp_handle);
+  if (rc < 0) {
+    log_error( "Error initializing udp handle: %s", uv_strerror(rc));
+    free(new_udp_handle);
+    return -ENOMEM;
+  }
+
+  LocalEndpoint local_endpoint = listener_get_local_endpoint(socket_manager->listener);
+
+  rc = uv_udp_bind(new_udp_handle, (const struct sockaddr*)&local_endpoint.data.address, 0);
+  if (rc < 0) {
+    log_error("Problem with auto-binding: %s", uv_strerror(rc));
+    free(new_udp_handle);
+    return -ENOMEM;
+  }
+
+  rc = uv_udp_recv_start(new_udp_handle, alloc_quic_buf, on_quic_udp_read);
+  if (rc < 0) {
+    log_error("Error starting UDP receive: %s", uv_strerror(rc));
+    free(new_udp_handle);
+    return -ENOMEM;
+  }
+
+  listener_state->udp_handle = new_udp_handle;
+
+  socket_manager->protocol_state = listener_state;
+
+  
+  return 0;
 }
 int quic_stop_listen(struct SocketManager* listener) {
   return -ENOSYS;
