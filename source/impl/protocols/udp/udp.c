@@ -206,7 +206,7 @@ void socket_listen_callback(uv_udp_t* handle,
 
   memcpy(received_message->content, buf->base, nread);
 
-  socket_manager_multiplex_received_message(socket_manager, received_message, addr);
+  socket_manager_multiplex_received_message(socket_manager, received_message, (struct sockaddr_storage*)addr);
 }
 
 int udp_listen(SocketManager* socket_manager) {

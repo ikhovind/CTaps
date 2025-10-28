@@ -13,7 +13,7 @@ int udp_close(const Connection* connection);
 int udp_send(Connection* connection, Message* message, MessageContext*);
 int udp_receive(Connection* connection, ReceiveCallbacks receive_callbacks);
 int udp_listen(struct SocketManager* socket_manager);
-int udp_stop_listen(struct SocketManager* listener);
+int udp_stop_listen(struct SocketManager* socket_manager);
 int udp_remote_endpoint_from_peer(uv_handle_t* peer, RemoteEndpoint* resolved_peer);
 
 

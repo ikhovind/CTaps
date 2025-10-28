@@ -27,13 +27,16 @@ int socket_manager_remove_connection(SocketManager* socket_manager, const Connec
 
 int socket_manager_build(SocketManager* socket_manager, struct Listener* listener);
 
-void socket_manager_multiplex_received_message(SocketManager* socket_manager, Message* message, const struct sockaddr* addr);
+void socket_manager_multiplex_received_message(SocketManager* socket_manager, Message* message, const struct sockaddr_storage* addr);
 
 void socket_manager_decrement_ref(SocketManager* socket_manager);
+
+void socket_manager_increment_ref(SocketManager* socket_manager);
 
 void socket_manager_free(SocketManager* socket_manager);
 
 void new_stream_connection_cb(uv_stream_t *server, int status);
 
+Connection* socket_manager_get_connection_from_remote(SocketManager* socket_manager, const struct sockaddr_storage* remote_addr, bool* was_new);
 
 #endif //SOCKET_MANAGER_H
