@@ -12,6 +12,7 @@
 #include "connections/listener/socket_manager/socket_manager.h"
 #include "uv.h"
 
+#define PICOQUIC_GET_REMOTE_ADDR 2
 #define MAX_QUIC_PACKET_SIZE 1500
 
 #define MICRO_TO_MILLI(us) ((us) / 1000)
@@ -21,7 +22,7 @@
 
 void on_quic_timer(uv_timer_t* timer_handle);
 
-int quic_callback(picoquic_cnx_t* cnx,
+int picoquic_callback(picoquic_cnx_t* cnx,
     uint64_t stream_id, uint8_t* bytes, size_t length,
     picoquic_call_back_event_t fin_or_event, void* callback_ctx, void* v_stream_ctx);
 
@@ -52,7 +53,7 @@ picoquic_quic_t* get_global_quic_ctx() {
        "/home/ikhovind/Documents/Skole/taps/test/quic/key.pem",
        NULL,
        "simple-ping",
-       quic_callback,
+       picoquic_callback,
        &default_global_quic_state,
        NULL,
        NULL,
@@ -104,7 +105,7 @@ int close_underlying_handles(Connection* connection) {
   return 0;
 }
 
-int quic_callback(picoquic_cnx_t* cnx,
+int picoquic_callback(picoquic_cnx_t* cnx,
     uint64_t stream_id, uint8_t* bytes, size_t length,
     picoquic_call_back_event_t fin_or_event, void* callback_ctx, void* v_stream_ctx)
 {
@@ -121,22 +122,20 @@ int quic_callback(picoquic_cnx_t* cnx,
     // TODO - invoke listener callback for new connection
     // TODO - avoid invoking default connection ready callback (Or maybe this can be used to signal new connection for listener?)
     log_info("New connection received in QUIC callback");
-    connection = malloc(sizeof(Connection));
 
-    memset(connection, 0, sizeof(Connection));
-    picoquic_set_callback(cnx, quic_callback, connection);
     Listener* listener = default_global_quic_state.listener;
 
+
     struct sockaddr_storage remote_addr;
-    rc = picoquic_get_path_addr(cnx, stream_id, 0, &remote_addr);
+    rc = picoquic_get_path_addr(cnx, stream_id, PICOQUIC_GET_REMOTE_ADDR, &remote_addr);
     if (rc != 0) {
       log_error("Could not get remote address from picoquic connection: %d", rc);
     }
-    log_trace("remote address is 0: %d", memcmp(&remote_addr, &(struct sockaddr_storage){0}, sizeof(struct sockaddr_storage)) == 0);
-    RemoteEndpoint remote_endpoint;
-    //remote_endpoint_build(&remote_endpoint);
-    //remote_endpoint_from_sockaddr(&remote_endpoint, &remote_addr);
-    connection_build_multiplexed(connection, listener, &remote_endpoint); // TODO - figure out how to get remote endpoint
+
+    bool was_new = false;
+    connection = socket_manager_get_connection_from_remote(listener->socket_manager, &remote_addr, &was_new);
+    log_trace("Created new Connection object for received QUIC connection: %p", (void*)connection);
+    picoquic_set_callback(cnx, picoquic_callback, connection);
 
     QuicConnectionState* quic_state = malloc(sizeof(QuicConnectionState));
     if (!quic_state) {
@@ -163,6 +162,7 @@ int quic_callback(picoquic_cnx_t* cnx,
       free(connection);
       return rc;
     }
+    listener->listener_callbacks.connection_received(listener, connection, listener->listener_callbacks.user_data);
   }
   else {
     connection = (Connection*)callback_ctx;
@@ -497,7 +497,7 @@ int quic_init(Connection* connection, const ConnectionCallbacks* connection_call
   udp_handle->data = connection;
   timer_handle->data = connection;
 
-  picoquic_set_callback(connection_state->picoquic_connection, quic_callback, connection);
+  picoquic_set_callback(connection_state->picoquic_connection, picoquic_callback, connection);
   rc = picoquic_start_client_cnx(connection_state->picoquic_connection);
   if (rc != 0) {
     log_error("Error starting QUIC client connection: %d", rc);
@@ -602,6 +602,8 @@ int quic_listen(SocketManager* socket_manager) {
     log_error("QUIC listener already set up for SocketManager %p", (void*)socket_manager);
     return -EALREADY;
   }
+  socket_manager->active_connections = g_hash_table_new(g_bytes_hash, g_bytes_equal);
+
   default_global_quic_state.listener = socket_manager->listener;
 
   QuicConnectionState* listener_state = malloc(sizeof(QuicConnectionState));
@@ -640,12 +642,20 @@ int quic_listen(SocketManager* socket_manager) {
   listener_state->udp_handle = new_udp_handle;
 
   socket_manager->protocol_state = listener_state;
+  socket_manager->ref_count = 1;
 
   
   return 0;
 }
-int quic_stop_listen(struct SocketManager* listener) {
-  return -ENOSYS;
+int quic_stop_listen(SocketManager* socket_manager) {
+  log_debug("Stopping QUIC listen");
+  QuicConnectionState* quic_state = (QuicConnectionState*)socket_manager->protocol_state;
+  int rc = uv_udp_recv_stop(quic_state->udp_handle);
+  if (rc < 0) {
+    log_error("Problem with stopping receive: %s\n", uv_strerror(rc));
+    return rc;
+  }
+  return 0;
 }
 int quic_remote_endpoint_from_peer(uv_handle_t* peer, RemoteEndpoint* resolved_peer) {
   return -ENOSYS;

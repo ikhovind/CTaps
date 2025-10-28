@@ -79,13 +79,10 @@ TEST_F(CTapsGenericFixture, QuicReceivesConnectionFromListenerAndExchangesMessag
     */
     ctaps_start_event_loop();
 
-    /*
     // --- ASSERTIONS ---
     ASSERT_EQ(callback_context.messages->size(), 2);
     ASSERT_EQ(callback_context.messages->at(0)->length, 5);
     ASSERT_STREQ(callback_context.messages->at(0)->content, "ping");
-
     ASSERT_EQ(callback_context.messages->at(1)->length, 5);
     ASSERT_STREQ(callback_context.messages->at(1)->content, "pong");
-  */
 }
