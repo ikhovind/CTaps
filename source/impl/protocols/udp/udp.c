@@ -104,6 +104,7 @@ void closed_handle_cb(uv_handle_t* handle) {
 }
 
 int udp_close(const Connection* connection) {
+  // TODO - these queues should be freed by connection free-function
   g_queue_free(connection->received_messages);
   g_queue_free(connection->received_callbacks);
   uv_udp_recv_stop((uv_udp_t*)connection->protocol_state);
