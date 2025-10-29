@@ -195,10 +195,6 @@ int tcp_listen(SocketManager* socket_manager) {
     return -ENOMEM;
   }
 
-  socket_manager->ref_count = 1;
-
-  socket_manager->protocol_state = (uv_handle_t*)new_tcp_handle;
-
   Listener* listener = socket_manager->listener;
 
   rc = uv_tcp_init(ctaps_event_loop, new_tcp_handle);
@@ -208,9 +204,9 @@ int tcp_listen(SocketManager* socket_manager) {
     return rc;
   }
 
-  new_tcp_handle->data = listener;
 
-  rc = uv_tcp_bind(new_tcp_handle, (const struct sockaddr*)&listener->local_endpoint.data.address, 0);
+  LocalEndpoint local_endpoint = listener_get_local_endpoint(listener);
+  rc = uv_tcp_bind(new_tcp_handle, (const struct sockaddr*)&local_endpoint.data.address, 0);
   if (rc < 0) {
     log_error("Error binding TCP handle: %s", uv_strerror(rc));
     free(new_tcp_handle);
@@ -224,6 +220,10 @@ int tcp_listen(SocketManager* socket_manager) {
     free(new_tcp_handle);
     return rc;
   }
+
+  socket_manager_increment_ref(socket_manager);
+  socket_manager->protocol_state = (uv_handle_t*)new_tcp_handle;
+  new_tcp_handle->data = listener;
 
   return 0;
 }
