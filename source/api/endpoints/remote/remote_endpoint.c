@@ -117,7 +117,7 @@ int remote_endpoint_resolve(const RemoteEndpoint* remote_endpoint, RemoteEndpoin
         addr->sin6_port = htons(assigned_port);
       }
     }
-    log_debug("Successfully performed DNS lookup, found %zu addresses\n", *out_count);
+    log_debug("Successfully performed DNS lookup, found %zu addresses", *out_count);
   }
   else if (remote_endpoint->data.resolved_address.ss_family != AF_UNSPEC) {
     log_debug("Endpoint was an IP address");
