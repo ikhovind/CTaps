@@ -6,11 +6,12 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 
-#include <picoquic.h>
 #include "connections/connection/connection.h"
 #include "connections/listener/listener.h"
 #include "connections/listener/socket_manager/socket_manager.h"
+#include "protocols/common/socket_utils.h"
 #include "uv.h"
+#include <picoquic.h>
 
 #define PICOQUIC_GET_REMOTE_ADDR 2
 #define MAX_QUIC_PACKET_SIZE 1500
@@ -364,36 +365,6 @@ void on_quic_timer(uv_timer_t* timer_handle) {
   reset_quic_timer();
 }
 
-uv_udp_t* set_up_udp_handle(Connection* connection) {
-  uv_udp_t* new_udp_handle = malloc(sizeof(uv_udp_t));
-  if (new_udp_handle == NULL) {
-    log_error("Failed to allocate memory for UDP handle");
-    return NULL;
-  }
-
-  int rc = uv_udp_init(ctaps_event_loop, new_udp_handle);
-  if (rc < 0) {
-    log_error( "Error initializing udp handle: %s", uv_strerror(rc));
-    free(new_udp_handle);
-    return NULL;
-  }
-
-  rc = uv_udp_bind(new_udp_handle, (const struct sockaddr*)&connection->local_endpoint.data.address, 0);
-  if (rc < 0) {
-    log_error("Problem with auto-binding: %s", uv_strerror(rc));
-    free(new_udp_handle);
-    return NULL;
-  }
-
-  rc = uv_udp_recv_start(new_udp_handle, alloc_quic_buf, on_quic_udp_read);
-  if (rc < 0) {
-    log_error("Error starting UDP receive: %s", uv_strerror(rc));
-    free(new_udp_handle);
-    return NULL;
-  }
-  return new_udp_handle;
-}
-
 uv_timer_t* set_up_timer_handle() {
   uv_timer_t* timer_handle = malloc(sizeof(*timer_handle));
   if (timer_handle == NULL) {
@@ -451,7 +422,11 @@ int quic_init(Connection* connection, const ConnectionCallbacks* connection_call
     .id_len = 8
   };
 
-  uv_udp_t* udp_handle = set_up_udp_handle(connection);
+  uv_udp_t* udp_handle = create_udp_listening_on_local(&connection->local_endpoint, alloc_quic_buf, on_quic_udp_read);
+  if (!udp_handle) {
+    log_error("Failed to create UDP handle for QUIC connection");
+    return -EIO;
+  }
 
   uv_timer_t *timer_handle = set_up_timer_handle();
 
@@ -596,57 +571,33 @@ int quic_receive(Connection* connection, ReceiveCallbacks receive_callbacks) {
 
   return 0;
 }
+
 int quic_listen(SocketManager* socket_manager) {
+  int rc;
   picoquic_quic_t* quic_ctx = get_global_quic_ctx();
   if (default_global_quic_state.listener != NULL) {
     log_error("QUIC listener already set up for SocketManager %p", (void*)socket_manager);
     return -EALREADY;
   }
-  socket_manager->active_connections = g_hash_table_new(g_bytes_hash, g_bytes_equal);
-
-  default_global_quic_state.listener = socket_manager->listener;
 
   QuicConnectionState* listener_state = malloc(sizeof(QuicConnectionState));
-
-  uv_udp_t* new_udp_handle = malloc(sizeof(uv_udp_t));
-  if (new_udp_handle == NULL) {
-    log_error("Failed to allocate memory for UDP handle");
-    return -ENOMEM;
-  }
-  memset(new_udp_handle, 0, sizeof(uv_udp_t));
-
-  // ############# INIT UDP HANDLE #############
-  int rc = uv_udp_init(ctaps_event_loop, new_udp_handle);
-  if (rc < 0) {
-    log_error( "Error initializing udp handle: %s", uv_strerror(rc));
-    free(new_udp_handle);
-    return -ENOMEM;
-  }
-
   LocalEndpoint local_endpoint = listener_get_local_endpoint(socket_manager->listener);
 
-  rc = uv_udp_bind(new_udp_handle, (const struct sockaddr*)&local_endpoint.data.address, 0);
-  if (rc < 0) {
-    log_error("Problem with auto-binding: %s", uv_strerror(rc));
-    free(new_udp_handle);
-    return -ENOMEM;
-  }
+  listener_state->udp_handle = create_udp_listening_on_local(&local_endpoint, alloc_quic_buf, on_quic_udp_read);
 
-  rc = uv_udp_recv_start(new_udp_handle, alloc_quic_buf, on_quic_udp_read);
-  if (rc < 0) {
-    log_error("Error starting UDP receive: %s", uv_strerror(rc));
-    free(new_udp_handle);
-    return -ENOMEM;
+  if (!listener_state->udp_handle) {
+    free(listener_state);
+    return -EIO;
   }
-
-  listener_state->udp_handle = new_udp_handle;
 
   socket_manager->protocol_state = listener_state;
-  socket_manager->ref_count = 1;
+  socket_manager_increment_ref(socket_manager);
 
+  default_global_quic_state.listener = socket_manager->listener;
   
   return 0;
 }
+
 int quic_stop_listen(SocketManager* socket_manager) {
   log_debug("Stopping QUIC listen");
   QuicConnectionState* quic_state = (QuicConnectionState*)socket_manager->protocol_state;

@@ -83,7 +83,8 @@ int preconnection_listen(Preconnection* preconnection, Listener* listener, Liste
     };
     socket_manager->protocol_impl = *first_node.protocol;
 
-    return socket_manager_build(socket_manager, listener);
+    socket_manager_build(socket_manager, listener);
+    return socket_manager->protocol_impl.listen(socket_manager);
   }
   g_array_free(candidate_nodes, true);
   free(socket_manager);
