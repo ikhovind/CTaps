@@ -10,6 +10,7 @@
 #include <connections/listener/listener.h>
 #include <logging/log.h>
 #include <errno.h>
+#include <protocols/common/socket_utils.h>
 
 #include "connections/connection/connection.h"
 #include "connections/connection/connection_callbacks.h"
@@ -83,38 +84,14 @@ void on_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
 int udp_init(Connection* connection, const ConnectionCallbacks* connection_callbacks) {
   log_debug("Initiating UDP connection\n");
 
-  uv_udp_t* new_udp_handle;
+  uv_udp_t* new_udp_handle = create_udp_listening_on_local(&connection->local_endpoint, alloc_buffer, on_read);
+  if (!new_udp_handle) {
+    log_error("Failed to create UDP handle for connection");
+    return -EIO;
+  }
 
-  new_udp_handle = malloc(sizeof(*new_udp_handle));
   connection->protocol_state = (uv_handle_t*)new_udp_handle;
-  if (new_udp_handle == NULL) {
-    log_error("Failed to allocate memory for UDP handle");
-    return -ENOMEM;
-  }
-
-  int rc = uv_udp_init(ctaps_event_loop, new_udp_handle);
-  if (rc < 0) {
-    log_error( "Error initializing udp handle: %s", uv_strerror(rc));
-    free(new_udp_handle);
-    return rc;
-  }
-
   new_udp_handle->data = connection;
-
-  rc = uv_udp_bind(new_udp_handle, (const struct sockaddr*)&connection->local_endpoint.data.address, 0);
-  if (rc < 0) {
-    log_error("Problem with auto-binding: %s", uv_strerror(rc));
-    free(new_udp_handle);
-    return rc;
-  }
-
-  rc = uv_udp_recv_start(new_udp_handle, alloc_buffer, on_read);
-  if (rc < 0) {
-    log_error("Problem with starting receive: %s\n", uv_strerror(rc));
-    free(new_udp_handle);
-    return rc;
-  }
-
 
   connection_callbacks->ready(connection, connection_callbacks->user_data);
 
@@ -211,40 +188,19 @@ void socket_listen_callback(uv_udp_t* handle,
 
 int udp_listen(SocketManager* socket_manager) {
   log_debug("Listening via UDP");
-  uv_udp_t* udp_handle = malloc(sizeof(*udp_handle));
+  int rc;
+
+  LocalEndpoint local_endpoint = listener_get_local_endpoint(socket_manager->listener);
+  uv_udp_t* udp_handle = create_udp_listening_on_local(&local_endpoint, alloc_buffer, socket_listen_callback);
   if (udp_handle == NULL) {
-    perror("Failed to allocate memory for UDP handle");
-    return -ENOMEM;
+    log_error("Failed to create UDP handle for listening");
+    return -EIO;
   }
 
-  socket_manager->active_connections = g_hash_table_new(g_bytes_hash, g_bytes_equal);
-  socket_manager->ref_count = 1;
   Listener* listener = socket_manager->listener;
 
-  int rc = uv_udp_init(ctaps_event_loop, udp_handle);
-  if (rc < 0) {
-    log_error("Error initializing udp handle: %s\n", uv_strerror(rc));
-    free(udp_handle);
-    return rc;
-  }
-
-
-  rc = uv_udp_bind(udp_handle, (const struct sockaddr*)&listener->local_endpoint.data.address, 0);
-  if (rc < 0) {
-    log_error("Problem with binding: %s\n", uv_strerror(rc));
-    free(udp_handle);
-    return rc;
-  }
-
   udp_handle->data = socket_manager;
-
-  rc = uv_udp_recv_start(udp_handle, alloc_buffer, socket_listen_callback);
-  if (rc < 0) {
-    log_error("Problem with starting receive: %s\n", uv_strerror(rc));
-    free(udp_handle);
-    return rc;
-  }
-
+  socket_manager_increment_ref(socket_manager);
   socket_manager->protocol_state = (uv_handle_t*)udp_handle;
 
   return 0;

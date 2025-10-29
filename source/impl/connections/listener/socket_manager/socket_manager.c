@@ -20,9 +20,9 @@ void socket_manager_alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_
 
 int socket_manager_build(SocketManager* socket_manager, Listener* listener) {
   log_debug("Building socket manager for listener");
+  socket_manager->active_connections = g_hash_table_new(g_bytes_hash, g_bytes_equal);
   socket_manager->listener = listener;
-
-  return socket_manager->protocol_impl.listen(socket_manager);
+  return 0;
 }
 
 int socket_manager_remove_connection(SocketManager* socket_manager, const Connection* connection) {
