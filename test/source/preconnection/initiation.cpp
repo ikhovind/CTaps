@@ -18,7 +18,7 @@ TEST(InitiationTests, respectsLocalEndpoint) {
     uv_udp_bind_fake.return_val = 0;
     uv_udp_recv_start_fake.return_val = 0;
 
-    ctaps_initialize();
+    ctaps_initialize(NULL,NULL);
     printf("Sending UDP packet...\n");
 
     RemoteEndpoint remote_endpoint;

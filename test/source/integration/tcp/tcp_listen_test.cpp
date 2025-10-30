@@ -19,7 +19,7 @@ TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) 
         .client_connections = client_connections,
     };
 
-    ctaps_initialize();
+    ctaps_initialize(NULL,NULL);
     Listener listener;
     Connection client_connection;
 
