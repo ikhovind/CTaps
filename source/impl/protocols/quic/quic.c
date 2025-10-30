@@ -47,11 +47,26 @@ static QuicGlobalState default_global_quic_state = {
 };
 
 picoquic_quic_t* get_global_quic_ctx() {
+  log_debug("Getting global QUIC context");
   if (global_quic_ctx == NULL) {
+    log_debug("Initializing global QUIC context");
+    if (ctaps_global_config.cert_file_name == NULL) {
+      log_error("QUIC global context initialization failed: certificate file not provided");
+      return NULL;
+    }
+    if (ctaps_global_config.key_file_name == NULL) {
+      log_error("QUIC global context initialization failed: key file not provided");
+      return NULL;
+    }
+    char cwd[PATH_MAX];
+    getcwd(cwd, PATH_MAX);
+    log_debug("Current working directory is: %s", cwd);
+    log_debug("Using certificate file: %s", ctaps_global_config.cert_file_name);
+    log_debug("Using key file: %s", ctaps_global_config.key_file_name);
     global_quic_ctx = picoquic_create(
        MAX_CONCURRENT_QUIC_CONNECTIONS,
-       "/home/ikhovind/Documents/Skole/taps/test/quic/cert.pem",
-       "/home/ikhovind/Documents/Skole/taps/test/quic/key.pem",
+       ctaps_global_config.cert_file_name,
+       ctaps_global_config.key_file_name,
        NULL,
        "simple-ping",
        picoquic_callback,
@@ -65,6 +80,10 @@ picoquic_quic_t* get_global_quic_ctx() {
        NULL,
       0
       );
+    if (!global_quic_ctx) {
+      log_error("Failed to create global picoquic context");
+      return NULL;
+    }
   }
   return global_quic_ctx;
 }
@@ -427,6 +446,10 @@ uv_timer_t* set_up_timer_handle() {
 
 int quic_init(Connection* connection, const ConnectionCallbacks* connection_callbacks) {
   picoquic_quic_t* quic_ctx = get_global_quic_ctx();
+  if (!quic_ctx) {
+    log_error("Failed to get global QUIC context");
+    return -EIO;
+  }
   picoquic_cnx_t *cnx = NULL;
   int client_socket = -1;
   uint64_t current_time = 0;
@@ -583,6 +606,10 @@ int quic_receive(Connection* connection, ReceiveCallbacks receive_callbacks) {
 int quic_listen(SocketManager* socket_manager) {
   int rc;
   picoquic_quic_t* quic_ctx = get_global_quic_ctx();
+  if (!quic_ctx) {
+    log_error("Failed to get global QUIC context");
+    return -EIO;
+  }
   if (default_global_quic_state.listener != NULL) {
     log_error("QUIC listener already set up for SocketManager %p", (void*)socket_manager);
     return -EALREADY;

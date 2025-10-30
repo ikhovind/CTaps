@@ -13,7 +13,7 @@ extern "C" {
 
 TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) {
     GTEST_SKIP(); // Don't know why this fails atm
-    ctaps_initialize();
+    ctaps_initialize(NULL, NULL);
     Listener listener;
     Connection client_connection;
 
