@@ -25,7 +25,7 @@ TEST(PreconnectionUnitTests, SetsPreconnectionAsExpected) {
     tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
 
     Preconnection preconnection;
-    preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);
+    preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
 
     EXPECT_EQ(0, preconnection.num_local_endpoints);
     EXPECT_EQ(1, preconnection.num_remote_endpoints);
@@ -51,7 +51,7 @@ TEST(PreconnectionUnitTests, TakesDeepCopyOfRemoteEndpoint) {
     tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
 
     Preconnection preconnection;
-    preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);
+    preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
 
     memset(&remote_endpoint, 0, sizeof(RemoteEndpoint));
     ASSERT_EQ(0, remote_endpoint.port);
@@ -80,7 +80,7 @@ TEST(PreconnectionUnitTests, TakesDeepCopyOfRemoteEndpointWhenBuildingWithLocal)
     tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
 
     Preconnection preconnection;
-    preconnection_build_with_local(&preconnection, transport_properties, &remote_endpoint, 1, local_endpoint);
+    preconnection_build_with_local(&preconnection, transport_properties, &remote_endpoint, 1, NULL, local_endpoint);
 
     memset(&remote_endpoint, 0, sizeof(RemoteEndpoint));
     ASSERT_EQ(0, remote_endpoint.port);

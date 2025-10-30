@@ -10,6 +10,7 @@
 #include "endpoints/local/local_endpoint.h"
 #include "endpoints/remote/remote_endpoint.h"
 #include "transport_properties/transport_properties.h"
+#include "security_parameters/security_parameters.h"
 
 /*
  * TODO:
@@ -21,6 +22,7 @@
  */
 typedef struct {
   TransportProperties transport_properties;
+  const SecurityParameters* security_parameters;
   LocalEndpoint local;
   size_t num_local_endpoints;
   RemoteEndpoint* remote_endpoints;
@@ -31,13 +33,15 @@ typedef struct {
 int preconnection_build(Preconnection* preconnection,
                          const TransportProperties transport_properties,
                          const RemoteEndpoint* remote_endpoints,
-                         size_t num_remote_endpoints
+                         size_t num_remote_endpoints,
+                         const SecurityParameters* security_parameters
                          );
 
 int preconnection_build_with_local(Preconnection* preconnection,
                                     TransportProperties transport_properties,
                                     RemoteEndpoint remote_endpoints[],
                                     size_t num_remote_endpoints,
+                                    const SecurityParameters* security_parameters,
                                     LocalEndpoint local_endpoint);
 
 int preconnection_initiate(Preconnection* preconnection, Connection* connection,
