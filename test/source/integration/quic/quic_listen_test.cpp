@@ -8,6 +8,7 @@ extern "C" {
 #include "endpoints/remote/remote_endpoint.h"
 #include "transport_properties/transport_properties.h"
 #include "util/util.h"
+#include <logging/log.h>
 }
 #include "fixtures/awaiting_fixture.cpp"
 
@@ -19,7 +20,8 @@ TEST_F(CTapsGenericFixture, QuicReceivesConnectionFromListenerAndExchangesMessag
         .client_connections = client_connections,
     };
 
-    ctaps_initialize();
+    int rc = ctaps_initialize(TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
+    ASSERT_EQ(rc, 0);
     Listener listener;
     Connection client_connection;
 

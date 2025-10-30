@@ -94,6 +94,7 @@ int preconnection_listen(Preconnection* preconnection, Listener* listener, Liste
 
 int preconnection_initiate(Preconnection* preconnection, Connection* connection,
                            ConnectionCallbacks connection_callbacks) {
+  int rc;
   log_info("Initiating connection from preconnection\n");
 
   GArray* candidate_nodes = get_ordered_candidate_nodes(preconnection);
@@ -117,7 +118,11 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
     connection->received_callbacks = g_queue_new();
 
 
-    connection->protocol.init(connection, &connection->connection_callbacks);
+    rc = connection->protocol.init(connection, &connection->connection_callbacks);
+    if (rc != 0) {
+      log_error("Error initializing connection protocol: %d\n", rc);
+      return rc;
+    }
     return 0;
   }
 

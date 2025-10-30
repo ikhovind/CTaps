@@ -71,7 +71,8 @@ extern "C" {
 
 TEST(QuicGenericTests, successfullyConnectsToQuicServer) {
   // --- Setup ---
-  ctaps_initialize();
+  int rc = ctaps_initialize(TEST_RESOURCE_DIR "/cert.pem",TEST_RESOURCE_DIR "/key.pem");
+  ASSERT_EQ(rc, 0);
   RemoteEndpoint remote_endpoint;
   remote_endpoint_build(&remote_endpoint);
   remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
@@ -95,7 +96,7 @@ TEST(QuicGenericTests, successfullyConnectsToQuicServer) {
     .user_data = &quic_connection_succeeded,
   };
 
-  int rc = preconnection_initiate(&preconnection, &connection, connection_callbacks);
+  rc = preconnection_initiate(&preconnection, &connection, connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 

@@ -70,7 +70,7 @@ protected:
     std::vector<Connection*> client_connections;
 
     void SetUp() override {
-        ctaps_initialize();
+        ctaps_initialize(NULL, NULL);
     }
 
     void TearDown() override {

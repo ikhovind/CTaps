@@ -12,7 +12,7 @@ extern "C" {
 
 
 TEST(RemoteEndpointUnitTests, CanDnsLookupHostName) {
-    ctaps_initialize();
+    ctaps_initialize(NULL,NULL);
     printf("Sending UDP packet...\n");
 
     RemoteEndpoint remote_endpoint;

@@ -62,7 +62,7 @@ extern "C" {
 
 TEST(TcpGenericTests, successfullyConnectsToTcpServer) {
   // --- Setup ---
-  ctaps_initialize();
+  ctaps_initialize(NULL,NULL);
   RemoteEndpoint remote_endpoint;
   remote_endpoint_build(&remote_endpoint);
   remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
@@ -97,7 +97,7 @@ TEST(TcpGenericTests, successfullyConnectsToTcpServer) {
 
 TEST(TcpGenericTests, connectionErrorCalledWhenNoServer) {
   // --- Setup ---
-  ctaps_initialize();
+  ctaps_initialize(NULL,NULL);
   RemoteEndpoint remote_endpoint;
   remote_endpoint_build(&remote_endpoint);
   remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
@@ -136,7 +136,7 @@ TEST(TcpGenericTests, connectionErrorCalledWhenNoServer) {
 TEST(TcpGenericTests, sendsSingleTcpMessage) {
   int rc;
   // --- Setup ---
-  ctaps_initialize();
+  ctaps_initialize(NULL,NULL);
   RemoteEndpoint remote_endpoint;
   remote_endpoint_build(&remote_endpoint);
   remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));

@@ -13,7 +13,7 @@
 
 int main() {
 
-  ctaps_initialize();
+  ctaps_initialize(NULL,NULL);
   Listener listener;
   Connection client_connection;
 

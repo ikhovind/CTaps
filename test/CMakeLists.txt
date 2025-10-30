@@ -20,7 +20,7 @@ FetchContent_MakeAvailable(fff)
 
 # ---- Tests ----
 function(add_gtest test_name)
-    set(options "ASAN_ENABLED") # Option to selectively enable ASan
+    set(options "ASAN_ENABLED" "DEBUG_SYMBOLS") # Option to selectively enable ASan
     set(oneValueArgs "")
     set(multiValueArgs SOURCES WRAP_FUNCTIONS)
 
@@ -29,7 +29,16 @@ function(add_gtest test_name)
 
     add_executable(${test_name} ${ARGS_SOURCES})
 
-    # --- ADD ASAN FLAGS HERE ---
+    if (ARGS_DEBUG_SYMBOLS)
+        message(STATUS "Adding debug symbols to ${test_name}")
+        target_compile_options(${test_name} PRIVATE -g)
+    endif()
+
+    target_compile_definitions(${test_name}
+            PRIVATE
+            TEST_RESOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/quic\"
+    )
+
     if (ARGS_ASAN_ENABLED)
         # Compilation flags for AddressSanitizer
         target_compile_options(${test_name} PRIVATE
@@ -99,7 +108,7 @@ add_gtest(candidate_gathering_test
             remote_endpoint_resolve
             get_supported_protocols
             get_num_protocols
-        ASAN_ENABLED # Needed to make sure we prune candidate tree in correct order
+        ASAN_ENABLED
 )
 
 add_gtest(local_endpoint_unit_test
