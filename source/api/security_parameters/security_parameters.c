@@ -4,7 +4,12 @@
 #include <stdlib.h>
 #include <errno.h>
 
-int set_sec_property_string_array(SecurityParameters* security_parameters, SecurityPropertyEnum property, char** strings, size_t num_strings) {
+void security_parameters_build(SecurityParameters* security_parameters) {
+  // TODO - maybe introduce default values here instead?
+  memset(security_parameters, 0, sizeof(SecurityParameters));
+}
+
+int sec_param_set_property_string_array(SecurityParameters* security_parameters, SecurityPropertyEnum property, char** strings, size_t num_strings) {
   if (property >= SEC_PROPERTY_END) {
     log_error("Attempted to set invalid security parameter property");
     return -EINVAL;
@@ -15,8 +20,8 @@ int set_sec_property_string_array(SecurityParameters* security_parameters, Secur
     return -EINVAL;
   }
 
-  security_parameters->security_parameters[property].value.array_of_strings.array_of_strings = malloc(sizeof(char*) * num_strings);
-  if (security_parameters->security_parameters[property].value.array_of_strings.array_of_strings == NULL) {
+  security_parameters->security_parameters[property].value.array_of_strings.strings = malloc(sizeof(char*) * num_strings);
+  if (security_parameters->security_parameters[property].value.array_of_strings.strings == NULL) {
     log_error("Failed to allocate memory for string array");
     return -ENOMEM;
   }
@@ -31,7 +36,9 @@ int set_sec_property_string_array(SecurityParameters* security_parameters, Secur
       return -ENOMEM;
     }
   }
+  security_parameters->security_parameters[property].value.array_of_strings.num_strings = num_strings;
   sec_param->set_by_user = true;
+  return 0;
 }
 
 void free_security_parameter_content(SecurityParameters* security_parameters) {

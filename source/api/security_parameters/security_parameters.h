@@ -1,3 +1,5 @@
+#pragma once
+
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -54,6 +56,6 @@ const static SecurityParameters DEFAULT_SEC_PROPERTIES = {
 
 void security_parameters_build(SecurityParameters* security_parameters);
 
-int set_sec_property_string_array(SecurityParameters* security_parameters, SecurityPropertyEnum property, char** strings, size_t num_strings);
+int sec_param_set_property_string_array(SecurityParameters* security_parameters, SecurityPropertyEnum property, char** strings, size_t num_strings);
 
 void free_security_parameter_content(SecurityParameters* security_parameters);

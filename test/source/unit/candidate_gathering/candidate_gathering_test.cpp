@@ -148,7 +148,7 @@ TEST_F(CandidateTreeTest, CreatesAndResolvesFullTree) {
     RemoteEndpoint remote_endpoint;
     remote_endpoint_build(&remote_endpoint);
     remote_endpoint_with_hostname(&remote_endpoint, "test.com");
-    preconnection_build(&preconnection, props, &remote_endpoint, 1);
+    preconnection_build(&preconnection, props, &remote_endpoint, 1, NULL);
     
     // 2. Mock behavior of internal functions
     faked_local_endpoint_resolve_fake.return_val = 0;
@@ -200,7 +200,7 @@ TEST_F(CandidateTreeTest, PrunesPathAndProtocol) {
     RemoteEndpoint remote_endpoint;
     remote_endpoint_build(&remote_endpoint);
     remote_endpoint_with_hostname(&remote_endpoint, "test.com");
-    preconnection_build(&preconnection, props, &remote_endpoint, 1);
+    preconnection_build(&preconnection, props, &remote_endpoint, 1, NULL);
 
     // 2. Mock behavior of internal functions
     faked_local_endpoint_resolve_fake.return_val = 0;
@@ -259,7 +259,7 @@ TEST_F(CandidateTreeTest, SortsOnPreferOverAvoid) {
     RemoteEndpoint remote_endpoint;
     remote_endpoint_build(&remote_endpoint);
     remote_endpoint_with_hostname(&remote_endpoint, "test.com");
-    preconnection_build(&preconnection, props, &remote_endpoint, 1);
+    preconnection_build(&preconnection, props, &remote_endpoint, 1, NULL);
 
     // 2. Mock behavior of internal functions
     faked_local_endpoint_resolve_fake.return_val = 0;
@@ -324,7 +324,7 @@ TEST_F(CandidateTreeTest, UsesAvoidAsTieBreaker) {
     RemoteEndpoint remote_endpoint;
     remote_endpoint_build(&remote_endpoint);
     remote_endpoint_with_hostname(&remote_endpoint, "test.com");
-    preconnection_build(&preconnection, props, &remote_endpoint, 1);
+    preconnection_build(&preconnection, props, &remote_endpoint, 1, NULL);
 
     // 2. Mock behavior of internal functions
     faked_local_endpoint_resolve_fake.return_val = 0;
@@ -383,7 +383,7 @@ TEST_F(CandidateTreeTest, GivesNoCandidateNodesWhenAllProtocolsProhibited) {
     RemoteEndpoint remote_endpoint;
     remote_endpoint_build(&remote_endpoint);
     remote_endpoint_with_hostname(&remote_endpoint, "test.com");
-    preconnection_build(&preconnection, props, &remote_endpoint, 1);
+    preconnection_build(&preconnection, props, &remote_endpoint, 1, NULL);
 
     // 2. Mock behavior of internal functions
     faked_local_endpoint_resolve_fake.return_val = 0;

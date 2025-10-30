@@ -29,7 +29,7 @@ TEST_F(CTapsGenericFixture, sendsSingleUdpPacket) {
     tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
 
     Preconnection preconnection;
-    preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);
+    preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
     Connection connection;
 
     auto cleanup_logic = [&](CallbackContext* ctx) {
@@ -94,7 +94,7 @@ TEST_F(CTapsGenericFixture, packetsAreReadInOrder) {
     tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
 
     Preconnection preconnection;
-    preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);
+    preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
 
     Connection connection;
 
@@ -166,7 +166,7 @@ TEST_F(CTapsGenericFixture, canPingArbitraryBytes) {
     tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
 
     Preconnection preconnection;
-    preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);
+    preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
 
     Connection connection;
 

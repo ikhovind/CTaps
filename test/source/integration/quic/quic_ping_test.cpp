@@ -7,13 +7,11 @@ extern "C" {
 #include "ctaps.h"
 #include "endpoints/remote/remote_endpoint.h"
 #include "transport_properties/transport_properties.h"
+#include "security_parameters/security_parameters.h"
 #include "util/util.h"
 #include "fixtures/awaiting_fixture.cpp"
 #include <logging/log.h>
 }
-
-#include <mutex>
-#include <condition_variable>
 
 #define QUIC_PING_PORT 4433
 
@@ -85,8 +83,13 @@ TEST(QuicGenericTests, successfullyConnectsToQuicServer) {
   tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
   tp_set_sel_prop_preference(&transport_properties, MULTISTREAMING, REQUIRE); // force QUIC
 
+  SecurityParameters security_parameters;
+  security_parameters_build(&security_parameters);
+  char* alpn_strings = "simple-ping";
+  sec_param_set_property_string_array(&security_parameters, ALPN, &alpn_strings, 1);
+
   Preconnection preconnection;
-  preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);
+  preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, &security_parameters);
   Connection connection;
 
   bool quic_connection_succeeded = false;

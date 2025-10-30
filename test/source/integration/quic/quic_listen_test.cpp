@@ -37,12 +37,16 @@ TEST_F(CTapsGenericFixture, QuicReceivesConnectionFromListenerAndExchangesMessag
 
     TransportProperties listener_props;
     transport_properties_build(&listener_props);
-
     tp_set_sel_prop_preference(&listener_props, RELIABILITY, REQUIRE);
     tp_set_sel_prop_preference(&listener_props, MULTISTREAMING, REQUIRE); // force QUIC
 
+    SecurityParameters server_security_parameters;
+    security_parameters_build(&server_security_parameters);
+    char* alpn_strings = "simple-ping";
+    sec_param_set_property_string_array(&server_security_parameters, ALPN, &alpn_strings, 1);
+
     Preconnection listener_precon;
-    preconnection_build_with_local(&listener_precon, listener_props, &listener_remote, 1, listener_endpoint);
+    preconnection_build_with_local(&listener_precon, listener_props, &listener_remote, 1, &server_security_parameters, listener_endpoint);
 
     ListenerCallbacks listener_callbacks = {
         .connection_received = receive_message_respond_and_close_listener_on_connection_received,
@@ -63,10 +67,15 @@ TEST_F(CTapsGenericFixture, QuicReceivesConnectionFromListenerAndExchangesMessag
     transport_properties_build(&client_props);
 
     tp_set_sel_prop_preference(&client_props, RELIABILITY, REQUIRE);
-    tp_set_sel_prop_preference(&client_props, MULTISTREAMING, REQUIRE); //
+    tp_set_sel_prop_preference(&client_props, MULTISTREAMING, REQUIRE);
+
+    SecurityParameters client_security_parameters;
+    security_parameters_build(&client_security_parameters);
+    sec_param_set_property_string_array(&client_security_parameters, ALPN, &alpn_strings, 1);
+
 
     Preconnection client_precon;
-    preconnection_build(&client_precon, client_props, &client_remote, 1);
+    preconnection_build(&client_precon, client_props, &client_remote, 1, &client_security_parameters);
 
     ConnectionCallbacks client_callbacks {
         .ready = send_message_and_receive,

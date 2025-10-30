@@ -77,7 +77,7 @@ TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) 
     tp_set_sel_prop_preference(&client_props, RELIABILITY, PROHIBIT);
 
     Preconnection client_precon;
-    preconnection_build(&client_precon, client_props, &client_remote, 1);
+    preconnection_build(&client_precon, client_props, &client_remote, 1, NULL);
 
 
     InitDoneCb client_ready = {
@@ -162,7 +162,7 @@ TEST_F(CTapsGenericFixture, ClosingListenerDoesNotAffectExistingConnections) {
     tp_set_sel_prop_preference(&client_props, RELIABILITY, PROHIBIT);
 
     Preconnection client_precon;
-    preconnection_build(&client_precon, client_props, &client_remote, 1);
+    preconnection_build(&client_precon, client_props, &client_remote, 1, NULL);
 
 
     InitDoneCb client_ready = {

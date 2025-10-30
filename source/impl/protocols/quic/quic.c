@@ -2,6 +2,7 @@
 
 #include <ctaps.h>
 #include <logging/log.h>
+#include <picotls.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -46,6 +47,18 @@ static QuicGlobalState default_global_quic_state = {
   .num_active_sockets = 0
 };
 
+size_t quic_alpn_select_cb(picoquic_quic_t* quic, ptls_iovec_t* list, size_t count) {
+
+  size_t ret = count;
+
+  // TODO - iterate and find compatible ALPN
+  for (size_t i = 0; i < count; i++) {
+    //log_trace("Base string: %.*s", list[i].base);
+  }
+
+  return 0;
+}
+
 picoquic_quic_t* get_global_quic_ctx() {
   log_debug("Getting global QUIC context");
   if (global_quic_ctx == NULL) {
@@ -68,7 +81,7 @@ picoquic_quic_t* get_global_quic_ctx() {
        ctaps_global_config.cert_file_name,
        ctaps_global_config.key_file_name,
        NULL,
-       "simple-ping",
+       NULL, // Must set this to NULL, to have callback decide ALPN selection
        picoquic_callback,
        &default_global_quic_state,
        NULL,
@@ -84,6 +97,7 @@ picoquic_quic_t* get_global_quic_ctx() {
       log_error("Failed to create global picoquic context");
       return NULL;
     }
+    picoquic_set_alpn_select_fn(global_quic_ctx, quic_alpn_select_cb);
   }
   return global_quic_ctx;
 }
@@ -227,6 +241,19 @@ int picoquic_callback(picoquic_cnx_t* cnx,
     case picoquic_callback_application_close:
       log_info("picoquic application closed by peer");
       // Handle application close
+      break;
+    case picoquic_callback_request_alpn_list:
+      log_debug("Picoquic requested ALPN list");
+      log_debug("Connection type is: %d", connection->open_type);
+      if (!connection->security_parameters) {
+        log_error("No security parameters set for connection when handling ALPN request");
+        return -EINVAL;
+      }
+      const StringArrayValue* alpn_string_array = &connection->security_parameters->security_parameters[ALPN].value.array_of_strings;
+      log_trace("Number of ALPN strings to propose: %zu", alpn_string_array->num_strings);
+      for (size_t i = 0; i < alpn_string_array->num_strings; i++) {
+        picoquic_add_proposed_alpn(bytes, alpn_string_array->strings[i]);
+      }
       break;
     default:
       log_debug("Unhandled callback event: %d", fin_or_event);
@@ -496,7 +523,7 @@ int quic_init(Connection* connection, const ConnectionCallbacks* connection_call
       current_time,
       1,
       "localhost",
-      "simple-ping",
+      NULL, // If we set ALPN here we can picoquic only lets us set one, therefore set in callback instead to set potentially multiple
       1
   );
 

@@ -36,6 +36,7 @@ void connection_build_multiplexed(Connection* connection, const Listener* listen
   connection->protocol_state = listener->socket_manager->protocol_state;
   connection->protocol = listener->socket_manager->protocol_impl;
   connection->socket_manager = listener->socket_manager;
+  connection->security_parameters = listener->security_parameters;
   connection->received_callbacks = g_queue_new();
   connection->received_messages = g_queue_new();
   connection->open_type = CONNECTION_OPEN_TYPE_MULTIPLEXED;

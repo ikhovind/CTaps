@@ -11,6 +11,7 @@ project(
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_MESSAGE_LOG_LEVEL DEBUG)
 
 include(tidy)
 include(format)
@@ -20,6 +21,7 @@ set(API_SOURCES
     source/api/transport_properties/transport_properties.c
     source/api/transport_properties/selection_properties/selection_properties.c
     source/api/transport_properties/connection_properties/connection_properties.c
+    source/api/security_parameters/security_parameters.c
     source/api/connections/preconnection/preconnection.c
     source/api/endpoints/remote/remote_endpoint.c
     source/api/message/message.c
@@ -57,6 +59,12 @@ target_include_directories(CTaps
 target_include_directories(CTaps
         PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/source/impl
+)
+
+# This is the only way I have managed to link against picotls
+target_include_directories(CTaps
+        PUBLIC
+        "${picotls_SOURCE_DIR}/include"
 )
 
 target_link_libraries(
