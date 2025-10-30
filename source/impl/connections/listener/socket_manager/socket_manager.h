@@ -37,6 +37,6 @@ void socket_manager_free(SocketManager* socket_manager);
 
 void new_stream_connection_cb(uv_stream_t *server, int status);
 
-Connection* socket_manager_get_connection_from_remote(SocketManager* socket_manager, const struct sockaddr_storage* remote_addr, bool* was_new);
+Connection* socket_manager_get_or_create_connection(SocketManager* socket_manager, const struct sockaddr_storage* remote_addr, bool* was_new);
 
 #endif //SOCKET_MANAGER_H
