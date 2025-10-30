@@ -12,6 +12,7 @@
 #include "protocols/common/socket_utils.h"
 #include "uv.h"
 #include <picoquic.h>
+#include <picoquic_utils.h>
 
 #define PICOQUIC_GET_REMOTE_ADDR 2
 #define MAX_QUIC_PACKET_SIZE 1500
@@ -48,7 +49,7 @@ static QuicGlobalState default_global_quic_state = {
 picoquic_quic_t* get_global_quic_ctx() {
   if (global_quic_ctx == NULL) {
     global_quic_ctx = picoquic_create(
-       8,
+       MAX_CONCURRENT_QUIC_CONNECTIONS,
        "/home/ikhovind/Documents/Skole/taps/test/quic/cert.pem",
        "/home/ikhovind/Documents/Skole/taps/test/quic/key.pem",
        NULL,
@@ -425,27 +426,6 @@ uv_timer_t* set_up_timer_handle() {
 }
 
 int quic_init(Connection* connection, const ConnectionCallbacks* connection_callbacks) {
-  // The current function snippet is just example code
-  // We need to:
-  //   - receive/send data over udp and feed it to picoquic
-  //       - Should this be done over udp.c or just use the libuv udp logic directly here
-  //       - Best to start with libuv logic, and then see what is actually needed and if we can move to udp.c
-  //   - set up uv_timer_t for waking up picoquic when needed
-  //
-  //
-  // If we are planning to use udp.c then it would make sense to have the udp handle in the connection
-  // Therefore uv_timer_t should live in the quic context and udp connection in the connection?
-  //
-  // Maybe we can think about multistreaming already now
-  //    - Are picoquic_quic_t unique per multistreamed connection?
-  //    - How would it work for listening?
-  //    - Seems like picoquic_cnx_t would be the individual, since that is where you enter client vs server mode
-  //    - I assume we would only use a single "engine" having a single timer which supports all connections
-  //    - Therefore uv_timer_t should live in some higher level context managing multiple connections?
-  //    - Lets not think more about multistreaming right now
-  //
-  //    - udp handle -> connection, timer -> quic context
-
   picoquic_quic_t* quic_ctx = get_global_quic_ctx();
   picoquic_cnx_t *cnx = NULL;
   int client_socket = -1;
@@ -453,17 +433,8 @@ int quic_init(Connection* connection, const ConnectionCallbacks* connection_call
   int ret = 0;
 
   /* 1. INITIALIZATION & CONTEXT SETUP */
-  // Use a simplified initial context creation (replace with your TAPS-specific logic)
 
   current_time = picoquic_get_quic_time(quic_ctx);
-  picoquic_connection_id_t local_cnx_id = {
-    .id = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08},
-    .id_len = 8
-  };
-  picoquic_connection_id_t remote_cnx_id = {
-    .id = {0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10},
-    .id_len = 8
-  };
 
   uv_udp_t* udp_handle = create_udp_listening_on_local(&connection->local_endpoint, alloc_quic_buf, on_quic_udp_read);
   if (!udp_handle) {
@@ -493,10 +464,11 @@ int quic_init(Connection* connection, const ConnectionCallbacks* connection_call
     return rc;
   }
 
+  log_debug("Creating picoquic cnx to remote endpoint");
   connection_state->picoquic_connection = picoquic_create_cnx(
       quic_ctx,
-      local_cnx_id,
-      remote_cnx_id,
+      picoquic_null_connection_id,
+      picoquic_null_connection_id,
       (struct sockaddr*) &connection->remote_endpoint.data.resolved_address,
       current_time,
       1,
@@ -505,13 +477,9 @@ int quic_init(Connection* connection, const ConnectionCallbacks* connection_call
       1
   );
 
-  log_trace("Created picoquic connection: %p", (void*)connection_state->picoquic_connection);
-
-  log_trace("Connection for cnx: %p", (void*)connection);
+  log_trace("Connection object associated with picoquic cnx: %p", (void*)connection);
 
   picoquic_set_callback(connection_state->picoquic_connection, picoquic_callback, connection);
-
-  log_trace("Connection callback context: %p", (Connection*)picoquic_get_callback_context(connection_state->picoquic_connection));
 
   rc = picoquic_start_client_cnx(connection_state->picoquic_connection);
   if (rc != 0) {
@@ -523,7 +491,7 @@ int quic_init(Connection* connection, const ConnectionCallbacks* connection_call
   increment_active_connection_counter();
 
   reset_quic_timer();
-  log_trace("Successfully initiated standalong QUIC connection %p", (void*)connection);
+  log_trace("Successfully initiated standalone QUIC connection %p", (void*)connection);
   return 0;
 }
 
