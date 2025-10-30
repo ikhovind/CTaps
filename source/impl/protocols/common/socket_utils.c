@@ -15,7 +15,13 @@ uv_udp_t* create_udp_listening_on_local(LocalEndpoint* local_endpoint, uv_alloc_
     log_error("Local endpoint is NULL");
     return NULL;
   }
-  if (local_endpoint->data.address.ss_family != AF_INET && local_endpoint->data.address.ss_family != AF_INET6) {
+  if (local_endpoint->data.address.ss_family == AF_INET) {
+    log_info("Creating UDP socket listening on IPv4 on port %d", ntohs(((struct sockaddr_in*)&local_endpoint->data.address)->sin_port));
+  }
+  else if (local_endpoint->data.address.ss_family == AF_INET6) {
+    log_info("Creating UDP socket listening on IPv6 on port %d", ntohs(((struct sockaddr_in6*)&local_endpoint->data.address)->sin6_port));
+  }
+  else {
     log_error("Local endpoint is not of type IPv4 or IPv6");
     return NULL;
   }

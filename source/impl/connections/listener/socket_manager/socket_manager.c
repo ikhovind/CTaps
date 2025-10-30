@@ -70,7 +70,7 @@ void socket_manager_increment_ref(SocketManager* socket_manager) {
   log_debug("Incremented socket manager reference count, updated count: %d", socket_manager->ref_count);
 }
 
-Connection* socket_manager_get_connection_from_remote(SocketManager* socket_manager, const struct sockaddr_storage* remote_addr, bool* was_new) {
+Connection* socket_manager_get_or_create_connection(SocketManager* socket_manager, const struct sockaddr_storage* remote_addr, bool* was_new) {
   *was_new = false;
   GBytes* addr_bytes = NULL;
   if (remote_addr->ss_family == AF_INET) {
@@ -125,7 +125,7 @@ void socket_manager_multiplex_received_message(SocketManager* socket_manager, Me
   log_trace("Socket manager received message, multiplexing to connection");
 
   bool was_new = false;
-  Connection* connection = socket_manager_get_connection_from_remote(socket_manager, addr, &was_new);
+  Connection* connection = socket_manager_get_or_create_connection(socket_manager, addr, &was_new);
   Listener* listener = socket_manager->listener;
 
   if (connection != NULL) {
