@@ -8,6 +8,9 @@
 
 struct SocketManager;
 
+// Passed as a parameter to picoquic_create()
+#define MAX_CONCURRENT_QUIC_CONNECTIONS 256
+
 int quic_init(Connection* connection, const ConnectionCallbacks* connection_callbacks);
 int quic_close(const Connection* connection);
 int quic_send(Connection* connection, Message* message, MessageContext*);
