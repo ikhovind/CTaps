@@ -92,7 +92,7 @@ typedef struct {
     .value = { (SelectionPreference)default_value }                     \
 },
 
-static SelectionProperties DEFAULT_SELECTION_PROPERTIES = {
+const static SelectionProperties DEFAULT_SELECTION_PROPERTIES = {
   .selection_property = {
     get_selection_property_list(create_property_initializer)
   }

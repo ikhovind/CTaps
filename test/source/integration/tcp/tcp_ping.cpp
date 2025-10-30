@@ -76,7 +76,7 @@ TEST(TcpGenericTests, successfullyConnectsToTcpServer) {
   tp_set_sel_prop_preference(&transport_properties, ACTIVE_READ_BEFORE_SEND, REQUIRE);
 
   Preconnection preconnection;
-  preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);
+  preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
   Connection connection;
 
   bool connection_succeeded = false;
@@ -111,7 +111,7 @@ TEST(TcpGenericTests, connectionErrorCalledWhenNoServer) {
   tp_set_sel_prop_preference(&transport_properties, ACTIVE_READ_BEFORE_SEND, REQUIRE);
 
   Preconnection preconnection;
-  preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);
+  preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
   Connection connection;
 
   // Set to true, since only on_connection_error will set it to false
@@ -150,7 +150,7 @@ TEST(TcpGenericTests, sendsSingleTcpMessage) {
   tp_set_sel_prop_preference(&transport_properties, ACTIVE_READ_BEFORE_SEND, REQUIRE);
 
   Preconnection preconnection;
-  preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);
+  preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
   Connection connection;
 
   // Set to true, since only on_connection_error will set it to false

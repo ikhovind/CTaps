@@ -40,7 +40,7 @@ TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) 
     tp_set_sel_prop_preference(&listener_props, ACTIVE_READ_BEFORE_SEND, REQUIRE);
 
     Preconnection listener_precon;
-    preconnection_build_with_local(&listener_precon, listener_props, &listener_remote, 1, listener_endpoint);
+    preconnection_build_with_local(&listener_precon, listener_props, &listener_remote, 1, NULL, listener_endpoint);
 
     ListenerCallbacks listener_callbacks = {
         .connection_received = receive_message_respond_and_close_listener_on_connection_received,
@@ -64,7 +64,7 @@ TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) 
     tp_set_sel_prop_preference(&client_props, ACTIVE_READ_BEFORE_SEND, REQUIRE);
 
     Preconnection client_precon;
-    preconnection_build(&client_precon, client_props, &client_remote, 1);
+    preconnection_build(&client_precon, client_props, &client_remote, 1, NULL);
 
     ConnectionCallbacks client_callbacks {
         .ready = send_message_and_receive,
