@@ -147,11 +147,8 @@ int picoquic_callback(picoquic_cnx_t* cnx,
   Connection* connection = NULL;
   log_trace("Callback event with connection: %p", (void*)cnx);
   log_trace("Received sample callback event: %d", fin_or_event);
-  /* If this is the first reference to the connection, the application context is set
-   * to the default value defined for the server. TODO - define this lol
-   */
-  connection = (Connection*)callback_ctx;
 
+  connection = (Connection*)callback_ctx;
   QuicConnectionState* quic_state = (QuicConnectionState*)connection->protocol_state;
   log_debug("Connection state is: %d", picoquic_get_cnx_state(quic_state->picoquic_connection));
   switch (fin_or_event) {
@@ -288,7 +285,7 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
     }
 
     bool was_new = false;
-    Connection* connection = socket_manager_get_connection_from_remote(listener->socket_manager, (struct sockaddr_storage*)addr_from, &was_new);
+    Connection* connection = socket_manager_get_or_create_connection(listener->socket_manager, (struct sockaddr_storage*)addr_from, &was_new);
 
     log_trace("Created new Connection object for received QUIC cnx: %p", (void*)connection);
     picoquic_set_callback(cnx, picoquic_callback, connection);
