@@ -69,7 +69,7 @@ typedef struct {
 },
 
 // Create a single, read-only template with all the default values.
-static MessageProperties DEFAULT_MESSAGE_PROPERTIES = {
+const static MessageProperties DEFAULT_MESSAGE_PROPERTIES = {
   .message_property = {
     get_message_property_list(create_property_initializer)
   }

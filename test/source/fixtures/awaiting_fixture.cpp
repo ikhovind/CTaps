@@ -70,7 +70,7 @@ protected:
     std::vector<Connection*> client_connections;
 
     void SetUp() override {
-        ctaps_initialize();
+        ctaps_initialize(NULL, NULL);
     }
 
     void TearDown() override {
@@ -86,6 +86,17 @@ protected:
         printf("Callback: Connection is ready.\n");
         auto* context = static_cast<CallbackContext*>(user_data);
         context->awaiter->signal();
+        return 0;
+    }
+
+    static int send_message_and_close_on_connection_ready(Connection* connection, void* user_data) {
+        log_info("Callback: Connection is ready.");
+        Message message;
+        message_build_with_content(&message, "ping", strlen("ping") + 1);
+        send_message(connection, &message);
+        message_free_content(&message);
+
+        connection_close(connection);
         return 0;
     }
 
@@ -252,6 +263,7 @@ protected:
     }
 
     static int send_message_and_receive(struct Connection* connection, void* udata) {
+        log_trace("Callback: Ready - send_message_and_receive");
         Message message;
         message_build_with_content(&message, "ping", strlen("ping") + 1);
         send_message(connection, &message);

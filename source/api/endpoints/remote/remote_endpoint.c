@@ -34,6 +34,7 @@ int remote_endpoint_with_ipv6(RemoteEndpoint* remote_endpoint, struct in6_addr i
 }
 
 int remote_endpoint_from_sockaddr(RemoteEndpoint* remote_endpoint, const struct sockaddr_storage* addr) {
+  log_trace("Building remote endpoint from sockaddr");
   if (remote_endpoint->hostname != NULL) {
     log_error("Cannot specify both hostname and IP address on single remote endpoint");
     return -EINVAL;
@@ -116,7 +117,7 @@ int remote_endpoint_resolve(const RemoteEndpoint* remote_endpoint, RemoteEndpoin
         addr->sin6_port = htons(assigned_port);
       }
     }
-    log_debug("Successfully performed DNS lookup, found %zu addresses\n", *out_count);
+    log_debug("Successfully performed DNS lookup, found %zu addresses", *out_count);
   }
   else if (remote_endpoint->data.resolved_address.ss_family != AF_UNSPEC) {
     log_debug("Endpoint was an IP address");

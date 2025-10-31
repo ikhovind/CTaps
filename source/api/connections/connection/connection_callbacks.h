@@ -8,6 +8,7 @@
 #include "message/message.h"
 #include "message/message_context/message_context.h"
 
+// TODO - justify double message pointer
 typedef struct ReceiveCallbacks {
   int (*receive_callback)(struct Connection* connection, Message** received_message, MessageContext* ctx, void* user_data);
   int (*receive_error)(struct Connection* connection, MessageContext* ctx, const char* reason, void* user_data);

@@ -41,24 +41,28 @@ int copy_remote_endpoints(Preconnection* preconnection,
 int preconnection_build(Preconnection* preconnection,
                          const TransportProperties transport_properties,
                          const RemoteEndpoint* remote_endpoints,
-                         const size_t num_remote_endpoints
+                         const size_t num_remote_endpoints,
+                         const SecurityParameters* security_parameters
                          ) {
   memset(preconnection, 0, sizeof(Preconnection));
   preconnection->transport_properties = transport_properties;
+  preconnection->security_parameters = security_parameters;
   local_endpoint_build(&preconnection->local);
   return copy_remote_endpoints(preconnection, remote_endpoints, num_remote_endpoints);
 }
 
 int preconnection_build_with_local(Preconnection* preconnection,
-                                    TransportProperties transport_properties,
-                                    RemoteEndpoint remote_endpoints[],
-                                    size_t num_remote_endpoints,
-                                    LocalEndpoint local_endpoint) {
+                                   TransportProperties transport_properties,
+                                   RemoteEndpoint remote_endpoints[],
+                                   size_t num_remote_endpoints,
+                                   const SecurityParameters* security_parameters,
+                                   LocalEndpoint local_endpoint) {
   log_debug("Building preconnection\n");
   memset(preconnection, 0, sizeof(Preconnection));
   preconnection->transport_properties = transport_properties;
   preconnection->num_local_endpoints = 1;
   preconnection->local = local_endpoint;
+  preconnection->security_parameters = security_parameters;
 
   return copy_remote_endpoints(preconnection, remote_endpoints, num_remote_endpoints);
 }
@@ -80,10 +84,12 @@ int preconnection_listen(Preconnection* preconnection, Listener* listener, Liste
       .num_local_endpoints = 1,
       .socket_manager = socket_manager,
       .transport_properties = preconnection->transport_properties,
+      .security_parameters = preconnection->security_parameters,
     };
     socket_manager->protocol_impl = *first_node.protocol;
 
-    return socket_manager_build(socket_manager, listener);
+    socket_manager_build(socket_manager, listener);
+    return socket_manager->protocol_impl.listen(socket_manager);
   }
   g_array_free(candidate_nodes, true);
   free(socket_manager);
@@ -93,6 +99,7 @@ int preconnection_listen(Preconnection* preconnection, Listener* listener, Liste
 
 int preconnection_initiate(Preconnection* preconnection, Connection* connection,
                            ConnectionCallbacks connection_callbacks) {
+  int rc;
   log_info("Initiating connection from preconnection\n");
 
   GArray* candidate_nodes = get_ordered_candidate_nodes(preconnection);
@@ -101,6 +108,7 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
 
   if (candidate_nodes->len > 0) {
     CandidateNode first_node = g_array_index(candidate_nodes, CandidateNode, 0);
+    log_debug("Selected protocol: %s\n", first_node.protocol->name);
     connection->protocol = *first_node.protocol;
     connection->remote_endpoint = *first_node.remote_endpoint;
 
@@ -111,11 +119,18 @@ int preconnection_initiate(Preconnection* preconnection, Connection* connection,
 
     connection->connection_callbacks = connection_callbacks;
 
+    // TODO - deep copy
+    connection->security_parameters = preconnection->security_parameters;
+
     connection->received_messages = g_queue_new();
     connection->received_callbacks = g_queue_new();
 
 
-    connection->protocol.init(connection, &connection->connection_callbacks);
+    rc = connection->protocol.init(connection, &connection->connection_callbacks);
+    if (rc != 0) {
+      log_error("Error initializing connection protocol: %d\n", rc);
+      return rc;
+    }
     return 0;
   }
 

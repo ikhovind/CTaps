@@ -50,7 +50,7 @@ int local_endpoint_resolve_fake_custom(const LocalEndpoint* local_endpoint, Loca
 
     // Second fake endpoint
     local_endpoint_build(&fake_local_endpoint_list[1]);
-    local_endpoint_with_interface(&fake_local_endpoint_list[1], "en01234567");
+    local_endpoint_with_interface(&fake_local_endpoint_list[1], "en0");
     local_endpoint_with_port(&fake_local_endpoint_list[1], 8081);
 
     *out_list = fake_local_endpoint_list;
@@ -148,7 +148,7 @@ TEST_F(CandidateTreeTest, CreatesAndResolvesFullTree) {
     RemoteEndpoint remote_endpoint;
     remote_endpoint_build(&remote_endpoint);
     remote_endpoint_with_hostname(&remote_endpoint, "test.com");
-    preconnection_build(&preconnection, props, &remote_endpoint, 1);
+    preconnection_build(&preconnection, props, &remote_endpoint, 1, NULL);
     
     // 2. Mock behavior of internal functions
     faked_local_endpoint_resolve_fake.return_val = 0;
@@ -200,7 +200,7 @@ TEST_F(CandidateTreeTest, PrunesPathAndProtocol) {
     RemoteEndpoint remote_endpoint;
     remote_endpoint_build(&remote_endpoint);
     remote_endpoint_with_hostname(&remote_endpoint, "test.com");
-    preconnection_build(&preconnection, props, &remote_endpoint, 1);
+    preconnection_build(&preconnection, props, &remote_endpoint, 1, NULL);
 
     // 2. Mock behavior of internal functions
     faked_local_endpoint_resolve_fake.return_val = 0;
@@ -259,7 +259,7 @@ TEST_F(CandidateTreeTest, SortsOnPreferOverAvoid) {
     RemoteEndpoint remote_endpoint;
     remote_endpoint_build(&remote_endpoint);
     remote_endpoint_with_hostname(&remote_endpoint, "test.com");
-    preconnection_build(&preconnection, props, &remote_endpoint, 1);
+    preconnection_build(&preconnection, props, &remote_endpoint, 1, NULL);
 
     // 2. Mock behavior of internal functions
     faked_local_endpoint_resolve_fake.return_val = 0;
@@ -324,7 +324,7 @@ TEST_F(CandidateTreeTest, UsesAvoidAsTieBreaker) {
     RemoteEndpoint remote_endpoint;
     remote_endpoint_build(&remote_endpoint);
     remote_endpoint_with_hostname(&remote_endpoint, "test.com");
-    preconnection_build(&preconnection, props, &remote_endpoint, 1);
+    preconnection_build(&preconnection, props, &remote_endpoint, 1, NULL);
 
     // 2. Mock behavior of internal functions
     faked_local_endpoint_resolve_fake.return_val = 0;
@@ -366,6 +366,47 @@ TEST_F(CandidateTreeTest, UsesAvoidAsTieBreaker) {
 
     // --- CLEANUP ---
     free_candidate_array(root);
+    preconnection_free(&preconnection);
+    free_remote_endpoint_strings(&remote_endpoint);
+}
+
+TEST_F(CandidateTreeTest, GivesNoCandidateNodesWhenAllProtocolsProhibited) {
+    // --- ARRANGE ---
+    // 1. Create a minimal preconnection object
+    Preconnection preconnection;
+    TransportProperties props;
+    transport_properties_build(&props);
+    // need to overwrite the default to allow both protocols
+    tp_set_sel_prop_preference(&props, RELIABILITY, PROHIBIT);
+    tp_set_sel_prop_preference(&props, PRESERVE_MSG_BOUNDARIES, REQUIRE);
+
+    RemoteEndpoint remote_endpoint;
+    remote_endpoint_build(&remote_endpoint);
+    remote_endpoint_with_hostname(&remote_endpoint, "test.com");
+    preconnection_build(&preconnection, props, &remote_endpoint, 1, NULL);
+
+    // 2. Mock behavior of internal functions
+    faked_local_endpoint_resolve_fake.return_val = 0;
+    faked_remote_endpoint_resolve_fake.return_val = 0;
+    faked_get_supported_protocols_fake.return_val = fake_protocol_list;
+
+    // --- ACT ---
+    GArray* candidates = get_ordered_candidate_nodes(&preconnection);
+
+    // --- ASSERT ---
+    // 1. Verify the root node
+    ASSERT_NE(candidates, nullptr);
+
+    // Check that the tree was built
+    ASSERT_EQ(candidates->len, 0); // 2 local endpoints, 3 protocols, 1 remote endpoint each
+
+    // 2. Verify the calls to mocked functions
+    ASSERT_EQ(faked_local_endpoint_resolve_fake.call_count, 1);
+    ASSERT_EQ(faked_get_supported_protocols_fake.call_count, 2); // Called for each path child
+    ASSERT_EQ(faked_remote_endpoint_resolve_fake.call_count, 6); // Called for each protocol leaf
+
+    // --- CLEANUP ---
+    free_candidate_array(candidates);
     preconnection_free(&preconnection);
     free_remote_endpoint_strings(&remote_endpoint);
 }

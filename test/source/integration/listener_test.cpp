@@ -13,7 +13,7 @@ extern "C" {
 
 TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) {
     GTEST_SKIP(); // Don't know why this fails atm
-    ctaps_initialize();
+    ctaps_initialize(NULL, NULL);
     Listener listener;
     Connection client_connection;
 
@@ -77,7 +77,7 @@ TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) 
     tp_set_sel_prop_preference(&client_props, RELIABILITY, PROHIBIT);
 
     Preconnection client_precon;
-    preconnection_build(&client_precon, client_props, &client_remote, 1);
+    preconnection_build(&client_precon, client_props, &client_remote, 1, NULL);
 
 
     InitDoneCb client_ready = {
@@ -162,7 +162,7 @@ TEST_F(CTapsGenericFixture, ClosingListenerDoesNotAffectExistingConnections) {
     tp_set_sel_prop_preference(&client_props, RELIABILITY, PROHIBIT);
 
     Preconnection client_precon;
-    preconnection_build(&client_precon, client_props, &client_remote, 1);
+    preconnection_build(&client_precon, client_props, &client_remote, 1, NULL);
 
 
     InitDoneCb client_ready = {

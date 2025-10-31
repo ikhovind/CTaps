@@ -28,7 +28,7 @@ extern "C" {
     return 0;
   }
 
-  int send_message_on_connection_ready(struct Connection* connection, void* udata) {
+  int tcp_send_message_on_connection_ready(struct Connection* connection, void* udata) {
     log_info("Connection is ready, sending message");
     // --- Action ---
     Message message;
@@ -62,7 +62,7 @@ extern "C" {
 
 TEST(TcpGenericTests, successfullyConnectsToTcpServer) {
   // --- Setup ---
-  ctaps_initialize();
+  ctaps_initialize(NULL,NULL);
   RemoteEndpoint remote_endpoint;
   remote_endpoint_build(&remote_endpoint);
   remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
@@ -73,9 +73,10 @@ TEST(TcpGenericTests, successfullyConnectsToTcpServer) {
   transport_properties_build(&transport_properties);
 
   tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
+  tp_set_sel_prop_preference(&transport_properties, ACTIVE_READ_BEFORE_SEND, REQUIRE);
 
   Preconnection preconnection;
-  preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);
+  preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
   Connection connection;
 
   bool connection_succeeded = false;
@@ -96,7 +97,7 @@ TEST(TcpGenericTests, successfullyConnectsToTcpServer) {
 
 TEST(TcpGenericTests, connectionErrorCalledWhenNoServer) {
   // --- Setup ---
-  ctaps_initialize();
+  ctaps_initialize(NULL,NULL);
   RemoteEndpoint remote_endpoint;
   remote_endpoint_build(&remote_endpoint);
   remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
@@ -107,9 +108,10 @@ TEST(TcpGenericTests, connectionErrorCalledWhenNoServer) {
   transport_properties_build(&transport_properties);
 
   tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
+  tp_set_sel_prop_preference(&transport_properties, ACTIVE_READ_BEFORE_SEND, REQUIRE);
 
   Preconnection preconnection;
-  preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);
+  preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
   Connection connection;
 
   // Set to true, since only on_connection_error will set it to false
@@ -134,7 +136,7 @@ TEST(TcpGenericTests, connectionErrorCalledWhenNoServer) {
 TEST(TcpGenericTests, sendsSingleTcpMessage) {
   int rc;
   // --- Setup ---
-  ctaps_initialize();
+  ctaps_initialize(NULL,NULL);
   RemoteEndpoint remote_endpoint;
   remote_endpoint_build(&remote_endpoint);
   remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
@@ -145,15 +147,16 @@ TEST(TcpGenericTests, sendsSingleTcpMessage) {
   transport_properties_build(&transport_properties);
 
   tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
+  tp_set_sel_prop_preference(&transport_properties, ACTIVE_READ_BEFORE_SEND, REQUIRE);
 
   Preconnection preconnection;
-  preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1);
+  preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
   Connection connection;
 
   // Set to true, since only on_connection_error will set it to false
   ConnectionCallbacks connection_callbacks = {
     .establishment_error = on_establishment_error,
-    .ready = send_message_on_connection_ready,
+    .ready = tcp_send_message_on_connection_ready,
     .user_data = NULL,
   };
 

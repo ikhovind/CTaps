@@ -20,7 +20,7 @@ FetchContent_MakeAvailable(fff)
 
 # ---- Tests ----
 function(add_gtest test_name)
-    set(options "ASAN_ENABLED") # Option to selectively enable ASan
+    set(options "ASAN_ENABLED" "DEBUG_SYMBOLS") # Option to selectively enable ASan
     set(oneValueArgs "")
     set(multiValueArgs SOURCES WRAP_FUNCTIONS)
 
@@ -29,7 +29,16 @@ function(add_gtest test_name)
 
     add_executable(${test_name} ${ARGS_SOURCES})
 
-    # --- ADD ASAN FLAGS HERE ---
+    if (ARGS_DEBUG_SYMBOLS)
+        message(STATUS "Adding debug symbols to ${test_name}")
+        target_compile_options(${test_name} PRIVATE -g)
+    endif()
+
+    target_compile_definitions(${test_name}
+            PRIVATE
+            TEST_RESOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/quic\"
+    )
+
     if (ARGS_ASAN_ENABLED)
         # Compilation flags for AddressSanitizer
         target_compile_options(${test_name} PRIVATE
@@ -59,6 +68,7 @@ function(add_gtest test_name)
             fff
             ${GLIB_LIBRARIES}
             uv
+            picoquic-core
     )
 
     target_compile_features(${test_name} PRIVATE c_std_99)
@@ -68,6 +78,11 @@ function(add_gtest test_name)
             ${CMAKE_SOURCE_DIR}/source/impl
             ${GLIB_INCLUDE_DIRS}
             ${GLIB_LIBRARIES}
+    )
+
+    target_include_directories(${test_name}
+            PRIVATE
+            "${picotls_SOURCE_DIR}/include"
     )
 
    add_test(NAME ${test_name} COMMAND ${test_name})
@@ -83,6 +98,8 @@ list(TRANSFORM CTAPS_SOURCES PREPEND ${CMAKE_SOURCE_DIR}/)
 
 add_gtest(udp_ping_test SOURCES source/integration/udp_ping.cpp ${CTAPS_SOURCES})
 add_gtest(tcp_ping_test SOURCES source/integration/tcp/tcp_ping.cpp ${CTAPS_SOURCES})
+add_gtest(quic_ping_test SOURCES source/integration/quic/quic_ping_test.cpp ${CTAPS_SOURCES})
+add_gtest(quic_listener_test SOURCES source/integration/quic/quic_listen_test.cpp ${CTAPS_SOURCES})
 add_gtest(initiation_test SOURCES source/preconnection/initiation.cpp ${CTAPS_SOURCES} source/util/util.c)
 add_gtest(remote_endpoint_unit_test SOURCES source/unit/endpoint/remote.cpp ${CTAPS_SOURCES})
 add_gtest(preconnection_unit_test SOURCES source/unit/connections/preconnection.cpp ${CTAPS_SOURCES})
@@ -96,7 +113,7 @@ add_gtest(candidate_gathering_test
             remote_endpoint_resolve
             get_supported_protocols
             get_num_protocols
-        ASAN_ENABLED # Needed to make sure we prune candidate tree in correct order
+        ASAN_ENABLED
 )
 
 add_gtest(local_endpoint_unit_test
@@ -117,12 +134,15 @@ add_gtest(remote_endpoint_integration_test
             ${CMAKE_SOURCE_DIR}/source/impl/endpoints/util.c
             ${CMAKE_SOURCE_DIR}/source/impl/protocols/udp/udp.c
             ${CMAKE_SOURCE_DIR}/source/impl/protocols/tcp/tcp.c
+            ${CMAKE_SOURCE_DIR}/source/impl/protocols/quic/quic.c
+            ${CMAKE_SOURCE_DIR}/source/impl/protocols/common/socket_utils.c
             ${CMAKE_SOURCE_DIR}/source/api/ctaps.c
             ${CMAKE_SOURCE_DIR}/source/api/transport_properties/transport_properties.c
             ${CMAKE_SOURCE_DIR}/source/api/transport_properties/selection_properties/selection_properties.c
             ${CMAKE_SOURCE_DIR}/source/api/transport_properties/connection_properties/connection_properties.c
             ${CMAKE_SOURCE_DIR}/source/api/connections/connection/connection.c
             ${CMAKE_SOURCE_DIR}/source/api/protocols/registry/protocol_registry.c
+            ${CMAKE_SOURCE_DIR}/source/api/connections/listener/listener.c
             ${CMAKE_SOURCE_DIR}/source/impl/connections/listener/socket_manager/socket_manager.c
         WRAP_FUNCTIONS
             uv_getaddrinfo

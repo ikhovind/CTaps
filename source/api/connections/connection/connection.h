@@ -9,6 +9,7 @@
 #include "message/message.h"
 #include "message/message_context/message_context.h"
 #include "transport_properties/transport_properties.h"
+#include "security_parameters/security_parameters.h"
 
 typedef enum {
   CONNECTION_TYPE_STANDALONE = 0,
@@ -18,11 +19,12 @@ typedef enum {
 
 typedef struct Connection {
   TransportProperties transport_properties;
+  const SecurityParameters* security_parameters;
   LocalEndpoint local_endpoint;
   RemoteEndpoint remote_endpoint;
   // TODO - decide on if this has to be a pointer
   ProtocolImplementation protocol;
-  uv_handle_t* protocol_uv_handle;
+  void* protocol_state;
   ConnectionType open_type;
   ConnectionCallbacks connection_callbacks;
   struct SocketManager* socket_manager;

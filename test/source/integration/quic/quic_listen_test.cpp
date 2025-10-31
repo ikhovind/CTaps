@@ -8,10 +8,11 @@ extern "C" {
 #include "endpoints/remote/remote_endpoint.h"
 #include "transport_properties/transport_properties.h"
 #include "util/util.h"
+#include <logging/log.h>
 }
 #include "fixtures/awaiting_fixture.cpp"
 
-TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) {
+TEST_F(CTapsGenericFixture, QuicReceivesConnectionFromListenerAndExchangesMessages) {
     CallbackContext callback_context = {
         .awaiter = &awaiter,
         .messages = &received_messages,
@@ -19,7 +20,8 @@ TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) 
         .client_connections = client_connections,
     };
 
-    ctaps_initialize(NULL,NULL);
+    int rc = ctaps_initialize(TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
+    ASSERT_EQ(rc, 0);
     Listener listener;
     Connection client_connection;
 
@@ -35,12 +37,16 @@ TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) 
 
     TransportProperties listener_props;
     transport_properties_build(&listener_props);
-
     tp_set_sel_prop_preference(&listener_props, RELIABILITY, REQUIRE);
-    tp_set_sel_prop_preference(&listener_props, ACTIVE_READ_BEFORE_SEND, REQUIRE);
+    tp_set_sel_prop_preference(&listener_props, MULTISTREAMING, REQUIRE); // force QUIC
+
+    SecurityParameters server_security_parameters;
+    security_parameters_build(&server_security_parameters);
+    char* alpn_strings = "simple-ping";
+    sec_param_set_property_string_array(&server_security_parameters, ALPN, &alpn_strings, 1);
 
     Preconnection listener_precon;
-    preconnection_build_with_local(&listener_precon, listener_props, &listener_remote, 1, NULL, listener_endpoint);
+    preconnection_build_with_local(&listener_precon, listener_props, &listener_remote, 1, &server_security_parameters, listener_endpoint);
 
     ListenerCallbacks listener_callbacks = {
         .connection_received = receive_message_respond_and_close_listener_on_connection_received,
@@ -61,10 +67,15 @@ TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) 
     transport_properties_build(&client_props);
 
     tp_set_sel_prop_preference(&client_props, RELIABILITY, REQUIRE);
-    tp_set_sel_prop_preference(&client_props, ACTIVE_READ_BEFORE_SEND, REQUIRE);
+    tp_set_sel_prop_preference(&client_props, MULTISTREAMING, REQUIRE);
+
+    SecurityParameters client_security_parameters;
+    security_parameters_build(&client_security_parameters);
+    sec_param_set_property_string_array(&client_security_parameters, ALPN, &alpn_strings, 1);
+
 
     Preconnection client_precon;
-    preconnection_build(&client_precon, client_props, &client_remote, 1, NULL);
+    preconnection_build(&client_precon, client_props, &client_remote, 1, &client_security_parameters);
 
     ConnectionCallbacks client_callbacks {
         .ready = send_message_and_receive,
@@ -72,16 +83,17 @@ TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) 
     };
 
     preconnection_initiate(&client_precon, &client_connection, client_callbacks);
+  /*
 
     // --- RUN EVENT LOOP ---
     // This will block until the callbacks close the handles
+    */
     ctaps_start_event_loop();
 
     // --- ASSERTIONS ---
     ASSERT_EQ(callback_context.messages->size(), 2);
     ASSERT_EQ(callback_context.messages->at(0)->length, 5);
     ASSERT_STREQ(callback_context.messages->at(0)->content, "ping");
-
     ASSERT_EQ(callback_context.messages->at(1)->length, 5);
     ASSERT_STREQ(callback_context.messages->at(1)->content, "pong");
 }
