@@ -48,15 +48,36 @@ static QuicGlobalState default_global_quic_state = {
 };
 
 size_t quic_alpn_select_cb(picoquic_quic_t* quic, ptls_iovec_t* list, size_t count) {
+  log_trace("QUIC server alpn select cb");
 
   size_t ret = count;
 
-  // TODO - iterate and find compatible ALPN
-  for (size_t i = 0; i < count; i++) {
-    //log_trace("Base string: %.*s", list[i].base);
-  }
+  /*
+   * As far as I can see there is no way of associating this callback with
+   * which Listener is being connected to. This means that if two listeners
+   * exist and have different ALPN possibilities, we don't know which one
+   * we should check. We can therefore do several things:
+   *
+   *  - picoquic_quic_t* struct per-listener instead of a single one
+   *  - Accept all ALPNs associated with any listener and then redirect
+   *  - Dissalow different ALPNs between listeners
+   */
+  QuicGlobalState* global_state = picoquic_get_default_callback_context(quic);
 
-  return 0;
+  Listener* listener = global_state->listener;
+
+  const StringArrayValue* listener_alpns = &listener->security_parameters->security_parameters[ALPN].value.array_of_strings;
+
+  for (size_t i = 0; i < count; i++) {
+    for (size_t j = 0; j < listener_alpns->num_strings; j++) {
+      if (strcmp((const char*)list[i].base, listener_alpns->strings[j]) == 0) {
+        log_trace("Selected ALPN: %.*s", (int)list[i].len, list[i].base);
+        return i;
+      }
+    }
+  }
+  log_warn("No compatible ALPN found for attempted connection to listener");
+  return count;
 }
 
 picoquic_quic_t* get_global_quic_ctx() {
@@ -638,7 +659,7 @@ int quic_listen(SocketManager* socket_manager) {
     return -EIO;
   }
   if (default_global_quic_state.listener != NULL) {
-    log_error("QUIC listener already set up for SocketManager %p", (void*)socket_manager);
+    log_error("Multiple listeners is currently not supported", (void*)socket_manager);
     return -EALREADY;
   }
 
