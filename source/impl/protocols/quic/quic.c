@@ -39,6 +39,15 @@ typedef struct QuicConnectionState {
   picoquic_cnx_t* picoquic_connection;
 } QuicConnectionState;
 
+void free_quic_connection_state(QuicConnectionState* state) {
+  if (state) {
+    if (state->udp_sock_name) {
+      free(state->udp_sock_name);
+    }
+    free(state);
+  }
+}
+
 static picoquic_quic_t* global_quic_ctx;
 
 static QuicGlobalState default_global_quic_state = {
@@ -160,6 +169,8 @@ int handle_closed_quic_connection(Connection* connection) {
     }
     uv_close((uv_handle_t*)connection_state->udp_handle, quic_closed_udp_handle_cb);
     log_info("Successfully handled closed QUIC connection");
+    free_quic_connection_state(connection_state);
+    connection->protocol_state = NULL;
   }
   else if (connection->open_type == CONNECTION_OPEN_TYPE_MULTIPLEXED) {
     log_info("Removing closed QUIC connection from socket manager");
@@ -175,10 +186,6 @@ int handle_closed_quic_connection(Connection* connection) {
     log_error("Unknown connection open type when handling closed QUIC connection");
     return -EINVAL;
   }
-
-  log_trace("Setting callback to NULL for %p", (void*)connection_state->picoquic_connection);
-  picoquic_set_callback(connection_state->picoquic_connection, NULL, NULL);
-  // set connection state to closed
   connection->transport_properties.connection_properties.list[STATE].value.uint32_val = CONN_STATE_CLOSED;
   reset_quic_timer();
   return 0;
@@ -308,6 +315,7 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
 
   if (addr_from == NULL) {
     log_warn("No source address for incoming QUIC packet");
+    free(buf->base);
     // No more data to read, or an empty packet.
     return;
   }
@@ -336,6 +344,7 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
     &cnx,
     picoquic_get_quic_time(quic_ctx)
   );
+  free(buf->base);
   if (rc != 0) {
     log_error("Error processing incoming QUIC packet: %d", rc);
     // TODO - error handling
@@ -659,8 +668,8 @@ int quic_listen(SocketManager* socket_manager) {
     return -EIO;
   }
   if (default_global_quic_state.listener != NULL) {
-    log_error("Multiple listeners is currently not supported", (void*)socket_manager);
-    return -EALREADY;
+    log_error("Multiple listeners is currently not supported");
+    return -ENOSYS;
   }
 
   QuicConnectionState* listener_state = malloc(sizeof(QuicConnectionState));
@@ -686,6 +695,7 @@ int quic_stop_listen(SocketManager* socket_manager) {
   log_debug("Stopping QUIC listen");
   QuicConnectionState* quic_state = (QuicConnectionState*)socket_manager->protocol_state;
   log_trace("Stopping receive on UDP handle: %p", quic_state->udp_handle);
+  // TODO - can you receive data on a created Connection after closing listener 
   int rc = uv_udp_recv_stop(quic_state->udp_handle);
   if (rc < 0) {
     log_error("Problem with stopping receive: %s\n", uv_strerror(rc));

@@ -397,8 +397,7 @@ TEST_F(CandidateTreeTest, GivesNoCandidateNodesWhenAllProtocolsProhibited) {
     // 1. Verify the root node
     ASSERT_NE(candidates, nullptr);
 
-    // Check that the tree was built
-    ASSERT_EQ(candidates->len, 0); // 2 local endpoints, 3 protocols, 1 remote endpoint each
+    ASSERT_EQ(candidates->len, 0); // nothing should be compatible with our requirements
 
     // 2. Verify the calls to mocked functions
     ASSERT_EQ(faked_local_endpoint_resolve_fake.call_count, 1);
