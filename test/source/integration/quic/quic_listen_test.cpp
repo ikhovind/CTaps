@@ -20,8 +20,6 @@ TEST_F(CTapsGenericFixture, QuicReceivesConnectionFromListenerAndExchangesMessag
         .client_connections = client_connections,
     };
 
-    int rc = ctaps_initialize(TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
-    ASSERT_EQ(rc, 0);
     Listener listener;
     Connection client_connection;
 
@@ -96,4 +94,12 @@ TEST_F(CTapsGenericFixture, QuicReceivesConnectionFromListenerAndExchangesMessag
     ASSERT_STREQ(callback_context.messages->at(0)->content, "ping");
     ASSERT_EQ(callback_context.messages->at(1)->length, 5);
     ASSERT_STREQ(callback_context.messages->at(1)->content, "pong");
+
+    free_security_parameter_content(&server_security_parameters);
+    free_security_parameter_content(&client_security_parameters);
+    preconnection_free(&client_precon);
+    preconnection_free(&listener_precon);
+    free_remote_endpoint_strings(&client_remote);
+    free_remote_endpoint_strings(&listener_remote);
+    ctaps_close();
 }

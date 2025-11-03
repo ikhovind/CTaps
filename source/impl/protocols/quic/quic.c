@@ -673,6 +673,7 @@ int quic_listen(SocketManager* socket_manager) {
   }
 
   QuicConnectionState* listener_state = malloc(sizeof(QuicConnectionState));
+  memset(listener_state, 0, sizeof(QuicConnectionState));
   LocalEndpoint local_endpoint = listener_get_local_endpoint(socket_manager->listener);
 
   listener_state->udp_handle = create_udp_listening_on_local(&local_endpoint, alloc_quic_buf, on_quic_udp_read);
@@ -701,6 +702,9 @@ int quic_stop_listen(SocketManager* socket_manager) {
     log_error("Problem with stopping receive: %s\n", uv_strerror(rc));
     return rc;
   }
+  uv_close((uv_handle_t*)quic_state->udp_handle, quic_closed_udp_handle_cb);
+  free_quic_connection_state(quic_state);
+
   decrement_active_connection_counter();
   return 0;
 }
