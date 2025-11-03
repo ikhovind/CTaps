@@ -20,4 +20,6 @@ int ctaps_initialize(const char *cert_file_name, const char *key_file_name);
 
 void ctaps_start_event_loop();
 
+int ctaps_close();
+
 #endif  // TAPS_H

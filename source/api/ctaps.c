@@ -28,11 +28,25 @@ int ctaps_initialize(const char *cert_file_name, const char *key_file_name) {
   return 0;
 }
 
+int ctaps_close() {
+  int rc = uv_loop_close(ctaps_event_loop);
+  if (rc < 0) {
+    log_error("Error closing libuv event loop: %s", uv_strerror(rc));
+    return rc;
+  }
+  free(ctaps_event_loop);
+  if (ctaps_global_config.cert_file_name) {
+    free(ctaps_global_config.cert_file_name);
+  }
+  if (ctaps_global_config.key_file_name) {
+    free(ctaps_global_config.key_file_name);
+  }
+  log_info("Successfully closed CTaps");
+}
+
 void ctaps_start_event_loop() {
   log_info("Starting the libuv event ctaps_event_loop...\n");
 
   // Run until there are no more waiting tasks
   uv_run(ctaps_event_loop, UV_RUN_DEFAULT);
-
-  uv_loop_close(ctaps_event_loop);
 }

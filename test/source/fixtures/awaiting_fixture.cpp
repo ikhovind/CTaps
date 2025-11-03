@@ -70,7 +70,8 @@ protected:
     std::vector<Connection*> client_connections;
 
     void SetUp() override {
-        ctaps_initialize(NULL, NULL);
+        int rc = ctaps_initialize(TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
+        ASSERT_EQ(rc, 0);
     }
 
     void TearDown() override {

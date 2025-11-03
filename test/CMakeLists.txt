@@ -106,7 +106,7 @@ add_gtest(
             ${CTAPS_SOURCES}
         ASAN_ENABLED
 )
-add_gtest(quic_listener_test SOURCES source/integration/quic/quic_listen_test.cpp ${CTAPS_SOURCES})
+add_gtest(quic_listener_test SOURCES source/integration/quic/quic_listen_test.cpp ${CTAPS_SOURCES} ASAN_ENABLED)
 add_gtest(initiation_test SOURCES source/preconnection/initiation.cpp ${CTAPS_SOURCES} source/util/util.c)
 add_gtest(remote_endpoint_unit_test SOURCES source/unit/endpoint/remote.cpp ${CTAPS_SOURCES})
 add_gtest(preconnection_unit_test SOURCES source/unit/connections/preconnection.cpp ${CTAPS_SOURCES})
@@ -153,6 +153,7 @@ add_gtest(remote_endpoint_integration_test
             ${CMAKE_SOURCE_DIR}/source/impl/connections/listener/socket_manager/socket_manager.c
         WRAP_FUNCTIONS
             uv_getaddrinfo
+            uv_freeaddrinfo
 )
 #add_gtest(udp_listener_test SOURCES source/integration/listener_test.cpp ${CTAPS_SOURCES})
 add_gtest(tcp_listener_test SOURCES source/integration/tcp/tcp_listen_test.cpp ${CTAPS_SOURCES})

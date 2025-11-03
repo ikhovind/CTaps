@@ -22,6 +22,10 @@ extern "C" int __wrap_uv_getaddrinfo(uv_loop_t* loop, uv_getaddrinfo_t* req,
   return faked_uv_getaddrinfo(loop, req, cb, hostname, service, hints);
 }
 
+extern "C" int __wrap_uv_freeaddrinfo(struct addrinfo* addrinfo) {
+  return 0;
+}
+
 // --- Test Fixture ---
 class RemoteEndpointResolveTest : public ::testing::Test {
 protected:
