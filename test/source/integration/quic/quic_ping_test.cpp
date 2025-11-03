@@ -116,5 +116,7 @@ TEST(QuicGenericTests, successfullyConnectsToQuicServer) {
   ASSERT_EQ(connection.transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
   ASSERT_NE(msg_received, nullptr);
   ASSERT_STREQ((const char*)msg_received->content, "Pong: hello world");
-  message_free_content(msg_received);
+  message_free_all(msg_received);
+  free_security_parameter_content(&security_parameters);
+  preconnection_free(&preconnection);
 }

@@ -45,6 +45,7 @@ uv_udp_t* create_udp_listening_on_local(LocalEndpoint* local_endpoint, uv_alloc_
     return NULL;
   }
 
+  // TODO - filter on remote endpoint
   rc = uv_udp_recv_start(new_udp_handle, alloc_cb, on_read_cb);
   if (rc < 0) {
     log_error("Error starting UDP receive: %s", uv_strerror(rc));

@@ -25,9 +25,6 @@ int ctaps_initialize(const char *cert_file_name, const char *key_file_name) {
 
   ctaps_global_config.cert_file_name = cert_file_name ? strdup(cert_file_name) : NULL;
   ctaps_global_config.key_file_name = key_file_name ? strdup(key_file_name) : NULL;
-  log_trace("Set cert and key");
-  log_trace("Set cert to: %s", ctaps_global_config.cert_file_name);
-  log_trace("Set key to: %s", ctaps_global_config.key_file_name);
   return 0;
 }
 
