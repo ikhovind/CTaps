@@ -134,7 +134,7 @@ picoquic_quic_t* get_global_quic_ctx() {
 
 void reset_quic_timer() {
   uint64_t next_wake_delay = picoquic_get_next_wake_delay(get_global_quic_ctx(), picoquic_get_quic_time(get_global_quic_ctx()), INT64_MAX - 1);
-  log_trace("Resetting QUIC timer to fire in %llu us", (unsigned long long)next_wake_delay);
+  log_trace("Resetting QUIC timer to fire in %llu ms", (unsigned long long)MICRO_TO_MILLI(next_wake_delay));
   uv_timer_start(default_global_quic_state.timer_handle, on_quic_timer, MICRO_TO_MILLI(next_wake_delay), 0);
 }
 
@@ -193,10 +193,11 @@ int handle_closed_quic_connection(Connection* connection) {
 
 
 int close_timer_handle() {
+  log_info("Closing QUIC timer handle");
   int rc = uv_timer_stop(default_global_quic_state.timer_handle);
   if (rc < 0) {
     log_error("Error stopping QUIC timer: %s", uv_strerror(rc));
-  } 
+  }
   uv_close((uv_handle_t*) default_global_quic_state.timer_handle, quic_closed_udp_handle_cb);
   return 0;
 }
@@ -615,6 +616,9 @@ int quic_send(Connection* connection, Message* message, MessageContext* ctx) {
 
   if (rc != 0) {
     log_error("Error queuing data to QUIC stream: %d", rc);
+    if (rc == PICOQUIC_ERROR_INVALID_STREAM_ID) {
+      log_error("Invalid stream ID: %llu", (unsigned long long)stream_id);
+    }
     return -EIO;
   }
 
