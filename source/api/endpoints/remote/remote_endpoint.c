@@ -103,7 +103,7 @@ int remote_endpoint_resolve(const RemoteEndpoint* remote_endpoint, RemoteEndpoin
   }
 
   if (remote_endpoint->hostname != NULL) {
-    log_debug("Endpoint was a hostname, performing DNS lookup");
+    log_debug("Endpoint was a hostname, performing DNS lookup for %s", remote_endpoint->hostname);
     perform_dns_lookup(remote_endpoint->hostname, NULL, out_list, out_count, NULL);
     for (int i = 0; i < *out_count; i++) {
       (*out_list)[i].port = assigned_port;

@@ -52,7 +52,6 @@ int perform_dns_lookup(const char* hostname, const char* service, RemoteEndpoint
     log_error("Could not initiate DNS lookup for hostname %s: %s\n", hostname, uv_strerror(rc));
     return rc;
   }
-  log_trace("Addrinfo pointer: %p\n", (void*)request.addrinfo);
 
   *out_count = 0;
   int count = 0;
@@ -88,9 +87,6 @@ int perform_dns_lookup(const char* hostname, const char* service, RemoteEndpoint
     (*out_count)++;
   }
 
-  log_trace("Addrinfo pointer: %p\n", (void*)request.addrinfo);
-  log_info("Freeing request");
   uv_freeaddrinfo(request.addrinfo);
-  log_info("Done freeing");
   return 0;
 }
