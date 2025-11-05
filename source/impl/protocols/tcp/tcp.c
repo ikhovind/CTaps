@@ -19,6 +19,7 @@ void on_close(uv_handle_t* handle) {
 
 void tcp_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
   Connection* connection = (Connection*)handle->data;
+  log_info("TCP received message for Connection: %p", connection);
   if (nread < 0) {
     log_error("Read error: %s\n", uv_strerror(nread));
     connection_close(connection);
@@ -88,6 +89,7 @@ void on_write(uv_write_t* req, int status) {
 
 int tcp_init(Connection* connection, const ConnectionCallbacks* connection_callbacks) {
   int rc;
+  log_info("Initiating TCP connection");
   uv_tcp_t* new_tcp_handle = malloc(sizeof(uv_tcp_t));
   if (new_tcp_handle == NULL) {
     log_error("Failed to allocate memory for TCP handle");
@@ -125,8 +127,8 @@ int tcp_init(Connection* connection, const ConnectionCallbacks* connection_callb
     if (connection->connection_callbacks.establishment_error) {
       connection->connection_callbacks.establishment_error(connection, connection->connection_callbacks.user_data);
     }
+    return rc;
   }
-  
   return 0;
 }
 
@@ -163,28 +165,6 @@ int tcp_send(Connection* connection, Message* message, MessageContext* ctx) {
   }
   return 0;
 }
-int tcp_receive(Connection* connection, ReceiveCallbacks receive_callbacks) {
-  // If we have a message to receive then simply return that
-  log_debug("Attempting to receive message via TCP");
-  if (!g_queue_is_empty(connection->received_messages)) {
-    log_debug("Calling receive callback immediately");
-    Message* received_message = g_queue_pop_head(connection->received_messages);
-    // TODO is returning &received_message safe here?
-    receive_callbacks.receive_callback(connection, &received_message, NULL, receive_callbacks.user_data);
-    return 0;
-  }
-
-  log_debug("Pushing receive callback to queue");
-  ReceiveCallbacks* ptr = malloc(sizeof(ReceiveCallbacks));
-  memcpy(ptr, &receive_callbacks, sizeof(ReceiveCallbacks));
-
-  // If we don't have a message to receive, add the callback to the queue of
-  // waiting callbacks
-  g_queue_push_tail(connection->received_callbacks, ptr);
-  log_trace("Length of received_callbacks queue after adding: %d", g_queue_get_length(connection->received_callbacks));
-  return 0;
-}
-
 
 int tcp_listen(SocketManager* socket_manager) {
   log_debug("Listening via TCP");

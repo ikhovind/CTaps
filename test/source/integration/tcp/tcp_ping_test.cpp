@@ -12,9 +12,6 @@ extern "C" {
 #include <logging/log.h>
 }
 
-#include <mutex>
-#include <condition_variable>
-
 #define TCP_PING_PORT 5006
 #define INVALID_TCP_PORT 5007
 
@@ -61,6 +58,7 @@ extern "C" {
 }
 
 TEST(TcpGenericTests, successfullyConnectsToTcpServer) {
+  log_info("Starting test: successfullyConnectsToTcpServer");
   // --- Setup ---
   ctaps_initialize(NULL,NULL);
   RemoteEndpoint remote_endpoint;

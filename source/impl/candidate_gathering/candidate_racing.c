@@ -2,7 +2,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
 #include <logging/log.h>
 #include <ctaps.h>
 #include <connections/connection/connection_callbacks.h>
@@ -147,6 +146,7 @@ int racing_on_attempt_ready(Connection* connection, void* udata) {
   RacingContext* context = attempt->context;
 
   log_info("Connection attempt %d succeeded!", attempt->attempt_index);
+  log_info("connection ptr: %p", (void*)connection);
 
   // Check if race is already complete (another attempt won)
   if (context->race_complete) {
@@ -163,7 +163,54 @@ int racing_on_attempt_ready(Connection* connection, void* udata) {
   cancel_all_other_attempts(context, attempt->attempt_index);
 
   // Copy the winning connection to the user's connection object
+  // Preserve the user connection's queues (may contain early receive_message() calls)
+  GQueue* saved_messages = context->user_connection->received_messages;
+  GQueue* saved_callbacks = context->user_connection->received_callbacks;
+  log_info("Number of received callbacks being saved by memcpy: %d", g_queue_get_length(context->user_connection->received_callbacks));
+  log_info("Number of received callbacks being discarded by memcpy: %d", g_queue_get_length(connection->received_callbacks));
+  log_info("Pointer being discarded by memcpy: %p", (void*)connection->received_callbacks);
+  log_info("Pointer being saved by memcpy: %p", (void*)context->user_connection->received_callbacks);
+
   memcpy(context->user_connection, connection, sizeof(Connection));
+
+  // Restore the original queues
+  context->user_connection->received_messages = saved_messages;
+  context->user_connection->received_callbacks = saved_callbacks;
+
+  // Update the protocol state (uv handle) to point to the user connection
+  // instead of the attempt connection, so protocol callbacks get the right pointer
+  if (context->user_connection->protocol_state) {
+    // For TCP/UDP, protocol_state is the handle directly
+    // For QUIC, protocol_state is a QuicConnectionState that contains a UDP handle
+    if (strcmp(context->user_connection->protocol.name, "QUIC") == 0) {
+      // QUIC: protocol_state is QuicConnectionState*, need to update the UDP handle inside
+      typedef struct {
+        uv_udp_t* udp_handle;
+        struct sockaddr_storage* udp_sock_name;
+        void* picoquic_connection;  // picoquic_cnx_t*
+      } QuicConnectionState;
+
+      QuicConnectionState* quic_state = (QuicConnectionState*)context->user_connection->protocol_state;
+      if (quic_state->udp_handle) {
+        quic_state->udp_handle->data = context->user_connection;
+      }
+
+      // Update picoquic connection's callback context to point to user connection
+      // picoquic_set_callback is declared in picoquic.h
+      extern void picoquic_set_callback(void* cnx, void* callback_fn, void* callback_ctx);
+      extern int picoquic_callback(void* cnx, uint64_t stream_id, uint8_t* bytes,
+                                    size_t length, int fin_or_event,
+                                    void* callback_ctx, void* v_stream_ctx);
+      picoquic_set_callback(quic_state->picoquic_connection, picoquic_callback, context->user_connection);
+    } else {
+      // TCP/UDP: protocol_state is the uv handle directly
+      uv_handle_t* handle = (uv_handle_t*)context->user_connection->protocol_state;
+      handle->data = context->user_connection;
+    }
+  }
+
+  log_info("Number of received callbacks for user connection: %d", g_queue_get_length(context->user_connection->received_callbacks));
+
 
   // Call the user's ready callback with the winning connection
   if (context->user_callbacks.ready) {
@@ -184,6 +231,10 @@ static int on_attempt_establishment_error(Connection* connection, void* udata) {
   RacingContext* context = attempt->context;
 
   log_info("Connection attempt %d failed", attempt->attempt_index);
+
+  // set connection state to CLOSED
+  log_debug("Setting connection state to CLOSED for failed attempt %d", attempt->attempt_index);
+  connection->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSED;
 
   // Check if race is already complete (another attempt won)
   if (context->race_complete) {
@@ -210,6 +261,10 @@ static int on_attempt_establishment_error(Connection* connection, void* udata) {
     if (context->stagger_timer != NULL) {
       uv_timer_stop(context->stagger_timer);
     }
+
+    // Mark the user connection as closed since all attempts failed
+    log_debug("Setting user connection state to CLOSED after all attempts failed");
+    context->user_connection->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSED;
 
     // Call the user's establishment_error callback
     if (context->user_callbacks.establishment_error) {
@@ -270,6 +325,7 @@ static void on_stagger_timer(uv_timer_t* handle) {
  */
 static void initiate_next_attempt(RacingContext* context) {
   if (context->race_complete) {
+    log_debug("Candidate Racing complete, ignoring attempts to initiate new attempts");
     return;
   }
 
@@ -290,6 +346,7 @@ static void initiate_next_attempt(RacingContext* context) {
     log_debug("Scheduling next attempt in %lu ms", context->connection_attempt_delay_ms);
     uv_timer_start(context->stagger_timer, on_stagger_timer,
                    context->connection_attempt_delay_ms, 0);
+    log_debug("Stagger timer started");
   }
 }
 
@@ -297,12 +354,15 @@ static void initiate_next_attempt(RacingContext* context) {
  * @brief Main entry point for initiating connection with racing.
  */
 int preconnection_initiate_with_racing(Preconnection* preconnection,
-                                       Connection* connection,
+                                       Connection* user_connection,
                                        ConnectionCallbacks connection_callbacks) {
-  log_info("Initiating connection with candidate racing");
+  // Initialize user connection immediately so it's usable (e.g., for early receive_message() calls)
+  log_trace("About to build user connection from preconnection");
+  preconnection_build_user_connection(user_connection, preconnection);
 
   // Get ordered candidate nodes
   GArray* candidate_nodes = get_ordered_candidate_nodes(preconnection);
+  // TODO - NULL vs 0 len are different, handle differently
   if (candidate_nodes == NULL || candidate_nodes->len == 0) {
     log_error("No candidates available for racing");
     if (candidate_nodes != NULL) {
@@ -318,22 +378,18 @@ int preconnection_initiate_with_racing(Preconnection* preconnection,
     log_debug("Only one candidate, initiating directly without racing");
     CandidateNode first_node = g_array_index(candidate_nodes, CandidateNode, 0);
 
-    connection->protocol = *first_node.protocol;
-    connection->remote_endpoint = *first_node.remote_endpoint;
-    connection->local_endpoint = *first_node.local_endpoint;
-    connection->open_type = CONNECTION_TYPE_STANDALONE;
-    connection->security_parameters = preconnection->security_parameters;
-    connection->connection_callbacks = connection_callbacks;
-    connection->received_messages = g_queue_new();
-    connection->received_callbacks = g_queue_new();
+    // Set protocol and endpoints from the candidate
+    user_connection->protocol = *first_node.protocol;
+    user_connection->remote_endpoint = *first_node.remote_endpoint;
+    user_connection->local_endpoint = *first_node.local_endpoint;
+    user_connection->connection_callbacks = connection_callbacks;
 
-    int rc = connection->protocol.init(connection, &connection->connection_callbacks);
+    int rc = user_connection->protocol.init(user_connection, &user_connection->connection_callbacks);
     free_candidate_array(candidate_nodes);
     return rc;
   }
 
-  // Create racing context
-  RacingContext* context = racing_context_create(candidate_nodes, connection,
+  RacingContext* context = racing_context_create(candidate_nodes, user_connection,
                                                  connection_callbacks, preconnection);
   if (context == NULL) {
     log_error("Failed to create racing context");

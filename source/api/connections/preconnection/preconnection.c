@@ -58,7 +58,7 @@ int preconnection_build_with_local(Preconnection* preconnection,
                                    size_t num_remote_endpoints,
                                    const SecurityParameters* security_parameters,
                                    LocalEndpoint local_endpoint) {
-  log_debug("Building preconnection\n");
+  log_debug("Building preconnection");
   memset(preconnection, 0, sizeof(Preconnection));
   preconnection->transport_properties = transport_properties;
   preconnection->num_local_endpoints = 1;
@@ -70,6 +70,7 @@ int preconnection_build_with_local(Preconnection* preconnection,
 
 
 int preconnection_listen(Preconnection* preconnection, Listener* listener, ListenerCallbacks listener_callbacks) {
+  log_info("Listening from preconnection");
   SocketManager* socket_manager = malloc(sizeof(SocketManager));
   if (socket_manager == NULL) {
     return -errno;
@@ -115,4 +116,29 @@ void preconnection_free(Preconnection* preconnection) {
     preconnection->remote_endpoints = NULL;
   }
   free_local_endpoint_strings(&preconnection->local);
+}
+
+void preconnection_build_user_connection(Connection* connection, const Preconnection* preconnection) {
+  log_debug("Building user connection from preconnection");
+  memset(connection, 0, sizeof(Connection));
+
+  // Initialize transport properties with defaults
+  transport_properties_build(&connection->transport_properties);
+
+  // Copy transport properties from preconnection
+  connection->transport_properties = preconnection->transport_properties;
+
+  // Set initial connection state to ESTABLISHING
+  connection->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_ESTABLISHING;
+
+  // Initialize message queues
+  connection->received_messages = g_queue_new();
+  connection->received_callbacks = g_queue_new();
+  log_info("Received callback of user connection: %p", connection->received_callbacks);
+
+  // Set basic fields from preconnection
+  connection->open_type = CONNECTION_TYPE_STANDALONE;
+  connection->security_parameters = preconnection->security_parameters;
+  connection->socket_manager = NULL;
+  connection->protocol_state = NULL;
 }
