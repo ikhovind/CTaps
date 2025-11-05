@@ -14,7 +14,6 @@ struct SocketManager;
 int quic_init(Connection* connection, const ConnectionCallbacks* connection_callbacks);
 int quic_close(const Connection* connection);
 int quic_send(Connection* connection, Message* message, MessageContext*);
-int quic_receive(Connection* connection, ReceiveCallbacks receive_callbacks);
 int quic_listen(struct SocketManager* socket_manager);
 int quic_stop_listen(struct SocketManager* listener);
 int quic_remote_endpoint_from_peer(uv_handle_t* peer, RemoteEndpoint* resolved_peer);
@@ -33,7 +32,6 @@ static ProtocolImplementation quic_protocol_interface = {
     },
     .send = quic_send,
     .init = quic_init,
-    .receive = quic_receive,
     .close = quic_close,
     .listen = quic_listen,
     .stop_listen = quic_stop_listen,

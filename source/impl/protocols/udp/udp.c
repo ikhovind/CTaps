@@ -136,25 +136,6 @@ int udp_send(Connection* connection, Message* message, MessageContext* message_c
       on_send);
 }
 
-int udp_receive(Connection* connection, ReceiveCallbacks receive_callbacks) {
-  // If we have a message to receive then simply return that
-  log_debug("UDP receiving");
-  if (!g_queue_is_empty(connection->received_messages)) {
-    log_debug("Calling receive callback immediately");
-    Message* received_message = g_queue_pop_head(connection->received_messages);
-    receive_callbacks.receive_callback(connection, &received_message, NULL, receive_callbacks.user_data);
-    return 0;
-  }
-
-  ReceiveCallbacks* ptr = malloc(sizeof(ReceiveCallbacks));
-  memcpy(ptr, &receive_callbacks, sizeof(ReceiveCallbacks));
-
-  // If we don't have a message to receive, add the callback to the queue of
-  // waiting callbacks
-  g_queue_push_tail(connection->received_callbacks, ptr);
-  return 0;
-}
-
 void socket_listen_callback(uv_udp_t* handle,
                                ssize_t nread,
                                const uv_buf_t* buf,

@@ -19,7 +19,6 @@ typedef struct ProtocolImplementation {
   SelectionProperties selection_properties;
   int (*init)(struct Connection* connection, const ConnectionCallbacks* connection_callbacks);
   int (*send)(struct Connection*, Message*, MessageContext*);
-  int (*receive)(struct Connection*, ReceiveCallbacks receive_callbacks);
   int (*listen)(struct SocketManager* socket_manager);
   int (*stop_listen)(struct SocketManager*);
   int (*close)(const struct Connection*);

@@ -182,7 +182,7 @@ int handle_closed_picoquic_connection(Connection* connection) {
     log_error("Unknown connection open type when handling closed QUIC connection");
     return -EINVAL;
   }
-  connection->transport_properties.connection_properties.list[STATE].value.uint32_val = CONN_STATE_CLOSED;
+  connection->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSED;
   reset_quic_timer();
   return 0;
 }
@@ -235,10 +235,13 @@ int picoquic_callback(picoquic_cnx_t* cnx,
         if (msg->content) {
           memcpy(msg->content, bytes, length);
           msg->length = length;
+          log_info("checking if receive callback queue: %p is empty", (void*)connection->received_callbacks);
           if (g_queue_is_empty(connection->received_callbacks)) {
+            log_debug("No receive callback ready, queueing message");
             g_queue_push_tail(connection->received_messages, msg);
           }
           else {
+            log_debug("Receive callback ready, calling it");
             ReceiveCallbacks* cb = g_queue_pop_head(connection->received_callbacks);
             cb->receive_callback(connection, &msg, NULL, cb->user_data);
             free(cb);
@@ -605,37 +608,6 @@ int quic_send(Connection* connection, Message* message, MessageContext* ctx) {
   if (connection->connection_callbacks.sent) {
     connection->connection_callbacks.sent(connection, connection->connection_callbacks.user_data);
   }
-
-  return 0;
-}
-
-
-
-int quic_receive(Connection* connection, ReceiveCallbacks receive_callbacks) {
-  log_debug("Attempting to receive message via QUIC");
-
-  // If we have a message to receive then simply return that
-  if (!g_queue_is_empty(connection->received_messages)) {
-    log_debug("Calling receive callback immediately");
-    Message* received_message = g_queue_pop_head(connection->received_messages);
-    receive_callbacks.receive_callback(connection, &received_message, NULL, receive_callbacks.user_data);
-    return 0;
-  }
-
-  log_debug("Pushing receive callback to queue");
-
-  ReceiveCallbacks* ptr = malloc(sizeof(ReceiveCallbacks));
-  if (!ptr) {
-    log_error("Failed to allocate memory for receive callback");
-    return -ENOMEM;
-  }
-  // Copy the callback structure
-  memcpy(ptr, &receive_callbacks, sizeof(ReceiveCallbacks));
-
-  // Add the callback to the queue of waiting callbacks
-  g_queue_push_tail(connection->received_callbacks, ptr);
-  log_trace("Length of received_callbacks queue after adding: %d", 
-           g_queue_get_length(connection->received_callbacks));
 
   return 0;
 }

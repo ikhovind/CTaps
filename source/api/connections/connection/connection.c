@@ -25,7 +25,26 @@ int send_message_full(Connection* connection, Message* message, MessageContext* 
 int receive_message(Connection* connection,
                     ReceiveCallbacks receive_callbacks
                     ) {
-  return connection->protocol.receive(connection, receive_callbacks);
+  log_info("User attempting to receive message on connection: %p", connection);
+  if (!connection->received_messages || !connection->received_callbacks) {
+    log_error("Connection queues not initialized for receiving messages");
+  }
+
+  if (!g_queue_is_empty(connection->received_messages)) {
+    log_debug("Calling receive callback immediately");
+    Message* received_message = g_queue_pop_head(connection->received_messages);
+    receive_callbacks.receive_callback(connection, &received_message, NULL, receive_callbacks.user_data);
+    return 0;
+  }
+
+  ReceiveCallbacks* ptr = malloc(sizeof(ReceiveCallbacks));
+  memcpy(ptr, &receive_callbacks, sizeof(ReceiveCallbacks));
+
+  // If we don't have a message to receive, add the callback to the queue of
+  // waiting callbacks
+  log_debug("No message ready, pushing receive callback to queue %p", (void*)connection->received_callbacks);
+  g_queue_push_tail(connection->received_callbacks, ptr);
+  return 0;
 }
 
 void connection_build_multiplexed(Connection* connection, const Listener* listener, const RemoteEndpoint* remote_endpoint) {
@@ -44,6 +63,7 @@ void connection_build_multiplexed(Connection* connection, const Listener* listen
 
 void connection_close(Connection* connection) {
   int rc;
+  log_info("Closing connection: %p", (void*)connection);
   if (connection->open_type == CONNECTION_OPEN_TYPE_MULTIPLEXED) {
     log_info("Closing Connection relying on socket manager, removing from socket manager\n");
     rc = socket_manager_remove_connection(connection->socket_manager, connection);
