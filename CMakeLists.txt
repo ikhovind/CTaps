@@ -42,6 +42,7 @@ set(IMPL_SOURCES
     source/impl/endpoints/port_util.c
     source/impl/logging/log.c
     source/impl/candidate_gathering/candidate_gathering.c
+    source/impl/candidate_gathering/candidate_racing.c
 )
 
 add_library(

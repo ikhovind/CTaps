@@ -2,6 +2,7 @@
 
 #include <ctaps.h>
 #include <candidate_gathering/candidate_gathering.h>
+#include <candidate_gathering/candidate_racing.h>
 #include <logging/log.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -99,44 +100,10 @@ int preconnection_listen(Preconnection* preconnection, Listener* listener, Liste
 
 int preconnection_initiate(Preconnection* preconnection, Connection* connection,
                            ConnectionCallbacks connection_callbacks) {
-  int rc;
-  log_info("Initiating connection from preconnection\n");
+  log_info("Initiating connection from preconnection with candidate racing");
 
-  GArray* candidate_nodes = get_ordered_candidate_nodes(preconnection);
-
-  log_trace("Found %d candidate nodes", candidate_nodes->len);
-
-  if (candidate_nodes->len > 0) {
-    CandidateNode first_node = g_array_index(candidate_nodes, CandidateNode, 0);
-    log_debug("Selected protocol: %s\n", first_node.protocol->name);
-    connection->protocol = *first_node.protocol;
-    connection->remote_endpoint = *first_node.remote_endpoint;
-
-    connection->open_type = CONNECTION_TYPE_STANDALONE;
-    connection->local_endpoint = *first_node.local_endpoint;
-
-    free_candidate_array(candidate_nodes);
-
-    connection->connection_callbacks = connection_callbacks;
-
-    // TODO - deep copy
-    connection->security_parameters = preconnection->security_parameters;
-
-    connection->received_messages = g_queue_new();
-    connection->received_callbacks = g_queue_new();
-
-
-    rc = connection->protocol.init(connection, &connection->connection_callbacks);
-    if (rc != 0) {
-      log_error("Error initializing connection protocol: %d\n", rc);
-      return rc;
-    }
-    return 0;
-  }
-
-  free_candidate_array(candidate_nodes);
-  log_error("No candidate node for Connection found\n");
-  return -EINVAL;
+  // Use candidate racing to establish connection
+  return preconnection_initiate_with_racing(preconnection, connection, connection_callbacks);
 }
 
 void preconnection_free(Preconnection* preconnection) {
