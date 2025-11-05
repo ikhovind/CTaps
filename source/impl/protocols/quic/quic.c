@@ -101,11 +101,7 @@ picoquic_quic_t* get_global_quic_ctx() {
       log_error("QUIC global context initialization failed: key file not provided");
       return NULL;
     }
-    char cwd[PATH_MAX];
-    getcwd(cwd, PATH_MAX);
-    log_debug("Current working directory is: %s", cwd);
-    log_debug("Using certificate file: %s", ctaps_global_config.cert_file_name);
-    log_debug("Using key file: %s", ctaps_global_config.key_file_name);
+
     global_quic_ctx = picoquic_create(
        MAX_CONCURRENT_QUIC_CONNECTIONS,
        ctaps_global_config.cert_file_name,
@@ -156,7 +152,7 @@ uint32_t decrement_active_connection_counter() {
   return default_global_quic_state.num_active_sockets;
 }
 
-int handle_closed_quic_connection(Connection* connection) {
+int handle_closed_picoquic_connection(Connection* connection) {
   int rc;
   QuicConnectionState* connection_state = (QuicConnectionState*)connection->protocol_state;
   if (connection->open_type == CONNECTION_TYPE_STANDALONE) {
@@ -259,7 +255,7 @@ int picoquic_callback(picoquic_cnx_t* cnx,
       break;
     case picoquic_callback_close:
       log_info("Picoquic callback closed");
-      handle_closed_quic_connection(connection);
+      handle_closed_picoquic_connection(connection);
 
       uint32_t active_conns = decrement_active_connection_counter();
       if (active_conns == 0) {
@@ -401,25 +397,6 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
 }
 
 void on_quic_timer(uv_timer_t* timer_handle) {
-  /*
-    ##### Flow of a picoquic application according to the picoquic documentation: #####
-
-    1. Create a QUIC context
-    2. If running as a client, create the client connection
-    3. Initialize the network, for example by opening sockets
-    4. Loop:
-      * Check how long the QUIC context can wait until the next action, i.e. get a timer t, using the polling API
-      * Wait until either the timer t elapses or packets are ready to process
-      * Process all the packets that have arrived and submit them through the {{incoming-api}} (This is done on arrival, so not needed here)
-      * Poll the QUIC context through the {{prepare-api}} and send packets if they are ready (This has to be done here)
-      * If error happen when sending packets, report issues through the {{error-notify-API}} (If applicable done here)
-    5. Exit the loop when the client connections are finished, or on a server if the server process needs to close.
-    6. Close the QUIC context
-   */
-
-  // step 1: Process all the packets that have arrived and submit them through the {{incoming-api}}
-  // this is handled through the on_read callback for data
-  // Poll the QUIC context through the {{prepare-api}} and send packets if they are ready
   log_debug("QUIC timer triggered, preparing packets to send");
   unsigned char send_buffer_base[MAX_QUIC_PACKET_SIZE];
 
@@ -625,7 +602,6 @@ int quic_send(Connection* connection, Message* message, MessageContext* ctx) {
   // Reset the timer to ensure data gets processed and sent immediately
   reset_quic_timer();
 
-  // Trigger the sent callback if registered (queuing is synchronous)
   if (connection->connection_callbacks.sent) {
     connection->connection_callbacks.sent(connection, connection->connection_callbacks.user_data);
   }
@@ -647,7 +623,7 @@ int quic_receive(Connection* connection, ReceiveCallbacks receive_callbacks) {
   }
 
   log_debug("Pushing receive callback to queue");
-  // Allocate memory for the callback structure
+
   ReceiveCallbacks* ptr = malloc(sizeof(ReceiveCallbacks));
   if (!ptr) {
     log_error("Failed to allocate memory for receive callback");
@@ -665,7 +641,6 @@ int quic_receive(Connection* connection, ReceiveCallbacks receive_callbacks) {
 }
 
 int quic_listen(SocketManager* socket_manager) {
-  int rc;
   picoquic_quic_t* quic_ctx = get_global_quic_ctx();
   if (!quic_ctx) {
     log_error("Failed to get global QUIC context");
@@ -700,7 +675,7 @@ int quic_stop_listen(SocketManager* socket_manager) {
   log_debug("Stopping QUIC listen");
   QuicConnectionState* quic_state = (QuicConnectionState*)socket_manager->protocol_state;
   log_trace("Stopping receive on UDP handle: %p", quic_state->udp_handle);
-  // TODO - can you receive data on a created Connection after closing listener 
+  // TODO - write test for receive data on a created Connection after closing listener 
   int rc = uv_udp_recv_stop(quic_state->udp_handle);
   if (rc < 0) {
     log_error("Problem with stopping receive: %s\n", uv_strerror(rc));
