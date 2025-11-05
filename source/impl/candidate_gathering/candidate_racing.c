@@ -177,36 +177,13 @@ int racing_on_attempt_ready(Connection* connection, void* udata) {
   context->user_connection->received_messages = saved_messages;
   context->user_connection->received_callbacks = saved_callbacks;
 
-  // Update the protocol state (uv handle) to point to the user connection
-  // instead of the attempt connection, so protocol callbacks get the right pointer
-  if (context->user_connection->protocol_state) {
-    // For TCP/UDP, protocol_state is the handle directly
-    // For QUIC, protocol_state is a QuicConnectionState that contains a UDP handle
-    if (strcmp(context->user_connection->protocol.name, "QUIC") == 0) {
-      // QUIC: protocol_state is QuicConnectionState*, need to update the UDP handle inside
-      typedef struct {
-        uv_udp_t* udp_handle;
-        struct sockaddr_storage* udp_sock_name;
-        void* picoquic_connection;  // picoquic_cnx_t*
-      } QuicConnectionState;
-
-      QuicConnectionState* quic_state = (QuicConnectionState*)context->user_connection->protocol_state;
-      if (quic_state->udp_handle) {
-        quic_state->udp_handle->data = context->user_connection;
-      }
-
-      // Update picoquic connection's callback context to point to user connection
-      // picoquic_set_callback is declared in picoquic.h
-      extern void picoquic_set_callback(void* cnx, void* callback_fn, void* callback_ctx);
-      extern int picoquic_callback(void* cnx, uint64_t stream_id, uint8_t* bytes,
-                                    size_t length, int fin_or_event,
-                                    void* callback_ctx, void* v_stream_ctx);
-      picoquic_set_callback(quic_state->picoquic_connection, picoquic_callback, context->user_connection);
-    } else {
-      // TCP/UDP: protocol_state is the uv handle directly
-      uv_handle_t* handle = (uv_handle_t*)context->user_connection->protocol_state;
-      handle->data = context->user_connection;
-    }
+  // Update protocol internal pointers to reference the user connection
+  // This is protocol-specific (TCP/UDP update handle->data, QUIC also updates picoquic callback context)
+  if (context->user_connection->protocol.retarget_protocol_connection) {
+    context->user_connection->protocol.retarget_protocol_connection(
+      connection,  // from_connection (whose protocol_state we're using)
+      context->user_connection  // to_connection (the new target for callbacks)
+    );
   }
 
   log_info("Number of received callbacks for user connection: %d", g_queue_get_length(context->user_connection->received_callbacks));

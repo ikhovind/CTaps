@@ -201,3 +201,12 @@ int udp_remote_endpoint_from_peer(uv_handle_t* peer, RemoteEndpoint* resolved_pe
   }
   return 0;
 }
+
+void udp_retarget_protocol_connection(Connection* from_connection, Connection* to_connection) {
+  // For UDP, protocol_state is the uv_udp_t handle directly
+  // Update the handle's data pointer to reference the new connection
+  if (from_connection->protocol_state) {
+    uv_handle_t* handle = (uv_handle_t*)from_connection->protocol_state;
+    handle->data = to_connection;
+  }
+}

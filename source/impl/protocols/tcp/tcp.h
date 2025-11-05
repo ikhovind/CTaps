@@ -13,6 +13,7 @@ int tcp_send(Connection* connection, Message* message, MessageContext*);
 int tcp_listen(struct SocketManager* socket_manager);
 int tcp_stop_listen(struct SocketManager* listener);
 int tcp_remote_endpoint_from_peer(uv_handle_t* peer, RemoteEndpoint* resolved_peer);
+void tcp_retarget_protocol_connection(Connection* from_connection, Connection* to_connection);
 
 static ProtocolImplementation tcp_protocol_interface = {
     .name = "TCP",
@@ -29,7 +30,8 @@ static ProtocolImplementation tcp_protocol_interface = {
     .close = tcp_close,
     .listen = tcp_listen,
     .stop_listen = tcp_stop_listen,
-    .remote_endpoint_from_peer = tcp_remote_endpoint_from_peer
+    .remote_endpoint_from_peer = tcp_remote_endpoint_from_peer,
+    .retarget_protocol_connection = tcp_retarget_protocol_connection
 };
 
 #endif //TCP_H

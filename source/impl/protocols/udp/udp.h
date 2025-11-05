@@ -14,6 +14,7 @@ int udp_send(Connection* connection, Message* message, MessageContext*);
 int udp_listen(struct SocketManager* socket_manager);
 int udp_stop_listen(struct SocketManager* socket_manager);
 int udp_remote_endpoint_from_peer(uv_handle_t* peer, RemoteEndpoint* resolved_peer);
+void udp_retarget_protocol_connection(Connection* from_connection, Connection* to_connection);
 
 
 static ProtocolImplementation udp_protocol_interface = {
@@ -30,7 +31,8 @@ static ProtocolImplementation udp_protocol_interface = {
     .close = udp_close,
     .listen = udp_listen,
     .stop_listen = udp_stop_listen,
-    .remote_endpoint_from_peer = udp_remote_endpoint_from_peer
+    .remote_endpoint_from_peer = udp_remote_endpoint_from_peer,
+    .retarget_protocol_connection = udp_retarget_protocol_connection
 };
 
 #endif  // UDP_H
