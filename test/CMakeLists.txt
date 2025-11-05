@@ -158,8 +158,13 @@ add_gtest(remote_endpoint_integration_test
 #add_gtest(udp_listener_test SOURCES source/integration/listener_test.cpp ${CTAPS_SOURCES})
 add_gtest(tcp_listener_test SOURCES source/integration/tcp/tcp_listen_test.cpp ${CTAPS_SOURCES})
 add_gtest(selection_property_test
-  SOURCES 
-    source/unit/transport_properties/selection_properties/selection_properties_test.cpp 
+  SOURCES
+    source/unit/transport_properties/selection_properties/selection_properties_test.cpp
+    ${CTAPS_SOURCES}
+)
+add_gtest(candidate_racing_test
+  SOURCES
+    source/integration/candidate_racing_test.cpp
     ${CTAPS_SOURCES}
 )
 

@@ -8,6 +8,9 @@
 #include "message/message.h"
 #include "message/message_context/message_context.h"
 
+//forward declaration of Connection
+struct Connection;
+
 // TODO - justify double message pointer
 typedef struct ReceiveCallbacks {
   int (*receive_callback)(struct Connection* connection, Message** received_message, MessageContext* ctx, void* user_data);
