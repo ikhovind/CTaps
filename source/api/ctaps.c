@@ -42,6 +42,7 @@ int ctaps_close() {
     free(ctaps_global_config.key_file_name);
   }
   log_info("Successfully closed CTaps");
+  return 0;
 }
 
 void ctaps_start_event_loop() {

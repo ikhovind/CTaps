@@ -40,5 +40,6 @@ int receive_message(Connection* connection,
                     ReceiveCallbacks receive_callbacks);
 void connection_build_multiplexed(Connection* connection, const struct Listener* listener, const RemoteEndpoint* remote_endpoint);
 Connection* connection_build_from_received_handle(const struct Listener* listener, uv_stream_t* received_handle);
+void connection_free(Connection* connection);
 void connection_close(Connection* connection);
 #endif  // CONNECTION_H

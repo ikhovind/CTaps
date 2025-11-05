@@ -88,3 +88,22 @@ Connection* connection_build_from_received_handle(const struct Listener* listene
 
   return connection;
 }
+
+void connection_free(Connection* connection) {
+  if (connection->received_callbacks) {
+    g_queue_free(connection->received_callbacks);
+  }
+  if (connection->received_messages) {
+    while (!g_queue_is_empty(connection->received_messages)) {
+      Message* msg = g_queue_pop_head(connection->received_messages);
+      if (msg) {
+        if (msg->content) {
+          free(msg->content);
+        }
+        free(msg);
+      }
+    }
+    g_queue_free(connection->received_messages);
+  }
+  free(connection);
+}
