@@ -17,6 +17,7 @@ int quic_send(Connection* connection, Message* message, MessageContext*);
 int quic_listen(struct SocketManager* socket_manager);
 int quic_stop_listen(struct SocketManager* listener);
 int quic_remote_endpoint_from_peer(uv_handle_t* peer, RemoteEndpoint* resolved_peer);
+void quic_retarget_protocol_connection(Connection* from_connection, Connection* to_connection);
 
 static ProtocolImplementation quic_protocol_interface = {
     .name = "QUIC",
@@ -35,7 +36,8 @@ static ProtocolImplementation quic_protocol_interface = {
     .close = quic_close,
     .listen = quic_listen,
     .stop_listen = quic_stop_listen,
-    .remote_endpoint_from_peer = quic_remote_endpoint_from_peer
+    .remote_endpoint_from_peer = quic_remote_endpoint_from_peer,
+    .retarget_protocol_connection = quic_retarget_protocol_connection
 };
 
 #endif //QUIC_H

@@ -663,3 +663,22 @@ int quic_stop_listen(SocketManager* socket_manager) {
 int quic_remote_endpoint_from_peer(uv_handle_t* peer, RemoteEndpoint* resolved_peer) {
   return -ENOSYS;
 }
+
+void quic_retarget_protocol_connection(Connection* from_connection, Connection* to_connection) {
+  // For QUIC, protocol_state is a QuicConnectionState that contains:
+  // - A UDP handle whose data pointer needs updating
+  // - A picoquic connection whose callback context needs updating
+  if (from_connection->protocol_state) {
+    QuicConnectionState* quic_state = (QuicConnectionState*)from_connection->protocol_state;
+
+    // Update the UDP handle's data pointer
+    if (quic_state->udp_handle) {
+      quic_state->udp_handle->data = to_connection;
+    }
+
+    // Update picoquic connection's callback context
+    if (quic_state->picoquic_connection) {
+      picoquic_set_callback(quic_state->picoquic_connection, picoquic_callback, to_connection);
+    }
+  }
+}
