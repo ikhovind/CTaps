@@ -112,19 +112,13 @@ static int start_connection_attempt(RacingContext* context, int attempt_index) {
   attempt->connection->received_callbacks = g_queue_new();
 
   // Setup wrapped callbacks that point back to this attempt
-  ConnectionCallbacks wrapped_callbacks = {
+  ConnectionCallbacks attempt_callbacks = {
     .ready = racing_on_attempt_ready,
     .establishment_error = on_attempt_establishment_error,
-    .connection_error = context->user_callbacks.connection_error,
-    .expired = context->user_callbacks.expired,
-    .path_change = context->user_callbacks.path_change,
-    .send_error = context->user_callbacks.send_error,
-    .sent = context->user_callbacks.sent,
-    .soft_error = context->user_callbacks.soft_error,
     .user_data = attempt,
   };
 
-  attempt->connection->connection_callbacks = wrapped_callbacks;
+  attempt->connection->connection_callbacks = attempt_callbacks;
   attempt->state = ATTEMPT_STATE_CONNECTING;
 
   // Initiate the connection using the protocol's init function

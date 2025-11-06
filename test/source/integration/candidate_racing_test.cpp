@@ -18,16 +18,6 @@ extern "C" {
 #define INVALID_TCP_PORT_1 5050
 #define INVALID_TCP_PORT_2 5051
 
-// Test context to track racing behavior
-typedef struct {
-  int attempts_started;
-  int attempts_succeeded;
-  int attempts_failed;
-  bool first_success_protocol_was_tcp;
-  std::chrono::time_point<std::chrono::steady_clock> first_attempt_time;
-  std::chrono::time_point<std::chrono::steady_clock> second_attempt_time;
-} RacingTestContext;
-
 extern "C" {
   // Callback that marks connection as successful
   int racing_test_on_ready(struct Connection* connection, void* udata) {
