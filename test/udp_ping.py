@@ -18,15 +18,18 @@ def run_udp_server():
         # Receive data from the client
         data, addr = sock.recvfrom(BUFFER_SIZE)
 
-        # Decode the received message
-        message = data.decode('utf-8')
-
-        print(f"Received message: '{message}' from {addr}")
+        # Try to decode for logging, but handle arbitrary bytes
+        try:
+            message_str = data.decode('utf-8')
+            print(f"Received message: '{message_str}' from {addr}")
+        except UnicodeDecodeError:
+            print(f"Received {len(data)} bytes (non-UTF-8 data) from {addr}")
 
         # Send a response back to the client
-        response_message = f"Pong: {message}"
-        sock.sendto(response_message.encode('utf-8'), addr)
-        print(f"Sent response: '{response_message}' to {addr}")
+        # Prepend "Pong: " as bytes to the received data
+        response_message = b"Pong: " + data
+        sock.sendto(response_message, addr)
+        print(f"Sent response with {len(response_message)} bytes to {addr}")
 
 if __name__ == "__main__":
     run_udp_server()
