@@ -1,9 +1,9 @@
 #ifndef TCP_H
 #define TCP_H
-#include <connections/connection/connection.h>
 
-#include "protocols/protocol_interface.h"
 #include "transport_properties/selection_properties/selection_properties.h"
+#include "protocols/protocol_interface.h"
+#include <connections/connection/connection.h>
 
 struct SocketManager;
 

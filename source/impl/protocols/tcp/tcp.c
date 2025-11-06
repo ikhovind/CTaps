@@ -109,6 +109,7 @@ int tcp_init(Connection* connection, const ConnectionCallbacks* connection_callb
 
   uint32_t keepalive_timeout = connection->transport_properties.connection_properties.list[KEEP_ALIVE_TIMEOUT].value.uint32_val;
   if (keepalive_timeout != CONN_TIMEOUT_DISABLED) {
+    log_info("Setting TCP keepalive with timeout: %u seconds", keepalive_timeout);
     rc = uv_tcp_keepalive(new_tcp_handle, true, keepalive_timeout);
     if (rc < 0) {
       log_warn("Error setting TCP keepalive: %s", uv_strerror(rc));
@@ -134,9 +135,23 @@ int tcp_init(Connection* connection, const ConnectionCallbacks* connection_callb
 
 int tcp_close(const Connection* connection) {
   log_info("Closing TCP connection");
-  if (connection->protocol_state) {
-    uv_close(connection->protocol_state, on_close);
+
+  if (connection->open_type == CONNECTION_OPEN_TYPE_MULTIPLEXED) {
+    log_info("Closing multiplexed TCP connection, removing from socket manager");
+    int rc = socket_manager_remove_connection(connection->socket_manager, (Connection*)connection);
+    if (rc < 0) {
+      log_error("Error removing TCP connection from socket manager: %d", rc);
+      return rc;
+    }
+  } else {
+    // Standalone connection - close the TCP handle
+    if (connection->protocol_state) {
+      uv_close(connection->protocol_state, on_close);
+    }
   }
+
+  ((Connection*)connection)->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSED;
+
   return 0;
 }
 

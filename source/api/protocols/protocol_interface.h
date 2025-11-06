@@ -1,8 +1,8 @@
 #ifndef PROTOCOL_INTERFACE_H
 #define PROTOCOL_INTERFACE_H
 
-#include <message/message_context/message_context.h>
 #include <connections/connection/connection_callbacks.h>
+#include <message/message_context/message_context.h>
 #include <sys/socket.h>
 #include <uv.h>
 

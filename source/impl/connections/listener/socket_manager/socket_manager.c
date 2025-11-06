@@ -45,7 +45,7 @@ int socket_manager_remove_connection(SocketManager* socket_manager, const Connec
   const gboolean removed = g_hash_table_remove(socket_manager->active_connections, addr_bytes);
   if (removed) {
     // Log before since decrementing might free the socket manager
-    log_info("Connection removed successfully, new socket manager ref count: %d", socket_manager->ref_count);
+    log_info("Connection removed successfully, decrementing socket manager reference count");
     socket_manager_decrement_ref(socket_manager);
     return 0;
   }

@@ -22,10 +22,7 @@
 #define MAX_FOUND_INTERFACE_ADDRS 64
 
 void alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
-  // We'll use a static buffer for this simple example, but in a real
-  // application, you would likely use malloc or a buffer pool.
-  static char slab[65536];
-  *buf = uv_buf_init(slab, sizeof(slab));
+  *buf = uv_buf_init(malloc(suggested_size), suggested_size);
 }
 
 void on_send(uv_udp_send_t* req, int status) {
@@ -33,6 +30,14 @@ void on_send(uv_udp_send_t* req, int status) {
     log_error("Send error: %s\n", uv_strerror(status));
   }
   if (req) {
+    // Free the buffer data that was allocated for the async send
+    if (req->data) {
+      uv_buf_t* buf = (uv_buf_t*)req->data;
+      if (buf->base) {
+        free(buf->base);
+      }
+      free(buf);
+    }
     free(req);  // Free the send request
   }
 }
@@ -49,22 +54,33 @@ void on_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
 
   if (addr == NULL) {
     // No more data to read, or an empty packet.
+    if (buf->base) {
+      free(buf->base);
+    }
     return;
   }
+
+  log_info("Received message over UDP handle");
 
   Message* received_message = malloc(sizeof(Message));
   if (!received_message) {
     log_error("Failed to allocate send request\n");
+    free(buf->base);
     return;
   }
   received_message->content = malloc(nread);
   if (!received_message->content) {
     log_error("Failed to allocate message content\n");
+    free(received_message);
+    free(buf->base);
     return;
   }
   received_message->length = nread;
 
   memcpy(received_message->content, buf->base, nread);
+
+  // Free the buffer allocated by alloc_buffer now that we've copied the data
+  free(buf->base);
 
   if (g_queue_is_empty(connection->received_callbacks)) {
     log_debug("No receive callback ready, queueing message");
@@ -94,8 +110,6 @@ int udp_init(Connection* connection, const ConnectionCallbacks* connection_callb
   new_udp_handle->data = connection;
 
   connection_callbacks->ready(connection, connection_callbacks->user_data);
-
-  log_trace("Successfully initiated UDP connection");
   return 0;
 }
 
@@ -104,8 +118,25 @@ void closed_handle_cb(uv_handle_t* handle) {
 }
 
 int udp_close(const Connection* connection) {
-  uv_udp_recv_stop((uv_udp_t*)connection->protocol_state);
-  uv_close(connection->protocol_state, closed_handle_cb);
+  log_info("Closing UDP connection");
+
+  if (connection->open_type == CONNECTION_OPEN_TYPE_MULTIPLEXED) {
+    log_info("Closing multiplexed UDP connection, removing from socket manager");
+    int rc = socket_manager_remove_connection(connection->socket_manager, (Connection*)connection);
+    if (rc < 0) {
+      log_error("Error removing UDP connection from socket manager: %d", rc);
+      return rc;
+    }
+  } else {
+    // Standalone connection - close the UDP handle
+    if (connection->protocol_state) {
+      uv_udp_recv_stop((uv_udp_t*)connection->protocol_state);
+      uv_close(connection->protocol_state, closed_handle_cb);
+    }
+  }
+
+  ((Connection*)connection)->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSED;
+
   return 0;
 }
 
@@ -121,19 +152,50 @@ int udp_stop_listen(struct SocketManager* socket_manager) {
 
 int udp_send(Connection* connection, Message* message, MessageContext* message_context) {
   log_debug("Sending message over UDP");
-  const uv_buf_t buffer =
-      uv_buf_init(message->content, message->length);
+
+  // Allocate buffer that will persist until the async send completes
+  uv_buf_t* ctx_buffer = malloc(sizeof(uv_buf_t));
+  if (!ctx_buffer) {
+    log_error("Failed to allocate buffer\n");
+    return -ENOMEM;
+  }
+
+  ctx_buffer->base = malloc(message->length);
+  if (!ctx_buffer->base) {
+    log_error("Failed to allocate buffer data\n");
+    free(ctx_buffer);
+    return -ENOMEM;
+  }
+
+  ctx_buffer->len = message->length;
+  memcpy(ctx_buffer->base, message->content, message->length);
 
   uv_udp_send_t* send_req = malloc(sizeof(uv_udp_send_t));
   if (!send_req) {
     log_error("Failed to allocate send request\n");
+    free(ctx_buffer->base);
+    free(ctx_buffer);
     return -ENOMEM;
   }
 
-  return uv_udp_send(
-      send_req, (uv_udp_t*)connection->protocol_state, &buffer, 1,
+  // Store the buffer in send_req->data so we can free it in the callback
+  send_req->data = ctx_buffer;
+
+  log_trace("Sending udp message with content: %.*s", (int)message->length, message->content);
+
+  int rc = uv_udp_send(
+      send_req, (uv_udp_t*)connection->protocol_state, ctx_buffer, 1,
       (const struct sockaddr*)&connection->remote_endpoint.data.resolved_address,
       on_send);
+
+  if (rc < 0) {
+    log_error("Error sending UDP message: %s", uv_strerror(rc));
+    free(ctx_buffer->base);
+    free(ctx_buffer);
+    free(send_req);
+  }
+
+  return rc;
 }
 
 void socket_listen_callback(uv_udp_t* handle,
@@ -144,23 +206,38 @@ void socket_listen_callback(uv_udp_t* handle,
   if (nread == 0 && addr == NULL) {
     // No more data to read, or an empty packet.
     log_info("Socket listen callback invoked, but nothing to read from udp socket or empty packet");
+    if (buf->base) {
+      free(buf->base);
+    }
     return;
   }
+
+  if (nread < 0) {
+    log_error("Read error in socket_listen_callback: %s\n", uv_strerror(nread));
+    free(buf->base);
+    return;
+  }
+
   SocketManager *socket_manager = (SocketManager*)handle->data;
 
   Message* received_message = malloc(sizeof(Message));
   if (!received_message) {
+    free(buf->base);
     return;
   }
   received_message->content = malloc(nread);
   if (!received_message->content) {
     free(received_message);
+    free(buf->base);
     log_error("Could not allocate memory for received message content");
     return;
   }
   received_message->length = nread;
 
   memcpy(received_message->content, buf->base, nread);
+
+  // Free the buffer allocated by alloc_buffer now that we've copied the data
+  free(buf->base);
 
   socket_manager_multiplex_received_message(socket_manager, received_message, (struct sockaddr_storage*)addr);
 }
