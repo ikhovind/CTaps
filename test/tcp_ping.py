@@ -29,14 +29,18 @@ def run_tcp_server():
                 if not data:
                     break
 
-                # Decode the received message
-                message = data.decode('utf-8')
-                print(f"Received message: '{message}' from {addr}")
+                # Try to decode for logging, but handle arbitrary bytes
+                try:
+                    message_str = data.decode('utf-8')
+                    print(f"Received message: '{message_str}' from {addr}")
+                except UnicodeDecodeError:
+                    print(f"Received {len(data)} bytes (non-UTF-8 data) from {addr}")
 
                 # Send a response back to the client
-                response_message = f"Pong: {message}"
-                conn.send(response_message.encode('utf-8'))
-                print(f"Sent response: '{response_message}' to {addr}")
+                # Prepend "Pong: " as bytes to the received data
+                response_message = b"Pong: " + data
+                conn.send(response_message)
+                print(f"Sent response with {len(response_message)} bytes to {addr}")
         finally:
             # Clean up the connection
             conn.close()
