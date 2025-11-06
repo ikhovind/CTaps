@@ -111,16 +111,21 @@ void free_local_endpoint(LocalEndpoint* local_endpoint) {
   free(local_endpoint);
 }
 
-LocalEndpoint* local_endpoint_copy(const LocalEndpoint* local_endpoint) {
-  LocalEndpoint* res = malloc(sizeof(LocalEndpoint));
-  memcpy(res, local_endpoint, sizeof(LocalEndpoint));
+LocalEndpoint local_endpoint_copy_content(const LocalEndpoint* local_endpoint) {
+  LocalEndpoint res = {0};
+  res = *local_endpoint;
 
   if (local_endpoint->interface_name) {
-    res->interface_name = strdup(local_endpoint->interface_name);
+    res.interface_name = strdup(local_endpoint->interface_name);
   }
   if (local_endpoint->service) {
-    res->service = strdup(local_endpoint->service);
+    res.service = strdup(local_endpoint->service);
   }
+  return res;
+}
 
+LocalEndpoint* local_endpoint_copy(const LocalEndpoint* local_endpoint) {
+  LocalEndpoint* res = malloc(sizeof(LocalEndpoint));
+  *res = local_endpoint_copy_content(local_endpoint);
   return res;
 }

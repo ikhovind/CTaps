@@ -191,7 +191,7 @@ int racing_on_attempt_ready(Connection* connection, void* udata) {
 
   Connection* user_connection = context->user_connection;
 
-  log_debug("Freeing racing context after having found successfull candidate");
+  log_debug("Freeing racing context after having found successful candidate");
   racing_context_free(context);
 
   // Call the user's ready callback with the winning connection
@@ -236,7 +236,7 @@ static int on_attempt_establishment_error(Connection* connection, void* udata) {
       failed_count++;
     }
     else { // There's at least one attempt still pending or connecting
-      return 0; 
+      return 0;
     }
   }
 
@@ -254,10 +254,9 @@ static int on_attempt_establishment_error(Connection* connection, void* udata) {
     log_debug("Setting user connection state to CLOSED after all attempts failed");
     context->user_connection->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSED;
 
-    // Call the user's establishment_error callback
     if (context->user_callbacks.establishment_error) {
       rc = context->user_callbacks.establishment_error(context->user_connection,
-                                                          context->user_callbacks.user_data);
+                                                       context->user_callbacks.user_data);
     }
     log_debug("Freeing race context from failure callback");
     racing_context_free(context);
@@ -370,8 +369,8 @@ int preconnection_initiate_with_racing(Preconnection* preconnection,
 
     // Set protocol and endpoints from the candidate
     user_connection->protocol = *first_node.protocol;
-    user_connection->remote_endpoint = *first_node.remote_endpoint;
-    user_connection->local_endpoint = *first_node.local_endpoint;
+    user_connection->remote_endpoint = remote_endpoint_copy_content(first_node.remote_endpoint);
+    user_connection->local_endpoint = local_endpoint_copy_content(first_node.local_endpoint);
     user_connection->connection_callbacks = connection_callbacks;
 
     int rc = user_connection->protocol.init(user_connection, &user_connection->connection_callbacks);

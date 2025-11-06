@@ -28,6 +28,7 @@ int receive_message(Connection* connection,
   log_info("User attempting to receive message on connection: %p", connection);
   if (!connection->received_messages || !connection->received_callbacks) {
     log_error("Connection queues not initialized for receiving messages");
+    return -EIO;
   }
 
   if (!g_queue_is_empty(connection->received_messages)) {
