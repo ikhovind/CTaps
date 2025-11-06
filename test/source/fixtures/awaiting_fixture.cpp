@@ -168,13 +168,15 @@ protected:
         CallbackContext* ctx = static_cast<CallbackContext*>(user_data);
         ctx->messages->push_back(*received_message);
 
+        log_info("Sending pong response from respond_on_message_received2.");
         Message message;
         message_build_with_content(&message, "pong", strlen("pong") + 1);
         send_message(connection, &message);
 
         message_free_content(&message);
 
-        connection_close(connection);
+        // Don't close the server connection - let the client close after receiving response
+        // This ensures queued QUIC data is transmitted before close
 
         return 0;
     }
