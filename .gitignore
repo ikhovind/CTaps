@@ -28,3 +28,4 @@ Testing/
 *.tmp
 .cache/
 .ropeproject/
+compile_commands.json
