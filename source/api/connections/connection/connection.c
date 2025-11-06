@@ -64,20 +64,13 @@ void connection_build_multiplexed(Connection* connection, const Listener* listen
 void connection_close(Connection* connection) {
   int rc;
   log_info("Closing connection: %p", (void*)connection);
-  if (connection->open_type == CONNECTION_OPEN_TYPE_MULTIPLEXED) {
-    log_info("Closing Connection relying on socket manager, removing from socket manager\n");
-    rc = socket_manager_remove_connection(connection->socket_manager, connection);
-    if (rc < 0) {
-      log_error("Error removing connection from socket manager: %d", rc);
-    }
-  }
-  else {
-    log_info("Closing standalone connection");
-    rc = connection->protocol.close(connection);
-    if (rc < 0) {
-      log_error("Error closing connection: %d", rc);
-    }
-    connection->transport_properties.connection_properties.list[STATE].value.uint32_val = CONN_STATE_CLOSED;
+
+  // Always let the protocol handle the close logic
+  // For protocols like QUIC, this will initiate close handshake
+  // The protocol is responsible for cleaning up (removing from socket manager, etc.)
+  rc = connection->protocol.close(connection);
+  if (rc < 0) {
+    log_error("Error closing connection: %d", rc);
   }
 }
 

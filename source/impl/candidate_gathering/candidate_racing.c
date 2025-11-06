@@ -14,6 +14,10 @@ static int on_attempt_establishment_error(Connection* connection, void* udata);
 static void cancel_all_other_attempts(RacingContext* context, int winning_index);
 static int start_connection_attempt(RacingContext* context, int attempt_index);
 
+static void on_handle_close(uv_handle_t* handle) {
+  free(handle);
+}
+
 /**
  * @brief Creates a new racing context from candidate nodes.
  */
@@ -117,7 +121,7 @@ static int start_connection_attempt(RacingContext* context, int attempt_index) {
     .send_error = context->user_callbacks.send_error,
     .sent = context->user_callbacks.sent,
     .soft_error = context->user_callbacks.soft_error,
-    .user_data = attempt,  // Pass the attempt as user_data
+    .user_data = attempt,
   };
 
   attempt->connection->connection_callbacks = wrapped_callbacks;
@@ -166,14 +170,14 @@ int racing_on_attempt_ready(Connection* connection, void* udata) {
   // Preserve the user connection's queues (may contain early receive_message() calls)
   GQueue* saved_messages = context->user_connection->received_messages;
   GQueue* saved_callbacks = context->user_connection->received_callbacks;
-  log_info("Number of received callbacks being saved by memcpy: %d", g_queue_get_length(context->user_connection->received_callbacks));
-  log_info("Number of received callbacks being discarded by memcpy: %d", g_queue_get_length(connection->received_callbacks));
-  log_info("Pointer being discarded by memcpy: %p", (void*)connection->received_callbacks);
-  log_info("Pointer being saved by memcpy: %p", (void*)context->user_connection->received_callbacks);
+
+  ConnectionCallbacks saved_callbacks_struct = context->user_connection->connection_callbacks;
 
   memcpy(context->user_connection, connection, sizeof(Connection));
 
-  // Restore the original queues
+  // Restore the user connection's original callbacks, 'connection' has the wrapped ones
+  context->user_connection->connection_callbacks = saved_callbacks_struct;
+
   context->user_connection->received_messages = saved_messages;
   context->user_connection->received_callbacks = saved_callbacks;
 
@@ -185,16 +189,25 @@ int racing_on_attempt_ready(Connection* connection, void* udata) {
       context->user_connection  // to_connection (the new target for callbacks)
     );
   }
+  else {
+    log_warn("Retargeting function not implemented for protocol: %s,"
+             " this may lead to callbacks not having the correct context",
+             context->user_connection->protocol.name);
+  }
 
-  log_info("Number of received callbacks for user connection: %d", g_queue_get_length(context->user_connection->received_callbacks));
+  Connection* user_connection = context->user_connection;
 
+  log_debug("Freeing racing context after having found successfull candidate");
+  racing_context_free(context);
 
   // Call the user's ready callback with the winning connection
-  if (context->user_callbacks.ready) {
-    // Restore the user's callback data
-    context->user_connection->connection_callbacks = context->user_callbacks;
-    return context->user_callbacks.ready(context->user_connection,
-                                         context->user_callbacks.user_data);
+  if (user_connection->connection_callbacks.ready) {
+    log_info("Notifying user of successful connection via ready callback");
+    return user_connection->connection_callbacks.ready(user_connection,
+                                                       user_connection->connection_callbacks.user_data);
+  }
+  else {
+    log_warn("User connection ready callback is NULL, cannot notify of successful connection");
   }
 
   return 0;
@@ -225,11 +238,15 @@ static int on_attempt_establishment_error(Connection* connection, void* udata) {
   // Check if all attempts have failed
   size_t failed_count = 0;
   for (size_t i = 0; i < context->num_attempts; i++) {
-    if (context->attempts[i].state == ATTEMPT_STATE_FAILED) {
+    if (context->attempts[i].state >= ATTEMPT_STATE_FAILED) {
       failed_count++;
+    }
+    else { // There's at least one attempt still pending or connecting
+      return 0; 
     }
   }
 
+  int rc = 0;
   if (failed_count == context->num_attempts) {
     log_error("All connection attempts failed");
     context->race_complete = true;
@@ -245,12 +262,14 @@ static int on_attempt_establishment_error(Connection* connection, void* udata) {
 
     // Call the user's establishment_error callback
     if (context->user_callbacks.establishment_error) {
-      return context->user_callbacks.establishment_error(context->user_connection,
+      rc = context->user_callbacks.establishment_error(context->user_connection,
                                                           context->user_callbacks.user_data);
     }
+    log_debug("Freeing race context from failure callback");
+    racing_context_free(context);
   }
 
-  return 0;
+  return rc;
 }
 
 /**
@@ -335,7 +354,7 @@ int preconnection_initiate_with_racing(Preconnection* preconnection,
                                        ConnectionCallbacks connection_callbacks) {
   // Initialize user connection immediately so it's usable (e.g., for early receive_message() calls)
   log_trace("About to build user connection from preconnection");
-  preconnection_build_user_connection(user_connection, preconnection);
+  preconnection_build_user_connection(user_connection, preconnection, connection_callbacks);
 
   // Get ordered candidate nodes
   GArray* candidate_nodes = get_ordered_candidate_nodes(preconnection);
@@ -366,6 +385,8 @@ int preconnection_initiate_with_racing(Preconnection* preconnection,
     return rc;
   }
 
+  log_info("User connection ready pointer before creating context: %p",
+           user_connection->connection_callbacks.ready);
   RacingContext* context = racing_context_create(candidate_nodes, user_connection,
                                                  connection_callbacks, preconnection);
   if (context == NULL) {
@@ -391,6 +412,8 @@ int preconnection_initiate_with_racing(Preconnection* preconnection,
 
 /**
  * @brief Frees a racing context and all associated resources.
+ *
+ * Does not free the user connection
  */
 void racing_context_free(RacingContext* context) {
   if (context == NULL) {
@@ -402,8 +425,7 @@ void racing_context_free(RacingContext* context) {
   // Stop and free timer
   if (context->stagger_timer != NULL) {
     uv_timer_stop(context->stagger_timer);
-    uv_close((uv_handle_t*)context->stagger_timer, NULL);
-    free(context->stagger_timer);
+    uv_close((uv_handle_t*)context->stagger_timer, on_handle_close);
   }
 
   // Free all connection attempts

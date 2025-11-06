@@ -55,7 +55,7 @@ void preconnection_initiate_with_timeout(Preconnection* preconnection,
                                          Connection* connection,
                                          int timeout_ms);
 
-void preconnection_build_user_connection(Connection* connection, const Preconnection* preconnection);
+void preconnection_build_user_connection(Connection* connection, const Preconnection* preconnection, ConnectionCallbacks connection_callbacks);
 
 
 #endif  // PRECONNECTION_H

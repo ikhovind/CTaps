@@ -118,7 +118,7 @@ void preconnection_free(Preconnection* preconnection) {
   free_local_endpoint_strings(&preconnection->local);
 }
 
-void preconnection_build_user_connection(Connection* connection, const Preconnection* preconnection) {
+void preconnection_build_user_connection(Connection* connection, const Preconnection* preconnection, ConnectionCallbacks connection_callbacks) {
   log_debug("Building user connection from preconnection");
   memset(connection, 0, sizeof(Connection));
 
@@ -141,4 +141,7 @@ void preconnection_build_user_connection(Connection* connection, const Preconnec
   connection->security_parameters = preconnection->security_parameters;
   connection->socket_manager = NULL;
   connection->protocol_state = NULL;
+
+  log_debug("Setting user connection callbacks");
+  connection->connection_callbacks = connection_callbacks;
 }
