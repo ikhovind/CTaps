@@ -61,7 +61,7 @@ struct RacingContext {
 /**
  * @brief Initiates connection with candidate racing.
  *
- * This function implements staggered racing as described in RFC9623.
+ * This function implements staggered racing as described in RFC 9623.
  * It starts connection attempts with delays, and when one succeeds,
  * cancels all other attempts.
  *

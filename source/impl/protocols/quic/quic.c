@@ -236,7 +236,7 @@ int picoquic_callback(picoquic_cnx_t* cnx,
         if (msg->content) {
           memcpy(msg->content, bytes, length);
           msg->length = length;
-          log_info("checking if receive callback queue: %p is empty", (void*)connection->received_callbacks);
+          log_info("Checking if receive callback queue: %p is empty", (void*)connection->received_callbacks);
           if (g_queue_is_empty(connection->received_callbacks)) {
             log_debug("No receive callback ready, queueing message");
             g_queue_push_tail(connection->received_messages, msg);

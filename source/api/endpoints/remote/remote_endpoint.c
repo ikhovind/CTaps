@@ -158,14 +158,20 @@ void free_remote_endpoint(RemoteEndpoint* remote_endpoint) {
   free(remote_endpoint);
 }
 
-RemoteEndpoint* remote_endpoint_copy(const RemoteEndpoint* remote_endpoint) {
-  RemoteEndpoint* res = malloc(sizeof(RemoteEndpoint));
-  memcpy(res, remote_endpoint, sizeof(RemoteEndpoint));
+RemoteEndpoint remote_endpoint_copy_content(const RemoteEndpoint* remote_endpoint) {
+  RemoteEndpoint res = {0};
+  res = *remote_endpoint;
   if (remote_endpoint->hostname) {
-    res->hostname = strdup(remote_endpoint->hostname);
+    res.hostname = strdup(remote_endpoint->hostname);
   }
   if (remote_endpoint->service) {
-    res->service = strdup(remote_endpoint->service);
+    res.service = strdup(remote_endpoint->service);
   }
+  return res;
+}
+
+RemoteEndpoint* remote_endpoint_copy(const RemoteEndpoint* remote_endpoint) {
+  RemoteEndpoint* res = malloc(sizeof(RemoteEndpoint));
+  *res = remote_endpoint_copy_content(remote_endpoint);
   return res;
 }

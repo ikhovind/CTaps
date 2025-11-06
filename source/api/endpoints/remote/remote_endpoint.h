@@ -41,4 +41,6 @@ void free_remote_endpoint_strings(RemoteEndpoint* remote_endpoint);
 
 RemoteEndpoint* remote_endpoint_copy(const RemoteEndpoint* remote_endpoint);
 
+RemoteEndpoint remote_endpoint_copy_content(const RemoteEndpoint* remote_endpoint);
+
 #endif  // LOCAL_ENDPOINT_H
