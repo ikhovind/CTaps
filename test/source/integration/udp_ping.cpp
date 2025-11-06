@@ -8,218 +8,253 @@ extern "C" {
 #include "endpoints/remote/remote_endpoint.h"
 #include "transport_properties/transport_properties.h"
 #include "util/util.h"
-#include "fixtures/awaiting_fixture.cpp"
+#include <logging/log.h>
 }
 
-#include <mutex>
-#include <condition_variable>
+#define UDP_PING_PORT 5005
 
-TEST_F(CTapsGenericFixture, sendsSingleUdpPacket) {
-    // --- Setup ---
-    RemoteEndpoint remote_endpoint;
-    remote_endpoint_build(&remote_endpoint);
-    remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
-    remote_endpoint_with_port(&remote_endpoint, 5005);
-
-    TransportProperties transport_properties;
-
-    transport_properties_build(&transport_properties);
-
-    tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PROHIBIT);
-    tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
-
-    Preconnection preconnection;
-    preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
-    Connection connection;
-
-    auto cleanup_logic = [&](CallbackContext* ctx) {
-        printf("Cleanup: Closing connection.\n");
-        connection_close(&connection);
-    };
-    std::function closing_func = cleanup_logic;
-
-    CallbackContext callback_context = {
-        .awaiter = &awaiter,
-        .messages = &received_messages,
-        .closing_function = &closing_func,
-        .total_expected_signals = 2
-    };
-
-    ConnectionCallbacks connection_callbacks = {
-        .ready = on_connection_ready,
-        .user_data = &callback_context
-    };
-
-    preconnection_initiate(&preconnection, &connection, connection_callbacks);
-
-    // "Await" the connection to be ready (1 signal expected)
-    awaiter.await(1);
-    ASSERT_EQ(awaiter.get_signal_count(), 1);
-
+extern "C" {
+  int udp_send_message_on_connection_ready(struct Connection* connection, void* udata) {
+    log_info("Connection is ready, sending message");
     // --- Action ---
     Message message;
+
     message_build_with_content(&message, "hello world", strlen("hello world") + 1);
-    send_message(&connection, &message);
+    int rc = send_message(connection, &message);
+    EXPECT_EQ(rc, 0);
+
     message_free_content(&message);
 
-    ReceiveCallbacks receive_req = { .receive_callback = on_message_received, .user_data = &callback_context };
-    receive_message(&connection, receive_req);
+    return 0;
+  }
 
-    ctaps_start_event_loop();
+  int udp_on_establishment_error(struct Connection* connection, void* udata) {
+    log_error("Connection error occurred");
+    bool* connection_succeeded = (bool*)udata;
+    *connection_succeeded = false;
+    return 0;
+  }
 
-    // "Await" the receive callback (total signals now expected: 2)
-    awaiter.await(2);
-    ASSERT_EQ(awaiter.get_signal_count(), 2);
+  int udp_on_msg_received(struct Connection* connection, Message** received_message, MessageContext* ctx, void* user_data) {
+    log_info("Message received");
+    // set user data to received message
+    Message** output_addr = (Message**)user_data;
+    *output_addr = *received_message;
 
-    // --- Assertions ---
-    ASSERT_EQ(received_messages.size(), 1);
-    EXPECT_STREQ(received_messages[0]->content, "Pong: hello world");
+    connection_close(connection);
+    return 0;
+  }
 }
 
+TEST(UdpGenericTests, sendsSingleUdpPacket) {
+  log_info("Starting test: sendsSingleUdpPacket");
+  // --- Setup ---
+  ctaps_initialize(NULL,NULL);
+  RemoteEndpoint remote_endpoint;
+  remote_endpoint_build(&remote_endpoint);
+  remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
+  remote_endpoint_with_port(&remote_endpoint, UDP_PING_PORT);
 
-TEST_F(CTapsGenericFixture, packetsAreReadInOrder) {
-    const size_t TOTAL_EXPECTED_SIGNALS = 3; // 1 ready + 2 receives
+  TransportProperties transport_properties;
 
-    RemoteEndpoint remote_endpoint;
-    remote_endpoint_build(&remote_endpoint);
+  transport_properties_build(&transport_properties);
 
-    remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
-    remote_endpoint_with_port(&remote_endpoint, 5005);
+  tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PROHIBIT);
+  tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
 
-    TransportProperties transport_properties;
+  Preconnection preconnection;
+  preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
+  Connection connection;
 
-    transport_properties_build(&transport_properties);
+  ConnectionCallbacks connection_callbacks = {
+    .establishment_error = udp_on_establishment_error,
+    .ready = udp_send_message_on_connection_ready,
+    .user_data = NULL,
+  };
 
-    tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PROHIBIT);
-    tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
+  int rc = preconnection_initiate(&preconnection, &connection, connection_callbacks);
 
-    Preconnection preconnection;
-    preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
+  ASSERT_EQ(rc, 0);
 
-    Connection connection;
+  Message* msg_received = nullptr;
 
+  ReceiveCallbacks receive_req = { .receive_callback = udp_on_msg_received, .user_data = &msg_received };
 
-    auto cleanup_logic = [&](CallbackContext* ctx) {
-        printf("Cleanup: Closing connection.\n");
-        connection_close(&connection);
-    };
-    std::function cleanup_func = cleanup_logic;
+  rc = receive_message(&connection, receive_req);
 
-    CallbackContext callback_context = {
-        .awaiter = &awaiter,
-        .messages = &received_messages,
-        .closing_function = &cleanup_func,
-        .total_expected_signals = TOTAL_EXPECTED_SIGNALS
-    };
+  ASSERT_EQ(rc, 0);
 
-    ConnectionCallbacks connection_callbacks = {
-        .ready = on_connection_ready,
-        .user_data = &callback_context
-    };
+  ctaps_start_event_loop();
 
-    preconnection_initiate(&preconnection, &connection, connection_callbacks);
-    awaiter.await(1);
+  // assert state of connection is closed
+  ASSERT_EQ(connection.transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
+  ASSERT_NE(msg_received, nullptr);
+  ASSERT_STREQ((const char*)msg_received->content, "Pong: hello world");
+  message_free_content(msg_received);
+}
 
-    // --- Action ---
-    // ... build and send message1 and message2 ...
-    char* hello1 = "hello 1";
+// Context for tests that need to track multiple messages
+struct UdpTestContext {
+  std::vector<Message*> messages;
+  size_t expected_count;
+};
+
+extern "C" {
+  int udp_send_two_messages_on_ready(struct Connection* connection, void* udata) {
+    log_info("Connection is ready, sending two messages");
+
     Message message1;
+    char* hello1 = "hello 1";
     message_build_with_content(&message1, hello1, strlen(hello1) + 1);
-    send_message(&connection, &message1);
+    int rc = send_message(connection, &message1);
+    EXPECT_EQ(rc, 0);
+    message_free_content(&message1);
 
-    char* hello2 = "hello 2";
     Message message2;
+    char* hello2 = "hello 2";
     message_build_with_content(&message2, hello2, strlen(hello2) + 1);
-    send_message(&connection, &message2);
+    rc = send_message(connection, &message2);
+    EXPECT_EQ(rc, 0);
+    message_free_content(&message2);
 
-    ReceiveCallbacks receive_req = { .receive_callback = on_message_received, .user_data = &callback_context };
+    return 0;
+  }
 
-    // Post two receive requests
-    receive_message(&connection, receive_req);
-    receive_message(&connection, receive_req);
+  int udp_on_msg_received_multiple(struct Connection* connection, Message** received_message, MessageContext* ctx, void* user_data) {
+    log_info("Message received (multiple test)");
+    UdpTestContext* test_ctx = (UdpTestContext*)user_data;
 
-    // --- Run Event Loop ---
-    ctaps_start_event_loop();
+    test_ctx->messages.push_back(*received_message);
 
-    // --- Assertions ---
-    ASSERT_EQ(awaiter.get_signal_count(), TOTAL_EXPECTED_SIGNALS);
-    ASSERT_EQ(received_messages.size(), 2);
-    EXPECT_STREQ(received_messages[0]->content, "Pong: hello 1");
-    EXPECT_STREQ(received_messages[1]->content, "Pong: hello 2");
+    log_info("We have now received %d out of %d expected messages", test_ctx->messages.size(), test_ctx->expected_count);
+    // Close connection when we've received all expected messages
+    if (test_ctx->messages.size() >= test_ctx->expected_count) {
+      log_info("Received all expected messages, closing connection");
+      connection_close(connection);
+    }
+
+    return 0;
+  }
 }
 
-TEST_F(CTapsGenericFixture, canPingArbitraryBytes) {
-    // Total signals: 1 for the connection being ready, 1 for the message being received.
-    const size_t TOTAL_EXPECTED_SIGNALS = 2;
+TEST(UdpGenericTests, packetsAreReadInOrder) {
+  log_info("Starting test: packetsAreReadInOrder");
+  // --- Setup ---
+  ctaps_initialize(NULL,NULL);
+  RemoteEndpoint remote_endpoint;
+  remote_endpoint_build(&remote_endpoint);
+  remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
+  remote_endpoint_with_port(&remote_endpoint, UDP_PING_PORT);
 
-    RemoteEndpoint remote_endpoint;
-    remote_endpoint_build(&remote_endpoint);
+  TransportProperties transport_properties;
 
-    remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
-    remote_endpoint_with_port(&remote_endpoint, 5005);
+  transport_properties_build(&transport_properties);
 
-    TransportProperties transport_properties;
+  tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PROHIBIT);
+  tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
 
-    transport_properties_build(&transport_properties);
+  Preconnection preconnection;
+  preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
+  Connection connection;
 
-    tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PROHIBIT);
-    tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
+  UdpTestContext test_ctx;
+  test_ctx.expected_count = 2;
 
-    Preconnection preconnection;
-    preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
+  ConnectionCallbacks connection_callbacks = {
+    .establishment_error = udp_on_establishment_error,
+    .ready = udp_send_two_messages_on_ready,
+    .user_data = &test_ctx,
+  };
 
-    Connection connection;
+  int rc = preconnection_initiate(&preconnection, &connection, connection_callbacks);
 
+  ASSERT_EQ(rc, 0);
 
-    auto cleanup_logic = [&](CallbackContext* ctx) {
-        printf("Cleanup: Closing connection.\n");
-        connection_close(&connection);
-    };
-    std::function closing_func = cleanup_logic;
+  // Post two receive requests
+  ReceiveCallbacks receive_req = { .receive_callback = udp_on_msg_received_multiple, .user_data = &test_ctx };
+  rc = receive_message(&connection, receive_req);
+  ASSERT_EQ(rc, 0);
 
-    CallbackContext callback_context = {
-        .awaiter = &awaiter,
-        .messages = &received_messages,
-        .closing_function = &closing_func,
-        .total_expected_signals = TOTAL_EXPECTED_SIGNALS
-    };
+  rc = receive_message(&connection, receive_req);
+  ASSERT_EQ(rc, 0);
 
-    ConnectionCallbacks connection_callbacks = {
-        .ready = on_connection_ready,
-        .user_data = &callback_context
-    };
+  ctaps_start_event_loop();
 
-    preconnection_initiate(&preconnection, &connection, connection_callbacks);
+  // --- Assertions ---
+  ASSERT_EQ(connection.transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
+  ASSERT_EQ(test_ctx.messages.size(), 2);
+  EXPECT_STREQ((const char*)test_ctx.messages[0]->content, "Pong: hello 1");
+  EXPECT_STREQ((const char*)test_ctx.messages[1]->content, "Pong: hello 2");
 
-    // "Await" the connection to be ready before we send anything.
-    awaiter.await(1);
-    ASSERT_EQ(awaiter.get_signal_count(), 1) << "Test timed out waiting for connection to be ready.";
+  // Clean up messages
+  for (Message* msg : test_ctx.messages) {
+    message_free_content(msg);
+  }
+}
 
-    // --- Action ---
+extern "C" {
+  int udp_send_bytes_on_ready(struct Connection* connection, void* udata) {
+    log_info("Connection is ready, sending arbitrary bytes");
+
     Message message;
     char bytes_to_send[] = {0, 1, 2, 3, 4, 5};
     message_build_with_content(&message, bytes_to_send, sizeof(bytes_to_send));
 
-    send_message(&connection, &message);
+    int rc = send_message(connection, &message);
+    EXPECT_EQ(rc, 0);
     message_free_content(&message);
 
-    ReceiveCallbacks receive_req = {
-        .receive_callback = on_message_received,
-        .user_data = &callback_context
-    };
+    return 0;
+  }
+}
 
-    // Post the receive request
-    receive_message(&connection, receive_req);
+TEST(UdpGenericTests, canPingArbitraryBytes) {
+  log_info("Starting test: canPingArbitraryBytes");
+  // --- Setup ---
+  ctaps_initialize(NULL,NULL);
+  RemoteEndpoint remote_endpoint;
+  remote_endpoint_build(&remote_endpoint);
+  remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
+  remote_endpoint_with_port(&remote_endpoint, UDP_PING_PORT);
 
-    // --- Run Event Loop ---
-    // This blocks until the on_message_received callback closes the connection.
-    ctaps_start_event_loop();
+  TransportProperties transport_properties;
 
-    // --- Assertions ---
-    ASSERT_EQ(awaiter.get_signal_count(), TOTAL_EXPECTED_SIGNALS) << "Test timed out waiting for message.";
-    ASSERT_EQ(received_messages.size(), 1);
+  transport_properties_build(&transport_properties);
 
-    char expected_output[] = {'P', 'o', 'n', 'g', ':', ' ', 0, 1, 2, 3, 4, 5};
-    ASSERT_EQ(received_messages[0]->length, sizeof(expected_output));
-    EXPECT_EQ(memcmp(expected_output, received_messages[0]->content, sizeof(expected_output)), 0);
+  tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PROHIBIT);
+  tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
+
+  Preconnection preconnection;
+  preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
+  Connection connection;
+
+  ConnectionCallbacks connection_callbacks = {
+    .establishment_error = udp_on_establishment_error,
+    .ready = udp_send_bytes_on_ready,
+    .user_data = NULL,
+  };
+
+  int rc = preconnection_initiate(&preconnection, &connection, connection_callbacks);
+
+  ASSERT_EQ(rc, 0);
+
+  Message* msg_received = nullptr;
+
+  ReceiveCallbacks receive_req = { .receive_callback = udp_on_msg_received, .user_data = &msg_received };
+
+  rc = receive_message(&connection, receive_req);
+
+  ASSERT_EQ(rc, 0);
+
+  ctaps_start_event_loop();
+
+  // --- Assertions ---
+  ASSERT_EQ(connection.transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
+  ASSERT_NE(msg_received, nullptr);
+
+  char expected_output[] = {'P', 'o', 'n', 'g', ':', ' ', 0, 1, 2, 3, 4, 5};
+  ASSERT_EQ(msg_received->length, sizeof(expected_output));
+  EXPECT_EQ(memcmp(expected_output, msg_received->content, sizeof(expected_output)), 0);
+
+  message_free_content(msg_received);
 }
