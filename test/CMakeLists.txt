@@ -2,6 +2,7 @@ project(CTapsTests)
 
 
 enable_testing()
+include(GoogleTest)
 include(FetchContent)
 FetchContent_Declare(
   googletest
@@ -86,7 +87,7 @@ function(add_gtest test_name)
             "${picotls_SOURCE_DIR}/include"
     )
 
-   add_test(NAME ${test_name} COMMAND ${test_name})
+   gtest_discover_tests(${test_name})
 endfunction()
 
 set(CTAPS_SOURCES
@@ -104,9 +105,8 @@ add_gtest(
         SOURCES
             source/integration/quic/quic_ping_test.cpp
             ${CTAPS_SOURCES}
-        ASAN_ENABLED
 )
-add_gtest(quic_listener_test SOURCES source/integration/quic/quic_listen_test.cpp ${CTAPS_SOURCES} ASAN_ENABLED)
+add_gtest(quic_listener_test SOURCES source/integration/quic/quic_listen_test.cpp ${CTAPS_SOURCES})
 add_gtest(initiation_test SOURCES source/preconnection/initiation.cpp ${CTAPS_SOURCES} source/util/util.c)
 add_gtest(remote_endpoint_unit_test SOURCES source/unit/endpoint/remote.cpp ${CTAPS_SOURCES})
 add_gtest(preconnection_unit_test SOURCES source/unit/connections/preconnection.cpp ${CTAPS_SOURCES})
@@ -120,7 +120,6 @@ add_gtest(candidate_gathering_test
             remote_endpoint_resolve
             get_supported_protocols
             get_num_protocols
-        ASAN_ENABLED
 )
 
 add_gtest(local_endpoint_unit_test
