@@ -1,15 +1,15 @@
 #include "preconnection.h"
 
-#include <ctaps.h>
 #include <candidate_gathering/candidate_gathering.h>
 #include <candidate_gathering/candidate_racing.h>
+#include <errno.h>
+#include <glib.h>
 #include <logging/log.h>
+#include <state/ctaps_state.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
-#include <glib.h>
 
 #include "connections/listener/socket_manager/socket_manager.h"
 #include "endpoints/local/local_endpoint.h"

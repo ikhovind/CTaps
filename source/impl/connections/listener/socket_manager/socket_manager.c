@@ -9,7 +9,7 @@
 #include <errno.h>
 
 #include "protocols/protocol_interface.h"
-#include "ctaps.h"
+#include "state/ctaps_state.h"
 
 void socket_manager_alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
   // We'll use a static buffer for this simple example, but in a real

@@ -1,10 +1,10 @@
 #include "candidate_racing.h"
 
+#include <connections/connection/connection_callbacks.h>
+#include <logging/log.h>
+#include <state/ctaps_state.h>
 #include <stdlib.h>
 #include <string.h>
-#include <logging/log.h>
-#include <ctaps.h>
-#include <connections/connection/connection_callbacks.h>
 
 // Forward declarations
 static void initiate_next_attempt(ct_racing_context_t* context);

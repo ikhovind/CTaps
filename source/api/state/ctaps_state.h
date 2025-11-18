@@ -2,8 +2,8 @@
 // Created by ikhovind on 18.08.25.
 //
 
-#ifndef TAPS_H
-#define TAPS_H
+#ifndef CTAPS_STATE_H
+#define CTAPS_STATE_H
 #include <stdbool.h>
 #include <uv.h>
 
@@ -22,4 +22,4 @@ void ct_start_event_loop();
 
 int ct_close();
 
-#endif  // TAPS_H
+#endif  // CTAPS_STATE_H

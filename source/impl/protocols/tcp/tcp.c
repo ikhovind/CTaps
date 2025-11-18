@@ -2,7 +2,7 @@
 #include "connections/connection/connection.h"
 #include "connections/listener/listener.h"
 #include "connections/listener/socket_manager/socket_manager.h"
-#include "ctaps.h"
+#include "state/ctaps_state.h"
 #include "endpoints/remote/remote_endpoint.h"
 #include <errno.h>
 #include <logging/log.h>
