@@ -11,8 +11,8 @@
 #include <endpoints/local/local_endpoint.h>
 #include <endpoints/remote/remote_endpoint.h>
 
-int32_t get_service_port_local(const LocalEndpoint* local_endpoint);
+int32_t get_service_port_local(const ct_local_endpoint_t* local_endpoint);
 
-int32_t get_service_port_remote(const RemoteEndpoint* remote_endpoint);
+int32_t get_service_port_remote(const ct_remote_endpoint_t* remote_endpoint);
 
 #endif //PORT_UTIL_H

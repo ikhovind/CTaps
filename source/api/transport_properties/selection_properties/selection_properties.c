@@ -6,11 +6,11 @@
 #include "glibconfig.h"
 
 
-void selection_properties_build(SelectionProperties* selection_properties) {
-  memcpy(selection_properties, &DEFAULT_SELECTION_PROPERTIES, sizeof(SelectionProperties));
+void ct_selection_properties_build(ct_selection_properties_t* selection_properties) {
+  memcpy(selection_properties, &DEFAULT_SELECTION_PROPERTIES, sizeof(ct_selection_properties_t));
 }
 
-void set_sel_prop_preference(SelectionProperties* props, SelectionPropertyEnum prop_enum, SelectionPreference val) {
+void ct_set_sel_prop_preference(ct_selection_properties_t* props, ct_selection_property_enum_t prop_enum, ct_selection_preference_t val) {
   if (props->selection_property[prop_enum].type != TYPE_PREFERENCE) {
     log_error("Type mismatch for property %s", props->selection_property[prop_enum].name);
     return;
@@ -19,7 +19,7 @@ void set_sel_prop_preference(SelectionProperties* props, SelectionPropertyEnum p
   props->selection_property[prop_enum].set_by_user = true;
 }
 
-void set_sel_prop_direction(SelectionProperties* props, SelectionPropertyEnum prop_enum, DirectionOfCommunicationEnum val) {
+void ct_set_sel_prop_direction(ct_selection_properties_t* props, ct_selection_property_enum_t prop_enum, ct_direction_of_communication_enum_t val) {
   if (props->selection_property[prop_enum].type != TYPE_DIRECTION_ENUM) {
     log_error("Type mismatch for property %s", props->selection_property[prop_enum].name);
     return;
@@ -28,7 +28,7 @@ void set_sel_prop_direction(SelectionProperties* props, SelectionPropertyEnum pr
   props->selection_property[prop_enum].set_by_user = true;
 }
 
-void set_sel_prop_multipath(SelectionProperties* props, SelectionPropertyEnum prop_enum, MultipathEnum val) {
+void ct_set_sel_prop_multipath(ct_selection_properties_t* props, ct_selection_property_enum_t prop_enum, ct_multipath_enum_t val) {
   if (props->selection_property[prop_enum].type != TYPE_MULTIPATH_ENUM) {
     log_error("Type mismatch for property %s", props->selection_property[prop_enum].name);
     return;
@@ -37,7 +37,7 @@ void set_sel_prop_multipath(SelectionProperties* props, SelectionPropertyEnum pr
   props->selection_property[prop_enum].set_by_user = true;
 }
 
-void set_sel_prop_bool(SelectionProperties* props, SelectionPropertyEnum prop_enum, bool val) {
+void ct_set_sel_prop_bool(ct_selection_properties_t* props, ct_selection_property_enum_t prop_enum, bool val) {
   if (props->selection_property[prop_enum].type != TYPE_BOOLEAN) {
     log_error("Type mismatch for property %s", props->selection_property[prop_enum].name);
     return;
@@ -46,7 +46,7 @@ void set_sel_prop_bool(SelectionProperties* props, SelectionPropertyEnum prop_en
   props->selection_property[prop_enum].set_by_user = true;
 }
 
-void set_sel_prop_interface(SelectionProperties* props, const char* interface_name, SelectionPreference preference) {
+void ct_set_sel_prop_interface(ct_selection_properties_t* props, const char* interface_name, ct_selection_preference_t preference) {
   log_debug("Setting interface preference: %s -> %d", interface_name, preference);
   // Check if the property has been initialized.
   if (props->selection_property[INTERFACE].value.preference_map == NULL) {

@@ -10,7 +10,7 @@
 #include "ctaps.h"
 
 
-uv_udp_t* create_udp_listening_on_local(LocalEndpoint* local_endpoint, uv_alloc_cb alloc_cb, uv_udp_recv_cb on_read_cb) {
+uv_udp_t* create_udp_listening_on_local(ct_local_endpoint_t* local_endpoint, uv_alloc_cb alloc_cb, uv_udp_recv_cb on_read_cb) {
   if (local_endpoint == NULL) {
     log_error("Local endpoint is NULL");
     return NULL;
@@ -31,7 +31,7 @@ uv_udp_t* create_udp_listening_on_local(LocalEndpoint* local_endpoint, uv_alloc_
     return NULL;
   }
 
-  int rc = uv_udp_init(ctaps_event_loop, new_udp_handle);
+  int rc = uv_udp_init(event_loop, new_udp_handle);
   if (rc < 0) {
     log_error( "Error initializing udp handle: %s", uv_strerror(rc));
     free(new_udp_handle);

@@ -116,10 +116,10 @@ add_gtest(candidate_gathering_test
             source/unit/candidate_gathering/candidate_gathering_test.cpp
             ${CTAPS_SOURCES}
         WRAP_FUNCTIONS
-            local_endpoint_resolve
-            remote_endpoint_resolve
-            get_supported_protocols
-            get_num_protocols
+            ct_local_endpoint_resolve
+            ct_remote_endpoint_resolve
+            ct_get_supported_protocols
+            ct_get_num_protocols
 )
 
 add_gtest(local_endpoint_unit_test

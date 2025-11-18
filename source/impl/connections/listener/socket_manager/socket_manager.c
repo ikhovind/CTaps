@@ -18,14 +18,14 @@ void socket_manager_alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_
   *buf = uv_buf_init(slab, sizeof(slab));
 }
 
-int socket_manager_build(SocketManager* socket_manager, Listener* listener) {
+int socket_manager_build(ct_socket_manager_t* socket_manager, ct_listener_t* listener) {
   log_debug("Building socket manager for listener");
   socket_manager->active_connections = g_hash_table_new(g_bytes_hash, g_bytes_equal);
   socket_manager->listener = listener;
   return 0;
 }
 
-int socket_manager_remove_connection(SocketManager* socket_manager, const Connection* connection) {
+int socket_manager_remove_connection(ct_socket_manager_t* socket_manager, const ct_connection_t* connection) {
   log_debug("Removing connection from socket manager: %p", (void*)connection);
   GBytes* addr_bytes = NULL;
   if (connection->remote_endpoint.data.resolved_address.ss_family == AF_INET) {
@@ -45,15 +45,15 @@ int socket_manager_remove_connection(SocketManager* socket_manager, const Connec
   const gboolean removed = g_hash_table_remove(socket_manager->active_connections, addr_bytes);
   if (removed) {
     // Log before since decrementing might free the socket manager
-    log_info("Connection removed successfully, decrementing socket manager reference count");
+    log_info("ct_connection_t removed successfully, decrementing socket manager reference count");
     socket_manager_decrement_ref(socket_manager);
     return 0;
   }
-  log_warn("Could not remove Connection from socket manager hash table");
+  log_warn("Could not remove ct_connection_t from socket manager hash table");
   return -EINVAL;
 }
 
-void socket_manager_decrement_ref(SocketManager* socket_manager) {
+void socket_manager_decrement_ref(ct_socket_manager_t* socket_manager) {
   socket_manager->ref_count--;
   log_debug("Decremented socket manager reference count, updated count: %d", socket_manager->ref_count);
   if (socket_manager->ref_count == 0) {
@@ -65,12 +65,12 @@ void socket_manager_decrement_ref(SocketManager* socket_manager) {
   }
 }
 
-void socket_manager_increment_ref(SocketManager* socket_manager) {
+void socket_manager_increment_ref(ct_socket_manager_t* socket_manager) {
   socket_manager->ref_count++;
   log_debug("Incremented socket manager reference count, updated count: %d", socket_manager->ref_count);
 }
 
-Connection* socket_manager_get_or_create_connection(SocketManager* socket_manager, const struct sockaddr_storage* remote_addr, bool* was_new) {
+ct_connection_t* socket_manager_get_or_create_connection(ct_socket_manager_t* socket_manager, const struct sockaddr_storage* remote_addr, bool* was_new) {
   *was_new = false;
   GBytes* addr_bytes = NULL;
   if (remote_addr->ss_family == AF_INET) {
@@ -85,8 +85,8 @@ Connection* socket_manager_get_or_create_connection(SocketManager* socket_manage
     log_error("socket_manager_get_connection_from_remote encountered unknown address family: %d", remote_addr->ss_family);
     return NULL;
   }
-  Connection* connection = g_hash_table_lookup(socket_manager->active_connections, addr_bytes);
-  Listener* listener = socket_manager->listener;
+  ct_connection_t* connection = g_hash_table_lookup(socket_manager->active_connections, addr_bytes);
+  ct_listener_t* listener = socket_manager->listener;
   
   // This means we have received a message from a new remote endpoint
   if (connection == NULL) {
@@ -97,17 +97,17 @@ Connection* socket_manager_get_or_create_connection(SocketManager* socket_manage
     }
     log_debug("No connection found for remote endpoint in socket manager, creating new one");
 
-    RemoteEndpoint remote_endpoint;
-    remote_endpoint_build(&remote_endpoint);
-    remote_endpoint_from_sockaddr(&remote_endpoint, (struct sockaddr_storage*)remote_addr);
+    ct_remote_endpoint_t remote_endpoint;
+    ct_remote_endpoint_build(&remote_endpoint);
+    ct_remote_endpoint_from_sockaddr(&remote_endpoint, (struct sockaddr_storage*)remote_addr);
 
-    connection = malloc(sizeof(Connection));
+    connection = malloc(sizeof(ct_connection_t));
     if (connection == NULL) {
       log_error("Failed to allocate memory for new connection");
       g_bytes_unref(addr_bytes);
       return NULL;
     }
-    connection_build_multiplexed(connection, listener, &remote_endpoint);
+    ct_connection_build_multiplexed(connection, listener, &remote_endpoint);
     log_trace("Hash code of addr_bytes when inserting is: %u", g_bytes_hash(addr_bytes));
     g_hash_table_insert(socket_manager->active_connections, addr_bytes, connection);
     log_debug("Inserted new connection into socket manager hash table");
@@ -121,12 +121,12 @@ Connection* socket_manager_get_or_create_connection(SocketManager* socket_manage
   return connection;
 }
 
-void socket_manager_multiplex_received_message(SocketManager* socket_manager, Message* message, const struct sockaddr_storage* addr) {
+void socket_manager_multiplex_received_message(ct_socket_manager_t* socket_manager, ct_message_t* message, const struct sockaddr_storage* addr) {
   log_trace("Socket manager received message, multiplexing to connection");
 
   bool was_new = false;
-  Connection* connection = socket_manager_get_or_create_connection(socket_manager, addr, &was_new);
-  Listener* listener = socket_manager->listener;
+  ct_connection_t* connection = socket_manager_get_or_create_connection(socket_manager, addr, &was_new);
+  ct_listener_t* listener = socket_manager->listener;
 
   if (connection != NULL) {
     if (was_new) {
@@ -134,12 +134,12 @@ void socket_manager_multiplex_received_message(SocketManager* socket_manager, Me
       listener->listener_callbacks.connection_received(listener, connection, listener->listener_callbacks.user_data);
     }
     if (g_queue_is_empty(connection->received_callbacks)) {
-      log_debug("Found Connection has no receive callback ready, queueing message");
+      log_debug("Found ct_connection_t has no receive callback ready, queueing message");
       g_queue_push_tail(connection->received_messages, message);
     }
     else {
-      log_debug("Found Connection has receive callback ready, invoking it");
-      ReceiveCallbacks* receive_callback = g_queue_pop_head(connection->received_callbacks);
+      log_debug("Found ct_connection_t has receive callback ready, invoking it");
+      ct_receive_callbacks_t* receive_callback = g_queue_pop_head(connection->received_callbacks);
 
       receive_callback->receive_callback(connection, &message, NULL, receive_callback->user_data);
       free(receive_callback);

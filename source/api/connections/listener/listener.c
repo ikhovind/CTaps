@@ -3,7 +3,7 @@
 #include <logging/log.h>
 #include <stdio.h>
 
-void listener_close(const Listener* listener) {
+void ct_listener_close(const ct_listener_t* listener) {
   log_debug("Closing listener");
   listener->socket_manager->listener = NULL;
   socket_manager_decrement_ref(listener->socket_manager);
@@ -16,6 +16,6 @@ void listener_close(const Listener* listener) {
   }
 }
 
-LocalEndpoint listener_get_local_endpoint(const Listener* listener) {
+ct_local_endpoint_t ct_listener_get_local_endpoint(const ct_listener_t* listener) {
   return listener->local_endpoint;
 }

@@ -8,10 +8,10 @@
 #include "endpoints/remote/remote_endpoint.h"
 #include "endpoints/local/local_endpoint.h"
 
-typedef struct MessageContext {
-  MessageProperties message_properties;
-  LocalEndpoint* local_endpoint;
-  RemoteEndpoint* remote_endpoint;
-} MessageContext;
+typedef struct ct_message_context_t {
+  ct_message_properties_t message_properties;
+  ct_local_endpoint_t* local_endpoint;
+  ct_remote_endpoint_t* remote_endpoint;
+} ct_message_context_t;
 
 #endif //MESSAGE_CONTEXT_H

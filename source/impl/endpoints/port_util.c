@@ -46,10 +46,10 @@ int32_t get_service_port_inner(char* service, int family) {
   return res;
 }
 
-int32_t get_service_port_local(const LocalEndpoint* local_endpoint) {
+int32_t get_service_port_local(const ct_local_endpoint_t* local_endpoint) {
   return get_service_port_inner(local_endpoint->service, local_endpoint->data.address.ss_family);
 }
 
-int32_t get_service_port_remote(const RemoteEndpoint* remote_endpoint) {
+int32_t get_service_port_remote(const ct_remote_endpoint_t* remote_endpoint) {
   return get_service_port_inner(remote_endpoint->service, remote_endpoint->data.resolved_address.ss_family);
 }

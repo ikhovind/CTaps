@@ -16,42 +16,42 @@ extern "C" {
 }
 
 DEFINE_FFF_GLOBALS;
-FAKE_VALUE_FUNC(int, faked_local_endpoint_resolve, const LocalEndpoint*, LocalEndpoint**, size_t*);
-FAKE_VALUE_FUNC(int, faked_remote_endpoint_resolve, const RemoteEndpoint*, RemoteEndpoint**, size_t*);
-FAKE_VALUE_FUNC(const ProtocolImplementation**, faked_get_supported_protocols);
+FAKE_VALUE_FUNC(int, faked_ct_local_endpoint_resolve, const ct_local_endpoint_t*, ct_local_endpoint_t**, size_t*);
+FAKE_VALUE_FUNC(int, faked_ct_remote_endpoint_resolve, const ct_remote_endpoint_t*, ct_remote_endpoint_t**, size_t*);
+FAKE_VALUE_FUNC(const ct_protocol_implementation_t**, faked_ct_get_supported_protocols);
 
 
-extern "C" int __wrap_local_endpoint_resolve(const LocalEndpoint* local_endpoint, LocalEndpoint** out_list, size_t* out_count) {
-    return faked_local_endpoint_resolve(local_endpoint, out_list, out_count);
+extern "C" int __wrap_ct_local_endpoint_resolve(const ct_local_endpoint_t* local_endpoint, ct_local_endpoint_t** out_list, size_t* out_count) {
+    return faked_ct_local_endpoint_resolve(local_endpoint, out_list, out_count);
 }
 
-extern "C" int __wrap_remote_endpoint_resolve(RemoteEndpoint* remote_endpoint, RemoteEndpoint** out_list, size_t* out_count) {
-    return faked_remote_endpoint_resolve(remote_endpoint, out_list, out_count);
+extern "C" int __wrap_ct_remote_endpoint_resolve(ct_remote_endpoint_t* remote_endpoint, ct_remote_endpoint_t** out_list, size_t* out_count) {
+    return faked_ct_remote_endpoint_resolve(remote_endpoint, out_list, out_count);
 }
 
-extern "C" const ProtocolImplementation** __wrap_get_supported_protocols() {
-    return faked_get_supported_protocols();
+extern "C" const ct_protocol_implementation_t** __wrap_ct_get_supported_protocols() {
+    return faked_ct_get_supported_protocols();
 }
 
-extern "C" size_t __wrap_get_num_protocols() {
+extern "C" size_t __wrap_ct_get_num_protocols() {
     return 3;
 }
 
-static LocalEndpoint* fake_local_endpoint_list;
-int local_endpoint_resolve_fake_custom(const LocalEndpoint* local_endpoint, LocalEndpoint** out_list, size_t* out_count) {
-    fake_local_endpoint_list = (LocalEndpoint*)malloc(sizeof(LocalEndpoint) * 2);
+static ct_local_endpoint_t* fake_local_endpoint_list;
+int local_endpoint_resolve_fake_custom(const ct_local_endpoint_t* local_endpoint, ct_local_endpoint_t** out_list, size_t* out_count) {
+    fake_local_endpoint_list = (ct_local_endpoint_t*)malloc(sizeof(ct_local_endpoint_t) * 2);
     // We expect the function to be called with a placeholder local_endpoint.
     // We allocate and populate the output list with our mock data.
 
     // First fake endpoint
-    local_endpoint_build(&fake_local_endpoint_list[0]);
-    local_endpoint_with_interface(&fake_local_endpoint_list[0], "lo");
-    local_endpoint_with_port(&fake_local_endpoint_list[0], 8080);
+    ct_local_endpoint_build(&fake_local_endpoint_list[0]);
+    ct_local_endpoint_with_interface(&fake_local_endpoint_list[0], "lo");
+    ct_local_endpoint_with_port(&fake_local_endpoint_list[0], 8080);
 
     // Second fake endpoint
-    local_endpoint_build(&fake_local_endpoint_list[1]);
-    local_endpoint_with_interface(&fake_local_endpoint_list[1], "en0");
-    local_endpoint_with_port(&fake_local_endpoint_list[1], 8081);
+    ct_local_endpoint_build(&fake_local_endpoint_list[1]);
+    ct_local_endpoint_with_interface(&fake_local_endpoint_list[1], "en0");
+    ct_local_endpoint_with_port(&fake_local_endpoint_list[1], 8081);
 
     *out_list = fake_local_endpoint_list;
     *out_count = 2;
@@ -59,7 +59,7 @@ int local_endpoint_resolve_fake_custom(const LocalEndpoint* local_endpoint, Loca
 }
 
 // Fake data for get_supported_protocols
-static ProtocolImplementation mock_proto_1 = {
+static ct_protocol_implementation_t mock_proto_1 = {
     .name = "MockProto1",
     .selection_properties = {
       .selection_property = {
@@ -70,7 +70,7 @@ static ProtocolImplementation mock_proto_1 = {
       }
     }
 };
-static ProtocolImplementation mock_proto_2 = {
+static ct_protocol_implementation_t mock_proto_2 = {
     .name = "MockProto2",
     .selection_properties = {
       .selection_property = {
@@ -81,7 +81,7 @@ static ProtocolImplementation mock_proto_2 = {
       }
     }
 };
-static ProtocolImplementation mock_proto_3 = {
+static ct_protocol_implementation_t mock_proto_3 = {
     .name = "MockProto3",
     .selection_properties = {
       .selection_property = {
@@ -94,18 +94,18 @@ static ProtocolImplementation mock_proto_3 = {
 };
 
 
-static const ProtocolImplementation* fake_protocol_list[] = {&mock_proto_1, &mock_proto_2, &mock_proto_3, nullptr};
-const ProtocolImplementation** get_supported_protocols_fake_custom() {
+static const ct_protocol_implementation_t* fake_protocol_list[] = {&mock_proto_1, &mock_proto_2, &mock_proto_3, nullptr};
+const ct_protocol_implementation_t** get_supported_protocols_fake_custom() {
     return fake_protocol_list;
 }
 
-// Fake data for remote_endpoint_resolve
-static RemoteEndpoint* fake_remote_endpoint_list;
-int remote_endpoint_resolve_fake_custom(const RemoteEndpoint* remote_endpoint, RemoteEndpoint** out_list, size_t* out_count) {
-    fake_remote_endpoint_list = (RemoteEndpoint*)malloc(sizeof(RemoteEndpoint) * 1);
-    remote_endpoint_build(&fake_remote_endpoint_list[0]);
-    remote_endpoint_with_ipv4(&fake_remote_endpoint_list[0], inet_addr("1.2.3.4"));
-    remote_endpoint_with_port(&fake_remote_endpoint_list[0], 80);
+// Fake data for ct_remote_endpoint_resolve
+static ct_remote_endpoint_t* fake_remote_endpoint_list;
+int remote_endpoint_resolve_fake_custom(const ct_remote_endpoint_t* remote_endpoint, ct_remote_endpoint_t** out_list, size_t* out_count) {
+    fake_remote_endpoint_list = (ct_remote_endpoint_t*)malloc(sizeof(ct_remote_endpoint_t) * 1);
+    ct_remote_endpoint_build(&fake_remote_endpoint_list[0]);
+    ct_remote_endpoint_with_ipv4(&fake_remote_endpoint_list[0], inet_addr("1.2.3.4"));
+    ct_remote_endpoint_with_port(&fake_remote_endpoint_list[0], 80);
 
     *out_list = fake_remote_endpoint_list;
     *out_count = 1;
@@ -118,13 +118,13 @@ protected:
     void SetUp() override {
         // Reset all mock data before each test
         FFF_RESET_HISTORY();
-        RESET_FAKE(faked_local_endpoint_resolve);
-        RESET_FAKE(faked_remote_endpoint_resolve);
-        RESET_FAKE(faked_get_supported_protocols);
+        RESET_FAKE(faked_ct_local_endpoint_resolve);
+        RESET_FAKE(faked_ct_remote_endpoint_resolve);
+        RESET_FAKE(faked_ct_get_supported_protocols);
         
-        faked_local_endpoint_resolve_fake.custom_fake = local_endpoint_resolve_fake_custom;
-        faked_get_supported_protocols_fake.custom_fake = get_supported_protocols_fake_custom;
-        faked_remote_endpoint_resolve_fake.custom_fake = remote_endpoint_resolve_fake_custom;
+        faked_ct_local_endpoint_resolve_fake.custom_fake = local_endpoint_resolve_fake_custom;
+        faked_ct_get_supported_protocols_fake.custom_fake = get_supported_protocols_fake_custom;
+        faked_ct_remote_endpoint_resolve_fake.custom_fake = remote_endpoint_resolve_fake_custom;
     }
 
     void TearDown() override {
@@ -138,22 +138,22 @@ protected:
 TEST_F(CandidateTreeTest, CreatesAndResolvesFullTree) {
     // --- ARRANGE ---
     // 1. Create a minimal preconnection object
-    Preconnection preconnection;
-    TransportProperties props;
-    transport_properties_build(&props);
+    ct_preconnection_t preconnection;
+    ct_transport_properties_t props;
+    ct_transport_properties_build(&props);
     // need to overwrite the default to allow both protocols
-    tp_set_sel_prop_preference(&props, RELIABILITY, NO_PREFERENCE);
-    tp_set_sel_prop_preference(&props, PRESERVE_ORDER, NO_PREFERENCE);
+    ct_tp_set_sel_prop_preference(&props, RELIABILITY, NO_PREFERENCE);
+    ct_tp_set_sel_prop_preference(&props, PRESERVE_ORDER, NO_PREFERENCE);
 
-    RemoteEndpoint remote_endpoint;
-    remote_endpoint_build(&remote_endpoint);
-    remote_endpoint_with_hostname(&remote_endpoint, "test.com");
-    preconnection_build(&preconnection, props, &remote_endpoint, 1, NULL);
+    ct_remote_endpoint_t remote_endpoint;
+    ct_remote_endpoint_build(&remote_endpoint);
+    ct_remote_endpoint_with_hostname(&remote_endpoint, "test.com");
+    ct_preconnection_build(&preconnection, props, &remote_endpoint, 1, NULL);
     
     // 2. Mock behavior of internal functions
-    faked_local_endpoint_resolve_fake.return_val = 0;
-    faked_remote_endpoint_resolve_fake.return_val = 0;
-    faked_get_supported_protocols_fake.return_val = fake_protocol_list;
+    faked_ct_local_endpoint_resolve_fake.return_val = 0;
+    faked_ct_remote_endpoint_resolve_fake.return_val = 0;
+    faked_ct_get_supported_protocols_fake.return_val = fake_protocol_list;
 
     // --- ACT ---
     GArray* root = get_ordered_candidate_nodes(&preconnection);
@@ -168,12 +168,12 @@ TEST_F(CandidateTreeTest, CreatesAndResolvesFullTree) {
     ASSERT_EQ(root->len, 2 * 3 * 1); // 2 local endpoints, 3 protocols, 1 remote endpoint each
 
     // 2. Verify the calls to mocked functions
-    ASSERT_EQ(faked_local_endpoint_resolve_fake.call_count, 1);
-    ASSERT_EQ(faked_get_supported_protocols_fake.call_count, 2); // Called for each path child
-    ASSERT_EQ(faked_remote_endpoint_resolve_fake.call_count, 6); // Called for each protocol leaf
+    ASSERT_EQ(faked_ct_local_endpoint_resolve_fake.call_count, 1);
+    ASSERT_EQ(faked_ct_get_supported_protocols_fake.call_count, 2); // Called for each path child
+    ASSERT_EQ(faked_ct_remote_endpoint_resolve_fake.call_count, 6); // Called for each protocol leaf
 
     // 3. Verify data in a leaf node
-    CandidateNode first_node = g_array_index(root, CandidateNode, 0);
+    ct_candidate_node_t first_node = g_array_index(root, ct_candidate_node_t, 0);
 
     ASSERT_STREQ(first_node.protocol->name, "MockProto1");
     ASSERT_EQ(first_node.type, NODE_TYPE_ENDPOINT);
@@ -181,31 +181,31 @@ TEST_F(CandidateTreeTest, CreatesAndResolvesFullTree) {
 
     // --- CLEANUP ---
     free_candidate_array(root);
-    preconnection_free(&preconnection);
-    free_remote_endpoint_strings(&remote_endpoint);
+    ct_preconnection_free(&preconnection);
+    ct_free_remote_endpoint_strings(&remote_endpoint);
 }
 
 TEST_F(CandidateTreeTest, PrunesPathAndProtocol) {
     // --- ARRANGE ---
     // 1. Create a minimal preconnection object
-    Preconnection preconnection;
+    ct_preconnection_t preconnection;
 
-    TransportProperties props;
-    transport_properties_build(&props);
-    tp_set_sel_prop_preference(&props, RELIABILITY, REQUIRE);
-    tp_set_sel_prop_preference(&props, PRESERVE_ORDER, NO_PREFERENCE);
-    tp_set_sel_prop_interface(&props, "Ethernet", REQUIRE);
+    ct_transport_properties_t props;
+    ct_transport_properties_build(&props);
+    ct_tp_set_sel_prop_preference(&props, RELIABILITY, REQUIRE);
+    ct_tp_set_sel_prop_preference(&props, PRESERVE_ORDER, NO_PREFERENCE);
+    ct_tp_set_sel_prop_interface(&props, "Ethernet", REQUIRE);
 
 
-    RemoteEndpoint remote_endpoint;
-    remote_endpoint_build(&remote_endpoint);
-    remote_endpoint_with_hostname(&remote_endpoint, "test.com");
-    preconnection_build(&preconnection, props, &remote_endpoint, 1, NULL);
+    ct_remote_endpoint_t remote_endpoint;
+    ct_remote_endpoint_build(&remote_endpoint);
+    ct_remote_endpoint_with_hostname(&remote_endpoint, "test.com");
+    ct_preconnection_build(&preconnection, props, &remote_endpoint, 1, NULL);
 
     // 2. Mock behavior of internal functions
-    faked_local_endpoint_resolve_fake.return_val = 0;
-    faked_remote_endpoint_resolve_fake.return_val = 0;
-    faked_get_supported_protocols_fake.return_val = fake_protocol_list;
+    faked_ct_local_endpoint_resolve_fake.return_val = 0;
+    faked_ct_remote_endpoint_resolve_fake.return_val = 0;
+    faked_ct_get_supported_protocols_fake.return_val = fake_protocol_list;
 
     // --- ACT ---
     GArray* candidates = get_ordered_candidate_nodes(&preconnection);
@@ -218,53 +218,53 @@ TEST_F(CandidateTreeTest, PrunesPathAndProtocol) {
     ASSERT_EQ(candidates->len, 1 * 2 * 1); // 1 local endpoint, 2 protocol, 1 remote endpoint each
 
     // 2. Verify the calls to mocked functions
-    ASSERT_EQ(faked_local_endpoint_resolve_fake.call_count, 1);
-    ASSERT_EQ(faked_get_supported_protocols_fake.call_count, 2); // Called for each path child
-    ASSERT_EQ(faked_remote_endpoint_resolve_fake.call_count, 6); // Called for each protocol leaf
+    ASSERT_EQ(faked_ct_local_endpoint_resolve_fake.call_count, 1);
+    ASSERT_EQ(faked_ct_get_supported_protocols_fake.call_count, 2); // Called for each path child
+    ASSERT_EQ(faked_ct_remote_endpoint_resolve_fake.call_count, 6); // Called for each protocol leaf
 
     // 3. Verify data in result list
-    CandidateNode first_candidate = g_array_index(candidates, CandidateNode, 0);
+    ct_candidate_node_t first_candidate = g_array_index(candidates, ct_candidate_node_t, 0);
 
     ASSERT_STREQ(first_candidate.protocol->name, "MockProto2");
     ASSERT_EQ(first_candidate.type, NODE_TYPE_ENDPOINT);
 
-    CandidateNode second_candidate = g_array_index(candidates, CandidateNode, 1);
+    ct_candidate_node_t second_candidate = g_array_index(candidates, ct_candidate_node_t, 1);
 
     ASSERT_STREQ(second_candidate.protocol->name, "MockProto3");
     ASSERT_EQ(second_candidate.type, NODE_TYPE_ENDPOINT);
 
     // --- CLEANUP ---
     free_candidate_array(candidates);
-    preconnection_free(&preconnection);
-    free_remote_endpoint_strings(&remote_endpoint);
+    ct_preconnection_free(&preconnection);
+    ct_free_remote_endpoint_strings(&remote_endpoint);
 }
 
 TEST_F(CandidateTreeTest, SortsOnPreferOverAvoid) {
     // --- ARRANGE ---
     // 1. Create a minimal preconnection object
-    Preconnection preconnection;
-    TransportProperties props;
-    transport_properties_build(&props);
+    ct_preconnection_t preconnection;
+    ct_transport_properties_t props;
+    ct_transport_properties_build(&props);
 
     // This selects p2 and p3
-    tp_set_sel_prop_preference(&props, RELIABILITY, REQUIRE);
+    ct_tp_set_sel_prop_preference(&props, RELIABILITY, REQUIRE);
 
     // this prefers p2
-    tp_set_sel_prop_preference(&props, PRESERVE_MSG_BOUNDARIES, PREFER);
+    ct_tp_set_sel_prop_preference(&props, PRESERVE_MSG_BOUNDARIES, PREFER);
 
     // These favor p3, but the one preference should still win
-    tp_set_sel_prop_preference(&props, PER_MSG_RELIABILITY, AVOID);
-    tp_set_sel_prop_preference(&props, PRESERVE_ORDER, AVOID);
+    ct_tp_set_sel_prop_preference(&props, PER_MSG_RELIABILITY, AVOID);
+    ct_tp_set_sel_prop_preference(&props, PRESERVE_ORDER, AVOID);
 
-    RemoteEndpoint remote_endpoint;
-    remote_endpoint_build(&remote_endpoint);
-    remote_endpoint_with_hostname(&remote_endpoint, "test.com");
-    preconnection_build(&preconnection, props, &remote_endpoint, 1, NULL);
+    ct_remote_endpoint_t remote_endpoint;
+    ct_remote_endpoint_build(&remote_endpoint);
+    ct_remote_endpoint_with_hostname(&remote_endpoint, "test.com");
+    ct_preconnection_build(&preconnection, props, &remote_endpoint, 1, NULL);
 
     // 2. Mock behavior of internal functions
-    faked_local_endpoint_resolve_fake.return_val = 0;
-    faked_remote_endpoint_resolve_fake.return_val = 0;
-    faked_get_supported_protocols_fake.return_val = fake_protocol_list;
+    faked_ct_local_endpoint_resolve_fake.return_val = 0;
+    faked_ct_remote_endpoint_resolve_fake.return_val = 0;
+    faked_ct_get_supported_protocols_fake.return_val = fake_protocol_list;
 
     // --- ACT ---
     GArray* root = get_ordered_candidate_nodes(&preconnection);
@@ -277,59 +277,59 @@ TEST_F(CandidateTreeTest, SortsOnPreferOverAvoid) {
     ASSERT_EQ(root->len, 2 * 2 * 1); // 2 local endpoint, 2 protocol, 1 remote endpoint each
 
     // 2. Verify the calls to mocked functions
-    ASSERT_EQ(faked_local_endpoint_resolve_fake.call_count, 1);
-    ASSERT_EQ(faked_get_supported_protocols_fake.call_count, 2); // Called for each path child
-    ASSERT_EQ(faked_remote_endpoint_resolve_fake.call_count, 6); // Called for each protocol leaf
+    ASSERT_EQ(faked_ct_local_endpoint_resolve_fake.call_count, 1);
+    ASSERT_EQ(faked_ct_get_supported_protocols_fake.call_count, 2); // Called for each path child
+    ASSERT_EQ(faked_ct_remote_endpoint_resolve_fake.call_count, 6); // Called for each protocol leaf
 
-    CandidateNode first_candidate = g_array_index(root, CandidateNode, 0);
+    ct_candidate_node_t first_candidate = g_array_index(root, ct_candidate_node_t, 0);
 
     ASSERT_STREQ(first_candidate.protocol->name, "MockProto2");
     ASSERT_EQ(first_candidate.type, NODE_TYPE_ENDPOINT);
 
-    CandidateNode second_candidate = g_array_index(root, CandidateNode, 1);
+    ct_candidate_node_t second_candidate = g_array_index(root, ct_candidate_node_t, 1);
 
     ASSERT_STREQ(second_candidate.protocol->name, "MockProto2");
     ASSERT_EQ(second_candidate.type, NODE_TYPE_ENDPOINT);
 
-    CandidateNode third_candidate = g_array_index(root, CandidateNode, 2);
+    ct_candidate_node_t third_candidate = g_array_index(root, ct_candidate_node_t, 2);
     ASSERT_STREQ(third_candidate.protocol->name, "MockProto3");
     ASSERT_EQ(third_candidate.type, NODE_TYPE_ENDPOINT);
 
-    CandidateNode fourth_candidate = g_array_index(root, CandidateNode, 3);
+    ct_candidate_node_t fourth_candidate = g_array_index(root, ct_candidate_node_t, 3);
     ASSERT_STREQ(fourth_candidate.protocol->name, "MockProto3");
     ASSERT_EQ(fourth_candidate.type, NODE_TYPE_ENDPOINT);
 
     // --- CLEANUP ---
     free_candidate_array(root);
-    preconnection_free(&preconnection);
-    free_remote_endpoint_strings(&remote_endpoint);
+    ct_preconnection_free(&preconnection);
+    ct_free_remote_endpoint_strings(&remote_endpoint);
 }
 
 TEST_F(CandidateTreeTest, UsesAvoidAsTieBreaker) {
     // --- ARRANGE ---
     // 1. Create a minimal preconnection object
-    Preconnection preconnection;
-    TransportProperties props;
-    transport_properties_build(&props);
+    ct_preconnection_t preconnection;
+    ct_transport_properties_t props;
+    ct_transport_properties_build(&props);
 
     // Override default to get all protocols
-    tp_set_sel_prop_preference(&props, RELIABILITY, NO_PREFERENCE);
-    tp_set_sel_prop_preference(&props, PRESERVE_ORDER, NO_PREFERENCE);
+    ct_tp_set_sel_prop_preference(&props, RELIABILITY, NO_PREFERENCE);
+    ct_tp_set_sel_prop_preference(&props, PRESERVE_ORDER, NO_PREFERENCE);
 
     // protocol 2 and 3 are preferred
-    tp_set_sel_prop_preference(&props, RELIABILITY, PREFER);
+    ct_tp_set_sel_prop_preference(&props, RELIABILITY, PREFER);
     // But 3 should win tiebreaker with avoid
-    tp_set_sel_prop_preference(&props, PRESERVE_MSG_BOUNDARIES, AVOID);
+    ct_tp_set_sel_prop_preference(&props, PRESERVE_MSG_BOUNDARIES, AVOID);
 
-    RemoteEndpoint remote_endpoint;
-    remote_endpoint_build(&remote_endpoint);
-    remote_endpoint_with_hostname(&remote_endpoint, "test.com");
-    preconnection_build(&preconnection, props, &remote_endpoint, 1, NULL);
+    ct_remote_endpoint_t remote_endpoint;
+    ct_remote_endpoint_build(&remote_endpoint);
+    ct_remote_endpoint_with_hostname(&remote_endpoint, "test.com");
+    ct_preconnection_build(&preconnection, props, &remote_endpoint, 1, NULL);
 
     // 2. Mock behavior of internal functions
-    faked_local_endpoint_resolve_fake.return_val = 0;
-    faked_remote_endpoint_resolve_fake.return_val = 0;
-    faked_get_supported_protocols_fake.return_val = fake_protocol_list;
+    faked_ct_local_endpoint_resolve_fake.return_val = 0;
+    faked_ct_remote_endpoint_resolve_fake.return_val = 0;
+    faked_ct_get_supported_protocols_fake.return_val = fake_protocol_list;
 
     // --- ACT ---
     GArray* root = get_ordered_candidate_nodes(&preconnection);
@@ -342,53 +342,53 @@ TEST_F(CandidateTreeTest, UsesAvoidAsTieBreaker) {
     ASSERT_EQ(root->len, 2 * 3 * 1); // 2 local endpoint, 3 protocol, 1 remote endpoint each
 
     // 2. Verify the calls to mocked functions
-    ASSERT_EQ(faked_local_endpoint_resolve_fake.call_count, 1);
-    ASSERT_EQ(faked_get_supported_protocols_fake.call_count, 2); // Called for each path child
-    ASSERT_EQ(faked_remote_endpoint_resolve_fake.call_count, 6); // Called for each protocol leaf
+    ASSERT_EQ(faked_ct_local_endpoint_resolve_fake.call_count, 1);
+    ASSERT_EQ(faked_ct_get_supported_protocols_fake.call_count, 2); // Called for each path child
+    ASSERT_EQ(faked_ct_remote_endpoint_resolve_fake.call_count, 6); // Called for each protocol leaf
 
-    CandidateNode first_candidate = g_array_index(root, CandidateNode, 0);
+    ct_candidate_node_t first_candidate = g_array_index(root, ct_candidate_node_t, 0);
 
     ASSERT_STREQ(first_candidate.protocol->name, "MockProto3");
     ASSERT_EQ(first_candidate.type, NODE_TYPE_ENDPOINT);
 
-    CandidateNode second_candidate = g_array_index(root, CandidateNode, 1);
+    ct_candidate_node_t second_candidate = g_array_index(root, ct_candidate_node_t, 1);
 
     ASSERT_STREQ(second_candidate.protocol->name, "MockProto3");
     ASSERT_EQ(second_candidate.type, NODE_TYPE_ENDPOINT);
 
-    CandidateNode third_candidate = g_array_index(root, CandidateNode, 2);
+    ct_candidate_node_t third_candidate = g_array_index(root, ct_candidate_node_t, 2);
     ASSERT_STREQ(third_candidate.protocol->name, "MockProto2");
     ASSERT_EQ(third_candidate.type, NODE_TYPE_ENDPOINT);
 
-    CandidateNode fourth_candidate = g_array_index(root, CandidateNode, 3);
+    ct_candidate_node_t fourth_candidate = g_array_index(root, ct_candidate_node_t, 3);
     ASSERT_STREQ(fourth_candidate.protocol->name, "MockProto2");
     ASSERT_EQ(fourth_candidate.type, NODE_TYPE_ENDPOINT);
 
     // --- CLEANUP ---
     free_candidate_array(root);
-    preconnection_free(&preconnection);
-    free_remote_endpoint_strings(&remote_endpoint);
+    ct_preconnection_free(&preconnection);
+    ct_free_remote_endpoint_strings(&remote_endpoint);
 }
 
 TEST_F(CandidateTreeTest, GivesNoCandidateNodesWhenAllProtocolsProhibited) {
     // --- ARRANGE ---
     // 1. Create a minimal preconnection object
-    Preconnection preconnection;
-    TransportProperties props;
-    transport_properties_build(&props);
+    ct_preconnection_t preconnection;
+    ct_transport_properties_t props;
+    ct_transport_properties_build(&props);
     // need to overwrite the default to allow both protocols
-    tp_set_sel_prop_preference(&props, RELIABILITY, PROHIBIT);
-    tp_set_sel_prop_preference(&props, PRESERVE_MSG_BOUNDARIES, REQUIRE);
+    ct_tp_set_sel_prop_preference(&props, RELIABILITY, PROHIBIT);
+    ct_tp_set_sel_prop_preference(&props, PRESERVE_MSG_BOUNDARIES, REQUIRE);
 
-    RemoteEndpoint remote_endpoint;
-    remote_endpoint_build(&remote_endpoint);
-    remote_endpoint_with_hostname(&remote_endpoint, "test.com");
-    preconnection_build(&preconnection, props, &remote_endpoint, 1, NULL);
+    ct_remote_endpoint_t remote_endpoint;
+    ct_remote_endpoint_build(&remote_endpoint);
+    ct_remote_endpoint_with_hostname(&remote_endpoint, "test.com");
+    ct_preconnection_build(&preconnection, props, &remote_endpoint, 1, NULL);
 
     // 2. Mock behavior of internal functions
-    faked_local_endpoint_resolve_fake.return_val = 0;
-    faked_remote_endpoint_resolve_fake.return_val = 0;
-    faked_get_supported_protocols_fake.return_val = fake_protocol_list;
+    faked_ct_local_endpoint_resolve_fake.return_val = 0;
+    faked_ct_remote_endpoint_resolve_fake.return_val = 0;
+    faked_ct_get_supported_protocols_fake.return_val = fake_protocol_list;
 
     // --- ACT ---
     GArray* candidates = get_ordered_candidate_nodes(&preconnection);
@@ -400,12 +400,12 @@ TEST_F(CandidateTreeTest, GivesNoCandidateNodesWhenAllProtocolsProhibited) {
     ASSERT_EQ(candidates->len, 0); // nothing should be compatible with our requirements
 
     // 2. Verify the calls to mocked functions
-    ASSERT_EQ(faked_local_endpoint_resolve_fake.call_count, 1);
-    ASSERT_EQ(faked_get_supported_protocols_fake.call_count, 2); // Called for each path child
-    ASSERT_EQ(faked_remote_endpoint_resolve_fake.call_count, 6); // Called for each protocol leaf
+    ASSERT_EQ(faked_ct_local_endpoint_resolve_fake.call_count, 1);
+    ASSERT_EQ(faked_ct_get_supported_protocols_fake.call_count, 2); // Called for each path child
+    ASSERT_EQ(faked_ct_remote_endpoint_resolve_fake.call_count, 6); // Called for each protocol leaf
 
     // --- CLEANUP ---
     free_candidate_array(candidates);
-    preconnection_free(&preconnection);
-    free_remote_endpoint_strings(&remote_endpoint);
+    ct_preconnection_free(&preconnection);
+    ct_free_remote_endpoint_strings(&remote_endpoint);
 }

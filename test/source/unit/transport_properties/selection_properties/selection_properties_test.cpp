@@ -10,11 +10,11 @@ extern "C" {
 
 TEST(SelectionPropertiesUnitTest, SetsDefaultValues) {
   // 1. Setup
-  TransportProperties props;
-  transport_properties_build(&props);
+  ct_transport_properties_t props;
+  ct_transport_properties_build(&props);
 
   for (int i = 0; i < SELECTION_PROPERTY_END; i++) {
-    const SelectionProperty& current_prop = props.selection_properties.selection_property[i];
+    const ct_selection_property_t& current_prop = props.selection_properties.selection_property[i];
 
     EXPECT_EQ(current_prop.set_by_user, false);
     switch (i) {
@@ -122,13 +122,13 @@ TEST(SelectionPropertiesUnitTest, SetsDefaultValues) {
 
 TEST(SelectionPropertiesUnitTest, SetsSetByUser) {
   // 1. Setup
-  TransportProperties props;
-  transport_properties_build(&props);
+  ct_transport_properties_t props;
+  ct_transport_properties_build(&props);
 
-  tp_set_sel_prop_direction(&props, DIRECTION, DIRECTION_UNIDIRECTIONAL_SEND);
+  ct_tp_set_sel_prop_direction(&props, DIRECTION, DIRECTION_UNIDIRECTIONAL_SEND);
 
   for (int i = 0; i < SELECTION_PROPERTY_END; i++) {
-    const SelectionProperty& current_prop = props.selection_properties.selection_property[i];
+    const ct_selection_property_t& current_prop = props.selection_properties.selection_property[i];
 
     if (i != DIRECTION) {
       EXPECT_EQ(current_prop.set_by_user, false);

@@ -14,32 +14,32 @@
 #include "protocols/protocol_interface.h"
 #include "transport_properties/connection_properties/connection_properties.h"
 
-int send_message(Connection* connection, Message* message) {
+int ct_send_message(ct_connection_t* connection, ct_message_t* message) {
   return connection->protocol.send(connection, message, NULL);
 }
 
-int send_message_full(Connection* connection, Message* message, MessageContext* message_context) {
+int ct_send_message_full(ct_connection_t* connection, ct_message_t* message, ct_message_context_t* message_context) {
   return connection->protocol.send(connection, message, message_context);
 }
 
-int receive_message(Connection* connection,
-                    ReceiveCallbacks receive_callbacks
+int ct_receive_message(ct_connection_t* connection,
+                    ct_receive_callbacks_t receive_callbacks
                     ) {
   log_info("User attempting to receive message on connection: %p", connection);
   if (!connection->received_messages || !connection->received_callbacks) {
-    log_error("Connection queues not initialized for receiving messages");
+    log_error("ct_connection_t queues not initialized for receiving messages");
     return -EIO;
   }
 
   if (!g_queue_is_empty(connection->received_messages)) {
     log_debug("Calling receive callback immediately");
-    Message* received_message = g_queue_pop_head(connection->received_messages);
+    ct_message_t* received_message = g_queue_pop_head(connection->received_messages);
     receive_callbacks.receive_callback(connection, &received_message, NULL, receive_callbacks.user_data);
     return 0;
   }
 
-  ReceiveCallbacks* ptr = malloc(sizeof(ReceiveCallbacks));
-  memcpy(ptr, &receive_callbacks, sizeof(ReceiveCallbacks));
+  ct_receive_callbacks_t* ptr = malloc(sizeof(ct_receive_callbacks_t));
+  memcpy(ptr, &receive_callbacks, sizeof(ct_receive_callbacks_t));
 
   // If we don't have a message to receive, add the callback to the queue of
   // waiting callbacks
@@ -48,8 +48,8 @@ int receive_message(Connection* connection,
   return 0;
 }
 
-void connection_build_multiplexed(Connection* connection, const Listener* listener, const RemoteEndpoint* remote_endpoint) {
-  memset(connection, 0, sizeof(Connection));
+void ct_connection_build_multiplexed(ct_connection_t* connection, const ct_listener_t* listener, const ct_remote_endpoint_t* remote_endpoint) {
+  memset(connection, 0, sizeof(ct_connection_t));
   connection->local_endpoint = listener->local_endpoint;
   connection->transport_properties = listener->transport_properties;
   connection->remote_endpoint = *remote_endpoint;
@@ -62,7 +62,7 @@ void connection_build_multiplexed(Connection* connection, const Listener* listen
   connection->open_type = CONNECTION_OPEN_TYPE_MULTIPLEXED;
 }
 
-void connection_close(Connection* connection) {
+void ct_connection_close(ct_connection_t* connection) {
   int rc;
   log_info("Closing connection: %p", (void*)connection);
 
@@ -75,15 +75,15 @@ void connection_close(Connection* connection) {
   }
 }
 
-Connection* connection_build_from_received_handle(const struct Listener* listener, uv_stream_t* received_handle) {
-  log_debug("Building Connection from received handle");
+ct_connection_t* ct_connection_build_from_received_handle(const struct ct_listener_t* listener, uv_stream_t* received_handle) {
+  log_debug("Building ct_connection_t from received handle");
   int rc;
-  Connection* connection = malloc(sizeof(Connection));
+  ct_connection_t* connection = malloc(sizeof(ct_connection_t));
   if (!connection) {
-    log_error("Failed to allocate memory for Connection");
+    log_error("Failed to allocate memory for ct_connection_t");
     return NULL;
   }
-  memset(connection, 0, sizeof(Connection));
+  memset(connection, 0, sizeof(ct_connection_t));
 
   connection->transport_properties = listener->transport_properties;
   connection->local_endpoint = listener->local_endpoint;
@@ -103,13 +103,13 @@ Connection* connection_build_from_received_handle(const struct Listener* listene
   return connection;
 }
 
-void connection_free(Connection* connection) {
+void ct_connection_free(ct_connection_t* connection) {
   if (connection->received_callbacks) {
     g_queue_free(connection->received_callbacks);
   }
   if (connection->received_messages) {
     while (!g_queue_is_empty(connection->received_messages)) {
-      Message* msg = g_queue_pop_head(connection->received_messages);
+      ct_message_t* msg = g_queue_pop_head(connection->received_messages);
       if (msg) {
         if (msg->content) {
           free(msg->content);

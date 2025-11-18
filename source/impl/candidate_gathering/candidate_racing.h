@@ -14,34 +14,34 @@
 // Represents the state of a single racing attempt
 typedef enum {
   ATTEMPT_STATE_PENDING,      // Not yet started
-  ATTEMPT_STATE_CONNECTING,   // Connection attempt in progress
-  ATTEMPT_STATE_SUCCEEDED,    // Connection established successfully
-  ATTEMPT_STATE_FAILED,       // Connection attempt failed
+  ATTEMPT_STATE_CONNECTING,   // ct_connection_t attempt in progress
+  ATTEMPT_STATE_SUCCEEDED,    // ct_connection_t established successfully
+  ATTEMPT_STATE_FAILED,       // ct_connection_t attempt failed
   ATTEMPT_STATE_CANCELED,     // Canceled due to another attempt succeeding
-} AttemptState;
+} ct_attempt_state_t;
 
 // Forward declaration
-typedef struct RacingContext RacingContext;
+typedef struct ct_racing_context_t ct_racing_context_t;
 
 // Tracks a single connection attempt in the race
-typedef struct RacingAttempt {
-  Connection* connection;
-  CandidateNode candidate;
-  AttemptState state;
+typedef struct ct_racing_attempt_t {
+  ct_connection_t* connection;
+  ct_candidate_node_t candidate;
+  ct_attempt_state_t state;
   int attempt_index;
-  RacingContext* context;  // Back-pointer to parent racing context
-} RacingAttempt;
+  ct_racing_context_t* context;  // Back-pointer to parent racing context
+} ct_racing_attempt_t;
 
 // Context for managing the racing process
-struct RacingContext {
+struct ct_racing_context_t {
   // Array of all racing attempts
-  RacingAttempt* attempts;
+  ct_racing_attempt_t* attempts;
   size_t num_attempts;
   size_t next_attempt_index;  // Index of next attempt to initiate
 
   // User's original callbacks and the connection they provided
-  ConnectionCallbacks user_callbacks;
-  Connection* user_connection;
+  ct_connection_callbacks_t user_callbacks;
+  ct_connection_t* user_connection;
 
   // Racing state
   bool race_complete;
@@ -51,8 +51,8 @@ struct RacingContext {
   uv_timer_t* stagger_timer;
   uint64_t connection_attempt_delay_ms;
 
-  // Preconnection reference (for cleanup)
-  const Preconnection* preconnection;
+  // ct_preconnection_t reference (for cleanup)
+  const ct_preconnection_t* preconnection;
 
   // Count of attempts that have completed (success or failure)
   size_t completed_attempts;
@@ -70,15 +70,15 @@ struct RacingContext {
  * @param connection_callbacks User's connection callbacks
  * @return 0 on success, negative error code on failure
  */
-int preconnection_initiate_with_racing(Preconnection* preconnection,
-                                       Connection* connection,
-                                       ConnectionCallbacks connection_callbacks);
+int preconnection_initiate_with_racing(ct_preconnection_t* preconnection,
+                                       ct_connection_t* connection,
+                                       ct_connection_callbacks_t connection_callbacks);
 
 /**
  * @brief Frees a racing context and all associated resources.
  *
  * @param context The racing context to free
  */
-void racing_context_free(RacingContext* context);
+void racing_context_free(ct_racing_context_t* context);
 
 #endif // CANDIDATE_RACING_H

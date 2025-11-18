@@ -16,43 +16,43 @@ extern "C" {
 #define INVALID_TCP_PORT 5007
 
 extern "C" {
-  int mark_connection_as_success_and_close(struct Connection* connection, void* udata) {
-    log_info("Connection is ready");
+  int mark_connection_as_success_and_close(struct ct_connection_t* connection, void* udata) {
+    log_info("ct_connection_t is ready");
     // close the connection
     bool* connection_succeeded = (bool*)udata;
     *connection_succeeded = true;
-    connection_close(connection);
+    ct_connection_close(connection);
     return 0;
   }
 
-  int tcp_send_message_on_connection_ready(struct Connection* connection, void* udata) {
-    log_info("Connection is ready, sending message");
+  int tcp_send_message_on_connection_ready(struct ct_connection_t* connection, void* udata) {
+    log_info("ct_connection_t is ready, sending message");
     // --- Action ---
-    Message message;
+    ct_message_t message;
 
-    message_build_with_content(&message, "hello world", strlen("hello world") + 1);
-    int rc = send_message(connection, &message);
+    ct_message_build_with_content(&message, "hello world", strlen("hello world") + 1);
+    int rc = ct_send_message(connection, &message);
     EXPECT_EQ(rc, 0);
 
-    message_free_content(&message);
+    ct_message_free_content(&message);
 
     return 0;
   }
 
-  int on_establishment_error(struct Connection* connection, void* udata) {
-    log_error("Connection error occurred");
+  int on_establishment_error(struct ct_connection_t* connection, void* udata) {
+    log_error("ct_connection_t error occurred");
     bool* connection_succeeded = (bool*)udata;
     *connection_succeeded = false;
     return 0;
   }
 
-  int on_msg_received(struct Connection* connection, Message** received_message, MessageContext* ctx, void* user_data) {
-    log_info("Message received");
+  int on_msg_received(struct ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* ctx, void* user_data) {
+    log_info("ct_message_t received");
     // set user data to received message
-    Message** output_addr = (Message**)user_data;
+    ct_message_t** output_addr = (ct_message_t**)user_data;
     *output_addr = *received_message;
 
-    connection_close(connection);
+    ct_connection_close(connection);
     return 0;
   }
 }
@@ -60,71 +60,71 @@ extern "C" {
 TEST(TcpGenericTests, successfullyConnectsToTcpServer) {
   log_info("Starting test: successfullyConnectsToTcpServer");
   // --- Setup ---
-  ctaps_initialize(NULL,NULL);
-  RemoteEndpoint remote_endpoint;
-  remote_endpoint_build(&remote_endpoint);
-  remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
-  remote_endpoint_with_port(&remote_endpoint, TCP_PING_PORT);
+  ct_initialize(NULL,NULL);
+  ct_remote_endpoint_t remote_endpoint;
+  ct_remote_endpoint_build(&remote_endpoint);
+  ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
+  ct_remote_endpoint_with_port(&remote_endpoint, TCP_PING_PORT);
 
-  TransportProperties transport_properties;
+  ct_transport_properties_t transport_properties;
 
-  transport_properties_build(&transport_properties);
+  ct_transport_properties_build(&transport_properties);
 
-  tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
-  tp_set_sel_prop_preference(&transport_properties, ACTIVE_READ_BEFORE_SEND, REQUIRE);
+  ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
+  ct_tp_set_sel_prop_preference(&transport_properties, ACTIVE_READ_BEFORE_SEND, REQUIRE);
 
-  Preconnection preconnection;
-  preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
-  Connection connection;
+  ct_preconnection_t preconnection;
+  ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
+  ct_connection_t connection;
 
   bool connection_succeeded = false;
-  ConnectionCallbacks connection_callbacks = {
+  ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
     .ready = mark_connection_as_success_and_close,
     .user_data = &connection_succeeded,
   };
 
-  int rc = preconnection_initiate(&preconnection, &connection, connection_callbacks);
+  int rc = ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
-  ctaps_start_event_loop();
+  ct_start_event_loop();
 
   ASSERT_TRUE(connection_succeeded);
 }
 
 TEST(TcpGenericTests, connectionErrorCalledWhenNoServer) {
   // --- Setup ---
-  ctaps_initialize(NULL,NULL);
-  RemoteEndpoint remote_endpoint;
-  remote_endpoint_build(&remote_endpoint);
-  remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
-  remote_endpoint_with_port(&remote_endpoint, INVALID_TCP_PORT);
+  ct_initialize(NULL,NULL);
+  ct_remote_endpoint_t remote_endpoint;
+  ct_remote_endpoint_build(&remote_endpoint);
+  ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
+  ct_remote_endpoint_with_port(&remote_endpoint, INVALID_TCP_PORT);
 
-  TransportProperties transport_properties;
+  ct_transport_properties_t transport_properties;
 
-  transport_properties_build(&transport_properties);
+  ct_transport_properties_build(&transport_properties);
 
-  tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
-  tp_set_sel_prop_preference(&transport_properties, ACTIVE_READ_BEFORE_SEND, REQUIRE);
+  ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
+  ct_tp_set_sel_prop_preference(&transport_properties, ACTIVE_READ_BEFORE_SEND, REQUIRE);
 
-  Preconnection preconnection;
-  preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
-  Connection connection;
+  ct_preconnection_t preconnection;
+  ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
+  ct_connection_t connection;
 
   // Set to true, since only on_connection_error will set it to false
   bool connection_succeeded = true;
-  ConnectionCallbacks connection_callbacks = {
+  ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
     .ready = mark_connection_as_success_and_close,
     .user_data = &connection_succeeded,
   };
 
-  int rc = preconnection_initiate(&preconnection, &connection, connection_callbacks);
+  int rc = ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
-  ctaps_start_event_loop();
+  ct_start_event_loop();
 
   ASSERT_FALSE(connection_succeeded);
   // assert state of connection is closed
@@ -134,47 +134,47 @@ TEST(TcpGenericTests, connectionErrorCalledWhenNoServer) {
 TEST(TcpGenericTests, sendsSingleTcpMessage) {
   int rc;
   // --- Setup ---
-  ctaps_initialize(NULL,NULL);
-  RemoteEndpoint remote_endpoint;
-  remote_endpoint_build(&remote_endpoint);
-  remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
-  remote_endpoint_with_port(&remote_endpoint, TCP_PING_PORT);
+  ct_initialize(NULL,NULL);
+  ct_remote_endpoint_t remote_endpoint;
+  ct_remote_endpoint_build(&remote_endpoint);
+  ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
+  ct_remote_endpoint_with_port(&remote_endpoint, TCP_PING_PORT);
 
-  TransportProperties transport_properties;
+  ct_transport_properties_t transport_properties;
 
-  transport_properties_build(&transport_properties);
+  ct_transport_properties_build(&transport_properties);
 
-  tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
-  tp_set_sel_prop_preference(&transport_properties, ACTIVE_READ_BEFORE_SEND, REQUIRE);
+  ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
+  ct_tp_set_sel_prop_preference(&transport_properties, ACTIVE_READ_BEFORE_SEND, REQUIRE);
 
-  Preconnection preconnection;
-  preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
-  Connection connection;
+  ct_preconnection_t preconnection;
+  ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
+  ct_connection_t connection;
 
   // Set to true, since only on_connection_error will set it to false
-  ConnectionCallbacks connection_callbacks = {
+  ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
     .ready = tcp_send_message_on_connection_ready,
     .user_data = NULL,
   };
 
-  rc = preconnection_initiate(&preconnection, &connection, connection_callbacks);
+  rc = ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
-  Message* msg_received = nullptr;
+  ct_message_t* msg_received = nullptr;
 
-  ReceiveCallbacks receive_req = { .receive_callback = on_msg_received, .user_data = &msg_received };
+  ct_receive_callbacks_t receive_req = { .receive_callback = on_msg_received, .user_data = &msg_received };
 
-  rc = receive_message(&connection, receive_req);
+  rc = ct_receive_message(&connection, receive_req);
 
   ASSERT_EQ(rc, 0);
 
-  ctaps_start_event_loop();
+  ct_start_event_loop();
 
   // assert state of connection is closed
   ASSERT_EQ(connection.transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
   ASSERT_NE(msg_received, nullptr);
   ASSERT_STREQ((const char*)msg_received->content, "Pong: hello world");
-  message_free_content(msg_received);
+  ct_message_free_content(msg_received);
 }

@@ -10,24 +10,24 @@
 #include "message/message.h"
 #include "transport_properties/selection_properties/selection_properties.h"
 
-struct Listener;
-struct Connection;
-struct SocketManager;
+struct ct_listener_t;
+struct ct_connection_t;
+struct ct_socket_manager_t;
 
-typedef struct ProtocolImplementation {
+typedef struct ct_protocol_implementation_t {
   const char* name;
-  SelectionProperties selection_properties;
-  int (*init)(struct Connection* connection, const ConnectionCallbacks* connection_callbacks);
-  int (*send)(struct Connection*, Message*, MessageContext*);
-  int (*listen)(struct SocketManager* socket_manager);
-  int (*stop_listen)(struct SocketManager*);
-  int (*close)(const struct Connection*);
-  int (*remote_endpoint_from_peer)(uv_handle_t* peer, RemoteEndpoint* resolved_peer);
+  ct_selection_properties_t selection_properties;
+  int (*init)(struct ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks);
+  int (*send)(struct ct_connection_t*, ct_message_t*, ct_message_context_t*);
+  int (*listen)(struct ct_socket_manager_t* socket_manager);
+  int (*stop_listen)(struct ct_socket_manager_t*);
+  int (*close)(const struct ct_connection_t*);
+  int (*remote_endpoint_from_peer)(uv_handle_t* peer, ct_remote_endpoint_t* resolved_peer);
   // Optional: Update internal protocol handles/state to reference a new connection
   // Called when protocol state is transferred from one connection to another (e.g., during candidate racing)
   // from_connection: The connection whose protocol_state contains the handles
   // to_connection: The connection that protocol callbacks/handles should now point to
-  void (*retarget_protocol_connection)(struct Connection* from_connection, struct Connection* to_connection);
-} ProtocolImplementation;
+  void (*retarget_protocol_connection)(struct ct_connection_t* from_connection, struct ct_connection_t* to_connection);
+} ct_protocol_implementation_t;
 
 #endif  // PROTOCOL_INTERFACE_H

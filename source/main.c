@@ -4,16 +4,16 @@
 #include "transport_properties/selection_properties/selection_properties.h"
 #include "transport_properties/transport_properties.h"
 
- int connection_received(struct Listener* listener, struct Connection* new_conn, void* udata) {
-   printf("Connection received\n");
+ int connection_received(struct ct_listener_t* listener, struct ct_connection_t* new_conn, void* udata) {
+   printf("ct_connection_t received\n");
  }
- int establishment_error(struct Listener* listener, const char* reason, void* udata) {
+ int establishment_error(struct ct_listener_t* listener, const char* reason, void* udata) {
    printf("Establishment error: %s\n", reason);
  }
 
 int main() {
 
-  ctaps_initialize(NULL,NULL);
+  ct_initialize(NULL,NULL);
 
   return 0;
 }

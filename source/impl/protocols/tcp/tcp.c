@@ -18,16 +18,16 @@ void on_close(uv_handle_t* handle) {
 }
 
 void tcp_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
-  Connection* connection = (Connection*)handle->data;
-  log_info("TCP received message for Connection: %p", connection);
+  ct_connection_t* connection = (ct_connection_t*)handle->data;
+  log_info("TCP received message for ct_connection_t: %p", connection);
   if (nread < 0) {
     log_error("Read error: %s\n", uv_strerror(nread));
-    connection_close(connection);
+    ct_connection_close(connection);
     free(buf->base);
     return;
   }
 
-  Message* received_message = malloc(sizeof(Message));
+  ct_message_t* received_message = malloc(sizeof(ct_message_t));
   if (!received_message) {
     log_error("Failed to allocate send request\n");
     return;
@@ -47,7 +47,7 @@ void tcp_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
   }
   else {
     log_debug("Receive callback ready, calling it");
-    ReceiveCallbacks* receive_callback = g_queue_pop_head(connection->received_callbacks);
+    ct_receive_callbacks_t* receive_callback = g_queue_pop_head(connection->received_callbacks);
 
     receive_callback->receive_callback(connection, &received_message, NULL, receive_callback->user_data);
     free(receive_callback);
@@ -55,10 +55,10 @@ void tcp_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
 }
 
 void on_connect(struct uv_connect_s *req, int status) {
-  Connection* connection = (Connection*)req->handle->data;
+  ct_connection_t* connection = (ct_connection_t*)req->handle->data;
   if (status < 0) {
-    log_error("Connection error: %s", uv_strerror(status));
-    connection_close(connection);
+    log_error("ct_connection_t error: %s", uv_strerror(status));
+    ct_connection_close(connection);
     if (connection->connection_callbacks.establishment_error) {
       connection->connection_callbacks.establishment_error(connection, connection->connection_callbacks.user_data);
     }
@@ -73,7 +73,7 @@ void on_connect(struct uv_connect_s *req, int status) {
 }
 
 void on_write(uv_write_t* req, int status) {
-  Connection *connection = (Connection*)req->handle->data;
+  ct_connection_t *connection = (ct_connection_t*)req->handle->data;
   if (status < 0) {
     log_error("Write error: %s", uv_strerror(status));
     if (connection->connection_callbacks.send_error) {
@@ -87,7 +87,7 @@ void on_write(uv_write_t* req, int status) {
   log_info("Successfully sent message over TCP");
 }
 
-int tcp_init(Connection* connection, const ConnectionCallbacks* connection_callbacks) {
+int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks) {
   int rc;
   log_info("Initiating TCP connection");
   uv_tcp_t* new_tcp_handle = malloc(sizeof(uv_tcp_t));
@@ -98,7 +98,7 @@ int tcp_init(Connection* connection, const ConnectionCallbacks* connection_callb
 
   connection->protocol_state = (uv_handle_t*)new_tcp_handle;
 
-  rc = uv_tcp_init(ctaps_event_loop, new_tcp_handle);
+  rc = uv_tcp_init(event_loop, new_tcp_handle);
 
   if (rc < 0) {
     log_error("Error initializing udp handle: %s", uv_strerror(rc));
@@ -124,7 +124,7 @@ int tcp_init(Connection* connection, const ConnectionCallbacks* connection_callb
   if (rc < 0) {
     log_error("Error initiating TCP connection: %s", uv_strerror(rc));
     free(connect_req);
-    connection_close(connection);
+    ct_connection_close(connection);
     if (connection->connection_callbacks.establishment_error) {
       connection->connection_callbacks.establishment_error(connection, connection->connection_callbacks.user_data);
     }
@@ -133,12 +133,12 @@ int tcp_init(Connection* connection, const ConnectionCallbacks* connection_callb
   return 0;
 }
 
-int tcp_close(const Connection* connection) {
+int tcp_close(const ct_connection_t* connection) {
   log_info("Closing TCP connection");
 
   if (connection->open_type == CONNECTION_OPEN_TYPE_MULTIPLEXED) {
     log_info("Closing multiplexed TCP connection, removing from socket manager");
-    int rc = socket_manager_remove_connection(connection->socket_manager, (Connection*)connection);
+    int rc = socket_manager_remove_connection(connection->socket_manager, (ct_connection_t*)connection);
     if (rc < 0) {
       log_error("Error removing TCP connection from socket manager: %d", rc);
       return rc;
@@ -150,12 +150,12 @@ int tcp_close(const Connection* connection) {
     }
   }
 
-  ((Connection*)connection)->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSED;
+  ((ct_connection_t*)connection)->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSED;
 
   return 0;
 }
 
-int tcp_send(Connection* connection, Message* message, MessageContext* ctx) {
+int tcp_send(ct_connection_t* connection, ct_message_t* message, ct_message_context_t* ctx) {
   log_debug("Sending message over TCP");
   uv_buf_t buffer[] = {
     {
@@ -181,7 +181,7 @@ int tcp_send(Connection* connection, Message* message, MessageContext* ctx) {
   return 0;
 }
 
-int tcp_listen(SocketManager* socket_manager) {
+int tcp_listen(ct_socket_manager_t* socket_manager) {
   log_debug("Listening via TCP");
   int rc;
   uv_tcp_t* new_tcp_handle = malloc(sizeof(uv_tcp_t));
@@ -190,9 +190,9 @@ int tcp_listen(SocketManager* socket_manager) {
     return -ENOMEM;
   }
 
-  Listener* listener = socket_manager->listener;
+  ct_listener_t* listener = socket_manager->listener;
 
-  rc = uv_tcp_init(ctaps_event_loop, new_tcp_handle);
+  rc = uv_tcp_init(event_loop, new_tcp_handle);
   if (rc < 0) {
     log_error( "Error initializing tcp handle: %s", uv_strerror(rc));
     free(new_tcp_handle);
@@ -200,7 +200,7 @@ int tcp_listen(SocketManager* socket_manager) {
   }
 
 
-  LocalEndpoint local_endpoint = listener_get_local_endpoint(listener);
+  ct_local_endpoint_t local_endpoint = ct_listener_get_local_endpoint(listener);
   rc = uv_tcp_bind(new_tcp_handle, (const struct sockaddr*)&local_endpoint.data.address, 0);
   if (rc < 0) {
     log_error("Error binding TCP handle: %s", uv_strerror(rc));
@@ -224,7 +224,7 @@ int tcp_listen(SocketManager* socket_manager) {
 }
 
 void new_stream_connection_cb(uv_stream_t *server, int status) {
-  log_debug("New TCP connection received for Listener");
+  log_debug("New TCP connection received for ct_listener_t");
   int rc;
   if (status < 0) {
     log_error("New connection error: %s", uv_strerror(status));
@@ -235,14 +235,14 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
     log_error("Failed to allocate memory for new TCP client");
     return;
   }
-  rc = uv_tcp_init(ctaps_event_loop, client);
+  rc = uv_tcp_init(event_loop, client);
   if (rc < 0) {
     log_error("Error initializing TCP client handle: %s", uv_strerror(rc));
     free(client);
     return;
   }
 
-  Listener* listener = server->data;
+  ct_listener_t* listener = server->data;
 
   rc = uv_accept(server, (uv_stream_t*)client);
   if (rc < 0) {
@@ -251,7 +251,7 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
     return;
   }
 
-  Connection* connection = connection_build_from_received_handle(listener, (uv_stream_t*)client);
+  ct_connection_t* connection = ct_connection_build_from_received_handle(listener, (uv_stream_t*)client);
 
   if (!connection) {
     log_error("Failed to build connection from received handle");
@@ -265,7 +265,7 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
   if (rc < 0) {
     log_error("Could not start reading from TCP connection: %s", uv_strerror(rc));
     uv_close((uv_handle_t*)client, on_close);
-    connection_close(connection);
+    ct_connection_close(connection);
     free(connection);
     return;
   }
@@ -274,8 +274,8 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
   listener->listener_callbacks.connection_received(listener, connection, listener->listener_callbacks.user_data);
 }
 
-int tcp_stop_listen(SocketManager* socket_manager) {
-  log_debug("Stopping TCP listen for SocketManager %p", (void*)socket_manager);
+int tcp_stop_listen(ct_socket_manager_t* socket_manager) {
+  log_debug("Stopping TCP listen for ct_socket_manager_t %p", (void*)socket_manager);
 
   if (socket_manager->protocol_state) {
     uv_close(socket_manager->protocol_state, on_close);
@@ -284,7 +284,7 @@ int tcp_stop_listen(SocketManager* socket_manager) {
   return 0;
 }
 
-int tcp_remote_endpoint_from_peer(uv_handle_t* peer, RemoteEndpoint* resolved_peer) {
+int tcp_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* resolved_peer) {
   int rc;
   struct sockaddr_storage remote_addr;
   int addr_len = sizeof(remote_addr);
@@ -293,7 +293,7 @@ int tcp_remote_endpoint_from_peer(uv_handle_t* peer, RemoteEndpoint* resolved_pe
     log_error("Could not get remote address from received handle: %s", uv_strerror(rc));
     return rc;
   }
-  rc = remote_endpoint_from_sockaddr(resolved_peer, &remote_addr);
+  rc = ct_remote_endpoint_from_sockaddr(resolved_peer, &remote_addr);
   if (rc < 0) {
     log_error("Could not build remote endpoint from received handle's remote address");
     return rc;
@@ -301,7 +301,7 @@ int tcp_remote_endpoint_from_peer(uv_handle_t* peer, RemoteEndpoint* resolved_pe
   return 0;
 }
 
-void tcp_retarget_protocol_connection(Connection* from_connection, Connection* to_connection) {
+void tcp_retarget_protocol_connection(ct_connection_t* from_connection, ct_connection_t* to_connection) {
   // For TCP, protocol_state is the uv_tcp_t handle directly
   // Update the handle's data pointer to reference the new connection
   if (from_connection->protocol_state) {

@@ -16,17 +16,17 @@ typedef struct {
     pthread_cond_t* waiting_cond;
     int* num_reads;
     int expected_num_reads;
-} CallBackWaiter;
+} ct_call_back_waiter_t;
 
 typedef struct {
-    Message** message;
-    CallBackWaiter* cb_waiter;
-} MessageReceiver;
+    ct_message_t** message;
+    ct_call_back_waiter_t* cb_waiter;
+} ct_message_receiver_t;
 
-void wait_for_callback(CallBackWaiter* cb_waiter);
+void wait_for_callback(ct_call_back_waiter_t* cb_waiter);
 
-void increment_reads(Connection* connection, CallBackWaiter* cb_waiter);
-int receive_message_cb(Connection* connection, Message** received_message, void* user_data);
-int connection_ready_cb(Connection* connection, void* user_data);
+void increment_reads(ct_connection_t* connection, ct_call_back_waiter_t* cb_waiter);
+int receive_message_cb(ct_connection_t* connection, ct_message_t** received_message, void* user_data);
+int connection_ready_cb(ct_connection_t* connection, void* user_data);
 
 #endif //UTIL_H

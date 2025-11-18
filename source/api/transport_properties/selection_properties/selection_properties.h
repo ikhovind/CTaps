@@ -11,44 +11,44 @@ typedef enum {
   NO_PREFERENCE,
   PREFER,
   REQUIRE,
-} SelectionPreference;
+} ct_selection_preference_t;
 
-typedef enum PropertyType {
+typedef enum ct_property_type_t {
   TYPE_PREFERENCE,
   TYPE_PREFERENCE_SET,
   TYPE_MULTIPATH_ENUM,
   TYPE_BOOLEAN,
   TYPE_DIRECTION_ENUM
-} PropertyType;
+} ct_property_type_t;
 
-typedef enum DirectionOfCommunication {
+typedef enum ct_direction_of_communication_t {
   DIRECTION_BIDIRECTIONAL,
   DIRECTION_UNIDIRECTIONAL_SEND,
   DIRECTION_UNIDIRECTIONAL_RECV
-} DirectionOfCommunicationEnum;
+} ct_direction_of_communication_enum_t;
 
-typedef enum MultipathEnum {
+typedef enum ct_multipath_enum_t {
   MULTIPATH_DISABLED,
   MULTIPATH_ACTIVE,
   MULTIPATH_PASSIVE
-} MultipathEnum;
+} ct_multipath_enum_t;
 
 typedef union {
-  SelectionPreference simple_preference;
+  ct_selection_preference_t simple_preference;
   void* preference_map;
-  MultipathEnum multipath_enum;
+  ct_multipath_enum_t multipath_enum;
   bool boolean;
-  DirectionOfCommunicationEnum direction_enum;
-} SelectionPropertyValue;
+  ct_direction_of_communication_enum_t direction_enum;
+} ct_selection_property_value_t;
 
-typedef struct SelectionProperty {
+typedef struct ct_selection_property_t {
   char* name;
-  PropertyType type;
+  ct_property_type_t type;
   // needed since default values vary by connection type
   // but the user is able to set properties before we know the connection type
   bool set_by_user;
-  SelectionPropertyValue value;
-} SelectionProperty;
+  ct_selection_property_value_t value;
+} ct_selection_property_t;
 
 #define EMPTY_PREFERENCE_SET_DEFAULT NO_PREFERENCE
 #define RUNTIME_DEPENDENT_DEFAULT NO_PREFERENCE
@@ -77,11 +77,11 @@ typedef struct SelectionProperty {
 
 #define output_enum(enum_name, string_name, property_type, default_value) enum_name,
 
-typedef enum { get_selection_property_list(output_enum) SELECTION_PROPERTY_END } SelectionPropertyEnum;
+typedef enum { get_selection_property_list(output_enum) SELECTION_PROPERTY_END } ct_selection_property_enum_t;
 
 typedef struct {
-  SelectionProperty selection_property[SELECTION_PROPERTY_END];
-} SelectionProperties;
+  ct_selection_property_t selection_property[SELECTION_PROPERTY_END];
+} ct_selection_properties_t;
 
 // The value cast is a hack to please the c++ compiler for our tests
 #define create_property_initializer(enum_name, string_name, property_type, default_value) \
@@ -89,25 +89,25 @@ typedef struct {
     .name = string_name,                                                   \
     .type = property_type,                                                 \
     .set_by_user = false,                                                  \
-    .value = { (SelectionPreference)default_value }                     \
+    .value = { (ct_selection_preference_t)default_value }                     \
 },
 
-const static SelectionProperties DEFAULT_SELECTION_PROPERTIES = {
+const static ct_selection_properties_t DEFAULT_SELECTION_PROPERTIES = {
   .selection_property = {
     get_selection_property_list(create_property_initializer)
   }
 };
 
-void selection_properties_build(SelectionProperties* selection_properties);
+void ct_selection_properties_build(ct_selection_properties_t* selection_properties);
 
-void set_sel_prop_preference(SelectionProperties* props, SelectionPropertyEnum prop_enum, SelectionPreference val);
+void ct_set_sel_prop_preference(ct_selection_properties_t* props, ct_selection_property_enum_t prop_enum, ct_selection_preference_t val);
 
-void set_sel_prop_interface(SelectionProperties* props, const char* interface_name, SelectionPreference preference);
+void ct_set_sel_prop_interface(ct_selection_properties_t* props, const char* interface_name, ct_selection_preference_t preference);
 
-void set_sel_prop_multipath(SelectionProperties* props, SelectionPropertyEnum prop_enum, MultipathEnum val);
+void ct_set_sel_prop_multipath(ct_selection_properties_t* props, ct_selection_property_enum_t prop_enum, ct_multipath_enum_t val);
 
-void set_sel_prop_direction(SelectionProperties* props, SelectionPropertyEnum prop_enum, DirectionOfCommunicationEnum val);
+void ct_set_sel_prop_direction(ct_selection_properties_t* props, ct_selection_property_enum_t prop_enum, ct_direction_of_communication_enum_t val);
 
-void set_sel_prop_bool(SelectionProperties* props, SelectionPropertyEnum prop_enum, bool val);
+void ct_set_sel_prop_bool(ct_selection_properties_t* props, ct_selection_property_enum_t prop_enum, bool val);
 
 #endif  // SELECTION_PROPERTIES_H

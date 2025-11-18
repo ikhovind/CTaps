@@ -12,7 +12,7 @@ extern "C" {
 // --- FFF Fakes ---
 DEFINE_FFF_GLOBALS;
 FAKE_VALUE_FUNC(int, faked_uv_getaddrinfo, uv_loop_t*, uv_getaddrinfo_t*, uv_getaddrinfo_cb, const char*, const char*, const struct addrinfo*);
-FAKE_VALUE_FUNC(int32_t, get_service_port_remote, RemoteEndpoint*);
+FAKE_VALUE_FUNC(int32_t, get_service_port_remote, ct_remote_endpoint_t*);
 }
 
 extern "C" int __wrap_uv_getaddrinfo(uv_loop_t* loop, uv_getaddrinfo_t* req,
@@ -75,18 +75,18 @@ TEST_F(RemoteEndpointResolveTest, ResolvesHostnameAndAppliesServicePort) {
   get_service_port_remote_fake.return_val = 443;
   
   // Create a remote endpoint specifying a hostname and a service
-  RemoteEndpoint endpoint_to_resolve;
-  remote_endpoint_build(&endpoint_to_resolve);
-  remote_endpoint_with_hostname(&endpoint_to_resolve, "example.com");
-  remote_endpoint_with_service(&endpoint_to_resolve, "https");
+  ct_remote_endpoint_t endpoint_to_resolve;
+  ct_remote_endpoint_build(&endpoint_to_resolve);
+  ct_remote_endpoint_with_hostname(&endpoint_to_resolve, "example.com");
+  ct_remote_endpoint_with_service(&endpoint_to_resolve, "https");
 
   // Output variables
-  RemoteEndpoint* resolved_list = nullptr;
+  ct_remote_endpoint_t* resolved_list = nullptr;
   size_t resolved_count = 0;
 
   // --- ACT ---
   // Call the function we want to test
-  int result = remote_endpoint_resolve(&endpoint_to_resolve, &resolved_list, &resolved_count);
+  int result = ct_remote_endpoint_resolve(&endpoint_to_resolve, &resolved_list, &resolved_count);
 
   // --- ASSERT ---
   // 1. Check that the function succeeded and our fakes were called
@@ -99,14 +99,14 @@ TEST_F(RemoteEndpointResolveTest, ResolvesHostnameAndAppliesServicePort) {
   ASSERT_NE(resolved_list, nullptr);
 
   // 3. Check the first resolved endpoint (IPv4)
-  RemoteEndpoint ipv4_endpoint = resolved_list[0];
+  ct_remote_endpoint_t ipv4_endpoint = resolved_list[0];
   struct sockaddr_in* ipv4_addr = (struct sockaddr_in*)&ipv4_endpoint.data.resolved_address;
   EXPECT_EQ(ipv4_addr->sin_family, AF_INET);
   // Verify the port was correctly set from our fake service lookup
   EXPECT_EQ(ntohs(ipv4_addr->sin_port), 443); 
 
   // 4. Check the second resolved endpoint (IPv6)
-  RemoteEndpoint ipv6_endpoint = resolved_list[1];
+  ct_remote_endpoint_t ipv6_endpoint = resolved_list[1];
   struct sockaddr_in6* ipv6_addr = (struct sockaddr_in6*)&ipv6_endpoint.data.resolved_address;
   EXPECT_EQ(ipv6_addr->sin6_family, AF_INET6);
   // Verify the port was also set here
