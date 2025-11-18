@@ -3,8 +3,7 @@
 #include "gtest/gtest.h"
 #include "fff.h"
 extern "C" {
-#include <transport_properties/transport_properties.h>
-#include "state/ctaps_state.h"
+#include "ctaps.h"
 }
 
 

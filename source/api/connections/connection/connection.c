@@ -1,18 +1,12 @@
-#include "connection.h"
 
-#include <connections/listener/listener.h>
 #include <logging/log.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <uv.h>
 
+#include "ctaps.h"
 #include "connections/listener/socket_manager/socket_manager.h"
-#include "endpoints/remote/remote_endpoint.h"
 #include "glib.h"
-#include "message/message.h"
-#include "message/message_context/message_context.h"
-#include "protocols/protocol_interface.h"
-#include "transport_properties/connection_properties/connection_properties.h"
 
 int ct_send_message(ct_connection_t* connection, ct_message_t* message) {
   return connection->protocol.send(connection, message, NULL);

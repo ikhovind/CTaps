@@ -1,7 +1,6 @@
 #include "port_util.h"
 
 #include <sys/socket.h>
-#include <endpoints/remote/remote_endpoint.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <stdlib.h>
@@ -9,7 +8,7 @@
 #include <logging/log.h>
 #include <errno.h>
 
-#include "endpoints/local/local_endpoint.h"
+#include "ctaps.h"
 
 int32_t get_service_port_inner(char* service, int family) {
   struct addrinfo hints;

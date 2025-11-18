@@ -7,17 +7,12 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <uv.h>
-#include <connections/listener/listener.h>
 #include <logging/log.h>
 #include <errno.h>
 #include <protocols/common/socket_utils.h>
 
-#include "connections/connection/connection.h"
-#include "connections/connection/connection_callbacks.h"
+#include "ctaps.h"
 #include "connections/listener/socket_manager/socket_manager.h"
-#include "state/ctaps_state.h"
-#include "message/message_context/message_context.h"
-#include "protocols/registry/protocol_registry.h"
 
 #define MAX_FOUND_INTERFACE_ADDRS 64
 

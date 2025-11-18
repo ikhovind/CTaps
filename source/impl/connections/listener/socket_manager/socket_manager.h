@@ -1,9 +1,8 @@
 #ifndef SOCKET_MANAGER_H
 #define SOCKET_MANAGER_H
 #include <uv.h>
-#include <endpoints/local/local_endpoint.h>
+#include "ctaps.h"
 #include <glib.h>
-#include <connections/connection/connection.h>
 
 struct ct_listener_t;
 
@@ -14,7 +13,7 @@ struct ct_listener_t;
  *
  * This means that the protocol_uv_handle is only used for UDP right now
  */
-typedef struct ct_socket_manager_t{
+typedef struct ct_socket_manager_t {
   void* protocol_state;
   int ref_count; // Number of objects using this socket (ct_listener_t + Connections)
   GHashTable* active_connections;

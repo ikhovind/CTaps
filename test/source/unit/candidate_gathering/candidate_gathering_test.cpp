@@ -6,12 +6,7 @@
 extern "C" {
   #include "fff.h"
   #include <logging/log.h>
-  #include "endpoints/local/local_endpoint.h"
-  #include "endpoints/remote/remote_endpoint.h"
-  #include "connections/preconnection/preconnection.h"
-  #include "transport_properties/transport_properties.h"
-  #include "protocols/protocol_interface.h"
-  #include "protocols/registry/protocol_registry.h"
+#include "ctaps.h"
   #include "candidate_gathering/candidate_gathering.h"
 }
 

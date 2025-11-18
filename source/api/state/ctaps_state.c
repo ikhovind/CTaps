@@ -1,8 +1,7 @@
-#include "state/ctaps_state.h"
+#include "ctaps.h"
 
 #include <logging/log.h>
 #include <protocols/quic/quic.h>
-#include <protocols/registry/protocol_registry.h>
 
 #include "protocols/udp/udp.h"
 #include "protocols/tcp/tcp.h"

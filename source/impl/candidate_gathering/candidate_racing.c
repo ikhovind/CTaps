@@ -1,8 +1,7 @@
 #include "candidate_racing.h"
 
-#include <connections/connection/connection_callbacks.h>
 #include <logging/log.h>
-#include <state/ctaps_state.h>
+#include "ctaps.h"
 #include <stdlib.h>
 #include <string.h>
 

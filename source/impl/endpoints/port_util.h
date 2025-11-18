@@ -8,8 +8,7 @@
 #define PORT_UTIL_H
 
 #include <uv.h>
-#include <endpoints/local/local_endpoint.h>
-#include <endpoints/remote/remote_endpoint.h>
+#include "ctaps.h"
 
 int32_t get_service_port_local(const ct_local_endpoint_t* local_endpoint);
 
