@@ -142,7 +142,7 @@ add_gtest(remote_endpoint_integration_test
             ${CMAKE_SOURCE_DIR}/source/impl/protocols/tcp/tcp.c
             ${CMAKE_SOURCE_DIR}/source/impl/protocols/quic/quic.c
             ${CMAKE_SOURCE_DIR}/source/impl/protocols/common/socket_utils.c
-            ${CMAKE_SOURCE_DIR}/source/api/ctaps.c
+            ${CMAKE_SOURCE_DIR}/source/api/state/ctaps_state.c
             ${CMAKE_SOURCE_DIR}/source/api/transport_properties/transport_properties.c
             ${CMAKE_SOURCE_DIR}/source/api/transport_properties/selection_properties/selection_properties.c
             ${CMAKE_SOURCE_DIR}/source/api/transport_properties/connection_properties/connection_properties.c

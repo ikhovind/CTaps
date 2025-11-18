@@ -3,7 +3,7 @@
 #include "gtest/gtest.h"
 extern "C" {
 #include "connections/preconnection/preconnection.h"
-#include "ctaps.h"
+#include "state/ctaps_state.h"
 #include <logging/log.h>
 }
 

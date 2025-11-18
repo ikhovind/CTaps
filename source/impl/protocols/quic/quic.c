@@ -1,8 +1,8 @@
 #include "quic.h"
 
-#include <ctaps.h>
 #include <logging/log.h>
 #include <picotls.h>
+#include <state/ctaps_state.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <sys/socket.h>

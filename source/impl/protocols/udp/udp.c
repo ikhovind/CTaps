@@ -15,7 +15,7 @@
 #include "connections/connection/connection.h"
 #include "connections/connection/connection_callbacks.h"
 #include "connections/listener/socket_manager/socket_manager.h"
-#include "ctaps.h"
+#include "state/ctaps_state.h"
 #include "message/message_context/message_context.h"
 #include "protocols/registry/protocol_registry.h"
 

@@ -27,7 +27,7 @@ set(API_SOURCES
     source/api/message/message.c
     source/api/connections/connection/connection.c
     source/api/protocols/registry/protocol_registry.c
-    source/api/ctaps.c
+    source/api/state/ctaps_state.c
     source/api/endpoints/local/local_endpoint.c
     source/api/connections/listener/listener.c
 )

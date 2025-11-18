@@ -7,7 +7,7 @@
 
 #include "connections/preconnection/preconnection.h"
 #include "connections/connection/connection.h"
-#include "ctaps.h"
+#include "state/ctaps_state.h"
 #include "endpoints/remote/remote_endpoint.h"
 #include "transport_properties/transport_properties.h"
 
