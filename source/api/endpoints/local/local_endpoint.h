@@ -16,16 +16,16 @@ typedef struct {
   union {
     struct sockaddr_storage address;
   } data;
-} LocalEndpoint;
+} ct_local_endpoint_t;
 
-void local_endpoint_build(LocalEndpoint* local_endpoint);
-void local_endpoint_with_port(LocalEndpoint* local_endpoint, int port);
-int local_endpoint_with_interface(LocalEndpoint* local_endpoint, const char* interface_name);
-int local_endpoint_with_service(LocalEndpoint* local_endpoint, char* service);
-int local_endpoint_resolve(const LocalEndpoint* local_endpoint, LocalEndpoint** out_list, size_t* out_count);
-void free_local_endpoint(LocalEndpoint* local_endpoint);
-void free_local_endpoint_strings(LocalEndpoint* local_endpoint);
-LocalEndpoint local_endpoint_copy_content(const LocalEndpoint* local_endpoint);
-LocalEndpoint* local_endpoint_copy(const LocalEndpoint* local_endpoint);
+void ct_local_endpoint_build(ct_local_endpoint_t* local_endpoint);
+void ct_local_endpoint_with_port(ct_local_endpoint_t* local_endpoint, int port);
+int ct_local_endpoint_with_interface(ct_local_endpoint_t* local_endpoint, const char* interface_name);
+int ct_local_endpoint_with_service(ct_local_endpoint_t* local_endpoint, char* service);
+int ct_local_endpoint_resolve(const ct_local_endpoint_t* local_endpoint, ct_local_endpoint_t** out_list, size_t* out_count);
+void ct_free_local_endpoint(ct_local_endpoint_t* local_endpoint);
+void ct_free_local_endpoint_strings(ct_local_endpoint_t* local_endpoint);
+ct_local_endpoint_t ct_local_endpoint_copy_content(const ct_local_endpoint_t* local_endpoint);
+ct_local_endpoint_t* local_endpoint_copy(const ct_local_endpoint_t* local_endpoint);
 
 #endif  // LOCAL_ENDPOINT_H

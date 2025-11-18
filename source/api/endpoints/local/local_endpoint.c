@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-void local_endpoint_with_port(LocalEndpoint* local_endpoint, int port) {
+void ct_local_endpoint_with_port(ct_local_endpoint_t* local_endpoint, int port) {
   local_endpoint->port = port;
   if (local_endpoint->data.address.ss_family == AF_INET6) {
     struct sockaddr_in6* addr = (struct sockaddr_in6*)&local_endpoint->data.address;
@@ -23,17 +23,17 @@ void local_endpoint_with_port(LocalEndpoint* local_endpoint, int port) {
   }
 }
 
-void local_endpoint_build(LocalEndpoint* local_endpoint) {
-  memset(local_endpoint, 0, sizeof(LocalEndpoint));
+void ct_local_endpoint_build(ct_local_endpoint_t* local_endpoint) {
+  memset(local_endpoint, 0, sizeof(ct_local_endpoint_t));
 }
 
-int local_endpoint_with_interface(LocalEndpoint* local_endpoint, const char* interface_name) {
+int ct_local_endpoint_with_interface(ct_local_endpoint_t* local_endpoint, const char* interface_name) {
   log_trace("Allocating %zu bytes of memory for interface name", strlen(interface_name) + 1);
   local_endpoint->interface_name = strdup(interface_name);
   return 0;
 }
 
-int local_endpoint_with_service(LocalEndpoint* local_endpoint, char* service) {
+int ct_local_endpoint_with_service(ct_local_endpoint_t* local_endpoint, char* service) {
   local_endpoint->service = malloc(strlen(service) + 1);
   if (local_endpoint->service == NULL) {
     return -errno;
@@ -42,7 +42,7 @@ int local_endpoint_with_service(LocalEndpoint* local_endpoint, char* service) {
   return 0;
 }
 
-int local_endpoint_resolve(const LocalEndpoint* local_endpoint, LocalEndpoint** out_list, size_t* out_count) {
+int ct_local_endpoint_resolve(const ct_local_endpoint_t* local_endpoint, ct_local_endpoint_t** out_list, size_t* out_count) {
   log_info("Resolving local endpoint");
   int num_found_addresses = 0;
   *out_count = 0;
@@ -69,12 +69,12 @@ int local_endpoint_resolve(const LocalEndpoint* local_endpoint, LocalEndpoint** 
   }
   if (num_found_addresses > 0) {
     log_debug("Found %d interface addresses", num_found_addresses);
-    *out_list = malloc(sizeof(LocalEndpoint) * num_found_addresses);
+    *out_list = malloc(sizeof(ct_local_endpoint_t) * num_found_addresses);
     *out_count = num_found_addresses;
 
     for (int i = 0; i < num_found_addresses; i++) {
       struct sockaddr_storage* sockaddr_storage = &found_interface_addrs[i];
-      local_endpoint_build(&(*out_list)[i]);
+      ct_local_endpoint_build(&(*out_list)[i]);
       (*out_list)[i].port = assigned_port;
       (*out_list)[i].interface_name = local_endpoint->interface_name ? strdup(local_endpoint->interface_name) : NULL;
       (*out_list)[i].service = local_endpoint->service ? strdup(local_endpoint->service) : NULL;
@@ -92,7 +92,7 @@ int local_endpoint_resolve(const LocalEndpoint* local_endpoint, LocalEndpoint** 
   return 0;
 }
 
-void free_local_endpoint_strings(LocalEndpoint* local_endpoint) {
+void ct_free_local_endpoint_strings(ct_local_endpoint_t* local_endpoint) {
   if (local_endpoint->interface_name) {
     log_trace("Freeing local endpoint interface name");
     free(local_endpoint->interface_name);
@@ -106,13 +106,13 @@ void free_local_endpoint_strings(LocalEndpoint* local_endpoint) {
   }
 }
 
-void free_local_endpoint(LocalEndpoint* local_endpoint) {
-  free_local_endpoint_strings(local_endpoint);
+void ct_free_local_endpoint(ct_local_endpoint_t* local_endpoint) {
+  ct_free_local_endpoint_strings(local_endpoint);
   free(local_endpoint);
 }
 
-LocalEndpoint local_endpoint_copy_content(const LocalEndpoint* local_endpoint) {
-  LocalEndpoint res = {0};
+ct_local_endpoint_t ct_local_endpoint_copy_content(const ct_local_endpoint_t* local_endpoint) {
+  ct_local_endpoint_t res = {0};
   res = *local_endpoint;
 
   if (local_endpoint->interface_name) {
@@ -124,8 +124,8 @@ LocalEndpoint local_endpoint_copy_content(const LocalEndpoint* local_endpoint) {
   return res;
 }
 
-LocalEndpoint* local_endpoint_copy(const LocalEndpoint* local_endpoint) {
-  LocalEndpoint* res = malloc(sizeof(LocalEndpoint));
-  *res = local_endpoint_copy_content(local_endpoint);
+ct_local_endpoint_t* local_endpoint_copy(const ct_local_endpoint_t* local_endpoint) {
+  ct_local_endpoint_t* res = malloc(sizeof(ct_local_endpoint_t));
+  *res = ct_local_endpoint_copy_content(local_endpoint);
   return res;
 }

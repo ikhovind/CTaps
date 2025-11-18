@@ -15,20 +15,20 @@ typedef enum {
   NODE_TYPE_PATH,
   NODE_TYPE_PROTOCOL,
   NODE_TYPE_ENDPOINT,
-} NodeType;
+} ct_node_type_t;
 
-typedef struct CandidateNode {
-  NodeType type;
+typedef struct ct_candidate_node_t {
+  ct_node_type_t type;
   int score;
 
-  LocalEndpoint* local_endpoint;
-  RemoteEndpoint* remote_endpoint;
-  const ProtocolImplementation* protocol;
+  ct_local_endpoint_t* local_endpoint;
+  ct_remote_endpoint_t* remote_endpoint;
+  const ct_protocol_implementation_t* protocol;
 
-  const TransportProperties* transport_properties;
-} CandidateNode;
+  const ct_transport_properties_t* transport_properties;
+} ct_candidate_node_t;
 
-GArray* get_ordered_candidate_nodes(const Preconnection* precon);
+GArray* get_ordered_candidate_nodes(const ct_preconnection_t* precon);
 
 void free_candidate_array(GArray* candidate_array);
 

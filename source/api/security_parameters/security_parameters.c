@@ -4,17 +4,17 @@
 #include <stdlib.h>
 #include <errno.h>
 
-void security_parameters_build(SecurityParameters* security_parameters) {
+void ct_security_parameters_build(ct_security_parameters_t* security_parameters) {
   // TODO - maybe introduce default values here instead?
-  memset(security_parameters, 0, sizeof(SecurityParameters));
+  memset(security_parameters, 0, sizeof(ct_security_parameters_t));
 }
 
-int sec_param_set_property_string_array(SecurityParameters* security_parameters, SecurityPropertyEnum property, char** strings, size_t num_strings) {
+int ct_sec_param_set_property_string_array(ct_security_parameters_t* security_parameters, ct_security_property_enum_t property, char** strings, size_t num_strings) {
   if (property >= SEC_PROPERTY_END) {
     log_error("Attempted to set invalid security parameter property");
     return -EINVAL;
   }
-  SecurityParameter* sec_param = &security_parameters->security_parameters[property];
+  ct_security_parameter_t* sec_param = &security_parameters->security_parameters[property];
   if (sec_param->type != TYPE_STRING_ARRAY) {
     log_error("Attempted to set a non-string-array security parameter as string array");
     return -EINVAL;
@@ -41,9 +41,9 @@ int sec_param_set_property_string_array(SecurityParameters* security_parameters,
   return 0;
 }
 
-void free_security_parameter_content(SecurityParameters* security_parameters) {
+void ct_free_security_parameter_content(ct_security_parameters_t* security_parameters) {
   for (size_t i = 0; i < SEC_PROPERTY_END; i++) {
-    SecurityParameter* sec_param = &security_parameters->security_parameters[i];
+    ct_security_parameter_t* sec_param = &security_parameters->security_parameters[i];
     if (sec_param->type == TYPE_STRING_ARRAY) {
       for (size_t j = 0; j < sec_param->value.array_of_strings.num_strings; j++) {
         free(sec_param->value.array_of_strings.strings[j]);

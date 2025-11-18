@@ -5,17 +5,17 @@
 #include "protocols/protocol_interface.h"
 #include <connections/connection/connection.h>
 
-struct SocketManager;
+struct ct_socket_manager_t;
 
-int tcp_init(Connection* connection, const ConnectionCallbacks* connection_callbacks);
-int tcp_close(const Connection* connection);
-int tcp_send(Connection* connection, Message* message, MessageContext*);
-int tcp_listen(struct SocketManager* socket_manager);
-int tcp_stop_listen(struct SocketManager* listener);
-int tcp_remote_endpoint_from_peer(uv_handle_t* peer, RemoteEndpoint* resolved_peer);
-void tcp_retarget_protocol_connection(Connection* from_connection, Connection* to_connection);
+int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks);
+int tcp_close(const ct_connection_t* connection);
+int tcp_send(ct_connection_t* connection, ct_message_t* message, ct_message_context_t*);
+int tcp_listen(struct ct_socket_manager_t* socket_manager);
+int tcp_stop_listen(struct ct_socket_manager_t* listener);
+int tcp_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* resolved_peer);
+void tcp_retarget_protocol_connection(ct_connection_t* from_connection, ct_connection_t* to_connection);
 
-static ProtocolImplementation tcp_protocol_interface = {
+static ct_protocol_implementation_t tcp_protocol_interface = {
     .name = "TCP",
     .selection_properties = {
       .selection_property = {

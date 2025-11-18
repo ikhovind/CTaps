@@ -13,29 +13,29 @@
 #ifndef __cplusplus
 #define selection_properties_set_selection_property(props, prop_enum, value) \
     _Generic((value), \
-        SelectionPreference:            tp_set_sel_prop_preference, \
-        MultipathEnum:                  tp_set_sel_prop_multipath, \
-        bool:                           tp_set_sel_prop_bool, \
-        DirectionOfCommunicationEnum:   tp_set_sel_prop_direction, \
-        default:                        tp_set_sel_prop_preference \
+        ct_selection_preference_t:            ct_tp_set_sel_prop_preference, \
+        ct_multipath_enum_t:                  ct_tp_set_sel_prop_multipath, \
+        bool:                           ct_tp_set_sel_prop_bool, \
+        ct_direction_of_communication_enum_t:   ct_tp_set_sel_prop_direction, \
+        default:                        ct_tp_set_sel_prop_preference \
     )(props, prop_enum, value)
 #endif
 
 typedef struct {
-  SelectionProperties selection_properties;
-  ConnectionProperties connection_properties;
-} TransportProperties;
+  ct_selection_properties_t selection_properties;
+  ct_connection_properties_t connection_properties;
+} ct_transport_properties_t;
 
-void transport_properties_build(TransportProperties* properties);
+void ct_transport_properties_build(ct_transport_properties_t* properties);
 
-void tp_set_sel_prop_preference(TransportProperties* props, SelectionPropertyEnum prop_enum, SelectionPreference val);
-void tp_set_sel_prop_multipath(TransportProperties* props, SelectionPropertyEnum prop_enum, MultipathEnum val);
-void tp_set_sel_prop_direction(TransportProperties* props, SelectionPropertyEnum prop_enum, DirectionOfCommunicationEnum val);
+void ct_tp_set_sel_prop_preference(ct_transport_properties_t* props, ct_selection_property_enum_t prop_enum, ct_selection_preference_t val);
+void ct_tp_set_sel_prop_multipath(ct_transport_properties_t* props, ct_selection_property_enum_t prop_enum, ct_multipath_enum_t val);
+void ct_tp_set_sel_prop_direction(ct_transport_properties_t* props, ct_selection_property_enum_t prop_enum, ct_direction_of_communication_enum_t val);
 
-void tp_set_sel_prop_bool(TransportProperties* props, SelectionPropertyEnum prop_enum, bool val);
-void tp_set_sel_prop(TransportProperties* props, SelectionPropertyEnum prop_enum, SelectionPropertyValue);
+void ct_tp_set_sel_prop_bool(ct_transport_properties_t* props, ct_selection_property_enum_t prop_enum, bool val);
+void ct_tp_set_sel_prop(ct_transport_properties_t* props, ct_selection_property_enum_t prop_enum, ct_selection_property_value_t);
 // TODO - this should be more generic, not only for interface
-void tp_set_sel_prop_interface(TransportProperties* props, char* interface_name, SelectionPreference preference);
+void ct_tp_set_sel_prop_interface(ct_transport_properties_t* props, char* interface_name, ct_selection_preference_t preference);
 
 
 #endif  // TRANSPORT_PROPERTIES_H

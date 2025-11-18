@@ -8,7 +8,7 @@
  *   - with protocol
  */
 
-typedef struct RemoteEndpoint{
+typedef struct ct_remote_endpoint_t{
   // host byte order
   uint16_t port;
   char* service;
@@ -16,31 +16,31 @@ typedef struct RemoteEndpoint{
   union {
     struct sockaddr_storage resolved_address;
   } data;
-} RemoteEndpoint;
+} ct_remote_endpoint_t;
 
-void remote_endpoint_build(RemoteEndpoint* remote_endpoint);
+void ct_remote_endpoint_build(ct_remote_endpoint_t* remote_endpoint);
 
-int remote_endpoint_with_hostname(RemoteEndpoint* remote_endpoint, const char* hostname);
+int ct_remote_endpoint_with_hostname(ct_remote_endpoint_t* remote_endpoint, const char* hostname);
 
-void remote_endpoint_with_port(RemoteEndpoint* remote_endpoint, unsigned short port);
+void ct_remote_endpoint_with_port(ct_remote_endpoint_t* remote_endpoint, unsigned short port);
 
-int remote_endpoint_from_sockaddr(RemoteEndpoint* remote_endpoint, const struct sockaddr_storage* addr);
+int ct_remote_endpoint_from_sockaddr(ct_remote_endpoint_t* remote_endpoint, const struct sockaddr_storage* addr);
 
-int remote_endpoint_with_service(RemoteEndpoint* remote_endpoint,
+int ct_remote_endpoint_with_service(ct_remote_endpoint_t* remote_endpoint,
                                   const char* service);
-int remote_endpoint_with_ipv4(RemoteEndpoint* remote_endpoint,
+int ct_remote_endpoint_with_ipv4(ct_remote_endpoint_t* remote_endpoint,
                                in_addr_t ipv4_addr);
-int remote_endpoint_with_ipv6(RemoteEndpoint* remote_endpoint,
+int ct_remote_endpoint_with_ipv6(ct_remote_endpoint_t* remote_endpoint,
                                struct in6_addr ipv6_addr);
 
-int remote_endpoint_resolve(const RemoteEndpoint* remote_endpoint, RemoteEndpoint** out_list, size_t* out_count);
+int ct_remote_endpoint_resolve(const ct_remote_endpoint_t* remote_endpoint, ct_remote_endpoint_t** out_list, size_t* out_count);
 
-void free_remote_endpoint(RemoteEndpoint* remote_endpoint);
+void ct_free_remote_endpoint(ct_remote_endpoint_t* remote_endpoint);
 
-void free_remote_endpoint_strings(RemoteEndpoint* remote_endpoint);
+void ct_free_remote_endpoint_strings(ct_remote_endpoint_t* remote_endpoint);
 
-RemoteEndpoint* remote_endpoint_copy(const RemoteEndpoint* remote_endpoint);
+ct_remote_endpoint_t* remote_endpoint_copy(const ct_remote_endpoint_t* remote_endpoint);
 
-RemoteEndpoint remote_endpoint_copy_content(const RemoteEndpoint* remote_endpoint);
+ct_remote_endpoint_t ct_remote_endpoint_copy_content(const ct_remote_endpoint_t* remote_endpoint);
 
 #endif  // LOCAL_ENDPOINT_H

@@ -14,34 +14,32 @@
 typedef enum {
   CONNECTION_TYPE_STANDALONE = 0,
   CONNECTION_OPEN_TYPE_MULTIPLEXED,
-} ConnectionType;
+} ct_connection_type_t;
 
-struct Preconnection;
-
-typedef struct Connection {
-  TransportProperties transport_properties;
-  const SecurityParameters* security_parameters;
-  LocalEndpoint local_endpoint;
-  RemoteEndpoint remote_endpoint;
+typedef struct ct_connection_t {
+  ct_transport_properties_t transport_properties;
+  const ct_security_parameters_t* security_parameters;
+  ct_local_endpoint_t local_endpoint;
+  ct_remote_endpoint_t remote_endpoint;
   // TODO - decide on if this has to be a pointer
-  ProtocolImplementation protocol;
+  ct_protocol_implementation_t protocol;
   void* protocol_state;
-  ConnectionType open_type;
-  ConnectionCallbacks connection_callbacks;
-  struct SocketManager* socket_manager;
+  ct_connection_type_t open_type;
+  ct_connection_callbacks_t connection_callbacks;
+  struct ct_socket_manager_t* socket_manager;
   // TODO this is shared state and should be locked
   // Queue for pending receive() calls that arrived before the data
   GQueue* received_callbacks;
   GQueue* received_messages;
-} Connection;
+} ct_connection_t;
 
-int send_message(Connection* connection, Message* message);
-int send_message_full(Connection* connection, Message* message, MessageContext* message_context);
-int receive_message(Connection* connection,
-                    ReceiveCallbacks receive_callbacks);
-void connection_build_multiplexed(Connection* connection, const struct Listener* listener, const RemoteEndpoint* remote_endpoint);
-Connection* connection_build_from_received_handle(const struct Listener* listener, uv_stream_t* received_handle);
-void connection_build(Connection* connection);
-void connection_free(Connection* connection);
-void connection_close(Connection* connection);
+int ct_send_message(ct_connection_t* connection, ct_message_t* message);
+int ct_send_message_full(ct_connection_t* connection, ct_message_t* message, ct_message_context_t* message_context);
+int ct_receive_message(ct_connection_t* connection,
+                    ct_receive_callbacks_t receive_callbacks);
+void ct_connection_build_multiplexed(ct_connection_t* connection, const struct ct_listener_t* listener, const ct_remote_endpoint_t* remote_endpoint);
+ct_connection_t* ct_connection_build_from_received_handle(const struct ct_listener_t* listener, uv_stream_t* received_handle);
+void ct_connection_build(ct_connection_t* connection);
+void ct_connection_free(ct_connection_t* connection);
+void ct_connection_close(ct_connection_t* connection);
 #endif  // CONNECTION_H

@@ -28,15 +28,15 @@ typedef struct {
   log_LogFn fn;
   void *udata;
   int level;
-} Callback;
+} ct_callback_t;
 
 static struct {
   void *udata;
   log_LockFn lock;
   int level;
   bool quiet;
-  Callback callbacks[MAX_CALLBACKS];
-} L;
+  ct_callback_t callbacks[MAX_CALLBACKS];
+} ct_l_t;
 
 
 static const char *level_strings[] = {
@@ -82,12 +82,12 @@ static void file_callback(log_Event *ev) {
 
 
 static void lock(void)   {
-  if (L.lock) { L.lock(true, L.udata); }
+  if (ct_l_t.lock) { ct_l_t.lock(true, ct_l_t.udata); }
 }
 
 
 static void unlock(void) {
-  if (L.lock) { L.lock(false, L.udata); }
+  if (ct_l_t.lock) { ct_l_t.lock(false, ct_l_t.udata); }
 }
 
 
@@ -97,25 +97,25 @@ const char* log_level_string(int level) {
 
 
 void log_set_lock(log_LockFn fn, void *udata) {
-  L.lock = fn;
-  L.udata = udata;
+  ct_l_t.lock = fn;
+  ct_l_t.udata = udata;
 }
 
 
 void log_set_level(int level) {
-  L.level = level;
+  ct_l_t.level = level;
 }
 
 
 void log_set_quiet(bool enable) {
-  L.quiet = enable;
+  ct_l_t.quiet = enable;
 }
 
 
 int log_add_callback(log_LogFn fn, void *udata, int level) {
   for (int i = 0; i < MAX_CALLBACKS; i++) {
-    if (!L.callbacks[i].fn) {
-      L.callbacks[i] = (Callback) { fn, udata, level };
+    if (!ct_l_t.callbacks[i].fn) {
+      ct_l_t.callbacks[i] = (ct_callback_t) { fn, udata, level };
       return 0;
     }
   }
@@ -147,15 +147,15 @@ void log_log(int level, const char *file, int line, const char *fmt, ...) {
 
   lock();
 
-  if (!L.quiet && level >= L.level) {
+  if (!ct_l_t.quiet && level >= ct_l_t.level) {
     init_event(&ev, stderr);
     va_start(ev.ap, fmt);
     stdout_callback(&ev);
     va_end(ev.ap);
   }
 
-  for (int i = 0; i < MAX_CALLBACKS && L.callbacks[i].fn; i++) {
-    Callback *cb = &L.callbacks[i];
+  for (int i = 0; i < MAX_CALLBACKS && ct_l_t.callbacks[i].fn; i++) {
+    ct_callback_t *cb = &ct_l_t.callbacks[i];
     if (level >= cb->level) {
       init_event(&ev, cb->udata);
       va_start(ev.ap, fmt);

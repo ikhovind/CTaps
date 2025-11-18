@@ -13,11 +13,11 @@ extern "C" {
 
 TEST(LocalEndpointUnitTests, SetsIpv4FamilyAndAddress) {
     GTEST_SKIP();
-    LocalEndpoint local_endpoint;
+    ct_local_endpoint_t local_endpoint;
 
-    local_endpoint_build(&local_endpoint);
+    ct_local_endpoint_build(&local_endpoint);
 
-    local_endpoint_with_port(&local_endpoint, 5005);
+    ct_local_endpoint_with_port(&local_endpoint, 5005);
 
     sockaddr_in* addr = (struct sockaddr_in*)&local_endpoint.data.address;
 
@@ -29,14 +29,14 @@ TEST(LocalEndpointUnitTests, SetsIpv4FamilyAndAddress) {
 
 TEST(LocalEndpointUnitTests, SetsIpv6FamilyAndAddress) {
     GTEST_SKIP(); // might not make sense
-    LocalEndpoint local_endpoint;
+    ct_local_endpoint_t local_endpoint;
 
-    local_endpoint_build(&local_endpoint);
+    ct_local_endpoint_build(&local_endpoint);
 
     // localhost ipv6 resolved_address:
     in6_addr ipv6_addr = { .__in6_u = { .__u6_addr8 = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1} } };
 
-    local_endpoint_with_port(&local_endpoint, 5005);
+    ct_local_endpoint_with_port(&local_endpoint, 5005);
     sockaddr_in6* addr = (struct sockaddr_in6*)&local_endpoint.data.address;
 
     EXPECT_EQ(AF_INET6, addr->sin6_family);
@@ -94,30 +94,30 @@ TEST_F(CTapsGenericFixture, UsesInterfaceAddress_whenInterfaceIsSpecified) {
     // Set a default return value for the other fake
     uv_udp_bind_fake.return_val = 0;
 
-    // Create and configure the LocalEndpoint to use our test interface
-    LocalEndpoint local_endpoint;
-    local_endpoint_build(&local_endpoint);
-    local_endpoint_with_port(&local_endpoint, 8080);
-    local_endpoint_with_interface(&local_endpoint, "test_if0");
+    // Create and configure the ct_local_endpoint_t to use our test interface
+    ct_local_endpoint_t local_endpoint;
+    ct_local_endpoint_build(&local_endpoint);
+    ct_local_endpoint_with_port(&local_endpoint, 8080);
+    ct_local_endpoint_with_interface(&local_endpoint, "test_if0");
 
-    RemoteEndpoint remote_endpoint;
-    remote_endpoint_build(&remote_endpoint);
-    remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
+    ct_remote_endpoint_t remote_endpoint;
+    ct_remote_endpoint_build(&remote_endpoint);
+    ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
 
-    TransportProperties transport_properties;
-    transport_properties_build(&transport_properties);
-    tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PROHIBIT);
-    tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
+    ct_transport_properties_t transport_properties;
+    ct_transport_properties_build(&transport_properties);
+    ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PROHIBIT);
+    ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
 
-    Preconnection preconnection;
-    preconnection_build_with_local(&preconnection, transport_properties, &remote_endpoint, 1, NULL, local_endpoint);
+    ct_preconnection_t preconnection;
+    ct_preconnection_build_with_local(&preconnection, transport_properties, &remote_endpoint, 1, NULL, local_endpoint);
 
     CallbackContext callback_context = {
         .awaiter = &awaiter,
         .messages = &received_messages,
     };
 
-    ConnectionCallbacks connection_callbacks = {
+    ct_connection_callbacks_t connection_callbacks = {
         .ready = on_connection_ready,
         .user_data = &callback_context
     };
@@ -125,8 +125,8 @@ TEST_F(CTapsGenericFixture, UsesInterfaceAddress_whenInterfaceIsSpecified) {
 
     // --- ACT ---
 
-    Connection connection;
-    preconnection_initiate(&preconnection, &connection, connection_callbacks);
+    ct_connection_t connection;
+    ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);
     awaiter.await(1);
 
     // --- ASSERT ---
@@ -151,11 +151,11 @@ TEST_F(CTapsGenericFixture, UsesInterfaceAddress_whenInterfaceIsSpecified) {
 }
 
 TEST(LocalEndpointUnitTests, TakesDeepCopyOfService) {
-    LocalEndpoint local_endpoint;
+    ct_local_endpoint_t local_endpoint;
 
     char test_service[] = "test_service";
-    local_endpoint_build(&local_endpoint);
-    local_endpoint_with_service(&local_endpoint, test_service);
+    ct_local_endpoint_build(&local_endpoint);
+    ct_local_endpoint_with_service(&local_endpoint, test_service);
 
     test_service[0] = 'T';
 
@@ -164,11 +164,11 @@ TEST(LocalEndpointUnitTests, TakesDeepCopyOfService) {
 }
 
 TEST(LocalEndpointUnitTests, TakesDeepCopyOfInterface) {
-    LocalEndpoint local_endpoint;
+    ct_local_endpoint_t local_endpoint;
 
     char test_interface[] = "test_interface";
-    local_endpoint_build(&local_endpoint);
-    local_endpoint_with_interface(&local_endpoint, test_interface);
+    ct_local_endpoint_build(&local_endpoint);
+    ct_local_endpoint_with_interface(&local_endpoint, test_interface);
 
     test_interface[0] = 'T';
 

@@ -15,20 +15,20 @@
 
 #include "protocols/registry/protocol_registry.h"
 
-typedef struct NodePruningData {
-  SelectionProperties selection_properties;
+typedef struct ct_node_pruning_data_t {
+  ct_selection_properties_t selection_properties;
   GList* undesirable_nodes;
-} NodePruningData;
+} ct_node_pruning_data_t;
 
 void build_candidate_tree_recursive(GNode* parent_node);
 
 gboolean free_candidate_node(GNode *node, gpointer user_data) {
-  const CandidateNode* candidate_node = (CandidateNode*)node->data;
+  const ct_candidate_node_t* candidate_node = (ct_candidate_node_t*)node->data;
   if (candidate_node->local_endpoint) {
-    free_local_endpoint(candidate_node->local_endpoint);
+    ct_free_local_endpoint(candidate_node->local_endpoint);
   }
   if (candidate_node->remote_endpoint) {
-    free_remote_endpoint(candidate_node->remote_endpoint);
+    ct_free_remote_endpoint(candidate_node->remote_endpoint);
   }
   free(node->data);
   return false;
@@ -52,11 +52,11 @@ const char* get_generic_interface_type(const char* system_interface_name) {
 }
 
 bool protocol_implementation_supports_selection_properties(
-  const ProtocolImplementation* protocol,
-  const SelectionProperties* selection_properties) {
+  const ct_protocol_implementation_t* protocol,
+  const ct_selection_properties_t* selection_properties) {
   for (int i = 0; i < SELECTION_PROPERTY_END; i++) {
-    SelectionProperty desired_value = selection_properties->selection_property[i];
-    SelectionProperty protocol_value = protocol->selection_properties.selection_property[i];
+    ct_selection_property_t desired_value = selection_properties->selection_property[i];
+    ct_selection_property_t protocol_value = protocol->selection_properties.selection_property[i];
 
     if (desired_value.type == TYPE_PREFERENCE) {
       if (desired_value.value.simple_preference == REQUIRE && protocol_value.value.simple_preference == PROHIBIT) {
@@ -70,7 +70,7 @@ bool protocol_implementation_supports_selection_properties(
   return true;
 }
 
-bool interface_is_compatible(const char* interface_name, const TransportProperties* transport_properties) {
+bool interface_is_compatible(const char* interface_name, const ct_transport_properties_t* transport_properties) {
   log_trace("Checking if interface %s is compatible with transport properties", interface_name);
   // iterate over the interface preferences
   GHashTable* interface_map = (GHashTable*)transport_properties->selection_properties.selection_property[INTERFACE].value.preference_map;
@@ -93,7 +93,7 @@ bool interface_is_compatible(const char* interface_name, const TransportProperti
   log_trace("Checking compatibility for generic interface type: %s", interface_type);
   for (GList* iter = keys; iter != NULL; iter = iter->next) {
     char* key = (char*)iter->data;
-    SelectionPreference preference = GPOINTER_TO_INT(g_hash_table_lookup(interface_map, key));
+    ct_selection_preference_t preference = GPOINTER_TO_INT(g_hash_table_lookup(interface_map, key));
     log_trace("Preference for interface type %s is %d", key, preference);
     if (strcmp(key, interface_type) == 0) {
       if (preference == PROHIBIT) {
@@ -120,7 +120,7 @@ bool interface_is_compatible(const char* interface_name, const TransportProperti
 
 gboolean gather_incompatible_path_nodes(GNode *node, gpointer user_data) {
   log_trace("Traversing candidate tree to gather incompatible path nodes");
-  struct CandidateNode* node_data = (struct CandidateNode*)node->data;
+  struct ct_candidate_node_t* node_data = (struct ct_candidate_node_t*)node->data;
   if (node_data->type == NODE_TYPE_ROOT) {
     return false;
   }
@@ -128,7 +128,7 @@ gboolean gather_incompatible_path_nodes(GNode *node, gpointer user_data) {
     // No need to traverse further down
     return true;
   }
-  struct NodePruningData* pruning_data = (struct NodePruningData*)user_data;
+  struct ct_node_pruning_data_t* pruning_data = (struct ct_node_pruning_data_t*)user_data;
   char* interface_name = "any";
 
   if (node_data->local_endpoint->interface_name != NULL) {
@@ -146,7 +146,7 @@ gboolean gather_incompatible_path_nodes(GNode *node, gpointer user_data) {
 
 gboolean gather_incompatible_protocol_nodes(GNode *node, gpointer user_data) {
   log_trace("Traversing candidate tree to gather incompatible protocol nodes");
-  const struct CandidateNode* node_data = (struct CandidateNode*)node->data;
+  const struct ct_candidate_node_t* node_data = (struct ct_candidate_node_t*)node->data;
   if (node_data->type == NODE_TYPE_ROOT || node_data->type == NODE_TYPE_PATH) {
     log_trace("Skipping node since it is not a protocol node");
     return false;
@@ -158,7 +158,7 @@ gboolean gather_incompatible_protocol_nodes(GNode *node, gpointer user_data) {
   }
 
   log_trace("Checking protocol node with protocol %s", node_data->protocol->name);
-  NodePruningData* pruning_data = (NodePruningData*)user_data;
+  ct_node_pruning_data_t* pruning_data = (ct_node_pruning_data_t*)user_data;
   if (!protocol_implementation_supports_selection_properties(node_data->protocol, &node_data->transport_properties->selection_properties)) {
     log_trace("Found incompatible protocol node with protocol %s", node_data->protocol->name);
     pruning_data->undesirable_nodes = g_list_append(pruning_data->undesirable_nodes, node);
@@ -169,10 +169,10 @@ gboolean gather_incompatible_protocol_nodes(GNode *node, gpointer user_data) {
   return false;
 }
 
-int prune_candidate_tree(GNode* root, SelectionProperties selection_properties) {
+int prune_candidate_tree(GNode* root, ct_selection_properties_t selection_properties) {
   log_debug("Pruning candidate tree based on selection properties");
 
-  NodePruningData pruning_data = {
+  ct_node_pruning_data_t pruning_data = {
     .selection_properties = selection_properties,
     .undesirable_nodes = NULL // This is fince since g_list_append handles initialization
   };
@@ -206,9 +206,9 @@ int prune_candidate_tree(GNode* root, SelectionProperties selection_properties) 
 gint compare_prefer_and_avoid_preferences(gconstpointer a, gconstpointer b, gpointer desired_selection_properties) {
   log_trace("In candidate sorting - comparing two candidate nodes based on prefer and avoid selection properties");
 
-  const CandidateNode* candidate_a = (const CandidateNode*)a;
-  const CandidateNode* candidate_b = (const CandidateNode*)b;
-  const SelectionProperties* selection_properties = (const SelectionProperties*)desired_selection_properties;
+  const ct_candidate_node_t* candidate_a = (const ct_candidate_node_t*)a;
+  const ct_candidate_node_t* candidate_b = (const ct_candidate_node_t*)b;
+  const ct_selection_properties_t* selection_properties = (const ct_selection_properties_t*)desired_selection_properties;
 
   // order the branches according to the preferred Properties and use any avoided Properties as a tiebreaker
   int a_prefer_score = 0;
@@ -253,7 +253,7 @@ gint compare_prefer_and_avoid_preferences(gconstpointer a, gconstpointer b, gpoi
   return -a_avoid_score;
 }
 
-int sort_candidate_tree(GArray* root, SelectionProperties selection_properties) {
+int sort_candidate_tree(GArray* root, ct_selection_properties_t selection_properties) {
   log_debug("Sorting candidate tree based on selection properties");
   // TODO - give more importance to properties set by the user
 
@@ -269,22 +269,22 @@ int sort_candidate_tree(GArray* root, SelectionProperties selection_properties) 
  * @param props The transport properties.
  * @return A new candidate_node object.
  */
-struct CandidateNode* candidate_node_new(NodeType type,
-                                         const LocalEndpoint* local_ep,
-                                         const RemoteEndpoint* remote_ep,
-                                         const ProtocolImplementation* proto,
-                                         const TransportProperties* props) {
+struct ct_candidate_node_t* candidate_node_new(ct_node_type_t type,
+                                         const ct_local_endpoint_t* local_ep,
+                                         const ct_remote_endpoint_t* remote_ep,
+                                         const ct_protocol_implementation_t* proto,
+                                         const ct_transport_properties_t* props) {
   log_info("Creating new candidate node of type %d", type);
-  CandidateNode* node = malloc(sizeof(struct CandidateNode));
+  ct_candidate_node_t* node = malloc(sizeof(struct ct_candidate_node_t));
   if (node == NULL) {
-    log_error("Could not allocate memory for CandidateNode");
+    log_error("Could not allocate memory for ct_candidate_node_t");
     return NULL;
   }
   node->type = type;
   node->score = 0;
   node->local_endpoint = local_endpoint_copy(local_ep);
   if (node->local_endpoint == NULL) {
-    log_error("Could not copy local endpoint for CandidateNode");
+    log_error("Could not copy local endpoint for ct_candidate_node_t");
     free(node);
     return NULL;
   }
@@ -292,7 +292,7 @@ struct CandidateNode* candidate_node_new(NodeType type,
   node->remote_endpoint = remote_endpoint_copy(remote_ep);
   if (node->remote_endpoint == NULL) {
     log_error("Could not allocate memory for remote_endpoint");
-    free_local_endpoint(node->local_endpoint);
+    ct_free_local_endpoint(node->local_endpoint);
     free(node);
     return NULL;
   }
@@ -306,9 +306,9 @@ gboolean get_leaf_nodes(GNode *node, gpointer user_data) {
   log_trace("Iterating candidate tree for getting candidate leaf nodes");
   GArray* node_array = user_data;
 
-  if (((CandidateNode*)node->data)->type == NODE_TYPE_ENDPOINT) {
+  if (((ct_candidate_node_t*)node->data)->type == NODE_TYPE_ENDPOINT) {
     log_trace("Found candidate node of type ENDPOINT in candidate tree, adding to output array");
-    CandidateNode candidate_node = *(CandidateNode*)node->data;
+    ct_candidate_node_t candidate_node = *(ct_candidate_node_t*)node->data;
     candidate_node.local_endpoint = local_endpoint_copy(candidate_node.local_endpoint);
     candidate_node.remote_endpoint = remote_endpoint_copy(candidate_node.remote_endpoint);
 
@@ -323,19 +323,19 @@ gboolean get_leaf_nodes(GNode *node, gpointer user_data) {
  * as described in RFC9623 and then prunes it. It then gets all the
  * leaf nodes and sorts them according to preferences/avoids
  *
- * @param precon A pointer to a valid Preconnection object.
+ * @param precon A pointer to a valid ct_preconnection_t object.
  * @return A GArray Containing all the candidate nodes, ordered by preference.
  */
-GArray* get_ordered_candidate_nodes(const Preconnection* precon) {
+GArray* get_ordered_candidate_nodes(const ct_preconnection_t* precon) {
   log_info("Creating root candidate node from preconnection");
   if (precon == NULL) {
     log_error("NULL preconnection provided");
     return NULL;
   }
 
-  log_trace("Preconnection local interface name: %s", precon->local.interface_name);
-  // 1. Create a new CandidateNode struct for the root
-  struct CandidateNode* root_data = candidate_node_new(
+  log_trace("ct_preconnection_t local interface name: %s", precon->local.interface_name);
+  // 1. Create a new ct_candidate_node_t struct for the root
+  struct ct_candidate_node_t* root_data = candidate_node_new(
     NODE_TYPE_ROOT,
     &precon->local,
     &precon->remote_endpoints[0],
@@ -358,7 +358,7 @@ GArray* get_ordered_candidate_nodes(const Preconnection* precon) {
 
   log_info("Candidate tree has been pruned, extracting leaf nodes");
 
-  GArray *root_array = g_array_new(false, false, sizeof(CandidateNode));
+  GArray *root_array = g_array_new(false, false, sizeof(ct_candidate_node_t));
 
   log_trace("Fetching leaf nodes from candidate tree");
   // Get leaf nodes and insert them in array
@@ -374,7 +374,7 @@ GArray* get_ordered_candidate_nodes(const Preconnection* precon) {
   g_array_sort_with_data(root_array, compare_prefer_and_avoid_preferences, &precon->transport_properties.selection_properties);
 
   if (root_array->len > 0) {
-    log_trace("Most desirable candidate protocol is: %s", (g_array_index(root_array, CandidateNode, 0)).protocol->name);
+    log_trace("Most desirable candidate protocol is: %s", (g_array_index(root_array, ct_candidate_node_t, 0)).protocol->name);
   }
   else {
     log_warn("No candidate nodes found after pruning");
@@ -390,8 +390,8 @@ GArray* get_ordered_candidate_nodes(const Preconnection* precon) {
  * @param parent_node The current node to expand.
  */
 void build_candidate_tree_recursive(GNode* parent_node) {
-  log_info("Expanding candidate tree node of type %d", ((struct CandidateNode*)parent_node->data)->type);
-  struct CandidateNode* parent_data = (struct CandidateNode*)parent_node->data;
+  log_info("Expanding candidate tree node of type %d", ((struct ct_candidate_node_t*)parent_node->data)->type);
+  struct ct_candidate_node_t* parent_data = (struct ct_candidate_node_t*)parent_node->data;
 
   // According to RFC 9623, the branching order should be:
   // 1. Network Paths (Local Endpoints)
@@ -401,19 +401,19 @@ void build_candidate_tree_recursive(GNode* parent_node) {
   // Step 1: Branch by Network Paths (Local Endpoints)
   if (parent_data->type == NODE_TYPE_ROOT) {
     log_trace("Expanding node of type ROOT to PATH nodes");
-    LocalEndpoint* local_endpoint_list = NULL;
+    ct_local_endpoint_t* local_endpoint_list = NULL;
     size_t num_found_local = 0;
 
     log_trace("Resolving local endpoint with port: %d", parent_data->local_endpoint->port);
-    // Resolve the local endpoint. The `local_endpoint_resolve` function
+    // Resolve the local endpoint. The `ct_local_endpoint_resolve` function
     // will find all available interfaces when the interface is not specified.
-    local_endpoint_resolve(parent_data->local_endpoint, &local_endpoint_list, &num_found_local);
+    ct_local_endpoint_resolve(parent_data->local_endpoint, &local_endpoint_list, &num_found_local);
     log_trace("Found %zu local endpoints, adding as children to ROOT node", num_found_local);
     log_trace("Port of first is: %d", local_endpoint_list[0].port);
 
     for (size_t i = 0; i < num_found_local; i++) {
       // Create a child node for each local endpoint found.
-      struct CandidateNode* path_node_data = candidate_node_new(
+      struct ct_candidate_node_t* path_node_data = candidate_node_new(
         NODE_TYPE_PATH,
         &local_endpoint_list[i],
         parent_data->remote_endpoint,
@@ -429,7 +429,7 @@ void build_candidate_tree_recursive(GNode* parent_node) {
     // Clean up the allocated memory for the list of local endpoints
     if (local_endpoint_list != NULL) {
       for (int i = 0; i < num_found_local; i++) {
-        free_local_endpoint_strings(&local_endpoint_list[i]);
+        ct_free_local_endpoint_strings(&local_endpoint_list[i]);
       }
       log_trace("Freeing list of local endpoints after building path nodes");
       free(local_endpoint_list);
@@ -442,13 +442,13 @@ void build_candidate_tree_recursive(GNode* parent_node) {
     size_t num_found_protocols = 0;
 
     // Get all protocols that fit the selection properties.
-    ProtocolImplementation **candidate_stacks = get_supported_protocols();
-    num_found_protocols = get_num_protocols(); // Assume one protocol for demonstration purposes.
+    ct_protocol_implementation_t **candidate_stacks = ct_get_supported_protocols();
+    num_found_protocols = ct_get_num_protocols(); // Assume one protocol for demonstration purposes.
     log_trace("Found %d candidate protocols", num_found_protocols);
 
     for (int i = 0; i < num_found_protocols; i++) {
       // Create a child node for each supported protocol.
-      CandidateNode* proto_node_data = candidate_node_new(
+      ct_candidate_node_t* proto_node_data = candidate_node_new(
         NODE_TYPE_PROTOCOL,
         parent_data->local_endpoint,
         parent_data->remote_endpoint,
@@ -465,15 +465,15 @@ void build_candidate_tree_recursive(GNode* parent_node) {
   // Step 3: Branch by Resolved Endpoints (DNS Lookup)
   else if (parent_data->type == NODE_TYPE_PROTOCOL) {
     log_trace("Expanding node of type PROTOCOL to ENDPOINT nodes");
-    RemoteEndpoint* resolved_remote_endpoints = NULL;
+    ct_remote_endpoint_t* resolved_remote_endpoints = NULL;
     size_t num_found_remote = 0;
 
     // Resolve the remote endpoint (hostname to IP address).
-    remote_endpoint_resolve(parent_data->remote_endpoint, &resolved_remote_endpoints, &num_found_remote);
+    ct_remote_endpoint_resolve(parent_data->remote_endpoint, &resolved_remote_endpoints, &num_found_remote);
 
     for (size_t i = 0; i < num_found_remote; i++) {
       // Create a leaf node for each resolved IP address.
-      CandidateNode* leaf_node_data = candidate_node_new(
+      ct_candidate_node_t* leaf_node_data = candidate_node_new(
         NODE_TYPE_ENDPOINT,
         parent_data->local_endpoint,
         &resolved_remote_endpoints[i],
@@ -494,9 +494,9 @@ void build_candidate_tree_recursive(GNode* parent_node) {
 
 void free_candidate_array(GArray* candidate_array) {
   for (int i = 0; i < candidate_array->len; i++) {
-    const CandidateNode candidate_node = g_array_index(candidate_array, CandidateNode, i);
-    free_local_endpoint(candidate_node.local_endpoint);
-    free_remote_endpoint(candidate_node.remote_endpoint);
+    const ct_candidate_node_t candidate_node = g_array_index(candidate_array, ct_candidate_node_t, i);
+    ct_free_local_endpoint(candidate_node.local_endpoint);
+    ct_free_remote_endpoint(candidate_node.remote_endpoint);
   }
   g_array_free(candidate_array, true);
 }

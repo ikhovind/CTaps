@@ -12,25 +12,25 @@ extern "C" {
 
 
 TEST(RemoteEndpointUnitTests, CanDnsLookupHostName) {
-    ctaps_initialize(NULL,NULL);
+    ct_initialize(NULL,NULL);
     printf("Sending UDP packet...\n");
 
-    RemoteEndpoint remote_endpoint;
-    remote_endpoint_build(&remote_endpoint);
+    ct_remote_endpoint_t remote_endpoint;
+    ct_remote_endpoint_build(&remote_endpoint);
 
-    remote_endpoint_with_hostname(&remote_endpoint, "google.com");
-    remote_endpoint_with_port(&remote_endpoint, 1234);
+    ct_remote_endpoint_with_hostname(&remote_endpoint, "google.com");
+    ct_remote_endpoint_with_port(&remote_endpoint, 1234);
 
-    TransportProperties transport_properties;
+    ct_transport_properties_t transport_properties;
 
-    transport_properties_build(&transport_properties);
-    tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PROHIBIT);
-    tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
+    ct_transport_properties_build(&transport_properties);
+    ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PROHIBIT);
+    ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
 
-    Preconnection preconnection;
-    preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
+    ct_preconnection_t preconnection;
+    ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
 
-    Connection connection;
+    ct_connection_t connection;
 
     pthread_mutex_t waiting_mutex;
     pthread_cond_t waiting_cond;
@@ -38,19 +38,19 @@ TEST(RemoteEndpointUnitTests, CanDnsLookupHostName) {
     pthread_mutex_init(&waiting_mutex, NULL);
     pthread_cond_init(&waiting_cond, NULL);
 
-    CallBackWaiter cb_waiter = (CallBackWaiter) {
+    ct_call_back_waiter_t cb_waiter = (ct_call_back_waiter_t) {
         .waiting_mutex = &waiting_mutex,
         .waiting_cond = &waiting_cond,
         .num_reads = &num_reads,
         .expected_num_reads = 0,
     };
 
-    ConnectionCallbacks connection_callbacks = {
+    ct_connection_callbacks_t connection_callbacks = {
         .ready = connection_ready_cb,
         .user_data = (void*)&cb_waiter
     };
 
-    preconnection_initiate(&preconnection, &connection, connection_callbacks);
+    ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);
 
     wait_for_callback(&cb_waiter);
 

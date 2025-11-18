@@ -20,42 +20,42 @@
  *   - Rendezvous
  *
  */
-typedef struct Preconnection {
-  TransportProperties transport_properties;
-  const SecurityParameters* security_parameters;
-  LocalEndpoint local;
+typedef struct ct_preconnection_s {
+  ct_transport_properties_t transport_properties;
+  const ct_security_parameters_t* security_parameters;
+  ct_local_endpoint_t local;
   size_t num_local_endpoints;
-  RemoteEndpoint* remote_endpoints;
+  ct_remote_endpoint_t* remote_endpoints;
   size_t num_remote_endpoints;
-} Preconnection;
+} ct_preconnection_t;
 
 // TODO - change other init functions to build, to avoid confusing with initiate
-int preconnection_build(Preconnection* preconnection,
-                         const TransportProperties transport_properties,
-                         const RemoteEndpoint* remote_endpoints,
+int ct_preconnection_build(ct_preconnection_t* preconnection,
+                         const ct_transport_properties_t transport_properties,
+                         const ct_remote_endpoint_t* remote_endpoints,
                          size_t num_remote_endpoints,
-                         const SecurityParameters* security_parameters
+                         const ct_security_parameters_t* security_parameters
                          );
 
-int preconnection_build_with_local(Preconnection* preconnection,
-                                    TransportProperties transport_properties,
-                                    RemoteEndpoint remote_endpoints[],
+int ct_preconnection_build_with_local(ct_preconnection_t* preconnection,
+                                    ct_transport_properties_t transport_properties,
+                                    ct_remote_endpoint_t remote_endpoints[],
                                     size_t num_remote_endpoints,
-                                    const SecurityParameters* security_parameters,
-                                    LocalEndpoint local_endpoint);
+                                    const ct_security_parameters_t* security_parameters,
+                                    ct_local_endpoint_t local_endpoint);
 
-int preconnection_initiate(Preconnection* preconnection, Connection* connection,
-                           ConnectionCallbacks connection_callbacks);
+int ct_preconnection_initiate(ct_preconnection_t* preconnection, ct_connection_t* connection,
+                           ct_connection_callbacks_t connection_callbacks);
 
-int preconnection_listen(Preconnection* preconnection, Listener* listener, ListenerCallbacks listener_callback);
+int ct_preconnection_listen(ct_preconnection_t* preconnection, ct_listener_t* listener, ct_listener_callbacks_t listener_callback);
 
-void preconnection_free(Preconnection* preconnection);
+void ct_preconnection_free(ct_preconnection_t* preconnection);
 
-void preconnection_initiate_with_timeout(Preconnection* preconnection,
-                                         Connection* connection,
+void ct_preconnection_initiate_with_timeout(ct_preconnection_t* preconnection,
+                                         ct_connection_t* connection,
                                          int timeout_ms);
 
-void preconnection_build_user_connection(Connection* connection, const Preconnection* preconnection, ConnectionCallbacks connection_callbacks);
+void ct_preconnection_build_user_connection(ct_connection_t* connection, const ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks);
 
 
 #endif  // PRECONNECTION_H

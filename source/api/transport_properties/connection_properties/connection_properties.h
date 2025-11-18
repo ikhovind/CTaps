@@ -18,12 +18,12 @@ typedef enum {
   CONN_STATE_ESTABLISHED,
   CONN_STATE_CLOSING,
   CONN_STATE_CLOSED
-} ConnectionStateEnum;
+} ct_connection_state_enum_t;
 
 typedef enum {
   CONN_SCHEDULER_WEIGHTED_FAIR_QUEUEING = 0,
   // ... other schedulers
-} ConnectionSchedulerEnum;
+} ct_connection_scheduler_enum_t;
 
 // 8.1.6: Capacity Profile (connCapacityProfile)
 typedef enum {
@@ -33,27 +33,27 @@ typedef enum {
   CAPACITY_PROFILE_LOW_LATENCY_NON_INTERACTIVE,
   CAPACITY_PROFILE_CONSTANT_RATE_STREAMING,
   CAPACITY_PROFILE_CAPACITY_SEEKING
-} CapacityProfileEnum;
+} ct_capacity_profile_enum_t;
 
 // 8.1.7: Policy for Using Multipath Transports (multipathPolicy)
 typedef enum {
   MULTIPATH_POLICY_HANDOVER = 0,
   MULTIPATH_POLICY_INTERACTIVE,
   MULTIPATH_POLICY_AGGREGATE
-} MultipathPolicyEnum;
+} ct_multipath_policy_enum_t;
 
 typedef union {
   uint32_t uint32_val;
   uint64_t uint64_val;
   bool bool_val;
   int enum_val;
-} ConnectionPropertyValue;
+} ct_connection_property_value_t;
 
-typedef struct ConnectionProperty {
+typedef struct ct_connection_property_t {
   char* name;
   bool read_only;
-  ConnectionPropertyValue value;
-} ConnectionProperty;
+  ct_connection_property_value_t value;
+} ct_connection_property_t;
 
 
 // clang-format off
@@ -63,9 +63,9 @@ f(RECV_CHECKSUM_LEN,          "recvChecksumLen",          uint32_t,             
 f(CONN_PRIORITY,              "connPriority",             uint32_t,                100)                                \
 f(CONN_TIMEOUT,               "connTimeout",              uint32_t,                CONN_TIMEOUT_DISABLED)              \
 f(KEEP_ALIVE_TIMEOUT,         "keepAliveTimeout",         uint32_t,                CONN_TIMEOUT_DISABLED)              \
-f(CONN_SCHEDULER,             "connScheduler",            ConnectionSchedulerEnum, CONN_SCHEDULER_WEIGHTED_FAIR_QUEUEING) \
-f(CONN_CAPACITY_PROFILE,      "connCapacityProfile",      CapacityProfileEnum,     CAPACITY_PROFILE_BEST_EFFORT)           \
-f(MULTIPATH_POLICY,           "multipathPolicy",          MultipathPolicyEnum,     MULTIPATH_POLICY_HANDOVER)          \
+f(CONN_SCHEDULER,             "connScheduler",            ct_connection_scheduler_enum_t, CONN_SCHEDULER_WEIGHTED_FAIR_QUEUEING) \
+f(CONN_CAPACITY_PROFILE,      "connCapacityProfile",      ct_capacity_profile_enum_t,     CAPACITY_PROFILE_BEST_EFFORT)           \
+f(MULTIPATH_POLICY,           "multipathPolicy",          ct_multipath_policy_enum_t,     MULTIPATH_POLICY_HANDOVER)          \
 f(MIN_SEND_RATE,              "minSendRate",              uint64_t,                CONN_RATE_UNLIMITED)                \
 f(MIN_RECV_RATE,              "minRecvRate",              uint64_t,                CONN_RATE_UNLIMITED)                \
 f(MAX_SEND_RATE,              "maxSendRate",              uint64_t,                CONN_RATE_UNLIMITED)                \
@@ -74,7 +74,7 @@ f(GROUP_CONN_LIMIT,           "groupConnLimit",           uint64_t,             
 f(ISOLATE_SESSION,            "isolateSession",           bool,                    false)
 
 #define get_read_only_connection_properties(f)                                                                \
-f(STATE,                               "state",                               ConnectionStateEnum, 0)        \
+f(STATE,                               "state",                               ct_connection_state_enum_t, 0)        \
 f(CAN_SEND,                            "canSend",                             bool,                0)        \
 f(CAN_RECEIVE,                         "canReceive",                          bool,                0)        \
 f(SINGULAR_TRANSMISSION_MSG_MAX_LEN,   "singularTransmissionMsgMaxLen",       uint64_t,            0)        \
@@ -94,11 +94,11 @@ typedef enum {
   get_read_only_connection_properties(output_con_enum)
   get_tcp_connection_properties(output_con_enum)
   CONNECTION_PROPERTY_END
-} ConnectionPropertyEnum;
+} ct_connection_property_enum_t;
 
 typedef struct {
-  ConnectionProperty list[CONNECTION_PROPERTY_END];
-} ConnectionProperties;
+  ct_connection_property_t list[CONNECTION_PROPERTY_END];
+} ct_connection_properties_t;
 
 #define create_con_property_initializer(enum_name, string_name, property_type, default_value) \
   [enum_name] = {                                                          \
@@ -106,18 +106,18 @@ typedef struct {
     .value = { (uint32_t)default_value }                     \
 },
 
-static ConnectionProperty DEFAULT_CONNECTION_PROPERTIES[] = {
+static ct_connection_property_t DEFAULT_CONNECTION_PROPERTIES[] = {
     get_writable_connection_property_list(create_con_property_initializer)
     get_read_only_connection_properties(create_con_property_initializer)
     get_tcp_connection_properties(create_con_property_initializer)
 };
 
-void connection_properties_build(ConnectionProperties* properties);
+void ct_connection_properties_build(ct_connection_properties_t* properties);
 
-int cp_set_prop_uint32(ConnectionProperties* props, ConnectionPropertyEnum prop_enum, uint32_t val);
-int cp_set_prop_uint64(ConnectionProperties* props, ConnectionPropertyEnum prop_enum, uint64_t val);
-int cp_set_prop_bool(ConnectionProperties* props, ConnectionPropertyEnum prop_enum, bool val);
-int cp_set_prop_enum(ConnectionProperties* props, ConnectionPropertyEnum prop_enum, int val);
+int ct_cp_set_prop_uint32(ct_connection_properties_t* props, ct_connection_property_enum_t prop_enum, uint32_t val);
+int ct_cp_set_prop_uint64(ct_connection_properties_t* props, ct_connection_property_enum_t prop_enum, uint64_t val);
+int ct_cp_set_prop_bool(ct_connection_properties_t* props, ct_connection_property_enum_t prop_enum, bool val);
+int ct_cp_set_prop_enum(ct_connection_properties_t* props, ct_connection_property_enum_t prop_enum, int val);
 
 
 

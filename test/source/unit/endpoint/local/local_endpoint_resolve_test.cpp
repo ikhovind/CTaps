@@ -9,7 +9,7 @@ extern "C" {
   #include "fff.h"
   DEFINE_FFF_GLOBALS;
   FAKE_VOID_FUNC(get_interface_addresses, const char*, int*, struct sockaddr_storage*);
-  FAKE_VALUE_FUNC(uint16_t, get_service_port_local, LocalEndpoint*);
+  FAKE_VALUE_FUNC(uint16_t, get_service_port_local, ct_local_endpoint_t*);
 }
 
 // --- Test Fixture ---
@@ -47,16 +47,16 @@ TEST_F(LocalEndpointResolveTest, UsesInterfaceAddress_whenInterfaceIsSpecified) 
   get_interface_addresses_fake.custom_fake = custom_get_interface_addresses_success;
   get_service_port_local_fake.return_val = 8080; // Simulate resolving "http-alt" to 8080
 
-  LocalEndpoint input_endpoint;
-  local_endpoint_build(&input_endpoint);
-  local_endpoint_with_service(&input_endpoint, "http-alt"); // Ensure we take the service path
-  local_endpoint_with_interface(&input_endpoint, "eth0"); // Provide an interface name
+  ct_local_endpoint_t input_endpoint;
+  ct_local_endpoint_build(&input_endpoint);
+  ct_local_endpoint_with_service(&input_endpoint, "http-alt"); // Ensure we take the service path
+  ct_local_endpoint_with_interface(&input_endpoint, "eth0"); // Provide an interface name
 
   // --- ACT ---
-  LocalEndpoint* out_list = nullptr;
+  ct_local_endpoint_t* out_list = nullptr;
   size_t num_found = 0;
-  int result = local_endpoint_resolve(&input_endpoint, &out_list, &num_found);
-  LocalEndpoint endpoint = out_list[0];
+  int result = ct_local_endpoint_resolve(&input_endpoint, &out_list, &num_found);
+  ct_local_endpoint_t endpoint = out_list[0];
 
   // --- ASSERT ---
   ASSERT_EQ(num_found, 1);
@@ -88,15 +88,15 @@ TEST_F(LocalEndpointResolveTest, DefaultsToAnyAddress_WhenNoInterfaceIsFound) {
   // We are not calling `with_service`, so get_service_port_local should not be called.
 
   // 2. Prepare the input
-  LocalEndpoint input_endpoint;
-  local_endpoint_build(&input_endpoint);
-  local_endpoint_with_port(&input_endpoint, 9090); // Set port directly
+  ct_local_endpoint_t input_endpoint;
+  ct_local_endpoint_build(&input_endpoint);
+  ct_local_endpoint_with_port(&input_endpoint, 9090); // Set port directly
 
   // --- ACT ---
-  LocalEndpoint* out_list = nullptr;
+  ct_local_endpoint_t* out_list = nullptr;
   size_t num_found = 0;
-  int result = local_endpoint_resolve(&input_endpoint, &out_list, &num_found);
-  LocalEndpoint endpoint = out_list[0];
+  int result = ct_local_endpoint_resolve(&input_endpoint, &out_list, &num_found);
+  ct_local_endpoint_t endpoint = out_list[0];
 
   // --- ASSERT ---
   // 1. Verify behavior
@@ -105,7 +105,7 @@ TEST_F(LocalEndpointResolveTest, DefaultsToAnyAddress_WhenNoInterfaceIsFound) {
   ASSERT_STREQ(get_interface_addresses_fake.arg0_val, "any");
   ASSERT_EQ(get_service_port_local_fake.call_count, 0); // Verify it was NOT called
 
-  // 2. Inspect the modified LocalEndpoint struct
+  // 2. Inspect the modified ct_local_endpoint_t struct
   ASSERT_EQ(endpoint.data.address.ss_family, AF_INET);
 
   struct sockaddr_in* final_addr = (struct sockaddr_in*)&endpoint.data.address;

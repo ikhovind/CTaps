@@ -7,11 +7,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-void remote_endpoint_build(RemoteEndpoint* remote_endpoint) {
-  memset(remote_endpoint, 0, sizeof(RemoteEndpoint));
+void ct_remote_endpoint_build(ct_remote_endpoint_t* remote_endpoint) {
+  memset(remote_endpoint, 0, sizeof(ct_remote_endpoint_t));
 }
 
-int remote_endpoint_with_ipv4(RemoteEndpoint* remote_endpoint, in_addr_t ipv4_addr) {
+int ct_remote_endpoint_with_ipv4(ct_remote_endpoint_t* remote_endpoint, in_addr_t ipv4_addr) {
   if (remote_endpoint->hostname != NULL) {
     log_error("Cannot specify both hostname and IP address on single remote endpoint");
     return -EINVAL;
@@ -22,7 +22,7 @@ int remote_endpoint_with_ipv4(RemoteEndpoint* remote_endpoint, in_addr_t ipv4_ad
   return 0;
 }
 
-int remote_endpoint_with_ipv6(RemoteEndpoint* remote_endpoint, struct in6_addr ipv6_addr) {
+int ct_remote_endpoint_with_ipv6(ct_remote_endpoint_t* remote_endpoint, struct in6_addr ipv6_addr) {
   if (remote_endpoint->hostname != NULL) {
     log_error("Cannot specify both hostname and IP address on single remote endpoint");
     return -EINVAL;
@@ -33,7 +33,7 @@ int remote_endpoint_with_ipv6(RemoteEndpoint* remote_endpoint, struct in6_addr i
   return 0;
 }
 
-int remote_endpoint_from_sockaddr(RemoteEndpoint* remote_endpoint, const struct sockaddr_storage* addr) {
+int ct_remote_endpoint_from_sockaddr(ct_remote_endpoint_t* remote_endpoint, const struct sockaddr_storage* addr) {
   log_trace("Building remote endpoint from sockaddr");
   if (remote_endpoint->hostname != NULL) {
     log_error("Cannot specify both hostname and IP address on single remote endpoint");
@@ -56,7 +56,7 @@ int remote_endpoint_from_sockaddr(RemoteEndpoint* remote_endpoint, const struct 
   return 0;
 }
 
-int remote_endpoint_with_hostname(RemoteEndpoint* remote_endpoint, const char* hostname) {
+int ct_remote_endpoint_with_hostname(ct_remote_endpoint_t* remote_endpoint, const char* hostname) {
   if (remote_endpoint->data.resolved_address.ss_family != AF_UNSPEC) {
     log_error("Cannot specify both hostname and IP address on single remote endpoint");
     return -EINVAL;
@@ -70,7 +70,7 @@ int remote_endpoint_with_hostname(RemoteEndpoint* remote_endpoint, const char* h
   return 0;
 }
 
-int remote_endpoint_with_service(RemoteEndpoint* remote_endpoint, const char* service) {
+int ct_remote_endpoint_with_service(ct_remote_endpoint_t* remote_endpoint, const char* service) {
   remote_endpoint->service = malloc(strlen(service) + 1);
   if (remote_endpoint->service == NULL) {
     log_error("Could not allocate memory for service\n");
@@ -80,7 +80,7 @@ int remote_endpoint_with_service(RemoteEndpoint* remote_endpoint, const char* se
   return 0;
 }
 
-void remote_endpoint_with_port(RemoteEndpoint* remote_endpoint, const uint16_t port) {
+void ct_remote_endpoint_with_port(ct_remote_endpoint_t* remote_endpoint, const uint16_t port) {
   remote_endpoint->port = port;
   if (remote_endpoint->data.resolved_address.ss_family == AF_INET6) {
     struct sockaddr_in6* addr = (struct sockaddr_in6*)&remote_endpoint->data.resolved_address;
@@ -92,7 +92,7 @@ void remote_endpoint_with_port(RemoteEndpoint* remote_endpoint, const uint16_t p
   }
 }
 
-int remote_endpoint_resolve(const RemoteEndpoint* remote_endpoint, RemoteEndpoint** out_list, size_t* out_count) {
+int ct_remote_endpoint_resolve(const ct_remote_endpoint_t* remote_endpoint, ct_remote_endpoint_t** out_list, size_t* out_count) {
   log_debug("Resolving remote endpoint");
   int32_t assigned_port = 0;
   if (remote_endpoint->service != NULL) {
@@ -122,9 +122,9 @@ int remote_endpoint_resolve(const RemoteEndpoint* remote_endpoint, RemoteEndpoin
   else if (remote_endpoint->data.resolved_address.ss_family != AF_UNSPEC) {
     log_debug("Endpoint was an IP address");
     *out_count = 1;
-    *out_list = malloc(sizeof(RemoteEndpoint));
-    remote_endpoint_build(&(*out_list)[0]);
-    memcpy(*out_list, remote_endpoint, sizeof(RemoteEndpoint));
+    *out_list = malloc(sizeof(ct_remote_endpoint_t));
+    ct_remote_endpoint_build(&(*out_list)[0]);
+    memcpy(*out_list, remote_endpoint, sizeof(ct_remote_endpoint_t));
     // set port in resolved_address
     if (out_list[0]->data.resolved_address.ss_family == AF_INET) {
       struct sockaddr_in* addr = (struct sockaddr_in*)&(*out_list)[0].data.resolved_address;
@@ -142,7 +142,7 @@ int remote_endpoint_resolve(const RemoteEndpoint* remote_endpoint, RemoteEndpoin
   return 0;
 }
 
-void free_remote_endpoint_strings(RemoteEndpoint* remote_endpoint) {
+void ct_free_remote_endpoint_strings(ct_remote_endpoint_t* remote_endpoint) {
   if (remote_endpoint->hostname) {
     free(remote_endpoint->hostname);
     remote_endpoint->hostname = NULL;
@@ -153,13 +153,13 @@ void free_remote_endpoint_strings(RemoteEndpoint* remote_endpoint) {
   }
 }
 
-void free_remote_endpoint(RemoteEndpoint* remote_endpoint) {
-  free_remote_endpoint_strings(remote_endpoint);
+void ct_free_remote_endpoint(ct_remote_endpoint_t* remote_endpoint) {
+  ct_free_remote_endpoint_strings(remote_endpoint);
   free(remote_endpoint);
 }
 
-RemoteEndpoint remote_endpoint_copy_content(const RemoteEndpoint* remote_endpoint) {
-  RemoteEndpoint res = {0};
+ct_remote_endpoint_t ct_remote_endpoint_copy_content(const ct_remote_endpoint_t* remote_endpoint) {
+  ct_remote_endpoint_t res = {0};
   res = *remote_endpoint;
   if (remote_endpoint->hostname) {
     res.hostname = strdup(remote_endpoint->hostname);
@@ -170,8 +170,8 @@ RemoteEndpoint remote_endpoint_copy_content(const RemoteEndpoint* remote_endpoin
   return res;
 }
 
-RemoteEndpoint* remote_endpoint_copy(const RemoteEndpoint* remote_endpoint) {
-  RemoteEndpoint* res = malloc(sizeof(RemoteEndpoint));
-  *res = remote_endpoint_copy_content(remote_endpoint);
+ct_remote_endpoint_t* remote_endpoint_copy(const ct_remote_endpoint_t* remote_endpoint) {
+  ct_remote_endpoint_t* res = malloc(sizeof(ct_remote_endpoint_t));
+  *res = ct_remote_endpoint_copy_content(remote_endpoint);
   return res;
 }

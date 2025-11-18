@@ -44,7 +44,7 @@ void on_send(uv_udp_send_t* req, int status) {
 
 void on_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
              const struct sockaddr* addr, unsigned flags) {
-  Connection* connection = (Connection*)handle->data;
+  ct_connection_t* connection = (ct_connection_t*)handle->data;
   if (nread < 0) {
     log_error("Read error: %s\n", uv_strerror(nread));
     uv_close((uv_handle_t*)handle, NULL);
@@ -62,7 +62,7 @@ void on_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
 
   log_info("Received message over UDP handle");
 
-  Message* received_message = malloc(sizeof(Message));
+  ct_message_t* received_message = malloc(sizeof(ct_message_t));
   if (!received_message) {
     log_error("Failed to allocate send request\n");
     free(buf->base);
@@ -89,7 +89,7 @@ void on_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
 
   else {
     log_debug("Receive callback ready, calling it");
-    ReceiveCallbacks* receive_callback =
+    ct_receive_callbacks_t* receive_callback =
         g_queue_pop_head(connection->received_callbacks);
 
     receive_callback->receive_callback(connection, &received_message, NULL, receive_callback->user_data);
@@ -97,7 +97,7 @@ void on_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
   }
 }
 
-int udp_init(Connection* connection, const ConnectionCallbacks* connection_callbacks) {
+int udp_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks) {
   log_debug("Initiating UDP connection\n");
 
   uv_udp_t* new_udp_handle = create_udp_listening_on_local(&connection->local_endpoint, alloc_buffer, on_read);
@@ -117,12 +117,12 @@ void closed_handle_cb(uv_handle_t* handle) {
   log_info("Successfully closed UDP handle");
 }
 
-int udp_close(const Connection* connection) {
+int udp_close(const ct_connection_t* connection) {
   log_info("Closing UDP connection");
 
   if (connection->open_type == CONNECTION_OPEN_TYPE_MULTIPLEXED) {
     log_info("Closing multiplexed UDP connection, removing from socket manager");
-    int rc = socket_manager_remove_connection(connection->socket_manager, (Connection*)connection);
+    int rc = socket_manager_remove_connection(connection->socket_manager, (ct_connection_t*)connection);
     if (rc < 0) {
       log_error("Error removing UDP connection from socket manager: %d", rc);
       return rc;
@@ -135,12 +135,12 @@ int udp_close(const Connection* connection) {
     }
   }
 
-  ((Connection*)connection)->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSED;
+  ((ct_connection_t*)connection)->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSED;
 
   return 0;
 }
 
-int udp_stop_listen(struct SocketManager* socket_manager) {
+int udp_stop_listen(struct ct_socket_manager_t* socket_manager) {
   log_debug("Stopping UDP listen");
   int rc = uv_udp_recv_stop((uv_udp_t*)socket_manager->protocol_state);
   if (rc < 0) {
@@ -150,7 +150,7 @@ int udp_stop_listen(struct SocketManager* socket_manager) {
   return 0;
 }
 
-int udp_send(Connection* connection, Message* message, MessageContext* message_context) {
+int udp_send(ct_connection_t* connection, ct_message_t* message, ct_message_context_t* message_context) {
   log_debug("Sending message over UDP");
 
   // Allocate buffer that will persist until the async send completes
@@ -218,9 +218,9 @@ void socket_listen_callback(uv_udp_t* handle,
     return;
   }
 
-  SocketManager *socket_manager = (SocketManager*)handle->data;
+  ct_socket_manager_t *socket_manager = (ct_socket_manager_t*)handle->data;
 
-  Message* received_message = malloc(sizeof(Message));
+  ct_message_t* received_message = malloc(sizeof(ct_message_t));
   if (!received_message) {
     free(buf->base);
     return;
@@ -242,18 +242,18 @@ void socket_listen_callback(uv_udp_t* handle,
   socket_manager_multiplex_received_message(socket_manager, received_message, (struct sockaddr_storage*)addr);
 }
 
-int udp_listen(SocketManager* socket_manager) {
+int udp_listen(ct_socket_manager_t* socket_manager) {
   log_debug("Listening via UDP");
   int rc;
 
-  LocalEndpoint local_endpoint = listener_get_local_endpoint(socket_manager->listener);
+  ct_local_endpoint_t local_endpoint = ct_listener_get_local_endpoint(socket_manager->listener);
   uv_udp_t* udp_handle = create_udp_listening_on_local(&local_endpoint, alloc_buffer, socket_listen_callback);
   if (udp_handle == NULL) {
     log_error("Failed to create UDP handle for listening");
     return -EIO;
   }
 
-  Listener* listener = socket_manager->listener;
+  ct_listener_t* listener = socket_manager->listener;
 
   udp_handle->data = socket_manager;
   socket_manager_increment_ref(socket_manager);
@@ -262,7 +262,7 @@ int udp_listen(SocketManager* socket_manager) {
   return 0;
 }
 
-int udp_remote_endpoint_from_peer(uv_handle_t* peer, RemoteEndpoint* resolved_peer) {
+int udp_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* resolved_peer) {
   int rc;
   struct sockaddr_storage remote_addr;
   int addr_len = sizeof(remote_addr);
@@ -271,7 +271,7 @@ int udp_remote_endpoint_from_peer(uv_handle_t* peer, RemoteEndpoint* resolved_pe
     log_error("Could not get remote address from received handle: %s", uv_strerror(rc));
     return rc;
   }
-  rc = remote_endpoint_from_sockaddr(resolved_peer, &remote_addr);
+  rc = ct_remote_endpoint_from_sockaddr(resolved_peer, &remote_addr);
   if (rc < 0) {
     log_error("Could not build remote endpoint from received handle's remote address");
     return rc;
@@ -279,7 +279,7 @@ int udp_remote_endpoint_from_peer(uv_handle_t* peer, RemoteEndpoint* resolved_pe
   return 0;
 }
 
-void udp_retarget_protocol_connection(Connection* from_connection, Connection* to_connection) {
+void udp_retarget_protocol_connection(ct_connection_t* from_connection, ct_connection_t* to_connection) {
   // For UDP, protocol_state is the uv_udp_t handle directly
   // Update the handle's data pointer to reference the new connection
   if (from_connection->protocol_state) {

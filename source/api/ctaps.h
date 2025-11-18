@@ -7,19 +7,19 @@
 #include <stdbool.h>
 #include <uv.h>
 
-typedef struct CtapsConfig {
+typedef struct ct_config_t {
   char* cert_file_name;
   char* key_file_name;
-} CtapsConfig;
+} ct_config_t;
 
-extern CtapsConfig ctaps_global_config; // TODO - move from per-library to per-instance config, see REFACTOR.md
+extern ct_config_t global_config; // TODO - move from per-library to per-instance config, see REFACTOR.md
 
-extern uv_loop_t* ctaps_event_loop;
+extern uv_loop_t* event_loop;
 
-int ctaps_initialize(const char *cert_file_name, const char *key_file_name);
+int ct_initialize(const char *cert_file_name, const char *key_file_name);
 
-void ctaps_start_event_loop();
+void ct_start_event_loop();
 
-int ctaps_close();
+int ct_close();
 
 #endif  // TAPS_H
