@@ -90,11 +90,7 @@ function(add_gtest test_name)
    gtest_discover_tests(${test_name})
 endfunction()
 
-set(CTAPS_SOURCES
-        ${API_SOURCES}
-        ${IMPL_SOURCES}
-)
-
+# Get CTAPS_SOURCES from parent CMakeLists.txt
 list(TRANSFORM CTAPS_SOURCES PREPEND ${CMAKE_SOURCE_DIR}/)
 
 
@@ -135,20 +131,20 @@ add_gtest(dns_integration_test
 add_gtest(remote_endpoint_integration_test
         SOURCES
             source/integration/endpoint/remote_endpoint_test.cpp
-            ${CMAKE_SOURCE_DIR}/source/api/endpoints/remote/remote_endpoint.c
+            ${CMAKE_SOURCE_DIR}/source/impl/api/endpoints/remote/remote_endpoint.c
             ${CMAKE_SOURCE_DIR}/source/impl/logging/log.c
             ${CMAKE_SOURCE_DIR}/source/impl/endpoints/util.c
             ${CMAKE_SOURCE_DIR}/source/impl/protocols/udp/udp.c
             ${CMAKE_SOURCE_DIR}/source/impl/protocols/tcp/tcp.c
             ${CMAKE_SOURCE_DIR}/source/impl/protocols/quic/quic.c
             ${CMAKE_SOURCE_DIR}/source/impl/protocols/common/socket_utils.c
-            ${CMAKE_SOURCE_DIR}/source/api/state/ctaps_state.c
-            ${CMAKE_SOURCE_DIR}/source/api/transport_properties/transport_properties.c
-            ${CMAKE_SOURCE_DIR}/source/api/transport_properties/selection_properties/selection_properties.c
-            ${CMAKE_SOURCE_DIR}/source/api/transport_properties/connection_properties/connection_properties.c
-            ${CMAKE_SOURCE_DIR}/source/api/connections/connection/connection.c
-            ${CMAKE_SOURCE_DIR}/source/api/protocols/registry/protocol_registry.c
-            ${CMAKE_SOURCE_DIR}/source/api/connections/listener/listener.c
+            ${CMAKE_SOURCE_DIR}/source/impl/api/state/ctaps_state.c
+            ${CMAKE_SOURCE_DIR}/source/impl/api/transport_properties/transport_properties.c
+            ${CMAKE_SOURCE_DIR}/source/impl/api/transport_properties/selection_properties/selection_properties.c
+            ${CMAKE_SOURCE_DIR}/source/impl/api/transport_properties/connection_properties/connection_properties.c
+            ${CMAKE_SOURCE_DIR}/source/impl/api/connections/connection/connection.c
+            ${CMAKE_SOURCE_DIR}/source/impl/api/protocols/registry/protocol_registry.c
+            ${CMAKE_SOURCE_DIR}/source/impl/api/connections/listener/listener.c
             ${CMAKE_SOURCE_DIR}/source/impl/connections/listener/socket_manager/socket_manager.c
         WRAP_FUNCTIONS
             uv_getaddrinfo
@@ -170,6 +166,6 @@ add_gtest(candidate_racing_test
 add_gtest(local_endpoint_resolve_test
   SOURCES
     source/unit/endpoint/local/local_endpoint_resolve_test.cpp
-    ${CMAKE_SOURCE_DIR}/source/api/endpoints/local/local_endpoint.c
+    ${CMAKE_SOURCE_DIR}/source/impl/api/endpoints/local/local_endpoint.c
     ${CMAKE_SOURCE_DIR}/source/impl/logging/log.c
 )

@@ -17,26 +17,26 @@ include(tidy)
 include(format)
 include(dependencies)
 
-set(API_SOURCES
-    source/api/transport_properties/transport_properties.c
-    source/api/transport_properties/selection_properties/selection_properties.c
-    source/api/transport_properties/connection_properties/connection_properties.c
-    source/api/security_parameters/security_parameters.c
-    source/api/connections/preconnection/preconnection.c
-    source/api/endpoints/remote/remote_endpoint.c
-    source/api/message/message.c
-    source/api/connections/connection/connection.c
-    source/api/protocols/registry/protocol_registry.c
-    source/api/state/ctaps_state.c
-    source/api/endpoints/local/local_endpoint.c
-    source/api/connections/listener/listener.c
-)
-
-set(IMPL_SOURCES
+set(CTAPS_SOURCES
+    # API implementations
+    source/impl/api/transport_properties/transport_properties.c
+    source/impl/api/transport_properties/selection_properties/selection_properties.c
+    source/impl/api/transport_properties/connection_properties/connection_properties.c
+    source/impl/api/security_parameters/security_parameters.c
+    source/impl/api/connections/preconnection/preconnection.c
+    source/impl/api/endpoints/remote/remote_endpoint.c
+    source/impl/api/message/message.c
+    source/impl/api/connections/connection/connection.c
+    source/impl/api/protocols/registry/protocol_registry.c
+    source/impl/api/state/ctaps_state.c
+    source/impl/api/endpoints/local/local_endpoint.c
+    source/impl/api/connections/listener/listener.c
+    # Protocol implementations
     source/impl/protocols/udp/udp.c
     source/impl/protocols/tcp/tcp.c
     source/impl/protocols/quic/quic.c
     source/impl/protocols/common/socket_utils.c
+    # Internal utilities
     source/impl/connections/listener/socket_manager/socket_manager.c
     source/impl/endpoints/util.c
     source/impl/endpoints/port_util.c
@@ -47,8 +47,7 @@ set(IMPL_SOURCES
 
 add_library(
         CTaps SHARED
-        ${API_SOURCES}
-        ${IMPL_SOURCES}
+        ${CTAPS_SOURCES}
 )
 
 # Set symbol visibility to hidden by default - only CT_EXTERN functions are exported
