@@ -4,7 +4,7 @@
 
 // Group C headers and fakes that need C linkage together
 extern "C" {
-  #include "endpoints/local/local_endpoint.h"
+#include "ctaps.h"
   #include <logging/log.h>
   #include "fff.h"
   DEFINE_FFF_GLOBALS;

@@ -1,10 +1,8 @@
 #ifndef QUIC_H
 #define QUIC_H
 
-#include <connections/connection/connection.h>
 
-#include "protocols/protocol_interface.h"
-#include "transport_properties/selection_properties/selection_properties.h"
+#include "ctaps.h"
 
 struct ct_socket_manager_t;
 
@@ -23,7 +21,7 @@ static ct_protocol_implementation_t quic_protocol_interface = {
     .name = "QUIC",
     .selection_properties = {
       .selection_property = {
-        get_selection_property_list(create_property_initializer)
+        get_selection_property_list(create_sel_property_initializer)
         [RELIABILITY] = {.value = {.simple_preference = NO_PREFERENCE}},
         [PRESERVE_ORDER] = {.value = {.simple_preference = REQUIRE}},
         [PRESERVE_MSG_BOUNDARIES] = {.value = {.simple_preference = NO_PREFERENCE}},

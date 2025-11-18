@@ -4,9 +4,7 @@
 #include "fff.h"
 extern "C" {
 #include "util/util.h"
-#include "state/ctaps_state.h"
-#include "endpoints/local/local_endpoint.h"
-#include "transport_properties/transport_properties.h"
+#include "ctaps.h"
 }
 
 

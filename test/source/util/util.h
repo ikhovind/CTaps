@@ -5,11 +5,7 @@
 #ifndef UTIL_H
 #define UTIL_H
 
-#include "connections/preconnection/preconnection.h"
-#include "connections/connection/connection.h"
-#include "state/ctaps_state.h"
-#include "endpoints/remote/remote_endpoint.h"
-#include "transport_properties/transport_properties.h"
+#include "ctaps.h"
 
 typedef struct {
     pthread_mutex_t* waiting_mutex;

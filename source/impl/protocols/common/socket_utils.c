@@ -1,13 +1,11 @@
 #include "socket_utils.h"
 
-#include <connections/connection/connection.h>
-#include <connections/listener/listener.h>
 #include <glib.h>
 #include <logging/log.h>
 #include <netinet/in.h>
 #include <stdlib.h>
 
-#include "state/ctaps_state.h"
+#include "ctaps.h"
 
 
 uv_udp_t* create_udp_listening_on_local(ct_local_endpoint_t* local_endpoint, uv_alloc_cb alloc_cb, uv_udp_recv_cb on_read_cb) {

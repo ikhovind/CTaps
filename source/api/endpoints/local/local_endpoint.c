@@ -1,4 +1,4 @@
-#include "local_endpoint.h"
+#include "ctaps.h"
 
 #include "endpoints/util.h"
 

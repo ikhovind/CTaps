@@ -1,15 +1,12 @@
 #include "socket_manager.h"
 
-#include <connections/connection/connection.h>
-#include <connections/listener/listener.h>
 #include <glib.h>
 #include <logging/log.h>
 #include <netinet/in.h>
 #include <stdlib.h>
 #include <errno.h>
 
-#include "protocols/protocol_interface.h"
-#include "state/ctaps_state.h"
+#include "ctaps.h"
 
 void socket_manager_alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
   // We'll use a static buffer for this simple example, but in a real

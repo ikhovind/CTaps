@@ -4,8 +4,7 @@
 #include <glib.h>
 #include <uv.h>
 
-#include "connections/connection/connection.h"
-#include "connections/preconnection/preconnection.h"
+#include "ctaps.h"
 #include "candidate_gathering.h"
 
 // Default connection attempt delay in milliseconds (per Happy Eyeballs RFC 8305)

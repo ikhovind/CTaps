@@ -1,13 +1,9 @@
 #ifndef CANDIDATE_GATHERING_H
 #define CANDIDATE_GATHERING_H
 
-#include <connections/preconnection/preconnection.h>
-#include <glib/gnode.h>
+#include <glib.h>
 
-#include "endpoints/local/local_endpoint.h"
-#include "endpoints/remote/remote_endpoint.h"
-#include "protocols/protocol_interface.h"
-#include "transport_properties/transport_properties.h"
+#include "ctaps.h"
 
 // Enum to specify what type of node we are.
 typedef enum {

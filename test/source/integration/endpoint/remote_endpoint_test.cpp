@@ -5,8 +5,8 @@
 
 extern "C" {
   #include <uv.h>
-  #include <endpoints/remote/remote_endpoint.h>
   #include "fff.h"
+  #include "ctaps.h"
 
 
 // --- FFF Fakes ---

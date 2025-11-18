@@ -1,4 +1,4 @@
-#include "connection_properties.h"
+#include "ctaps.h"
 
 #include <errno.h>
 #include <logging/log.h>

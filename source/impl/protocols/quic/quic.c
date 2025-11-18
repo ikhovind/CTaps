@@ -2,13 +2,12 @@
 
 #include <logging/log.h>
 #include <picotls.h>
-#include <state/ctaps_state.h>
+#include "ctaps.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 
-#include "connections/connection/connection.h"
-#include "connections/listener/listener.h"
+#include "ctaps.h"
 #include "connections/listener/socket_manager/socket_manager.h"
 #include "protocols/common/socket_utils.h"
 #include "uv.h"

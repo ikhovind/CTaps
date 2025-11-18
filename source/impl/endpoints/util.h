@@ -3,8 +3,7 @@
 #define MAX_FOUND_INTERFACE_ADDRS 64
 
 #include <uv.h>
-#include <endpoints/local/local_endpoint.h>
-#include <endpoints/remote/remote_endpoint.h>
+#include "ctaps.h"
 
 void get_interface_addresses(const char *interface_name, int *num_found_addresses, struct sockaddr_storage *output_interface_addrs);
 

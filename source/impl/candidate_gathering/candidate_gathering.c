@@ -3,17 +3,11 @@
 #include <glib.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include "candidate_gathering.h" // Assuming the struct definition is in this file
-#include "connections/preconnection/preconnection.h"
-#include "endpoints/local/local_endpoint.h"
-#include "endpoints/remote/remote_endpoint.h"
-#include "protocols/protocol_interface.h"
-#include "transport_properties/transport_properties.h"
+#include "ctaps.h"
 #include <string.h>
 #include <stdio.h>
 #include <logging/log.h>
 
-#include "protocols/registry/protocol_registry.h"
 
 typedef struct ct_node_pruning_data_t {
   ct_selection_properties_t selection_properties;

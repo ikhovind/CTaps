@@ -1,10 +1,7 @@
+#include "ctaps.h"
 #include <stdbool.h>
 
-#include "transport_properties.h"
 
-#include "connection_properties/connection_properties.h"
-#include "protocols/protocol_interface.h"
-#include "selection_properties/selection_properties.h"
 
 void ct_transport_properties_build(ct_transport_properties_t* properties) {
   ct_selection_properties_build(&properties->selection_properties);
