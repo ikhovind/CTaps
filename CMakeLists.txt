@@ -51,6 +51,11 @@ add_library(
         ${IMPL_SOURCES}
 )
 
+# Set symbol visibility to hidden by default - only CT_EXTERN functions are exported
+set_target_properties(CTaps PROPERTIES
+    C_VISIBILITY_PRESET hidden
+)
+
 target_include_directories(CTaps
         PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/source/api>

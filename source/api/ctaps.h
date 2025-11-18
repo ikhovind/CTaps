@@ -16,6 +16,13 @@
 #include <glib.h>
 #include <uv.h>
 
+// Symbol visibility control - only export public API functions
+#if defined(__GNUC__) || defined(__clang__)
+#  define CT_EXTERN __attribute__((visibility("default")))
+#else
+#  define CT_EXTERN
+#endif
+
 // =============================================================================
 // Library State and Configuration
 // =============================================================================
@@ -28,9 +35,9 @@ typedef struct ct_config_t {
 extern ct_config_t global_config;
 extern uv_loop_t* event_loop;
 
-int ct_initialize(const char *cert_file_name, const char *key_file_name);
-void ct_start_event_loop();
-int ct_close();
+CT_EXTERN int ct_initialize(const char *cert_file_name, const char *key_file_name);
+CT_EXTERN void ct_start_event_loop();
+CT_EXTERN int ct_close();
 
 // =============================================================================
 // Selection Properties - Transport property preferences for protocol selection
@@ -127,17 +134,17 @@ const static ct_selection_properties_t DEFAULT_SELECTION_PROPERTIES = {
   }
 };
 
-void ct_selection_properties_build(ct_selection_properties_t* selection_properties);
+CT_EXTERN void ct_selection_properties_build(ct_selection_properties_t* selection_properties);
 
-void ct_set_sel_prop_preference(ct_selection_properties_t* props, ct_selection_property_enum_t prop_enum, ct_selection_preference_t val);
+CT_EXTERN void ct_set_sel_prop_preference(ct_selection_properties_t* props, ct_selection_property_enum_t prop_enum, ct_selection_preference_t val);
 
-void ct_set_sel_prop_direction(ct_selection_properties_t* props, ct_selection_property_enum_t prop_enum, ct_direction_of_communication_enum_t val);
+CT_EXTERN void ct_set_sel_prop_direction(ct_selection_properties_t* props, ct_selection_property_enum_t prop_enum, ct_direction_of_communication_enum_t val);
 
-void ct_set_sel_prop_multipath(ct_selection_properties_t* props, ct_selection_property_enum_t prop_enum, ct_multipath_enum_t val);
+CT_EXTERN void ct_set_sel_prop_multipath(ct_selection_properties_t* props, ct_selection_property_enum_t prop_enum, ct_multipath_enum_t val);
 
-void ct_set_sel_prop_bool(ct_selection_properties_t* props, ct_selection_property_enum_t prop_enum, bool val);
+CT_EXTERN void ct_set_sel_prop_bool(ct_selection_properties_t* props, ct_selection_property_enum_t prop_enum, bool val);
 
-void ct_set_sel_prop_interface(ct_selection_properties_t* props, const char* interface_name, ct_selection_preference_t preference);
+CT_EXTERN void ct_set_sel_prop_interface(ct_selection_properties_t* props, const char* interface_name, ct_selection_preference_t preference);
 
 // =============================================================================
 // Connection Properties - Properties of active connections
@@ -337,17 +344,17 @@ typedef struct {
   ct_security_parameter_t security_parameters[SEC_PROPERTY_END];
 } ct_security_parameters_t;
 
-void ct_transport_properties_build(ct_transport_properties_t* properties);
+CT_EXTERN void ct_transport_properties_build(ct_transport_properties_t* properties);
 
-void ct_tp_set_sel_prop_preference(ct_transport_properties_t* props, ct_selection_property_enum_t prop_enum, ct_selection_preference_t val);
+CT_EXTERN void ct_tp_set_sel_prop_preference(ct_transport_properties_t* props, ct_selection_property_enum_t prop_enum, ct_selection_preference_t val);
 
-void ct_tp_set_sel_prop_multipath(ct_transport_properties_t* props, ct_selection_property_enum_t prop_enum, ct_multipath_enum_t val);
+CT_EXTERN void ct_tp_set_sel_prop_multipath(ct_transport_properties_t* props, ct_selection_property_enum_t prop_enum, ct_multipath_enum_t val);
 
-void ct_tp_set_sel_prop_direction(ct_transport_properties_t* props, ct_selection_property_enum_t prop_enum, ct_direction_of_communication_enum_t val);
+CT_EXTERN void ct_tp_set_sel_prop_direction(ct_transport_properties_t* props, ct_selection_property_enum_t prop_enum, ct_direction_of_communication_enum_t val);
 
-void ct_tp_set_sel_prop_bool(ct_transport_properties_t* props, ct_selection_property_enum_t prop_enum, bool val);
+CT_EXTERN void ct_tp_set_sel_prop_bool(ct_transport_properties_t* props, ct_selection_property_enum_t prop_enum, bool val);
 
-void ct_tp_set_sel_prop_interface(ct_transport_properties_t* props, char* interface_name, ct_selection_preference_t preference);
+CT_EXTERN void ct_tp_set_sel_prop_interface(ct_transport_properties_t* props, char* interface_name, ct_selection_preference_t preference);
 
 
 // =============================================================================
@@ -487,111 +494,111 @@ typedef struct ct_listener_t {
 // =============================================================================
 
 // Selection Properties
-void ct_selection_properties_build(ct_selection_properties_t* selection_properties);
-void ct_selection_properties_set(ct_selection_properties_t* selection_properties, ct_selection_property_enum_t property, ct_selection_property_value_t value);
-void ct_selection_properties_free(ct_selection_properties_t* selection_properties);
+CT_EXTERN void ct_selection_properties_build(ct_selection_properties_t* selection_properties);
+CT_EXTERN void ct_selection_properties_set(ct_selection_properties_t* selection_properties, ct_selection_property_enum_t property, ct_selection_property_value_t value);
+CT_EXTERN void ct_selection_properties_free(ct_selection_properties_t* selection_properties);
 
 // Connection Properties
-void ct_connection_properties_build(ct_connection_properties_t* connection_properties);
-void ct_connection_properties_free(ct_connection_properties_t* connection_properties);
+CT_EXTERN void ct_connection_properties_build(ct_connection_properties_t* connection_properties);
+CT_EXTERN void ct_connection_properties_free(ct_connection_properties_t* connection_properties);
 
 // Message Properties
-void ct_message_properties_build(ct_message_properties_t* message_properties);
-void ct_message_properties_free(ct_message_properties_t* message_properties);
+CT_EXTERN void ct_message_properties_build(ct_message_properties_t* message_properties);
+CT_EXTERN void ct_message_properties_free(ct_message_properties_t* message_properties);
 
 // Transport Properties
-void ct_transport_properties_build(ct_transport_properties_t* transport_properties);
-void ct_transport_properties_free(ct_transport_properties_t* transport_properties);
+CT_EXTERN void ct_transport_properties_build(ct_transport_properties_t* transport_properties);
+CT_EXTERN void ct_transport_properties_free(ct_transport_properties_t* transport_properties);
 
 // Security Parameters
-void ct_security_parameters_build(ct_security_parameters_t* security_parameters);
-void ct_security_parameters_free(ct_security_parameters_t* security_parameters);
+CT_EXTERN void ct_security_parameters_build(ct_security_parameters_t* security_parameters);
+CT_EXTERN void ct_security_parameters_free(ct_security_parameters_t* security_parameters);
 
-int ct_sec_param_set_property_string_array(ct_security_parameters_t* security_parameters, ct_security_property_enum_t property, char** strings, size_t num_strings);
+CT_EXTERN int ct_sec_param_set_property_string_array(ct_security_parameters_t* security_parameters, ct_security_property_enum_t property, char** strings, size_t num_strings);
 
-void ct_free_security_parameter_content(ct_security_parameters_t* security_parameters);
+CT_EXTERN void ct_free_security_parameter_content(ct_security_parameters_t* security_parameters);
 
 // Local Endpoint
-void ct_local_endpoint_build(ct_local_endpoint_t* local_endpoint);
-int ct_local_endpoint_with_interface(ct_local_endpoint_t* local_endpoint, const char* interface_name);
-void ct_local_endpoint_with_port(ct_local_endpoint_t* local_endpoint, int port);
-int ct_local_endpoint_with_service(ct_local_endpoint_t* local_endpoint, char* service);
-void ct_free_local_endpoint(ct_local_endpoint_t* local_endpoint);
-void ct_free_local_endpoint_strings(ct_local_endpoint_t* local_endpoint);
+CT_EXTERN void ct_local_endpoint_build(ct_local_endpoint_t* local_endpoint);
+CT_EXTERN int ct_local_endpoint_with_interface(ct_local_endpoint_t* local_endpoint, const char* interface_name);
+CT_EXTERN void ct_local_endpoint_with_port(ct_local_endpoint_t* local_endpoint, int port);
+CT_EXTERN int ct_local_endpoint_with_service(ct_local_endpoint_t* local_endpoint, char* service);
+CT_EXTERN void ct_free_local_endpoint(ct_local_endpoint_t* local_endpoint);
+CT_EXTERN void ct_free_local_endpoint_strings(ct_local_endpoint_t* local_endpoint);
 ct_local_endpoint_t* local_endpoint_copy(const ct_local_endpoint_t* local_endpoint);
 ct_local_endpoint_t ct_local_endpoint_copy_content(const ct_local_endpoint_t* local_endpoint);
-int ct_local_endpoint_resolve(const ct_local_endpoint_t* local_endpoint, ct_local_endpoint_t** out_list, size_t* out_count);
+CT_EXTERN int ct_local_endpoint_resolve(const ct_local_endpoint_t* local_endpoint, ct_local_endpoint_t** out_list, size_t* out_count);
 
 
 // Remote Endpoint
-void ct_remote_endpoint_build(ct_remote_endpoint_t* remote_endpoint);
-int ct_remote_endpoint_with_hostname(ct_remote_endpoint_t* remote_endpoint, const char* hostname);
-void ct_remote_endpoint_with_port(ct_remote_endpoint_t* remote_endpoint, uint16_t port);
-int ct_remote_endpoint_with_service(ct_remote_endpoint_t* remote_endpoint, const char* service);
-void ct_free_remote_endpoint_strings(ct_remote_endpoint_t* remote_endpoint);
-void ct_free_remote_endpoint(ct_remote_endpoint_t* remote_endpoint);
-int ct_remote_endpoint_from_sockaddr(ct_remote_endpoint_t* remote_endpoint, const struct sockaddr_storage* addr);
-int ct_remote_endpoint_resolve(const ct_remote_endpoint_t* remote_endpoint, ct_remote_endpoint_t** out_list, size_t* out_count);
+CT_EXTERN void ct_remote_endpoint_build(ct_remote_endpoint_t* remote_endpoint);
+CT_EXTERN int ct_remote_endpoint_with_hostname(ct_remote_endpoint_t* remote_endpoint, const char* hostname);
+CT_EXTERN void ct_remote_endpoint_with_port(ct_remote_endpoint_t* remote_endpoint, uint16_t port);
+CT_EXTERN int ct_remote_endpoint_with_service(ct_remote_endpoint_t* remote_endpoint, const char* service);
+CT_EXTERN void ct_free_remote_endpoint_strings(ct_remote_endpoint_t* remote_endpoint);
+CT_EXTERN void ct_free_remote_endpoint(ct_remote_endpoint_t* remote_endpoint);
+CT_EXTERN int ct_remote_endpoint_from_sockaddr(ct_remote_endpoint_t* remote_endpoint, const struct sockaddr_storage* addr);
+CT_EXTERN int ct_remote_endpoint_resolve(const ct_remote_endpoint_t* remote_endpoint, ct_remote_endpoint_t** out_list, size_t* out_count);
 ct_remote_endpoint_t* remote_endpoint_copy(const ct_remote_endpoint_t* remote_endpoint);
 ct_remote_endpoint_t ct_remote_endpoint_copy_content(const ct_remote_endpoint_t* remote_endpoint);
-int ct_remote_endpoint_with_ipv4(ct_remote_endpoint_t* remote_endpoint, in_addr_t ipv4_addr);
-int ct_remote_endpoint_with_ipv6(ct_remote_endpoint_t* remote_endpoint, struct in6_addr ipv6_addr);
+CT_EXTERN int ct_remote_endpoint_with_ipv4(ct_remote_endpoint_t* remote_endpoint, in_addr_t ipv4_addr);
+CT_EXTERN int ct_remote_endpoint_with_ipv6(ct_remote_endpoint_t* remote_endpoint, struct in6_addr ipv6_addr);
 
 // Message
-void ct_message_build_with_content(ct_message_t* message, const char* content, size_t length);
-void ct_message_free_content(const ct_message_t* message);
+CT_EXTERN void ct_message_build_with_content(ct_message_t* message, const char* content, size_t length);
+CT_EXTERN void ct_message_free_content(const ct_message_t* message);
 
-void ct_message_free_all(ct_message_t* message);
-void ct_message_build_without_content(ct_message_t* message);
+CT_EXTERN void ct_message_free_all(ct_message_t* message);
+CT_EXTERN void ct_message_build_without_content(ct_message_t* message);
 
 // Message Context
-void ct_message_context_build(ct_message_context_t* message_context);
-void ct_message_context_free(ct_message_context_t* message_context);
+CT_EXTERN void ct_message_context_build(ct_message_context_t* message_context);
+CT_EXTERN void ct_message_context_free(ct_message_context_t* message_context);
 
 // Preconnection
-void ct_preconnection_build_user_connection(ct_connection_t* connection, const ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks);
-int ct_preconnection_build(ct_preconnection_t* preconnection,
+CT_EXTERN void ct_preconnection_build_user_connection(ct_connection_t* connection, const ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks);
+CT_EXTERN int ct_preconnection_build(ct_preconnection_t* preconnection,
                            const ct_transport_properties_t transport_properties,
                            const ct_remote_endpoint_t* remote_endpoints,
                            const size_t num_remote_endpoints,
                            const ct_security_parameters_t* security_parameters);
-int ct_preconnection_build_with_local(ct_preconnection_t* preconnection,
+CT_EXTERN int ct_preconnection_build_with_local(ct_preconnection_t* preconnection,
                                       ct_transport_properties_t transport_properties,
                                       ct_remote_endpoint_t remote_endpoints[],
                                       size_t num_remote_endpoints,
                                       const ct_security_parameters_t* security_parameters,
                                       ct_local_endpoint_t local_endpoint);
-void ct_preconnection_add_remote_endpoint(ct_preconnection_t* preconnection, const ct_remote_endpoint_t* remote_endpoint);
-void ct_preconnection_set_local_endpoint(ct_preconnection_t* preconnection, const ct_local_endpoint_t* local_endpoint);
-void ct_preconnection_free(ct_preconnection_t* preconnection);
-int ct_preconnection_initiate(ct_preconnection_t* preconnection, ct_connection_t* connection, ct_connection_callbacks_t connection_callbacks);
-int ct_preconnection_listen(ct_preconnection_t* preconnection, ct_listener_t* listener, ct_listener_callbacks_t listener_callbacks);
+CT_EXTERN void ct_preconnection_add_remote_endpoint(ct_preconnection_t* preconnection, const ct_remote_endpoint_t* remote_endpoint);
+CT_EXTERN void ct_preconnection_set_local_endpoint(ct_preconnection_t* preconnection, const ct_local_endpoint_t* local_endpoint);
+CT_EXTERN void ct_preconnection_free(ct_preconnection_t* preconnection);
+CT_EXTERN int ct_preconnection_initiate(ct_preconnection_t* preconnection, ct_connection_t* connection, ct_connection_callbacks_t connection_callbacks);
+CT_EXTERN int ct_preconnection_listen(ct_preconnection_t* preconnection, ct_listener_t* listener, ct_listener_callbacks_t listener_callbacks);
 
 // Connection
-int ct_send_message(ct_connection_t* connection, ct_message_t* message);
-int ct_send_message_full(ct_connection_t* connection, ct_message_t* message, ct_message_context_t* message_context);
-int ct_receive_message(ct_connection_t* connection, ct_receive_callbacks_t receive_callbacks);
-void ct_connection_build_multiplexed(ct_connection_t* connection, const struct ct_listener_t* listener, const ct_remote_endpoint_t* remote_endpoint);
-ct_connection_t* ct_connection_build_from_received_handle(const struct ct_listener_t* listener, uv_stream_t* received_handle);
-void ct_connection_build(ct_connection_t* connection);
-void ct_connection_free(ct_connection_t* connection);
-void ct_connection_close(ct_connection_t* connection);
+CT_EXTERN int ct_send_message(ct_connection_t* connection, ct_message_t* message);
+CT_EXTERN int ct_send_message_full(ct_connection_t* connection, ct_message_t* message, ct_message_context_t* message_context);
+CT_EXTERN int ct_receive_message(ct_connection_t* connection, ct_receive_callbacks_t receive_callbacks);
+CT_EXTERN void ct_connection_build_multiplexed(ct_connection_t* connection, const struct ct_listener_t* listener, const ct_remote_endpoint_t* remote_endpoint);
+CT_EXTERN ct_connection_t* ct_connection_build_from_received_handle(const struct ct_listener_t* listener, uv_stream_t* received_handle);
+CT_EXTERN void ct_connection_build(ct_connection_t* connection);
+CT_EXTERN void ct_connection_free(ct_connection_t* connection);
+CT_EXTERN void ct_connection_close(ct_connection_t* connection);
 
 // Listener
-void ct_listener_stop(ct_listener_t* listener);
-void ct_listener_close(const ct_listener_t* listener);
-void ct_listener_free(ct_listener_t* listener);
+CT_EXTERN void ct_listener_stop(ct_listener_t* listener);
+CT_EXTERN void ct_listener_close(const ct_listener_t* listener);
+CT_EXTERN void ct_listener_free(ct_listener_t* listener);
 ct_local_endpoint_t ct_listener_get_local_endpoint(const ct_listener_t* listener);
 
 // Protocol Registry
-void ct_protocol_registry_build();
-void ct_protocol_registry_free();
+CT_EXTERN void ct_protocol_registry_build();
+CT_EXTERN void ct_protocol_registry_free();
 #define MAX_PROTOCOLS 256
 
 // A dynamic list to hold registered protocols
 static const ct_protocol_implementation_t* ct_supported_protocols[MAX_PROTOCOLS] = {0};
 
-void ct_register_protocol(ct_protocol_implementation_t* proto);
+CT_EXTERN void ct_register_protocol(ct_protocol_implementation_t* proto);
 
 const ct_protocol_implementation_t** ct_get_supported_protocols();
 
