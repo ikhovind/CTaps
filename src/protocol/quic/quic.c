@@ -8,8 +8,8 @@
 #include <sys/socket.h>
 
 #include "ctaps.h"
-#include "connections/listener/socket_manager/socket_manager.h"
-#include "protocols/common/socket_utils.h"
+#include "connection/socket_manager/socket_manager.h"
+#include "protocol/common/socket_utils.h"
 #include "uv.h"
 #include <picoquic.h>
 #include <picoquic_utils.h>

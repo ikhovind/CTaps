@@ -1,10 +1,10 @@
 #include "ctaps.h"
 
 #include <logging/log.h>
-#include <protocols/quic/quic.h>
+#include <protocol/quic/quic.h>
 
-#include "protocols/udp/udp.h"
-#include "protocols/tcp/tcp.h"
+#include "protocol/udp/udp.h"
+#include "protocol/tcp/tcp.h"
 #include "uv.h"
 
 uv_loop_t* event_loop;

@@ -75,9 +75,9 @@ function(add_gtest test_name)
 
     target_compile_features(${test_name} PRIVATE c_std_99)
     target_include_directories(${test_name} PRIVATE
-            ${CMAKE_SOURCE_DIR}/test/source
-            ${CMAKE_SOURCE_DIR}/source/api
-            ${CMAKE_SOURCE_DIR}/source/impl
+            ${CMAKE_SOURCE_DIR}/test/src
+            ${CMAKE_SOURCE_DIR}/include
+            ${CMAKE_SOURCE_DIR}/src
             ${GLIB_INCLUDE_DIRS}
             ${GLIB_LIBRARIES}
     )
@@ -94,22 +94,22 @@ endfunction()
 list(TRANSFORM CTAPS_SOURCES PREPEND ${CMAKE_SOURCE_DIR}/)
 
 
-add_gtest(udp_ping_test SOURCES source/integration/udp_ping.cpp ${CTAPS_SOURCES})
-add_gtest(tcp_ping_test SOURCES source/integration/tcp/tcp_ping_test.cpp ${CTAPS_SOURCES})
+add_gtest(udp_ping_test SOURCES src/integration/udp_ping.cpp ${CTAPS_SOURCES})
+add_gtest(tcp_ping_test SOURCES src/integration/tcp/tcp_ping_test.cpp ${CTAPS_SOURCES})
 add_gtest(
         quic_ping_test
         SOURCES
-            source/integration/quic/quic_ping_test.cpp
+            src/integration/quic/quic_ping_test.cpp
             ${CTAPS_SOURCES}
 )
-add_gtest(quic_listener_test SOURCES source/integration/quic/quic_listen_test.cpp ${CTAPS_SOURCES})
-add_gtest(initiation_test SOURCES source/preconnection/initiation.cpp ${CTAPS_SOURCES} source/util/util.c)
-add_gtest(remote_endpoint_unit_test SOURCES source/unit/endpoint/remote.cpp ${CTAPS_SOURCES})
-add_gtest(preconnection_unit_test SOURCES source/unit/connections/preconnection.cpp ${CTAPS_SOURCES})
-add_gtest(connection_unit_test SOURCES source/unit/connections/connection_test.cpp ${CTAPS_SOURCES})
+add_gtest(quic_listener_test SOURCES src/integration/quic/quic_listen_test.cpp ${CTAPS_SOURCES})
+add_gtest(initiation_test SOURCES src/preconnection/initiation.cpp ${CTAPS_SOURCES} src/util/util.c)
+add_gtest(remote_endpoint_unit_test SOURCES src/unit/endpoint/remote.cpp ${CTAPS_SOURCES})
+add_gtest(preconnection_unit_test SOURCES src/unit/connections/preconnection.cpp ${CTAPS_SOURCES})
+add_gtest(connection_unit_test SOURCES src/unit/connections/connection_test.cpp ${CTAPS_SOURCES})
 add_gtest(candidate_gathering_test
         SOURCES
-            source/unit/candidate_gathering/candidate_gathering_test.cpp
+            src/unit/candidate_gathering/candidate_gathering_test.cpp
             ${CTAPS_SOURCES}
         WRAP_FUNCTIONS
             ct_local_endpoint_resolve
@@ -120,52 +120,52 @@ add_gtest(candidate_gathering_test
 
 add_gtest(local_endpoint_unit_test
         SOURCES
-            source/unit/endpoint/local.cpp ${CTAPS_SOURCES}
+            src/unit/endpoint/local.cpp ${CTAPS_SOURCES}
 )
 add_gtest(dns_integration_test
         SOURCES
-            source/integration/dns/dns_test.cpp
+            src/integration/dns/dns_test.cpp
             ${CTAPS_SOURCES}
-            source/util/util.c
+            src/util/util.c
 )
 add_gtest(remote_endpoint_integration_test
         SOURCES
-            source/integration/endpoint/remote_endpoint_test.cpp
-            ${CMAKE_SOURCE_DIR}/source/impl/api/endpoints/remote/remote_endpoint.c
-            ${CMAKE_SOURCE_DIR}/source/impl/logging/log.c
-            ${CMAKE_SOURCE_DIR}/source/impl/endpoints/util.c
-            ${CMAKE_SOURCE_DIR}/source/impl/protocols/udp/udp.c
-            ${CMAKE_SOURCE_DIR}/source/impl/protocols/tcp/tcp.c
-            ${CMAKE_SOURCE_DIR}/source/impl/protocols/quic/quic.c
-            ${CMAKE_SOURCE_DIR}/source/impl/protocols/common/socket_utils.c
-            ${CMAKE_SOURCE_DIR}/source/impl/api/state/ctaps_state.c
-            ${CMAKE_SOURCE_DIR}/source/impl/api/transport_properties/transport_properties.c
-            ${CMAKE_SOURCE_DIR}/source/impl/api/transport_properties/selection_properties/selection_properties.c
-            ${CMAKE_SOURCE_DIR}/source/impl/api/transport_properties/connection_properties/connection_properties.c
-            ${CMAKE_SOURCE_DIR}/source/impl/api/connections/connection/connection.c
-            ${CMAKE_SOURCE_DIR}/source/impl/api/protocols/registry/protocol_registry.c
-            ${CMAKE_SOURCE_DIR}/source/impl/api/connections/listener/listener.c
-            ${CMAKE_SOURCE_DIR}/source/impl/connections/listener/socket_manager/socket_manager.c
+            src/integration/endpoint/remote_endpoint_test.cpp
+            ${CMAKE_SOURCE_DIR}/src/endpoint/remote_endpoint.c
+            ${CMAKE_SOURCE_DIR}/src/logging/log.c
+            ${CMAKE_SOURCE_DIR}/src/endpoint/util.c
+            ${CMAKE_SOURCE_DIR}/src/protocol/udp/udp.c
+            ${CMAKE_SOURCE_DIR}/src/protocol/tcp/tcp.c
+            ${CMAKE_SOURCE_DIR}/src/protocol/quic/quic.c
+            ${CMAKE_SOURCE_DIR}/src/protocol/common/socket_utils.c
+            ${CMAKE_SOURCE_DIR}/src/state/ctaps_state.c
+            ${CMAKE_SOURCE_DIR}/src/transport_property/transport_properties.c
+            ${CMAKE_SOURCE_DIR}/src/transport_property/selection_properties/selection_properties.c
+            ${CMAKE_SOURCE_DIR}/src/transport_property/connection_properties/connection_properties.c
+            ${CMAKE_SOURCE_DIR}/src/connection/connection.c
+            ${CMAKE_SOURCE_DIR}/src/protocol/protocol_registry.c
+            ${CMAKE_SOURCE_DIR}/src/connection/listener.c
+            ${CMAKE_SOURCE_DIR}/src/connection/socket_manager/socket_manager.c
         WRAP_FUNCTIONS
             uv_getaddrinfo
             uv_freeaddrinfo
 )
-#add_gtest(udp_listener_test SOURCES source/integration/listener_test.cpp ${CTAPS_SOURCES})
-add_gtest(tcp_listener_test SOURCES source/integration/tcp/tcp_listen_test.cpp ${CTAPS_SOURCES})
+#add_gtest(udp_listener_test SOURCES src/integration/listener_test.cpp ${CTAPS_SOURCES})
+add_gtest(tcp_listener_test SOURCES src/integration/tcp/tcp_listen_test.cpp ${CTAPS_SOURCES})
 add_gtest(selection_property_test
   SOURCES
-    source/unit/transport_properties/selection_properties/selection_properties_test.cpp
+    src/unit/transport_properties/selection_properties/selection_properties_test.cpp
     ${CTAPS_SOURCES}
 )
 add_gtest(candidate_racing_test
   SOURCES
-    source/integration/candidate_racing_test.cpp
+    src/integration/candidate_racing_test.cpp
     ${CTAPS_SOURCES}
 )
 
 add_gtest(local_endpoint_resolve_test
   SOURCES
-    source/unit/endpoint/local/local_endpoint_resolve_test.cpp
-    ${CMAKE_SOURCE_DIR}/source/impl/api/endpoints/local/local_endpoint.c
-    ${CMAKE_SOURCE_DIR}/source/impl/logging/log.c
+    src/unit/endpoint/local/local_endpoint_resolve_test.cpp
+    ${CMAKE_SOURCE_DIR}/src/endpoint/local_endpoint.c
+    ${CMAKE_SOURCE_DIR}/src/logging/log.c
 )

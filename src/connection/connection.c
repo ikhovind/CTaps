@@ -5,7 +5,7 @@
 #include <uv.h>
 
 #include "ctaps.h"
-#include "connections/listener/socket_manager/socket_manager.h"
+#include "connection/socket_manager/socket_manager.h"
 #include "glib.h"
 
 int ct_send_message(ct_connection_t* connection, ct_message_t* message) {

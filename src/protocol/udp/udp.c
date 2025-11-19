@@ -9,10 +9,10 @@
 #include <uv.h>
 #include <logging/log.h>
 #include <errno.h>
-#include <protocols/common/socket_utils.h>
+#include <protocol/common/socket_utils.h>
 
 #include "ctaps.h"
-#include "connections/listener/socket_manager/socket_manager.h"
+#include "connection/socket_manager/socket_manager.h"
 
 #define MAX_FOUND_INTERFACE_ADDRS 64
 

@@ -1,6 +1,6 @@
 #include "tcp.h"
 #include "ctaps.h"
-#include "connections/listener/socket_manager/socket_manager.h"
+#include "connection/socket_manager/socket_manager.h"
 #include <errno.h>
 #include <logging/log.h>
 #include <stdbool.h>

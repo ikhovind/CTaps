@@ -1,7 +1,7 @@
 #include "ctaps.h"
 
-#include <endpoints/port_util.h>
-#include <endpoints/util.h>
+#include <endpoint/port_util.h>
+#include <endpoint/util.h>
 #include <errno.h>
 #include <logging/log.h>
 #include <stdlib.h>

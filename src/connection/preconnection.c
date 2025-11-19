@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "connections/listener/socket_manager/socket_manager.h"
+#include "connection/socket_manager/socket_manager.h"
 #include "ctaps.h"
 
 #define INT_TO_STRING(x) #x

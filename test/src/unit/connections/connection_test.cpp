@@ -5,7 +5,7 @@
 extern "C" {
 #include "util/util.h"
 #include "ctaps.h"
-#include <connections/listener/socket_manager/socket_manager.h>
+#include <connection/socket_manager/socket_manager.h>
 }
 
 TEST(ConnectionUnitTests, TakesDeepCopyOfTransportProperties) {

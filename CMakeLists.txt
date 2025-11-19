@@ -18,31 +18,38 @@ include(format)
 include(dependencies)
 
 set(CTAPS_SOURCES
-    # API implementations
-    source/impl/api/transport_properties/transport_properties.c
-    source/impl/api/transport_properties/selection_properties/selection_properties.c
-    source/impl/api/transport_properties/connection_properties/connection_properties.c
-    source/impl/api/security_parameters/security_parameters.c
-    source/impl/api/connections/preconnection/preconnection.c
-    source/impl/api/endpoints/remote/remote_endpoint.c
-    source/impl/api/message/message.c
-    source/impl/api/connections/connection/connection.c
-    source/impl/api/protocols/registry/protocol_registry.c
-    source/impl/api/state/ctaps_state.c
-    source/impl/api/endpoints/local/local_endpoint.c
-    source/impl/api/connections/listener/listener.c
-    # Protocol implementations
-    source/impl/protocols/udp/udp.c
-    source/impl/protocols/tcp/tcp.c
-    source/impl/protocols/quic/quic.c
-    source/impl/protocols/common/socket_utils.c
-    # Internal utilities
-    source/impl/connections/listener/socket_manager/socket_manager.c
-    source/impl/endpoints/util.c
-    source/impl/endpoints/port_util.c
-    source/impl/logging/log.c
-    source/impl/candidate_gathering/candidate_gathering.c
-    source/impl/candidate_gathering/candidate_racing.c
+    # Transport properties
+    src/transport_property/transport_properties.c
+    src/transport_property/selection_properties/selection_properties.c
+    src/transport_property/connection_properties/connection_properties.c
+    src/transport_property/message_properties/message_properties.c
+    # Security parameters
+    src/security_parameter/security_parameters.c
+    # Connections
+    src/connection/preconnection.c
+    src/connection/connection.c
+    src/connection/listener.c
+    src/connection/socket_manager/socket_manager.c
+    # Endpoints
+    src/endpoint/remote_endpoint.c
+    src/endpoint/local_endpoint.c
+    src/endpoint/util.c
+    src/endpoint/port_util.c
+    # Messages
+    src/message/message.c
+    # Protocols
+    src/protocol/protocol_registry.c
+    src/protocol/udp/udp.c
+    src/protocol/tcp/tcp.c
+    src/protocol/quic/quic.c
+    src/protocol/common/socket_utils.c
+    # State
+    src/state/ctaps_state.c
+    # Candidate gathering
+    src/candidate_gathering/candidate_gathering.c
+    src/candidate_gathering/candidate_racing.c
+    # Logging
+    src/logging/log.c
 )
 
 add_library(
@@ -57,13 +64,13 @@ set_target_properties(CTaps PROPERTIES
 
 target_include_directories(CTaps
         PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/source/api>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include> # Path after installation
 )
 
 target_include_directories(CTaps
         PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/source/impl
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 # This is the only way I have managed to link against picotls
@@ -92,7 +99,7 @@ target_link_libraries(CTaps PUBLIC ${GLIB_LIBRARIES})
 
 # ---- Declare executable ----
 
-add_executable(mocking_exe source/main.c)
+add_executable(mocking_exe src/main.c)
 
 target_link_libraries(mocking_exe
         PRIVATE

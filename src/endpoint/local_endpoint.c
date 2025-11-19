@@ -1,8 +1,8 @@
 #include "ctaps.h"
 
-#include "endpoints/util.h"
+#include "endpoint/util.h"
 
-#include <endpoints/port_util.h>
+#include <endpoint/port_util.h>
 #include <errno.h>
 #include <logging/log.h>
 #include <netinet/in.h>
