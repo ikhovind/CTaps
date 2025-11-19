@@ -8,7 +8,7 @@
 // Forward declarations
 static void initiate_next_attempt(ct_racing_context_t* context);
 static void on_stagger_timer(uv_timer_t* handle);
-static int racing_on_attempt_ready(struct ct_connection_t* connection);
+static int racing_on_attempt_ready(struct ct_connection_s* connection);
 static int on_attempt_establishment_error(ct_connection_t* connection);
 static void cancel_all_other_attempts(ct_racing_context_t* context, int winning_index);
 static int start_connection_attempt(ct_racing_context_t* context, int attempt_index);

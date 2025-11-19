@@ -19,7 +19,7 @@ typedef struct ct_candidate_node_t {
 
   ct_local_endpoint_t* local_endpoint;
   ct_remote_endpoint_t* remote_endpoint;
-  const ct_protocol_implementation_t* protocol;
+  const ct_protocol_impl_t* protocol;
 
   const ct_transport_properties_t* transport_properties;
 } ct_candidate_node_t;

@@ -137,7 +137,7 @@ int udp_close(const ct_connection_t* connection) {
   return 0;
 }
 
-int udp_stop_listen(struct ct_socket_manager_t* socket_manager) {
+int udp_stop_listen(struct ct_socket_manager_s* socket_manager) {
   log_debug("Stopping UDP listen");
   int rc = uv_udp_recv_stop((uv_udp_t*)socket_manager->protocol_state);
   if (rc < 0) {

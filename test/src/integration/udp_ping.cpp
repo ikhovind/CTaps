@@ -11,7 +11,7 @@ extern "C" {
 #define UDP_PING_PORT 5005
 
 extern "C" {
-  int udp_send_message_on_connection_ready(struct ct_connection_t* connection) {
+  int udp_send_message_on_connection_ready(struct ct_connection_s* connection) {
     log_info("ct_connection_t is ready, sending message");
     // --- Action ---
     ct_message_t message;
@@ -25,14 +25,14 @@ extern "C" {
     return 0;
   }
 
-  int udp_on_establishment_error(struct ct_connection_t* connection) {
+  int udp_on_establishment_error(struct ct_connection_s* connection) {
     log_error("ct_connection_t error occurred");
     bool* connection_succeeded = (bool*)connection->connection_callbacks.user_connection_context;
     *connection_succeeded = false;
     return 0;
   }
 
-  int udp_on_msg_received(struct ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* ctx) {
+  int udp_on_msg_received(struct ct_connection_s* connection, ct_message_t** received_message, ct_message_context_t* ctx) {
     log_info("ct_message_t received");
     // set user data to received message
     ct_message_t** output_addr = (ct_message_t**)ctx->user_receive_context;
@@ -97,7 +97,7 @@ struct UdpTestContext {
 };
 
 extern "C" {
-  int udp_send_two_messages_on_ready(struct ct_connection_t* connection) {
+  int udp_send_two_messages_on_ready(struct ct_connection_s* connection) {
     log_info("ct_connection_t is ready, sending two messages");
 
     ct_message_t message1;
@@ -117,7 +117,7 @@ extern "C" {
     return 0;
   }
 
-  int udp_on_msg_received_multiple(struct ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* ctx) {
+  int udp_on_msg_received_multiple(struct ct_connection_s* connection, ct_message_t** received_message, ct_message_context_t* ctx) {
     log_info("ct_message_t received (multiple test)");
     UdpTestContext* test_ctx = (UdpTestContext*)ctx->user_receive_context;
 
@@ -190,7 +190,7 @@ TEST(UdpGenericTests, packetsAreReadInOrder) {
 }
 
 extern "C" {
-  int udp_send_bytes_on_ready(struct ct_connection_t* connection) {
+  int udp_send_bytes_on_ready(struct ct_connection_s* connection) {
     log_info("ct_connection_t is ready, sending arbitrary bytes");
 
     ct_message_t message;

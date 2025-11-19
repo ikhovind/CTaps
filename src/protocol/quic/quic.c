@@ -26,7 +26,7 @@ int picoquic_callback(picoquic_cnx_t* cnx,
     picoquic_call_back_event_t fin_or_event, void* callback_ctx, void* v_stream_ctx);
 
 typedef struct ct_quic_global_state_t {
-  struct ct_listener_t* listener;
+  struct ct_listener_s* listener;
   uv_timer_t* timer_handle;
   uint32_t num_active_sockets;
 } ct_quic_global_state_t;

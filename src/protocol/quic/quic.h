@@ -4,7 +4,7 @@
 
 #include "ctaps.h"
 
-struct ct_socket_manager_t;
+struct ct_socket_manager_s;
 
 // Passed as a parameter to picoquic_create()
 #define MAX_CONCURRENT_QUIC_CONNECTIONS 256
@@ -12,12 +12,12 @@ struct ct_socket_manager_t;
 int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks);
 int quic_close(const ct_connection_t* connection);
 int quic_send(ct_connection_t* connection, ct_message_t* message, ct_message_context_t*);
-int quic_listen(struct ct_socket_manager_t* socket_manager);
-int quic_stop_listen(struct ct_socket_manager_t* listener);
+int quic_listen(struct ct_socket_manager_s* socket_manager);
+int quic_stop_listen(struct ct_socket_manager_s* listener);
 int quic_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* resolved_peer);
 void quic_retarget_protocol_connection(ct_connection_t* from_connection, ct_connection_t* to_connection);
 
-static ct_protocol_implementation_t quic_protocol_interface = {
+static ct_protocol_impl_t quic_protocol_interface = {
     .name = "QUIC",
     .selection_properties = {
       .selection_property = {

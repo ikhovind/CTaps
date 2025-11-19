@@ -4,18 +4,18 @@
 
 #include "ctaps.h"
 
-struct ct_socket_manager_t;
+struct ct_socket_manager_s;
 
 int udp_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks);
 int udp_close(const ct_connection_t* connection);
 int udp_send(ct_connection_t* connection, ct_message_t* message, ct_message_context_t*);
-int udp_listen(struct ct_socket_manager_t* socket_manager);
-int udp_stop_listen(struct ct_socket_manager_t* socket_manager);
+int udp_listen(struct ct_socket_manager_s* socket_manager);
+int udp_stop_listen(struct ct_socket_manager_s* socket_manager);
 int udp_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* resolved_peer);
 void udp_retarget_protocol_connection(ct_connection_t* from_connection, ct_connection_t* to_connection);
 
 
-static ct_protocol_implementation_t udp_protocol_interface = {
+static ct_protocol_impl_t udp_protocol_interface = {
     .name = "UDP",
     .selection_properties = {
       .selection_property = {

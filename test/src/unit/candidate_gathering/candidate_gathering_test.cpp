@@ -13,7 +13,7 @@ extern "C" {
 DEFINE_FFF_GLOBALS;
 FAKE_VALUE_FUNC(int, faked_ct_local_endpoint_resolve, const ct_local_endpoint_t*, ct_local_endpoint_t**, size_t*);
 FAKE_VALUE_FUNC(int, faked_ct_remote_endpoint_resolve, const ct_remote_endpoint_t*, ct_remote_endpoint_t**, size_t*);
-FAKE_VALUE_FUNC(const ct_protocol_implementation_t**, faked_ct_get_supported_protocols);
+FAKE_VALUE_FUNC(const ct_protocol_impl_t**, faked_ct_get_supported_protocols);
 
 
 extern "C" int __wrap_ct_local_endpoint_resolve(const ct_local_endpoint_t* local_endpoint, ct_local_endpoint_t** out_list, size_t* out_count) {
@@ -24,7 +24,7 @@ extern "C" int __wrap_ct_remote_endpoint_resolve(ct_remote_endpoint_t* remote_en
     return faked_ct_remote_endpoint_resolve(remote_endpoint, out_list, out_count);
 }
 
-extern "C" const ct_protocol_implementation_t** __wrap_ct_get_supported_protocols() {
+extern "C" const ct_protocol_impl_t** __wrap_ct_get_supported_protocols() {
     return faked_ct_get_supported_protocols();
 }
 
@@ -54,7 +54,7 @@ int local_endpoint_resolve_fake_custom(const ct_local_endpoint_t* local_endpoint
 }
 
 // Fake data for get_supported_protocols
-static ct_protocol_implementation_t mock_proto_1 = {
+static ct_protocol_impl_t mock_proto_1 = {
     .name = "MockProto1",
     .selection_properties = {
       .selection_property = {
@@ -65,7 +65,7 @@ static ct_protocol_implementation_t mock_proto_1 = {
       }
     }
 };
-static ct_protocol_implementation_t mock_proto_2 = {
+static ct_protocol_impl_t mock_proto_2 = {
     .name = "MockProto2",
     .selection_properties = {
       .selection_property = {
@@ -76,7 +76,7 @@ static ct_protocol_implementation_t mock_proto_2 = {
       }
     }
 };
-static ct_protocol_implementation_t mock_proto_3 = {
+static ct_protocol_impl_t mock_proto_3 = {
     .name = "MockProto3",
     .selection_properties = {
       .selection_property = {
@@ -89,8 +89,8 @@ static ct_protocol_implementation_t mock_proto_3 = {
 };
 
 
-static const ct_protocol_implementation_t* fake_protocol_list[] = {&mock_proto_1, &mock_proto_2, &mock_proto_3, nullptr};
-const ct_protocol_implementation_t** get_supported_protocols_fake_custom() {
+static const ct_protocol_impl_t* fake_protocol_list[] = {&mock_proto_1, &mock_proto_2, &mock_proto_3, nullptr};
+const ct_protocol_impl_t** get_supported_protocols_fake_custom() {
     return fake_protocol_list;
 }
 
