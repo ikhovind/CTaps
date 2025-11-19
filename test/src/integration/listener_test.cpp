@@ -29,7 +29,6 @@ TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) 
         }
     };
     CallbackContext callback_context = {
-        .awaiter = &awaiter,
         .messages = &received_messages,
         .server_connections = received_connections,
         .client_connections = client_connections,
@@ -117,7 +116,6 @@ TEST_F(CTapsGenericFixture, ClosingListenerDoesNotAffectExistingConnections) {
         }
     };
     CallbackContext callback_context = {
-        .awaiter = &awaiter,
         .messages = &received_messages,
         .server_connections = received_connections,
         .client_connections = client_connections,
@@ -192,7 +190,6 @@ TEST_F(CTapsGenericFixture, ClosingListenerWithNoConnectionsClosesSocketManager)
         ct_listener_close(ctx->listener);
     };
     CallbackContext callback_context = {
-        .awaiter = &awaiter,
         .messages = &received_messages,
         .server_connections = received_connections,
         .client_connections = client_connections,

@@ -109,6 +109,7 @@ static int start_connection_attempt(ct_racing_context_t* context, int attempt_in
   attempt->connection->security_parameters = context->preconnection->security_parameters;
   attempt->connection->received_messages = g_queue_new();
   attempt->connection->received_callbacks = g_queue_new();
+  attempt->connection->framer_impl = context->preconnection->framer_impl;
 
   // Setup wrapped callbacks that point back to this attempt
   ct_connection_callbacks_t attempt_callbacks = {
@@ -156,7 +157,6 @@ int racing_on_attempt_ready(ct_connection_t* connection) {
   context->winning_attempt_index = attempt->attempt_index;
   attempt->state = ATTEMPT_STATE_SUCCEEDED;
 
-  // Cancel all other attempts
   cancel_all_other_attempts(context, attempt->attempt_index);
 
   // Copy the winning connection to the user's connection object
@@ -369,6 +369,7 @@ int preconnection_initiate_with_racing(ct_preconnection_t* preconnection,
     user_connection->remote_endpoint = ct_remote_endpoint_copy_content(first_node.remote_endpoint);
     user_connection->local_endpoint = ct_local_endpoint_copy_content(first_node.local_endpoint);
     user_connection->connection_callbacks = connection_callbacks;
+    user_connection->framer_impl = preconnection->framer_impl;
 
     int rc = user_connection->protocol.init(user_connection, &user_connection->connection_callbacks);
     free_candidate_array(candidate_nodes);

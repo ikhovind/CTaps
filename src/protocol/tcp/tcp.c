@@ -24,33 +24,9 @@ void tcp_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
     return;
   }
 
-  ct_message_t* received_message = malloc(sizeof(ct_message_t));
-  if (!received_message) {
-    log_error("Failed to allocate send request\n");
-    return;
-  }
-  received_message->content = malloc(nread);
-  if (!received_message->content) {
-    log_error("Failed to allocate message content\n");
-    return;
-  }
-  received_message->length = nread;
-
-  memcpy(received_message->content, buf->base, nread);
-
-  if (g_queue_is_empty(connection->received_callbacks)) {
-    log_debug("No receive callback ready, queueing message");
-    g_queue_push_tail(connection->received_messages, received_message);
-  }
-  else {
-    log_debug("Receive callback ready, calling it");
-    ct_receive_callbacks_t* receive_callback = g_queue_pop_head(connection->received_callbacks);
-
-    ct_message_context_t ctx = {0};
-    ctx.user_receive_context = receive_callback->user_receive_context;
-    receive_callback->receive_callback(connection, &received_message, &ctx);
-    free(receive_callback);
-  }
+  // Delegate to connection receive handler (handles framing if present)
+  ct_connection_on_protocol_receive(connection, buf->base, nread);
+  free(buf->base);
 }
 
 void on_connect(struct uv_connect_s *req, int status) {

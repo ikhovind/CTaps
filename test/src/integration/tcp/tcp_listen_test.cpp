@@ -10,7 +10,6 @@ extern "C" {
 
 TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) {
     CallbackContext callback_context = {
-        .awaiter = &awaiter,
         .messages = &received_messages,
         .server_connections = received_connections,
         .client_connections = client_connections,

@@ -36,17 +36,30 @@ int copy_remote_endpoints(ct_preconnection_t* preconnection,
   return 0;
 }
 
+int ct_preconnection_build_ex(ct_preconnection_t* preconnection,
+                         const ct_transport_properties_t transport_properties,
+                         const ct_remote_endpoint_t* remote_endpoints,
+                         const size_t num_remote_endpoints,
+                         const ct_security_parameters_t* security_parameters,
+                         ct_framer_impl_t* framer_impl
+                         ) {
+  memset(preconnection, 0, sizeof(ct_preconnection_t));
+  preconnection->transport_properties = transport_properties;
+  preconnection->security_parameters = security_parameters;
+  preconnection->framer_impl = framer_impl;
+  ct_local_endpoint_build(&preconnection->local);
+  return copy_remote_endpoints(preconnection, remote_endpoints, num_remote_endpoints);
+}
+
 int ct_preconnection_build(ct_preconnection_t* preconnection,
                          const ct_transport_properties_t transport_properties,
                          const ct_remote_endpoint_t* remote_endpoints,
                          const size_t num_remote_endpoints,
                          const ct_security_parameters_t* security_parameters
                          ) {
-  memset(preconnection, 0, sizeof(ct_preconnection_t));
-  preconnection->transport_properties = transport_properties;
-  preconnection->security_parameters = security_parameters;
-  ct_local_endpoint_build(&preconnection->local);
-  return copy_remote_endpoints(preconnection, remote_endpoints, num_remote_endpoints);
+  return ct_preconnection_build_ex(preconnection, transport_properties,
+                                   remote_endpoints, num_remote_endpoints,
+                                   security_parameters, NULL);
 }
 
 int ct_preconnection_build_with_local(ct_preconnection_t* preconnection,
@@ -136,6 +149,7 @@ void ct_preconnection_build_user_connection(ct_connection_t* connection, const c
   // Set basic fields from preconnection
   connection->open_type = CONNECTION_TYPE_STANDALONE;
   connection->security_parameters = preconnection->security_parameters;
+  connection->framer_impl = preconnection->framer_impl;  // Copy framer from preconnection
   connection->socket_manager = NULL;
   connection->protocol_state = NULL;
 
