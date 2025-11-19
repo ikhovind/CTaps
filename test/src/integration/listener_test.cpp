@@ -33,7 +33,6 @@ TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) 
         .server_connections = received_connections,
         .client_connections = client_connections,
         .closing_function = &cleanup_logic,
-        .total_expected_signals = 1,
         .listener = &listener
     };
 
@@ -120,7 +119,6 @@ TEST_F(CTapsGenericFixture, ClosingListenerDoesNotAffectExistingConnections) {
         .server_connections = received_connections,
         .client_connections = client_connections,
         .closing_function = &final_cleanup,
-        .total_expected_signals = 4,
         .listener = &listener
     };
 
@@ -194,7 +192,6 @@ TEST_F(CTapsGenericFixture, ClosingListenerWithNoConnectionsClosesSocketManager)
         .server_connections = received_connections,
         .client_connections = client_connections,
         .closing_function = &final_cleanup,
-        .total_expected_signals = 4,
         .listener = &listener
     };
 
