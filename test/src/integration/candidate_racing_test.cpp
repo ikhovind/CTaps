@@ -17,7 +17,7 @@ extern "C" {
 
 extern "C" {
   // ct_callback_t that marks connection as successful
-  int racing_test_on_ready(struct ct_connection_t* connection) {
+  int racing_test_on_ready(struct ct_connection_s* connection) {
     log_info("ct_connection_t succeeded via protocol: %s", connection->protocol.name);
     bool* connection_succeeded = (bool*)connection->connection_callbacks.user_connection_context;
     *connection_succeeded = true;
@@ -26,7 +26,7 @@ extern "C" {
   }
 
   // ct_callback_t that tracks failures
-  int racing_test_on_establishment_error(struct ct_connection_t* connection) {
+  int racing_test_on_establishment_error(struct ct_connection_s* connection) {
     log_error("ct_connection_t failed");
     bool* connection_succeeded = (bool*)connection->connection_callbacks.user_connection_context;
     *connection_succeeded = false;
@@ -34,7 +34,7 @@ extern "C" {
   }
 
   // ct_callback_t that tracks which protocol succeeded
-  int racing_test_on_ready_track_protocol(struct ct_connection_t* connection) {
+  int racing_test_on_ready_track_protocol(struct ct_connection_s* connection) {
     log_info("ct_connection_t succeeded via protocol: %s", connection->protocol.name);
     char** protocol_name = (char**)connection->connection_callbacks.user_connection_context;
     *protocol_name = strdup(connection->protocol.name);
@@ -284,7 +284,7 @@ TEST(CandidateRacingTests, ConnectionUsableAfterRacing) {
   bool connection_ready = false;
 
   // ct_callback_t that sends a message when connection is ready
-  auto send_on_ready = [](struct ct_connection_t* conn) -> int {
+  auto send_on_ready = [](struct ct_connection_s* conn) -> int {
     log_info("ct_connection_t ready, sending test message");
 
     ct_message_t message;

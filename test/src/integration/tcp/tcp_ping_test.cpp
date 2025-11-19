@@ -13,7 +13,7 @@ extern "C" {
 #define INVALID_TCP_PORT 5007
 
 extern "C" {
-  int mark_connection_as_success_and_close(struct ct_connection_t* connection) {
+  int mark_connection_as_success_and_close(struct ct_connection_s* connection) {
     log_info("ct_connection_t is ready");
     // close the connection
     bool* connection_succeeded = (bool*)connection->connection_callbacks.user_connection_context;
@@ -22,7 +22,7 @@ extern "C" {
     return 0;
   }
 
-  int tcp_send_message_on_connection_ready(struct ct_connection_t* connection) {
+  int tcp_send_message_on_connection_ready(struct ct_connection_s* connection) {
     log_info("ct_connection_t is ready, sending message");
     // --- Action ---
     ct_message_t message;
@@ -36,14 +36,14 @@ extern "C" {
     return 0;
   }
 
-  int on_establishment_error(struct ct_connection_t* connection) {
+  int on_establishment_error(struct ct_connection_s* connection) {
     log_error("ct_connection_t error occurred");
     bool* connection_succeeded = (bool*)connection->connection_callbacks.user_connection_context;
     *connection_succeeded = false;
     return 0;
   }
 
-  int on_msg_received(struct ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* ctx) {
+  int on_msg_received(struct ct_connection_s* connection, ct_message_t** received_message, ct_message_context_t* ctx) {
     log_info("ct_message_t received");
     // set user data to received message
     ct_message_t** output_addr = (ct_message_t**)ctx->user_receive_context;

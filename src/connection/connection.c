@@ -71,7 +71,7 @@ void ct_connection_close(ct_connection_t* connection) {
   }
 }
 
-ct_connection_t* ct_connection_build_from_received_handle(const struct ct_listener_t* listener, uv_stream_t* received_handle) {
+ct_connection_t* ct_connection_build_from_received_handle(const struct ct_listener_s* listener, uv_stream_t* received_handle) {
   log_debug("Building ct_connection_t from received handle");
   int rc;
   ct_connection_t* connection = malloc(sizeof(ct_connection_t));

@@ -46,7 +46,7 @@ const char* get_generic_interface_type(const char* system_interface_name) {
 }
 
 bool protocol_implementation_supports_selection_properties(
-  const ct_protocol_implementation_t* protocol,
+  const ct_protocol_impl_t* protocol,
   const ct_selection_properties_t* selection_properties) {
   for (int i = 0; i < SELECTION_PROPERTY_END; i++) {
     ct_selection_property_t desired_value = selection_properties->selection_property[i];
@@ -266,7 +266,7 @@ int sort_candidate_tree(GArray* root, ct_selection_properties_t selection_proper
 struct ct_candidate_node_t* candidate_node_new(ct_node_type_t type,
                                          const ct_local_endpoint_t* local_ep,
                                          const ct_remote_endpoint_t* remote_ep,
-                                         const ct_protocol_implementation_t* proto,
+                                         const ct_protocol_impl_t* proto,
                                          const ct_transport_properties_t* props) {
   log_info("Creating new candidate node of type %d", type);
   ct_candidate_node_t* node = malloc(sizeof(struct ct_candidate_node_t));
@@ -436,7 +436,7 @@ void build_candidate_tree_recursive(GNode* parent_node) {
     size_t num_found_protocols = 0;
 
     // Get all protocols that fit the selection properties.
-    ct_protocol_implementation_t **candidate_stacks = ct_get_supported_protocols();
+    ct_protocol_impl_t **candidate_stacks = ct_get_supported_protocols();
     num_found_protocols = ct_get_num_protocols(); // Assume one protocol for demonstration purposes.
     log_trace("Found %d candidate protocols", num_found_protocols);
 

@@ -27,7 +27,7 @@
 // Library State and Configuration
 // =============================================================================
 
-typedef struct ct_config_t {
+typedef struct ct_config_s {
   char* cert_file_name;
   char* key_file_name;
 } ct_config_t;
@@ -79,7 +79,7 @@ typedef union {
   ct_direction_of_communication_enum_t direction_enum;
 } ct_selection_property_value_t;
 
-typedef struct ct_selection_property_t {
+typedef struct ct_selection_property_s {
   char* name;
   ct_property_type_t type;
   bool set_by_user;
@@ -190,7 +190,7 @@ typedef union {
   int enum_val;
 } ct_connection_property_value_t;
 
-typedef struct ct_connection_property_t {
+typedef struct ct_connection_property_s {
   char* name;
   bool read_only;
   ct_connection_property_value_t value;
@@ -268,7 +268,7 @@ typedef union {
   ct_capacity_profile_enum_t enum_value;
 } ct_message_property_value_t;
 
-typedef struct ct_message_property_t {
+typedef struct ct_message_property_s {
   char* name;
   ct_message_property_type_t type;
   bool set_by_user;
@@ -321,7 +321,7 @@ typedef union {
   ct_string_array_value_t array_of_strings;
 } ct_sec_property_value_t;
 
-typedef struct ct_sec_property_t {
+typedef struct ct_sec_property_s {
   char* name;
   ct_sec_property_type_t type;
   bool set_by_user;
@@ -370,7 +370,7 @@ typedef struct {
   } data;
 } ct_local_endpoint_t;
 
-typedef struct ct_remote_endpoint_t{
+typedef struct ct_remote_endpoint_s{
   uint16_t port;
   char* service;
   char* hostname;
@@ -388,7 +388,7 @@ typedef struct {
   unsigned int length;
 } ct_message_t;
 
-typedef struct ct_message_context_t {
+typedef struct ct_message_context_s {
   ct_message_properties_t message_properties;
   ct_local_endpoint_t* local_endpoint;
   ct_remote_endpoint_t* remote_endpoint;
@@ -399,37 +399,37 @@ typedef struct ct_message_context_t {
 // Forward Declarations
 // =============================================================================
 
-struct ct_connection_t;
-struct ct_listener_t;
-struct ct_socket_manager_t;
+struct ct_connection_s;
+struct ct_listener_s;
+struct ct_socket_manager_s;
 
 // =============================================================================
 // Callbacks - Connection and Listener callback structures
 // =============================================================================
 
-typedef struct ct_receive_callbacks_t {
-  int (*receive_callback)(struct ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* ctx);
-  int (*receive_error)(struct ct_connection_t* connection, ct_message_context_t* ctx, const char* reason);
-  int (*receive_partial)(struct ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* ctx, bool end_of_message);
+typedef struct ct_receive_callbacks_s {
+  int (*receive_callback)(struct ct_connection_s* connection, ct_message_t** received_message, ct_message_context_t* ctx);
+  int (*receive_error)(struct ct_connection_s* connection, ct_message_context_t* ctx, const char* reason);
+  int (*receive_partial)(struct ct_connection_s* connection, ct_message_t** received_message, ct_message_context_t* ctx, bool end_of_message);
   void* user_receive_context;  // Per-receive-request context
 } ct_receive_callbacks_t;
 
-typedef struct ct_connection_callbacks_t {
-  int (*connection_error)(struct ct_connection_t* connection);
-  int (*establishment_error)(struct ct_connection_t* connection);
-  int (*expired)(struct ct_connection_t* connection);
-  int (*path_change)(struct ct_connection_t* connection);
-  int (*ready)(struct ct_connection_t* connection);
-  int (*send_error)(struct ct_connection_t* connection);
-  int (*sent)(struct ct_connection_t* connection);
-  int (*soft_error)(struct ct_connection_t* connection);
+typedef struct ct_connection_callbacks_s {
+  int (*connection_error)(struct ct_connection_s* connection);
+  int (*establishment_error)(struct ct_connection_s* connection);
+  int (*expired)(struct ct_connection_s* connection);
+  int (*path_change)(struct ct_connection_s* connection);
+  int (*ready)(struct ct_connection_s* connection);
+  int (*send_error)(struct ct_connection_s* connection);
+  int (*sent)(struct ct_connection_s* connection);
+  int (*soft_error)(struct ct_connection_s* connection);
   void* user_connection_context;  // Connection lifetime context
 } ct_connection_callbacks_t;
 
-typedef struct ct_listener_callbacks_t {
-  int (*connection_received)(struct ct_listener_t* listener, struct ct_connection_t* new_conn);
-  int (*establishment_error)(struct ct_listener_t* listener, const char* reason);
-  int (*stopped)(struct ct_listener_t* listener);
+typedef struct ct_listener_callbacks_s {
+  int (*connection_received)(struct ct_listener_s* listener, struct ct_connection_s* new_conn);
+  int (*establishment_error)(struct ct_listener_s* listener, const char* reason);
+  int (*stopped)(struct ct_listener_s* listener);
   void* user_listener_context;  // Listener lifetime context
 } ct_listener_callbacks_t;
 
@@ -437,17 +437,17 @@ typedef struct ct_listener_callbacks_t {
 // Protocol Interface - Protocol implementation abstraction
 // =============================================================================
 
-typedef struct ct_protocol_implementation_t {
+typedef struct ct_protocol_impl_s {
   const char* name;
   ct_selection_properties_t selection_properties;
-  int (*init)(struct ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks);
-  int (*send)(struct ct_connection_t*, ct_message_t*, ct_message_context_t*);
-  int (*listen)(struct ct_socket_manager_t* socket_manager);
-  int (*stop_listen)(struct ct_socket_manager_t*);
-  int (*close)(const struct ct_connection_t*);
+  int (*init)(struct ct_connection_s* connection, const ct_connection_callbacks_t* connection_callbacks);
+  int (*send)(struct ct_connection_s*, ct_message_t*, ct_message_context_t*);
+  int (*listen)(struct ct_socket_manager_s* socket_manager);
+  int (*stop_listen)(struct ct_socket_manager_s*);
+  int (*close)(const struct ct_connection_s*);
   int (*remote_endpoint_from_peer)(uv_handle_t* peer, ct_remote_endpoint_t* resolved_peer);
-  void (*retarget_protocol_connection)(struct ct_connection_t* from_connection, struct ct_connection_t* to_connection);
-} ct_protocol_implementation_t;
+  void (*retarget_protocol_connection)(struct ct_connection_s* from_connection, struct ct_connection_s* to_connection);
+} ct_protocol_impl_t;
 
 // =============================================================================
 // Connections - Main connection structures
@@ -458,16 +458,16 @@ typedef enum {
   CONNECTION_OPEN_TYPE_MULTIPLEXED,
 } ct_connection_type_t;
 
-typedef struct ct_connection_t {
+typedef struct ct_connection_s {
   ct_transport_properties_t transport_properties;
   const ct_security_parameters_t* security_parameters;
   ct_local_endpoint_t local_endpoint;
   ct_remote_endpoint_t remote_endpoint;
-  ct_protocol_implementation_t protocol;
+  ct_protocol_impl_t protocol;
   void* protocol_state;
   ct_connection_type_t open_type;
   ct_connection_callbacks_t connection_callbacks;
-  struct ct_socket_manager_t* socket_manager;
+  struct ct_socket_manager_s* socket_manager;
   GQueue* received_callbacks;
   GQueue* received_messages;
 } ct_connection_t;
@@ -481,13 +481,13 @@ typedef struct ct_preconnection_s {
   size_t num_remote_endpoints;
 } ct_preconnection_t;
 
-typedef struct ct_listener_t {
+typedef struct ct_listener_s {
   ct_transport_properties_t transport_properties;
   ct_local_endpoint_t local_endpoint;
   size_t num_local_endpoints;
   ct_listener_callbacks_t listener_callbacks;
   const ct_security_parameters_t* security_parameters;
-  struct ct_socket_manager_t* socket_manager;
+  struct ct_socket_manager_s* socket_manager;
 } ct_listener_t;
 
 // =============================================================================
@@ -579,8 +579,8 @@ CT_EXTERN int ct_preconnection_listen(ct_preconnection_t* preconnection, ct_list
 CT_EXTERN int ct_send_message(ct_connection_t* connection, ct_message_t* message);
 CT_EXTERN int ct_send_message_full(ct_connection_t* connection, ct_message_t* message, ct_message_context_t* message_context);
 CT_EXTERN int ct_receive_message(ct_connection_t* connection, ct_receive_callbacks_t receive_callbacks);
-CT_EXTERN void ct_connection_build_multiplexed(ct_connection_t* connection, const struct ct_listener_t* listener, const ct_remote_endpoint_t* remote_endpoint);
-CT_EXTERN ct_connection_t* ct_connection_build_from_received_handle(const struct ct_listener_t* listener, uv_stream_t* received_handle);
+CT_EXTERN void ct_connection_build_multiplexed(ct_connection_t* connection, const struct ct_listener_s* listener, const ct_remote_endpoint_t* remote_endpoint);
+CT_EXTERN ct_connection_t* ct_connection_build_from_received_handle(const struct ct_listener_s* listener, uv_stream_t* received_handle);
 CT_EXTERN void ct_connection_build(ct_connection_t* connection);
 CT_EXTERN void ct_connection_free(ct_connection_t* connection);
 CT_EXTERN void ct_connection_close(ct_connection_t* connection);
@@ -597,11 +597,11 @@ CT_EXTERN void ct_protocol_registry_free();
 #define MAX_PROTOCOLS 256
 
 // A dynamic list to hold registered protocols
-static const ct_protocol_implementation_t* ct_supported_protocols[MAX_PROTOCOLS] = {0};
+static const ct_protocol_impl_t* ct_supported_protocols[MAX_PROTOCOLS] = {0};
 
-CT_EXTERN void ct_register_protocol(ct_protocol_implementation_t* proto);
+CT_EXTERN void ct_register_protocol(ct_protocol_impl_t* proto);
 
-const ct_protocol_implementation_t** ct_get_supported_protocols();
+const ct_protocol_impl_t** ct_get_supported_protocols();
 
 size_t ct_get_num_protocols();
 

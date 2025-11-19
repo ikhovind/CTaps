@@ -263,7 +263,7 @@ protected:
         return 0;
     }
 
-    static int send_message_and_receive(struct ct_connection_t* connection) {
+    static int send_message_and_receive(struct ct_connection_s* connection) {
         log_trace("ct_callback_t: Ready - send_message_and_receive");
         ct_message_t message;
         ct_message_build_with_content(&message, "ping", strlen("ping") + 1);
