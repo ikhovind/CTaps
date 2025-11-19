@@ -10,47 +10,7 @@ extern "C" {
 #include <condition_variable>
 #include <chrono>
 
-class CallbackAwaiter {
-public:
-    // Wakes up the waiting thread
-    void signal() {
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            signal_count_++;
-            printf("Signaling, new signal count is: %d\n", signal_count_);
-        }
-        cond_.notify_one();
-    }
-
-    // Waits until signal() has been called the expected number of times
-    void await(size_t expected_count, std::chrono::milliseconds timeout = std::chrono::seconds(5)) {
-        printf("Awaiting for %zu signals...\n", expected_count);
-        std::unique_lock<std::mutex> lock(mutex_);
-        bool const success = cond_.wait_for(lock, timeout, [this, expected_count] {
-            return signal_count_ >= expected_count;
-        });
-
-        // --- THE FIX ---
-        // Use an assertion to fail the test immediately if the wait timed out.
-        ASSERT_TRUE(success) << "Test timed out after " << timeout.count()
-                             << "ms waiting for " << expected_count
-                             << " signals, but only received " << signal_count_ << ".";
-    }
-
-    size_t get_signal_count() {
-        std::lock_guard<std::mutex> lock(mutex_);
-        return signal_count_;
-    }
-
-private:
-    std::mutex mutex_;
-    std::condition_variable cond_;
-    size_t signal_count_ = 0;
-};
-
-
 struct CallbackContext {
-    CallbackAwaiter* awaiter;
     std::vector<ct_message_t*>* messages;
     std::vector<ct_connection_t*> server_connections; // created by the listener callback
     std::vector<ct_connection_t*> client_connections;
@@ -63,7 +23,6 @@ struct CallbackContext {
 class CTapsGenericFixture : public ::testing::Test {
 protected:
     // Each test gets its own awaiter and message vector
-    CallbackAwaiter awaiter;
     std::vector<ct_message_t*> received_messages;
     std::vector<ct_connection_t*> received_connections;
     std::vector<ct_connection_t*> client_connections;
@@ -85,7 +44,6 @@ protected:
     static int on_connection_ready(ct_connection_t* connection) {
         printf("ct_callback_t: ct_connection_t is ready.\n");
         auto* context = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
-        context->awaiter->signal();
         return 0;
     }
 
@@ -100,6 +58,7 @@ protected:
         return 0;
     }
 
+
     static int send_message_on_connection_ready(ct_connection_t* connection) {
         printf("ct_callback_t: ct_connection_t is ready, sending message.\n");
         auto* context = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
@@ -110,7 +69,6 @@ protected:
         ct_send_message(connection, &message);
         ct_message_free_content(&message);
 
-        context->awaiter->signal();
         return 0;
     }
 
@@ -127,7 +85,6 @@ protected:
         ct_receive_message(connection, {
             .receive_callback = on_message_received
         });
-        context->awaiter->signal();
         return 0;
     }
 
@@ -135,7 +92,6 @@ protected:
         printf("ct_callback_t: New connection received.\n");
         auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
         context->server_connections.push_back(new_connection);
-        context->awaiter->signal();
         return 0;
     }
 
@@ -145,16 +101,6 @@ protected:
 
         // Store the message and signal the awaiter
         ctx->messages->push_back(*received_message);
-        ctx->awaiter->signal();
-
-        printf("Signal count is now %zu / %zu\n", ctx->awaiter->get_signal_count(), ctx->total_expected_signals);
-        if (ctx->awaiter->get_signal_count() >= ctx->total_expected_signals) {
-            printf("ct_callback_t: Final message received, closing connection.\n");
-            // This will cause ct_start_event_loop() to unblock and return.
-            if (ctx->closing_function) {
-                (*ctx->closing_function)(ctx);
-            }
-        }
         return 0;
     }
 
@@ -194,9 +140,7 @@ protected:
         printf("ct_callback_t: respond_on_message_received.\n");
         auto* ctx = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
 
-        // Store the message and signal the awaiter
         ctx->messages->push_back(*received_message);
-        ctx->awaiter->signal();
 
         ct_message_t message;
         ct_message_build_with_content(&message, "pong", strlen("pong") + 1);
@@ -222,7 +166,6 @@ protected:
 
         // Store the message and signal the awaiter
         ctx->messages->push_back(*received_message);
-        ctx->awaiter->signal();
 
         ct_receive_callbacks_t receive_message_request = {
           .receive_callback = on_message_received,
@@ -238,7 +181,6 @@ protected:
         printf("ct_callback_t: receive_message_on_connection_received.\n");
         auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
         context->server_connections.push_back(new_connection);
-        context->awaiter->signal();
 
         ct_receive_callbacks_t receive_message_request = {
           .receive_callback = respond_on_message_received,
@@ -285,7 +227,6 @@ protected:
         auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
         ct_listener_close(listener);
         context->server_connections.push_back(new_connection);
-        context->awaiter->signal();
 
         ct_receive_callbacks_t receive_message_request = {
           .receive_callback = on_message_receive_send_new_message_and_receive,

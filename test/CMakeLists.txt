@@ -163,6 +163,12 @@ add_gtest(candidate_racing_test
     ${CTAPS_SOURCES}
 )
 
+add_gtest(framing_test
+  SOURCES
+    src/integration/framing_test.cpp
+    ${CTAPS_SOURCES}
+)
+
 add_gtest(local_endpoint_resolve_test
   SOURCES
     src/unit/endpoint/local/local_endpoint_resolve_test.cpp

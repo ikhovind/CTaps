@@ -9,11 +9,17 @@
 #include "glib.h"
 
 int ct_send_message(ct_connection_t* connection, ct_message_t* message) {
-  return connection->protocol.send(connection, message, NULL);
+  return ct_send_message_full(connection, message, NULL);
 }
 
 int ct_send_message_full(ct_connection_t* connection, ct_message_t* message, ct_message_context_t* message_context) {
-  return connection->protocol.send(connection, message, message_context);
+  if (connection->framer_impl != NULL) {
+    log_info("User sending message on connection with framer");
+    connection->framer_impl->encode_message(connection, message, message_context);
+    return 0;
+  }
+  log_info("User sending message on connection without framer");
+  return ct_connection_send_to_protocol(connection, message);
 }
 
 int ct_receive_message(ct_connection_t* connection,
@@ -51,6 +57,7 @@ void ct_connection_build_multiplexed(ct_connection_t* connection, const ct_liste
   connection->remote_endpoint = *remote_endpoint;
   connection->protocol_state = listener->socket_manager->protocol_state;
   connection->protocol = listener->socket_manager->protocol_impl;
+  connection->framer_impl = NULL;  // No framer by default
   connection->socket_manager = listener->socket_manager;
   connection->security_parameters = listener->security_parameters;
   connection->received_callbacks = g_queue_new();
@@ -91,6 +98,7 @@ ct_connection_t* ct_connection_build_from_received_handle(const struct ct_listen
   }
 
   connection->protocol = listener->socket_manager->protocol_impl;
+  connection->framer_impl = NULL;  // No framer by default
   connection->open_type = CONNECTION_TYPE_STANDALONE;
   connection->received_callbacks = g_queue_new();
   connection->received_messages = g_queue_new();
@@ -116,4 +124,51 @@ void ct_connection_free(ct_connection_t* connection) {
     g_queue_free(connection->received_messages);
   }
   free(connection);
+}
+
+// =============================================================================
+// Helper Functions for Framer Implementations
+// =============================================================================
+
+int ct_connection_send_to_protocol(ct_connection_t* connection,
+                                   ct_message_t* message) {
+  return connection->protocol.send(connection, message, NULL);
+}
+
+int ct_connection_deliver_to_app(ct_connection_t* connection,
+                                 ct_message_t* message,
+                                 ct_message_context_t* context) {
+  // Check if there's a waiting receive callback
+  if (g_queue_is_empty(connection->received_callbacks)) {
+    log_debug("No receive callback ready, queueing message");
+    g_queue_push_tail(connection->received_messages, message);
+    return 0;
+  } else {
+    log_debug("Receive callback ready, calling it");
+    ct_receive_callbacks_t* receive_callback = g_queue_pop_head(connection->received_callbacks);
+
+    ct_message_context_t ctx = context ? *context : (ct_message_context_t){0};
+    ctx.user_receive_context = receive_callback->user_receive_context;
+
+    receive_callback->receive_callback(connection, &message, &ctx);
+    free(receive_callback);
+    return 0;
+  }
+}
+
+void ct_connection_on_protocol_receive(ct_connection_t* connection,
+                                       const void* data,
+                                       size_t len) {
+  if (connection->framer_impl != NULL) {
+    // Framer present - let it decode, it will call ct_connection_deliver_to_app()
+    connection->framer_impl->decode_data(connection, data, len);
+  } else {
+    // No framer - deliver directly to application
+    ct_message_t* received_message = malloc(sizeof(ct_message_t));
+    received_message->content = malloc(len);
+    received_message->length = len;
+    memcpy(received_message->content, data, len);
+
+    ct_connection_deliver_to_app(connection, received_message, NULL);
+  }
 }

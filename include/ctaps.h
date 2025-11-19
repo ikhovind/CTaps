@@ -434,6 +434,28 @@ typedef struct ct_listener_callbacks_s {
 } ct_listener_callbacks_t;
 
 // =============================================================================
+// Message Framer - Optional message framing/parsing layer
+// =============================================================================
+
+// Forward declaration
+typedef struct ct_framer_impl_s ct_framer_impl_t;
+
+// Message Framer Implementation Interface
+typedef struct ct_framer_impl_s {
+  // Encode outbound message
+  // Implementation should call ct_connection_send_to_protocol() when done
+  void (*encode_message)(struct ct_connection_s* connection,
+                        const ct_message_t* message,
+                        ct_message_context_t* context);
+
+  // Decode inbound data into messages
+  // Implementation should call ct_connection_deliver_to_app() for each complete message
+  void (*decode_data)(struct ct_connection_s* connection,
+                     const void* data,
+                     size_t len);
+} ct_framer_impl_t;
+
+// =============================================================================
 // Protocol Interface - Protocol implementation abstraction
 // =============================================================================
 
@@ -465,6 +487,7 @@ typedef struct ct_connection_s {
   ct_remote_endpoint_t remote_endpoint;
   ct_protocol_impl_t protocol;
   void* protocol_state;
+  ct_framer_impl_t* framer_impl;  // NULL = no framing (passthrough)
   ct_connection_type_t open_type;
   ct_connection_callbacks_t connection_callbacks;
   struct ct_socket_manager_s* socket_manager;
@@ -479,6 +502,7 @@ typedef struct ct_preconnection_s {
   size_t num_local_endpoints;
   ct_remote_endpoint_t* remote_endpoints;
   size_t num_remote_endpoints;
+  ct_framer_impl_t* framer_impl;  // Optional message framer
 } ct_preconnection_t;
 
 typedef struct ct_listener_s {
@@ -563,6 +587,12 @@ CT_EXTERN int ct_preconnection_build(ct_preconnection_t* preconnection,
                            const ct_remote_endpoint_t* remote_endpoints,
                            const size_t num_remote_endpoints,
                            const ct_security_parameters_t* security_parameters);
+CT_EXTERN int ct_preconnection_build_ex(ct_preconnection_t* preconnection,
+                           const ct_transport_properties_t transport_properties,
+                           const ct_remote_endpoint_t* remote_endpoints,
+                           const size_t num_remote_endpoints,
+                           const ct_security_parameters_t* security_parameters,
+                           ct_framer_impl_t* framer_impl);
 CT_EXTERN int ct_preconnection_build_with_local(ct_preconnection_t* preconnection,
                                       ct_transport_properties_t transport_properties,
                                       ct_remote_endpoint_t remote_endpoints[],
@@ -584,6 +614,18 @@ CT_EXTERN ct_connection_t* ct_connection_build_from_received_handle(const struct
 CT_EXTERN void ct_connection_build(ct_connection_t* connection);
 CT_EXTERN void ct_connection_free(ct_connection_t* connection);
 CT_EXTERN void ct_connection_close(ct_connection_t* connection);
+
+// Helper functions for framer implementations
+int ct_connection_send_to_protocol(ct_connection_t* connection,
+                                   ct_message_t* message);
+
+int ct_connection_deliver_to_app(ct_connection_t* connection,
+                                 ct_message_t* message,
+                                 ct_message_context_t* context);
+
+void ct_connection_on_protocol_receive(ct_connection_t* connection,
+                                       const void* data,
+                                       size_t len);
 
 // Listener
 CT_EXTERN void ct_listener_stop(ct_listener_t* listener);

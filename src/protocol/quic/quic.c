@@ -228,31 +228,8 @@ int picoquic_callback(picoquic_cnx_t* cnx,
       break;
     case picoquic_callback_stream_data:
       log_debug("Received %zu bytes on stream %d", length, stream_id);
-      // Store received data for later delivery
-      ct_message_t* msg = malloc(sizeof(ct_message_t));
-      if (msg) {
-        msg->content = malloc(length);
-        if (msg->content) {
-          memcpy(msg->content, bytes, length);
-          msg->length = length;
-          log_info("Checking if receive callback queue: %p is empty", (void*)connection->received_callbacks);
-          if (g_queue_is_empty(connection->received_callbacks)) {
-            log_debug("No receive callback ready, queueing message");
-            g_queue_push_tail(connection->received_messages, msg);
-          }
-          else {
-            log_debug("Receive callback ready, calling it");
-            ct_receive_callbacks_t* cb = g_queue_pop_head(connection->received_callbacks);
-            ct_message_context_t ctx = {0};
-            ctx.user_receive_context = cb->user_receive_context;
-            cb->receive_callback(connection, &msg, &ctx);
-            free(cb);
-          }
-        } else {
-          log_error("Failed to allocate memory for received message content");
-          free(msg);
-        }
-      }
+      // Delegate to connection receive handler (handles framing if present)
+      ct_connection_on_protocol_receive(connection, bytes, length);
       break;
     case picoquic_callback_stream_fin:
       log_debug("Picoquic stream fin on stream %d", stream_id);

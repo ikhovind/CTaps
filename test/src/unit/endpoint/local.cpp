@@ -112,7 +112,6 @@ TEST_F(CTapsGenericFixture, UsesInterfaceAddress_whenInterfaceIsSpecified) {
     ct_preconnection_build_with_local(&preconnection, transport_properties, &remote_endpoint, 1, NULL, local_endpoint);
 
     CallbackContext callback_context = {
-        .awaiter = &awaiter,
         .messages = &received_messages,
     };
 
@@ -126,7 +125,6 @@ TEST_F(CTapsGenericFixture, UsesInterfaceAddress_whenInterfaceIsSpecified) {
 
     ct_connection_t connection;
     ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);
-    awaiter.await(1);
 
     // --- ASSERT ---
     // 1. Verify that our mocked functions were called as expected
