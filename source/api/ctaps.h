@@ -392,6 +392,7 @@ typedef struct ct_message_context_t {
   ct_message_properties_t message_properties;
   ct_local_endpoint_t* local_endpoint;
   ct_remote_endpoint_t* remote_endpoint;
+  void* user_receive_context;  // From ct_receive_callbacks_t - per-receive-request context
 } ct_message_context_t;
 
 // =============================================================================
@@ -407,29 +408,29 @@ struct ct_socket_manager_t;
 // =============================================================================
 
 typedef struct ct_receive_callbacks_t {
-  int (*receive_callback)(struct ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* ctx, void* user_data);
-  int (*receive_error)(struct ct_connection_t* connection, ct_message_context_t* ctx, const char* reason, void* user_data);
-  int (*receive_partial)(struct ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* ctx, bool end_of_message, void* user_data);
-  void* user_data;
+  int (*receive_callback)(struct ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* ctx);
+  int (*receive_error)(struct ct_connection_t* connection, ct_message_context_t* ctx, const char* reason);
+  int (*receive_partial)(struct ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* ctx, bool end_of_message);
+  void* user_receive_context;  // Per-receive-request context
 } ct_receive_callbacks_t;
 
 typedef struct ct_connection_callbacks_t {
-  int (*connection_error)(struct ct_connection_t* connection, void* udata);
-  int (*establishment_error)(struct ct_connection_t* connection, void* udata);
-  int (*expired)(struct ct_connection_t* connection, void* udata);
-  int (*path_change)(struct ct_connection_t* connection, void* udata);
-  int (*ready)(struct ct_connection_t* connection, void* udata);
-  int (*send_error)(struct ct_connection_t* connection, void* udata);
-  int (*sent)(struct ct_connection_t* connection, void* udata);
-  int (*soft_error)(struct ct_connection_t* connection, void* udata);
-  void* user_data;
+  int (*connection_error)(struct ct_connection_t* connection);
+  int (*establishment_error)(struct ct_connection_t* connection);
+  int (*expired)(struct ct_connection_t* connection);
+  int (*path_change)(struct ct_connection_t* connection);
+  int (*ready)(struct ct_connection_t* connection);
+  int (*send_error)(struct ct_connection_t* connection);
+  int (*sent)(struct ct_connection_t* connection);
+  int (*soft_error)(struct ct_connection_t* connection);
+  void* user_connection_context;  // Connection lifetime context
 } ct_connection_callbacks_t;
 
 typedef struct ct_listener_callbacks_t {
-  int (*connection_received)(struct ct_listener_t* listener, struct ct_connection_t* new_conn, void* udata);
-  int (*establishment_error)(struct ct_listener_t* listener, const char* reason, void* udata);
-  int (*stopped)(struct ct_listener_t* listener, void* udata);
-  void* user_data;
+  int (*connection_received)(struct ct_listener_t* listener, struct ct_connection_t* new_conn);
+  int (*establishment_error)(struct ct_listener_t* listener, const char* reason);
+  int (*stopped)(struct ct_listener_t* listener);
+  void* user_listener_context;  // Listener lifetime context
 } ct_listener_callbacks_t;
 
 // =============================================================================

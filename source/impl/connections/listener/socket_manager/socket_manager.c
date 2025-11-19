@@ -128,7 +128,7 @@ void socket_manager_multiplex_received_message(ct_socket_manager_t* socket_manag
   if (connection != NULL) {
     if (was_new) {
       log_debug("Socket manager invoking listener callback for new connection");
-      listener->listener_callbacks.connection_received(listener, connection, listener->listener_callbacks.user_data);
+      listener->listener_callbacks.connection_received(listener, connection);
     }
     if (g_queue_is_empty(connection->received_callbacks)) {
       log_debug("Found ct_connection_t has no receive callback ready, queueing message");
@@ -138,7 +138,9 @@ void socket_manager_multiplex_received_message(ct_socket_manager_t* socket_manag
       log_debug("Found ct_connection_t has receive callback ready, invoking it");
       ct_receive_callbacks_t* receive_callback = g_queue_pop_head(connection->received_callbacks);
 
-      receive_callback->receive_callback(connection, &message, NULL, receive_callback->user_data);
+      ct_message_context_t ctx = {0};
+      ctx.user_receive_context = receive_callback->user_receive_context;
+      receive_callback->receive_callback(connection, &message, &ctx);
       free(receive_callback);
     }
   }

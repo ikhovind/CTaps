@@ -118,7 +118,7 @@ TEST_F(CTapsGenericFixture, UsesInterfaceAddress_whenInterfaceIsSpecified) {
 
     ct_connection_callbacks_t connection_callbacks = {
         .ready = on_connection_ready,
-        .user_data = &callback_context
+        .user_connection_context = &callback_context
     };
 
 

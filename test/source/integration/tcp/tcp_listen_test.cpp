@@ -41,7 +41,7 @@ TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) 
 
     ct_listener_callbacks_t listener_callbacks = {
         .connection_received = receive_message_respond_and_close_listener_on_connection_received,
-        .user_data = &callback_context
+        .user_listener_context = &callback_context
     };
 
     int listen_res = ct_preconnection_listen(&listener_precon, &listener, listener_callbacks);
@@ -65,7 +65,7 @@ TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) 
 
     ct_connection_callbacks_t client_callbacks {
         .ready = send_message_and_receive,
-        .user_data = &callback_context
+        .user_connection_context = &callback_context
     };
 
     ct_preconnection_initiate(&client_precon, &client_connection, client_callbacks);

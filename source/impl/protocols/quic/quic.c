@@ -216,11 +216,11 @@ int picoquic_callback(picoquic_cnx_t* cnx,
       if (connection->open_type == CONNECTION_OPEN_TYPE_MULTIPLEXED) {
         log_debug("ct_connection_t is multiplexed, no need to increment active connection counter");
         ct_listener_t* listener = connection->socket_manager->listener;
-        listener->listener_callbacks.connection_received(listener, connection, listener->listener_callbacks.user_data);
+        listener->listener_callbacks.connection_received(listener, connection);
       } 
       else if (connection->open_type == CONNECTION_TYPE_STANDALONE) {
         log_debug("ct_connection_t is standalone, incrementing active connection counter");
-        connection->connection_callbacks.ready(connection, connection->connection_callbacks.user_data);
+        connection->connection_callbacks.ready(connection);
       }
       else {
         log_error("Unknown connection open type in picoquic ready callback");
@@ -243,7 +243,9 @@ int picoquic_callback(picoquic_cnx_t* cnx,
           else {
             log_debug("Receive callback ready, calling it");
             ct_receive_callbacks_t* cb = g_queue_pop_head(connection->received_callbacks);
-            cb->receive_callback(connection, &msg, NULL, cb->user_data);
+            ct_message_context_t ctx = {0};
+            ctx.user_receive_context = cb->user_receive_context;
+            cb->receive_callback(connection, &msg, &ctx);
             free(cb);
           }
         } else {
@@ -645,7 +647,7 @@ int quic_send(ct_connection_t* connection, ct_message_t* message, ct_message_con
   reset_quic_timer();
 
   if (connection->connection_callbacks.sent) {
-    connection->connection_callbacks.sent(connection, connection->connection_callbacks.user_data);
+    connection->connection_callbacks.sent(connection);
   }
 
   return 0;

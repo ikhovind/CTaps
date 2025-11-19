@@ -28,7 +28,9 @@ int ct_receive_message(ct_connection_t* connection,
   if (!g_queue_is_empty(connection->received_messages)) {
     log_debug("Calling receive callback immediately");
     ct_message_t* received_message = g_queue_pop_head(connection->received_messages);
-    receive_callbacks.receive_callback(connection, &received_message, NULL, receive_callbacks.user_data);
+    ct_message_context_t ctx = {0};
+    ctx.user_receive_context = receive_callbacks.user_receive_context;
+    receive_callbacks.receive_callback(connection, &received_message, &ctx);
     return 0;
   }
 

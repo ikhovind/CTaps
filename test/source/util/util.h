@@ -22,7 +22,7 @@ typedef struct {
 void wait_for_callback(ct_call_back_waiter_t* cb_waiter);
 
 void increment_reads(ct_connection_t* connection, ct_call_back_waiter_t* cb_waiter);
-int receive_message_cb(ct_connection_t* connection, ct_message_t** received_message, void* user_data);
-int connection_ready_cb(ct_connection_t* connection, void* user_data);
+int receive_message_cb(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* ctx);
+int connection_ready_cb(ct_connection_t* connection);
 
 #endif //UTIL_H

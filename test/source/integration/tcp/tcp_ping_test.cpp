@@ -13,16 +13,16 @@ extern "C" {
 #define INVALID_TCP_PORT 5007
 
 extern "C" {
-  int mark_connection_as_success_and_close(struct ct_connection_t* connection, void* udata) {
+  int mark_connection_as_success_and_close(struct ct_connection_t* connection) {
     log_info("ct_connection_t is ready");
     // close the connection
-    bool* connection_succeeded = (bool*)udata;
+    bool* connection_succeeded = (bool*)connection->connection_callbacks.user_connection_context;
     *connection_succeeded = true;
     ct_connection_close(connection);
     return 0;
   }
 
-  int tcp_send_message_on_connection_ready(struct ct_connection_t* connection, void* udata) {
+  int tcp_send_message_on_connection_ready(struct ct_connection_t* connection) {
     log_info("ct_connection_t is ready, sending message");
     // --- Action ---
     ct_message_t message;
@@ -36,17 +36,17 @@ extern "C" {
     return 0;
   }
 
-  int on_establishment_error(struct ct_connection_t* connection, void* udata) {
+  int on_establishment_error(struct ct_connection_t* connection) {
     log_error("ct_connection_t error occurred");
-    bool* connection_succeeded = (bool*)udata;
+    bool* connection_succeeded = (bool*)connection->connection_callbacks.user_connection_context;
     *connection_succeeded = false;
     return 0;
   }
 
-  int on_msg_received(struct ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* ctx, void* user_data) {
+  int on_msg_received(struct ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* ctx) {
     log_info("ct_message_t received");
     // set user data to received message
-    ct_message_t** output_addr = (ct_message_t**)user_data;
+    ct_message_t** output_addr = (ct_message_t**)ctx->user_receive_context;
     *output_addr = *received_message;
 
     ct_connection_close(connection);
@@ -78,7 +78,7 @@ TEST(TcpGenericTests, successfullyConnectsToTcpServer) {
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
     .ready = mark_connection_as_success_and_close,
-    .user_data = &connection_succeeded,
+    .user_connection_context = &connection_succeeded,
   };
 
   int rc = ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);
@@ -114,7 +114,7 @@ TEST(TcpGenericTests, connectionErrorCalledWhenNoServer) {
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
     .ready = mark_connection_as_success_and_close,
-    .user_data = &connection_succeeded,
+    .user_connection_context = &connection_succeeded,
   };
 
   int rc = ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);
@@ -152,7 +152,7 @@ TEST(TcpGenericTests, sendsSingleTcpMessage) {
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
     .ready = tcp_send_message_on_connection_ready,
-    .user_data = NULL,
+    .user_connection_context = NULL,
   };
 
   rc = ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);
@@ -161,7 +161,7 @@ TEST(TcpGenericTests, sendsSingleTcpMessage) {
 
   ct_message_t* msg_received = nullptr;
 
-  ct_receive_callbacks_t receive_req = { .receive_callback = on_msg_received, .user_data = &msg_received };
+  ct_receive_callbacks_t receive_req = { .receive_callback = on_msg_received, .user_receive_context = &msg_received };
 
   rc = ct_receive_message(&connection, receive_req);
 

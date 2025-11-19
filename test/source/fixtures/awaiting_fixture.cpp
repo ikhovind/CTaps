@@ -82,14 +82,14 @@ protected:
 
     // --- C-style callbacks that bridge to our C++ object ---
 
-    static int on_connection_ready(ct_connection_t* connection, void* user_data) {
+    static int on_connection_ready(ct_connection_t* connection) {
         printf("ct_callback_t: ct_connection_t is ready.\n");
-        auto* context = static_cast<CallbackContext*>(user_data);
+        auto* context = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
         context->awaiter->signal();
         return 0;
     }
 
-    static int send_message_and_close_on_connection_ready(ct_connection_t* connection, void* user_data) {
+    static int send_message_and_close_on_connection_ready(ct_connection_t* connection) {
         log_info("ct_callback_t: ct_connection_t is ready.");
         ct_message_t message;
         ct_message_build_with_content(&message, "ping", strlen("ping") + 1);
@@ -100,9 +100,9 @@ protected:
         return 0;
     }
 
-    static int send_message_on_connection_ready(ct_connection_t* connection, void* user_data) {
+    static int send_message_on_connection_ready(ct_connection_t* connection) {
         printf("ct_callback_t: ct_connection_t is ready, sending message.\n");
-        auto* context = static_cast<CallbackContext*>(user_data);
+        auto* context = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
 
         // Send the message now that the client is ready
         ct_message_t message;
@@ -114,9 +114,9 @@ protected:
         return 0;
     }
 
-    static int send_message_and_wait_for_response_on_connection_ready(ct_connection_t* connection, void* user_data) {
+    static int send_message_and_wait_for_response_on_connection_ready(ct_connection_t* connection) {
         printf("ct_callback_t: ct_connection_t is ready, sending message.\n");
-        auto* context = static_cast<CallbackContext*>(user_data);
+        auto* context = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
 
         // Send the message now that the client is ready
         ct_message_t message;
@@ -125,8 +125,7 @@ protected:
         ct_message_free_content(&message);
 
         ct_receive_message(connection, {
-            .receive_callback = on_message_received,
-            .user_data = user_data,
+            .receive_callback = on_message_received
         });
         context->awaiter->signal();
         return 0;
@@ -134,15 +133,15 @@ protected:
 
     static int on_connection_received(ct_listener_t* listener, ct_connection_t* new_connection) {
         printf("ct_callback_t: New connection received.\n");
-        auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_data);
+        auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
         context->server_connections.push_back(new_connection);
         context->awaiter->signal();
         return 0;
     }
 
-    static int on_message_received(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context, void* user_data) {
+    static int on_message_received(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
         printf("ct_callback_t: on_message_received.\n");
-        auto* ctx = static_cast<CallbackContext*>(user_data);
+        auto* ctx = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
 
         // Store the message and signal the awaiter
         ctx->messages->push_back(*received_message);
@@ -160,11 +159,11 @@ protected:
     }
 
 
-    static int respond_on_message_received2(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context, void* user_data) {
+    static int respond_on_message_received2(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
         log_info("ct_callback_t: respond_on_message_received2.\n");
 
         log_trace("Received message with content: %s", (*received_message)->content);
-        CallbackContext* ctx = static_cast<CallbackContext*>(user_data);
+        CallbackContext* ctx = static_cast<CallbackContext*>(message_context->user_receive_context);
         ctx->messages->push_back(*received_message);
 
         log_info("Sending pong response from respond_on_message_received2.");
@@ -180,10 +179,10 @@ protected:
         return 0;
     }
 
-    static int close_on_message_received(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context, void* user_data) {
+    static int close_on_message_received(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
         log_info("ct_callback_t: close_on_message_received.\n");
         log_trace("Received message with content: %s", (*received_message)->content);
-        auto* ctx = static_cast<CallbackContext*>(user_data);
+        auto* ctx = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
 
         ctx->messages->push_back(*received_message);
 
@@ -191,9 +190,9 @@ protected:
         return 0;
     }
 
-    static int respond_on_message_received(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context, void* user_data) {
+    static int respond_on_message_received(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
         printf("ct_callback_t: respond_on_message_received.\n");
-        auto* ctx = static_cast<CallbackContext*>(user_data);
+        auto* ctx = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
 
         // Store the message and signal the awaiter
         ctx->messages->push_back(*received_message);
@@ -209,9 +208,9 @@ protected:
     }
 
 
-    static int on_message_receive_send_new_message_and_receive(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context, void* user_data) {
+    static int on_message_receive_send_new_message_and_receive(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
         printf("ct_callback_t: on_message_receive_send_new_message_and_receive.\n");
-        auto* ctx = static_cast<CallbackContext*>(user_data);
+        auto* ctx = static_cast<CallbackContext*>(message_context->user_receive_context);
 
         // this is the received connection -> that is wrong
         ct_connection_t* sending_connection = ctx->client_connections.at(0);
@@ -227,7 +226,7 @@ protected:
 
         ct_receive_callbacks_t receive_message_request = {
           .receive_callback = on_message_received,
-          .user_data = user_data,
+          .user_receive_context = connection->connection_callbacks.user_connection_context,
         };
 
         ct_receive_message(connection, receive_message_request);
@@ -237,24 +236,24 @@ protected:
 
     static int receive_message_and_respond_on_connection_received(ct_listener_t* listener, ct_connection_t* new_connection) {
         printf("ct_callback_t: receive_message_on_connection_received.\n");
-        auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_data);
+        auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
         context->server_connections.push_back(new_connection);
         context->awaiter->signal();
 
         ct_receive_callbacks_t receive_message_request = {
           .receive_callback = respond_on_message_received,
-          .user_data = listener->listener_callbacks.user_data,
+          .user_receive_context = new_connection->connection_callbacks.user_connection_context,
         };
 
         ct_receive_message(new_connection, receive_message_request);
         return 0;
     }
 
-    static int receive_message_respond_and_close_listener_on_connection_received(ct_listener_t* listener, ct_connection_t* new_connection, void* user_data) {
+    static int receive_message_respond_and_close_listener_on_connection_received(ct_listener_t* listener, ct_connection_t* new_connection) {
         log_trace("ct_connection_t received callback from listener");
         ct_receive_callbacks_t receive_message_request = {
           .receive_callback = respond_on_message_received2,
-          .user_data = listener->listener_callbacks.user_data,
+          .user_receive_context = listener->listener_callbacks.user_listener_context,
         };
 
         ct_listener_close(listener);
@@ -264,7 +263,7 @@ protected:
         return 0;
     }
 
-    static int send_message_and_receive(struct ct_connection_t* connection, void* udata) {
+    static int send_message_and_receive(struct ct_connection_t* connection) {
         log_trace("ct_callback_t: Ready - send_message_and_receive");
         ct_message_t message;
         ct_message_build_with_content(&message, "ping", strlen("ping") + 1);
@@ -273,7 +272,7 @@ protected:
 
         ct_receive_callbacks_t receive_message_request = {
           .receive_callback = close_on_message_received,
-          .user_data = udata,
+          .user_receive_context = connection->connection_callbacks.user_connection_context,
         };
 
         log_trace("Adding receive callback from ct_connection_t");
@@ -283,14 +282,14 @@ protected:
 
     static int on_connection_received_receive_message_close_listener_and_send_new_message(ct_listener_t* listener, ct_connection_t* new_connection) {
         printf("ct_callback_t: on_connection_received_receive_message_close_listener_and_send_new_message\n");
-        auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_data);
+        auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
         ct_listener_close(listener);
         context->server_connections.push_back(new_connection);
         context->awaiter->signal();
 
         ct_receive_callbacks_t receive_message_request = {
           .receive_callback = on_message_receive_send_new_message_and_receive,
-          .user_data = listener->listener_callbacks.user_data,
+          .user_receive_context = new_connection->connection_callbacks.user_connection_context,
         };
 
         ct_receive_message(new_connection, receive_message_request);

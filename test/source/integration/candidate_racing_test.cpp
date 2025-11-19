@@ -17,26 +17,26 @@ extern "C" {
 
 extern "C" {
   // ct_callback_t that marks connection as successful
-  int racing_test_on_ready(struct ct_connection_t* connection, void* udata) {
+  int racing_test_on_ready(struct ct_connection_t* connection) {
     log_info("ct_connection_t succeeded via protocol: %s", connection->protocol.name);
-    bool* connection_succeeded = (bool*)udata;
+    bool* connection_succeeded = (bool*)connection->connection_callbacks.user_connection_context;
     *connection_succeeded = true;
     ct_connection_close(connection);
     return 0;
   }
 
   // ct_callback_t that tracks failures
-  int racing_test_on_establishment_error(struct ct_connection_t* connection, void* udata) {
+  int racing_test_on_establishment_error(struct ct_connection_t* connection) {
     log_error("ct_connection_t failed");
-    bool* connection_succeeded = (bool*)udata;
+    bool* connection_succeeded = (bool*)connection->connection_callbacks.user_connection_context;
     *connection_succeeded = false;
     return 0;
   }
 
   // ct_callback_t that tracks which protocol succeeded
-  int racing_test_on_ready_track_protocol(struct ct_connection_t* connection, void* udata) {
+  int racing_test_on_ready_track_protocol(struct ct_connection_t* connection) {
     log_info("ct_connection_t succeeded via protocol: %s", connection->protocol.name);
-    char** protocol_name = (char**)udata;
+    char** protocol_name = (char**)connection->connection_callbacks.user_connection_context;
     *protocol_name = strdup(connection->protocol.name);
     ct_connection_close(connection);
     return 0;
@@ -70,7 +70,7 @@ TEST(CandidateRacingTests, FirstCandidateSucceeds) {
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = racing_test_on_establishment_error,
     .ready = racing_test_on_ready,
-    .user_data = &connection_succeeded,
+    .user_connection_context = &connection_succeeded,
   };
 
   // Execute
@@ -112,7 +112,7 @@ TEST(CandidateRacingTests, AllCandidatesFail) {
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = racing_test_on_establishment_error,
     .ready = racing_test_on_ready,
-    .user_data = &connection_succeeded,
+    .user_connection_context = &connection_succeeded,
   };
 
   // Execute
@@ -156,7 +156,7 @@ TEST(CandidateRacingTests, RespectsProtocolPreferences) {
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = racing_test_on_establishment_error,
     .ready = racing_test_on_ready_track_protocol,
-    .user_data = &winning_protocol,
+    .user_connection_context = &winning_protocol,
   };
 
   // Execute
@@ -200,7 +200,7 @@ TEST(CandidateRacingTests, WorksWithHostnameResolution) {
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = racing_test_on_establishment_error,
     .ready = racing_test_on_ready,
-    .user_data = &connection_succeeded,
+    .user_connection_context = &connection_succeeded,
   };
 
   // Execute
@@ -244,7 +244,7 @@ TEST(CandidateRacingTests, SingleCandidateOptimization) {
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = racing_test_on_establishment_error,
     .ready = racing_test_on_ready,
-    .user_data = &connection_succeeded,
+    .user_connection_context = &connection_succeeded,
   };
 
   // Execute - should use single-candidate path
@@ -284,7 +284,7 @@ TEST(CandidateRacingTests, ConnectionUsableAfterRacing) {
   bool connection_ready = false;
 
   // ct_callback_t that sends a message when connection is ready
-  auto send_on_ready = [](struct ct_connection_t* conn, void* udata) -> int {
+  auto send_on_ready = [](struct ct_connection_t* conn) -> int {
     log_info("ct_connection_t ready, sending test message");
 
     ct_message_t message;
@@ -295,7 +295,7 @@ TEST(CandidateRacingTests, ConnectionUsableAfterRacing) {
     ct_message_free_content(&message);
 
     if (rc == 0) {
-      bool* ready_flag = (bool*)udata;
+      bool* ready_flag = (bool*)conn->connection_callbacks.user_connection_context;
       *ready_flag = true;
     }
 
@@ -306,7 +306,7 @@ TEST(CandidateRacingTests, ConnectionUsableAfterRacing) {
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = racing_test_on_establishment_error,
     .ready = send_on_ready,
-    .user_data = &connection_ready,
+    .user_connection_context = &connection_ready,
   };
 
   // Execute

@@ -46,7 +46,9 @@ void tcp_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
     log_debug("Receive callback ready, calling it");
     ct_receive_callbacks_t* receive_callback = g_queue_pop_head(connection->received_callbacks);
 
-    receive_callback->receive_callback(connection, &received_message, NULL, receive_callback->user_data);
+    ct_message_context_t ctx = {0};
+    ctx.user_receive_context = receive_callback->user_receive_context;
+    receive_callback->receive_callback(connection, &received_message, &ctx);
     free(receive_callback);
   }
 }
@@ -57,7 +59,7 @@ void on_connect(struct uv_connect_s *req, int status) {
     log_error("ct_connection_t error: %s", uv_strerror(status));
     ct_connection_close(connection);
     if (connection->connection_callbacks.establishment_error) {
-      connection->connection_callbacks.establishment_error(connection, connection->connection_callbacks.user_data);
+      connection->connection_callbacks.establishment_error(connection);
     }
     free(req);
     return;
@@ -65,7 +67,7 @@ void on_connect(struct uv_connect_s *req, int status) {
   log_info("Successfully connected to remote endpoint using TCP");
   uv_read_start((uv_stream_t*)connection->protocol_state, alloc_cb, tcp_on_read);
   if (connection->connection_callbacks.ready) {
-    connection->connection_callbacks.ready(connection, connection->connection_callbacks.user_data);
+    connection->connection_callbacks.ready(connection);
   }
 }
 
@@ -74,12 +76,12 @@ void on_write(uv_write_t* req, int status) {
   if (status < 0) {
     log_error("Write error: %s", uv_strerror(status));
     if (connection->connection_callbacks.send_error) {
-      connection->connection_callbacks.send_error(connection, connection->connection_callbacks.user_data);
+      connection->connection_callbacks.send_error(connection);
     }
     return;
   }
   if (connection->connection_callbacks.sent) {
-    connection->connection_callbacks.sent(connection, connection->connection_callbacks.user_data);
+    connection->connection_callbacks.sent(connection);
   }
   log_info("Successfully sent message over TCP");
 }
@@ -123,7 +125,7 @@ int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
     free(connect_req);
     ct_connection_close(connection);
     if (connection->connection_callbacks.establishment_error) {
-      connection->connection_callbacks.establishment_error(connection, connection->connection_callbacks.user_data);
+      connection->connection_callbacks.establishment_error(connection);
     }
     return rc;
   }
@@ -170,7 +172,7 @@ int tcp_send(ct_connection_t* connection, ct_message_t* message, ct_message_cont
     log_error("Error sending message over TCP: %s", uv_strerror(rc));
     free(req);
     if (connection->connection_callbacks.send_error) {
-      connection->connection_callbacks.send_error(connection, connection->connection_callbacks.user_data);
+      connection->connection_callbacks.send_error(connection);
     }
 
     return rc;
@@ -268,7 +270,7 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
   }
 
   log_trace("TCP invoking new connection callback");
-  listener->listener_callbacks.connection_received(listener, connection, listener->listener_callbacks.user_data);
+  listener->listener_callbacks.connection_received(listener, connection);
 }
 
 int tcp_stop_listen(ct_socket_manager_t* socket_manager) {

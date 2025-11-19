@@ -87,7 +87,9 @@ void on_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
     ct_receive_callbacks_t* receive_callback =
         g_queue_pop_head(connection->received_callbacks);
 
-    receive_callback->receive_callback(connection, &received_message, NULL, receive_callback->user_data);
+    ct_message_context_t ctx = {0};
+    ctx.user_receive_context = receive_callback->user_receive_context;
+    receive_callback->receive_callback(connection, &received_message, &ctx);
     free(receive_callback);
   }
 }
@@ -104,7 +106,7 @@ int udp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
   connection->protocol_state = (uv_handle_t*)new_udp_handle;
   new_udp_handle->data = connection;
 
-  connection_callbacks->ready(connection, connection_callbacks->user_data);
+  connection_callbacks->ready(connection);
   return 0;
 }
 

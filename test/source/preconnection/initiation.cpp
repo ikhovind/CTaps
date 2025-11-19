@@ -56,7 +56,7 @@ TEST(InitiationTests, respectsLocalEndpoint) {
 
     ct_connection_callbacks_t connection_callbacks = {
         .ready = connection_ready_cb,
-        .user_data = (void*)&cb_waiter
+        .user_connection_context = (void*)&cb_waiter
     };
 
     ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);

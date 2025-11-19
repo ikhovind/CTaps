@@ -79,7 +79,7 @@ TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) 
 
     InitDoneCb client_ready = {
         .init_done_callback = send_message_and_wait_for_response_on_connection_ready,
-        .user_data = &callback_context
+        .user_connection_context = &callback_context
     };
 
     ct_preconnection_initiate(&client_precon, &client_connection, client_ready, nullptr);
@@ -164,7 +164,7 @@ TEST_F(CTapsGenericFixture, ClosingListenerDoesNotAffectExistingConnections) {
 
     InitDoneCb client_ready = {
         .init_done_callback = send_message_on_connection_ready,
-        .user_data = &callback_context
+        .user_connection_context = &callback_context
     };
 
     ct_preconnection_initiate(&client_precon, &client_connection, client_ready, nullptr);

@@ -9,7 +9,7 @@ void ct_listener_close(const ct_listener_t* listener) {
   socket_manager_decrement_ref(listener->socket_manager);
   if (listener->listener_callbacks.stopped) {
     log_debug("Invoking listener stopped callback");
-    listener->listener_callbacks.stopped(listener, listener->listener_callbacks.user_data);
+    listener->listener_callbacks.stopped(listener);
   }
   else {
     log_debug("No listener stopped callback registered");

@@ -11,7 +11,7 @@ extern "C" {
 #define UDP_PING_PORT 5005
 
 extern "C" {
-  int udp_send_message_on_connection_ready(struct ct_connection_t* connection, void* udata) {
+  int udp_send_message_on_connection_ready(struct ct_connection_t* connection) {
     log_info("ct_connection_t is ready, sending message");
     // --- Action ---
     ct_message_t message;
@@ -25,17 +25,17 @@ extern "C" {
     return 0;
   }
 
-  int udp_on_establishment_error(struct ct_connection_t* connection, void* udata) {
+  int udp_on_establishment_error(struct ct_connection_t* connection) {
     log_error("ct_connection_t error occurred");
-    bool* connection_succeeded = (bool*)udata;
+    bool* connection_succeeded = (bool*)connection->connection_callbacks.user_connection_context;
     *connection_succeeded = false;
     return 0;
   }
 
-  int udp_on_msg_received(struct ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* ctx, void* user_data) {
+  int udp_on_msg_received(struct ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* ctx) {
     log_info("ct_message_t received");
     // set user data to received message
-    ct_message_t** output_addr = (ct_message_t**)user_data;
+    ct_message_t** output_addr = (ct_message_t**)ctx->user_receive_context;
     *output_addr = *received_message;
 
     ct_connection_close(connection);
@@ -66,7 +66,7 @@ TEST(UdpGenericTests, sendsSingleUdpPacket) {
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = udp_on_establishment_error,
     .ready = udp_send_message_on_connection_ready,
-    .user_data = NULL,
+    .user_connection_context = NULL,
   };
 
   int rc = ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);
@@ -75,7 +75,7 @@ TEST(UdpGenericTests, sendsSingleUdpPacket) {
 
   ct_message_t* msg_received = nullptr;
 
-  ct_receive_callbacks_t receive_req = { .receive_callback = udp_on_msg_received, .user_data = &msg_received };
+  ct_receive_callbacks_t receive_req = { .receive_callback = udp_on_msg_received, .user_receive_context = &msg_received };
 
   rc = ct_receive_message(&connection, receive_req);
 
@@ -97,7 +97,7 @@ struct UdpTestContext {
 };
 
 extern "C" {
-  int udp_send_two_messages_on_ready(struct ct_connection_t* connection, void* udata) {
+  int udp_send_two_messages_on_ready(struct ct_connection_t* connection) {
     log_info("ct_connection_t is ready, sending two messages");
 
     ct_message_t message1;
@@ -117,9 +117,9 @@ extern "C" {
     return 0;
   }
 
-  int udp_on_msg_received_multiple(struct ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* ctx, void* user_data) {
+  int udp_on_msg_received_multiple(struct ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* ctx) {
     log_info("ct_message_t received (multiple test)");
-    UdpTestContext* test_ctx = (UdpTestContext*)user_data;
+    UdpTestContext* test_ctx = (UdpTestContext*)ctx->user_receive_context;
 
     test_ctx->messages.push_back(*received_message);
 
@@ -160,7 +160,7 @@ TEST(UdpGenericTests, packetsAreReadInOrder) {
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = udp_on_establishment_error,
     .ready = udp_send_two_messages_on_ready,
-    .user_data = &test_ctx,
+    .user_connection_context = &test_ctx,
   };
 
   int rc = ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);
@@ -168,7 +168,7 @@ TEST(UdpGenericTests, packetsAreReadInOrder) {
   ASSERT_EQ(rc, 0);
 
   // Post two receive requests
-  ct_receive_callbacks_t receive_req = { .receive_callback = udp_on_msg_received_multiple, .user_data = &test_ctx };
+  ct_receive_callbacks_t receive_req = { .receive_callback = udp_on_msg_received_multiple, .user_receive_context = &test_ctx };
   rc = ct_receive_message(&connection, receive_req);
   ASSERT_EQ(rc, 0);
 
@@ -190,7 +190,7 @@ TEST(UdpGenericTests, packetsAreReadInOrder) {
 }
 
 extern "C" {
-  int udp_send_bytes_on_ready(struct ct_connection_t* connection, void* udata) {
+  int udp_send_bytes_on_ready(struct ct_connection_t* connection) {
     log_info("ct_connection_t is ready, sending arbitrary bytes");
 
     ct_message_t message;
@@ -228,7 +228,7 @@ TEST(UdpGenericTests, canPingArbitraryBytes) {
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = udp_on_establishment_error,
     .ready = udp_send_bytes_on_ready,
-    .user_data = NULL,
+    .user_connection_context = NULL,
   };
 
   int rc = ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);
@@ -237,7 +237,7 @@ TEST(UdpGenericTests, canPingArbitraryBytes) {
 
   ct_message_t* msg_received = nullptr;
 
-  ct_receive_callbacks_t receive_req = { .receive_callback = udp_on_msg_received, .user_data = &msg_received };
+  ct_receive_callbacks_t receive_req = { .receive_callback = udp_on_msg_received, .user_receive_context = &msg_received };
 
   rc = ct_receive_message(&connection, receive_req);
 

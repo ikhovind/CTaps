@@ -1,8 +1,8 @@
 # List of things which really should be refactored:
 
  * If a function mallocs memory, it should return a pointer instead of using an output pointer
- * The protocol interface should not take callback struct as parameter, instead
-   just read them from the passed connection 
+ * ~~The protocol interface should not take callback struct as parameter, instead
+   just read them from the passed connection~~
  * ~~Decide on a common error code framework, maybe matching that of libuv?~~
  * Simplify the socket_manager.c functionality?
    * Find some way of making the socket manager more unified with connection-oriented vs connectionless protocols

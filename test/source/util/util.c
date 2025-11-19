@@ -31,8 +31,8 @@ void increment_reads(ct_connection_t* connection, ct_call_back_waiter_t* cb_wait
     pthread_mutex_unlock(cb_waiter->waiting_mutex);
 }
 
-int receive_message_cb(ct_connection_t* connection, ct_message_t** received_message, void* user_data) {
-    ct_message_receiver_t* message_receiver = (ct_message_receiver_t*)user_data;
+int receive_message_cb(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* ctx) {
+    ct_message_receiver_t* message_receiver = (ct_message_receiver_t*)ctx->user_receive_context;
     ct_message_t** message = message_receiver->message;
 
     // want to extract actual pointer so we can later free it
@@ -47,10 +47,10 @@ int receive_message_cb(ct_connection_t* connection, ct_message_t** received_mess
     return 0;
 }
 
-int connection_ready_cb(ct_connection_t* connection, void* user_data) {
+int connection_ready_cb(ct_connection_t* connection) {
     printf("ct_connection_t ready callback\n");
 
-    ct_call_back_waiter_t* cb_waiter = (ct_call_back_waiter_t*) user_data;
+    ct_call_back_waiter_t* cb_waiter = (ct_call_back_waiter_t*)connection->connection_callbacks.user_connection_context;
 
     increment_reads(connection, cb_waiter);
     return 0;
