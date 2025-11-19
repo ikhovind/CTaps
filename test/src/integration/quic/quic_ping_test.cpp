@@ -11,62 +11,10 @@ extern "C" {
 
 #define QUIC_PING_PORT 4433
 
-extern "C" {
-  int quic_mark_connection_as_success_and_close(struct ct_connection_s* connection) {
-    log_info("ct_connection_t is ready");
-    // close the connection
-    bool* quic_connection_succeeded = (bool*)connection->connection_callbacks.user_connection_context;
-    *quic_connection_succeeded = true;
-    ct_connection_close(connection);
-    return 0;
-  }
+class QuicPingTest : public CTapsGenericFixture {};
 
-  int receive_and_close_on_message_received(struct ct_connection_s* connection, ct_message_t** received_message, ct_message_context_t* ctx) {
-    log_info("ct_message_t received");
-    // set user data to received message
-    ct_message_t** output_addr = (ct_message_t**)ctx->user_receive_context;
-    *output_addr = *received_message;
-
-    ct_connection_close(connection);
-    return 0;
-  }
-
-  int quic_send_message_on_connection_ready(struct ct_connection_s* connection) {
-    log_info("ct_connection_t is ready, sending message");
-    // --- Action ---
-    ct_message_t message;
-
-    ct_message_build_with_content(&message, "hello world", strlen("hello world") + 1);
-    int rc = ct_send_message(connection, &message);
-    EXPECT_EQ(rc, 0);
-
-    ct_message_free_content(&message);
-
-    return 0;
-  }
-
-  int quic_establishment_error(struct ct_connection_s* connection) {
-    log_error("ct_connection_t error occurred");
-    bool* quic_connection_succeeded = (bool*)connection->connection_callbacks.user_connection_context;
-    *quic_connection_succeeded = false;
-    return 0;
-  }
-
-  int on_msg_received(struct ct_connection_s* connection, ct_message_t** received_message, ct_message_context_t* ctx) {
-    log_info("ct_message_t received");
-    // set user data to received message
-    ct_message_t** output_addr = (ct_message_t**)ctx->user_receive_context;
-    *output_addr = *received_message;
-
-    ct_connection_close(connection);
-    return 0;
-  }
-}
-
-TEST(QuicGenericTests, successfullyConnectsToQuicServer) {
+TEST_F(QuicPingTest, successfullyConnectsToQuicServer) {
   // --- Setup ---
-  int rc = ct_initialize(TEST_RESOURCE_DIR "/cert.pem",TEST_RESOURCE_DIR "/key.pem");
-  ASSERT_EQ(rc, 0);
   ct_remote_endpoint_t remote_endpoint;
   ct_remote_endpoint_build(&remote_endpoint);
   ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
@@ -88,20 +36,17 @@ TEST(QuicGenericTests, successfullyConnectsToQuicServer) {
   ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, &security_parameters);
   ct_connection_t connection;
 
-  bool quic_connection_succeeded = false;
   ct_connection_callbacks_t connection_callbacks = {
-    .establishment_error = quic_establishment_error,
-    .ready = quic_send_message_on_connection_ready,
-    .user_connection_context = &quic_connection_succeeded,
+    .establishment_error = on_establishment_error,
+    .ready = send_message_on_connection_ready,
+    .user_connection_context = &test_context,
   };
 
-  rc = ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);
+  int rc = ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
-  ct_message_t* msg_received = nullptr;
-
-  ct_receive_callbacks_t receive_req = { .receive_callback = on_msg_received, .user_receive_context = &msg_received };
+  ct_receive_callbacks_t receive_req = { .receive_callback = close_on_message_received, .user_receive_context = &test_context };
 
   rc = ct_receive_message(&connection, receive_req);
 
@@ -110,9 +55,9 @@ TEST(QuicGenericTests, successfullyConnectsToQuicServer) {
   ct_start_event_loop();
 
   ASSERT_EQ(connection.transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
-  ASSERT_NE(msg_received, nullptr);
-  ASSERT_STREQ((const char*)msg_received->content, "Pong: hello world");
-  ct_message_free_all(msg_received);
+  ASSERT_EQ(test_context.messages->size(), 1);
+  ASSERT_STREQ(test_context.messages->at(0)->content, "Pong: ping");
+
   ct_free_security_parameter_content(&security_parameters);
   ct_preconnection_free(&preconnection);
 }

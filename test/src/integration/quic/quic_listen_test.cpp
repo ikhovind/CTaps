@@ -9,7 +9,9 @@ extern "C" {
 }
 #include "fixtures/awaiting_fixture.cpp"
 
-TEST_F(CTapsGenericFixture, QuicReceivesConnectionFromListenerAndExchangesMessages) {
+class QuicListenTests : public CTapsGenericFixture {};
+
+TEST_F(QuicListenTests, QuicReceivesConnectionFromListenerAndExchangesMessages) {
     CallbackContext callback_context = {
         .messages = &received_messages,
         .server_connections = received_connections,

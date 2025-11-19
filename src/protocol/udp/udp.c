@@ -146,8 +146,6 @@ int udp_send(ct_connection_t* connection, ct_message_t* message, ct_message_cont
   // Store the buffer in send_req->data so we can free it in the callback
   send_req->data = ctx_buffer;
 
-  log_trace("Sending udp message with content: %.*s", (int)message->length, message->content);
-
   int rc = uv_udp_send(
       send_req, (uv_udp_t*)connection->protocol_state, ctx_buffer, 1,
       (const struct sockaddr*)&connection->remote_endpoint.data.resolved_address,

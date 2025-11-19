@@ -104,7 +104,6 @@ TEST_F(FramingTest, LengthPrependFramerSendsCorrectFormat) {
     // Framer should send "4ping" (5 bytes) - length byte + original message
     // TCP echo server should respond with "Pong: 4ping"
 
-    int rc = ct_initialize(NULL, NULL);
     ct_transport_properties_t transport_properties;
     ct_transport_properties_build(&transport_properties);
     ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
@@ -128,7 +127,6 @@ TEST_F(FramingTest, LengthPrependFramerSendsCorrectFormat) {
         .server_connections = received_connections,
         .client_connections = client_connections,
         .closing_function = nullptr,
-        .total_expected_signals = 1,
         .total_expected_messages = 1,
         .listener = nullptr
     };
@@ -138,7 +136,7 @@ TEST_F(FramingTest, LengthPrependFramerSendsCorrectFormat) {
       .user_connection_context = &context,
     };
 
-    rc = ct_preconnection_initiate(&preconnection,
+    int rc = ct_preconnection_initiate(&preconnection,
                                    &connection,
                                    connection_callbacks);
     ASSERT_EQ(rc, 0);
@@ -158,10 +156,8 @@ TEST_F(FramingTest, LengthPrependFramerSendsCorrectFormat) {
 }
 
 TEST_F(FramingTest, StripFirstCharFramerReceivesStrippedMessage) {
-    int rc = ct_initialize(NULL, NULL);
     ct_transport_properties_t transport_properties;
     ct_transport_properties_build(&transport_properties);
-    ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
     ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, REQUIRE);
     ct_tp_set_sel_prop_preference(&transport_properties, ACTIVE_READ_BEFORE_SEND, REQUIRE);
 
@@ -182,7 +178,6 @@ TEST_F(FramingTest, StripFirstCharFramerReceivesStrippedMessage) {
         .server_connections = received_connections,
         .client_connections = client_connections,
         .closing_function = nullptr,
-        .total_expected_signals = 1,
         .total_expected_messages = 1,
         .listener = nullptr
     };
@@ -192,7 +187,7 @@ TEST_F(FramingTest, StripFirstCharFramerReceivesStrippedMessage) {
       .user_connection_context = &context,
     };
 
-    rc = ct_preconnection_initiate(&preconnection,
+    int rc = ct_preconnection_initiate(&preconnection,
                                    &connection,
                                    connection_callbacks);
     ASSERT_EQ(rc, 0);

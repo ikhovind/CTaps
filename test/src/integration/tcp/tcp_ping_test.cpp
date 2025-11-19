@@ -5,59 +5,18 @@
 extern "C" {
 #include "ctaps.h"
 #include "util/util.h"
-#include "fixtures/awaiting_fixture.cpp"
 #include <logging/log.h>
 }
+#include "fixtures/awaiting_fixture.cpp"
 
 #define TCP_PING_PORT 5006
 #define INVALID_TCP_PORT 5007
 
-extern "C" {
-  int mark_connection_as_success_and_close(struct ct_connection_s* connection) {
-    log_info("ct_connection_t is ready");
-    // close the connection
-    bool* connection_succeeded = (bool*)connection->connection_callbacks.user_connection_context;
-    *connection_succeeded = true;
-    ct_connection_close(connection);
-    return 0;
-  }
+class TcpGenericTests : public CTapsGenericFixture {};
 
-  int tcp_send_message_on_connection_ready(struct ct_connection_s* connection) {
-    log_info("ct_connection_t is ready, sending message");
-    // --- Action ---
-    ct_message_t message;
-
-    ct_message_build_with_content(&message, "hello world", strlen("hello world") + 1);
-    int rc = ct_send_message(connection, &message);
-    EXPECT_EQ(rc, 0);
-
-    ct_message_free_content(&message);
-
-    return 0;
-  }
-
-  int on_establishment_error(struct ct_connection_s* connection) {
-    log_error("ct_connection_t error occurred");
-    bool* connection_succeeded = (bool*)connection->connection_callbacks.user_connection_context;
-    *connection_succeeded = false;
-    return 0;
-  }
-
-  int on_msg_received(struct ct_connection_s* connection, ct_message_t** received_message, ct_message_context_t* ctx) {
-    log_info("ct_message_t received");
-    // set user data to received message
-    ct_message_t** output_addr = (ct_message_t**)ctx->user_receive_context;
-    *output_addr = *received_message;
-
-    ct_connection_close(connection);
-    return 0;
-  }
-}
-
-TEST(TcpGenericTests, successfullyConnectsToTcpServer) {
+TEST_F(TcpGenericTests, successfullyConnectsToTcpServer) {
   log_info("Starting test: successfullyConnectsToTcpServer");
   // --- Setup ---
-  ct_initialize(NULL,NULL);
   ct_remote_endpoint_t remote_endpoint;
   ct_remote_endpoint_build(&remote_endpoint);
   ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
@@ -74,11 +33,10 @@ TEST(TcpGenericTests, successfullyConnectsToTcpServer) {
   ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
   ct_connection_t connection;
 
-  bool connection_succeeded = false;
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
     .ready = mark_connection_as_success_and_close,
-    .user_connection_context = &connection_succeeded,
+    .user_connection_context = &test_context,
   };
 
   int rc = ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);
@@ -87,10 +45,10 @@ TEST(TcpGenericTests, successfullyConnectsToTcpServer) {
 
   ct_start_event_loop();
 
-  ASSERT_TRUE(connection_succeeded);
+  ASSERT_TRUE(test_context.connection_succeeded);
 }
 
-TEST(TcpGenericTests, connectionErrorCalledWhenNoServer) {
+TEST_F(TcpGenericTests, connectionErrorCalledWhenNoServer) {
   // --- Setup ---
   ct_initialize(NULL,NULL);
   ct_remote_endpoint_t remote_endpoint;
@@ -110,11 +68,10 @@ TEST(TcpGenericTests, connectionErrorCalledWhenNoServer) {
   ct_connection_t connection;
 
   // Set to true, since only on_connection_error will set it to false
-  bool connection_succeeded = true;
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
     .ready = mark_connection_as_success_and_close,
-    .user_connection_context = &connection_succeeded,
+    .user_connection_context = &test_context,
   };
 
   int rc = ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);
@@ -123,15 +80,14 @@ TEST(TcpGenericTests, connectionErrorCalledWhenNoServer) {
 
   ct_start_event_loop();
 
-  ASSERT_FALSE(connection_succeeded);
+  ASSERT_FALSE(test_context.connection_succeeded);
   // assert state of connection is closed
   ASSERT_EQ(connection.transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
 }
 
-TEST(TcpGenericTests, sendsSingleTcpMessage) {
+TEST_F(TcpGenericTests, sendsSingleTcpMessage) {
   int rc;
   // --- Setup ---
-  ct_initialize(NULL,NULL);
   ct_remote_endpoint_t remote_endpoint;
   ct_remote_endpoint_build(&remote_endpoint);
   ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
@@ -151,8 +107,8 @@ TEST(TcpGenericTests, sendsSingleTcpMessage) {
   // Set to true, since only on_connection_error will set it to false
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
-    .ready = tcp_send_message_on_connection_ready,
-    .user_connection_context = NULL,
+    .ready = send_message_on_connection_ready,
+    .user_connection_context = &test_context,
   };
 
   rc = ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);
@@ -161,7 +117,7 @@ TEST(TcpGenericTests, sendsSingleTcpMessage) {
 
   ct_message_t* msg_received = nullptr;
 
-  ct_receive_callbacks_t receive_req = { .receive_callback = on_msg_received, .user_receive_context = &msg_received };
+  ct_receive_callbacks_t receive_req = { .receive_callback = close_on_message_received, .user_receive_context = &test_context };
 
   rc = ct_receive_message(&connection, receive_req);
 
@@ -171,7 +127,6 @@ TEST(TcpGenericTests, sendsSingleTcpMessage) {
 
   // assert state of connection is closed
   ASSERT_EQ(connection.transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
-  ASSERT_NE(msg_received, nullptr);
-  ASSERT_STREQ((const char*)msg_received->content, "Pong: hello world");
-  ct_message_free_content(msg_received);
+  ASSERT_EQ(test_context.messages->size(), 1);
+  ASSERT_STREQ(test_context.messages->at(0)->content, "Pong: ping");
 }
