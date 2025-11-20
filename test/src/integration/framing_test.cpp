@@ -14,36 +14,31 @@ extern "C" {
 // =============================================================================
 
 static void length_prepend_encode(ct_connection_t* connection,
-                                   const ct_message_t* message,
+                                   ct_message_t* message,
                                    ct_message_context_t* context,
                                    ct_framer_done_encoding_callback callback) {
     // Prepend the message length as a single byte
-    size_t framed_len = 1 + message->length;
-    ct_message_t framed_msg;
-    framed_msg.content = (char*)malloc(framed_len);
-    framed_msg.length = framed_len;
-
     // First byte is the length
-    ((char*)framed_msg.content)[0] = '0' + (char)message->length;
-    // Copy original message after length byte
-    memcpy((char*)framed_msg.content + 1, message->content, message->length);
+    char* new_buf = (char*)malloc(message->length + 1);
+    new_buf[0] = '0' + (char)message->length;
+    memcpy(new_buf + 1, message->content, message->length);
+    free(message->content);
+    message->content = new_buf;
 
-    // Call the callback when encoding is complete
-    callback(connection, &framed_msg, context);
-
-    free(framed_msg.content);
+    callback(connection, message, context);
 }
 
-static void passthrough_decode(ct_connection_t* connection,
-                                const void* data,
-                                size_t len) {
+static void passthrough_decode(struct ct_connection_s* connection,
+                     const void* data,
+                     size_t len,
+                     ct_framer_done_decoding_callback callback) {
     // Just pass through - deliver as-is
     ct_message_t* msg = (ct_message_t*)malloc(sizeof(ct_message_t));
     msg->content = (char*)malloc(len);
     msg->length = len;
     memcpy(msg->content, data, len);
 
-    ct_connection_deliver_to_app(connection, msg, NULL);
+    callback(connection, msg, NULL);
 }
 
 static ct_framer_impl_t length_prepend_framer = {
@@ -56,27 +51,25 @@ static ct_framer_impl_t length_prepend_framer = {
 // =============================================================================
 
 static void passthrough_encode(ct_connection_t* connection,
-                                const ct_message_t* message,
+                                ct_message_t* message,
                                 ct_message_context_t* context,
                                 ct_framer_done_encoding_callback callback) {
     // Just pass through - send as-is
-    ct_message_t pass_msg;
-    pass_msg.content = message->content;
-    pass_msg.length = message->length;
-
-    callback(connection, &pass_msg, context);
+    callback(connection, message, context);
 }
 
 static void strip_first_char_decode(ct_connection_t* connection,
                                      const void* data,
-                                     size_t len) {
+                                     size_t len,
+                                     ct_framer_done_decoding_callback callback
+                                    ) {
     // Remove first character
     if (len <= 1) {
         // If message is 1 byte or empty, deliver empty message
         ct_message_t* msg = (ct_message_t*)malloc(sizeof(ct_message_t));
         msg->content = (char*)malloc(1);
         msg->length = 0;
-        ct_connection_deliver_to_app(connection, msg, NULL);
+        callback(connection, msg, NULL);
         return;
     }
 
@@ -86,12 +79,62 @@ static void strip_first_char_decode(ct_connection_t* connection,
     // Copy everything except first character
     memcpy(msg->content, (const char*)data + 1, len - 1);
 
-    ct_connection_deliver_to_app(connection, msg, NULL);
+    callback(connection, msg, NULL);
 }
 
 static ct_framer_impl_t strip_first_char_framer = {
     .encode_message = passthrough_encode,
     .decode_data = strip_first_char_decode
+};
+
+// =============================================================================
+// Test Framer 3: Async Encoding - Defers callback using uv_timer
+// =============================================================================
+
+// Structure to hold state for async encoding
+typedef struct {
+    ct_connection_t* connection;
+    ct_message_t* message;
+    ct_message_context_t* context;
+    ct_framer_done_encoding_callback callback;
+    uv_timer_t timer;
+} async_framer_state_t;
+
+static void async_encode_timer_callback(uv_timer_t* timer) {
+    async_framer_state_t* state = (async_framer_state_t*)timer->data;
+
+    // Now invoke the actual callback after the delay
+    state->callback(state->connection, state->message, state->context);
+
+    // Cleanup
+    uv_timer_stop(timer);
+    uv_close((uv_handle_t*)timer, NULL);
+    free(state);
+}
+
+static void async_encode(ct_connection_t* connection,
+                        ct_message_t* message,
+                        ct_message_context_t* context,
+                        ct_framer_done_encoding_callback callback) {
+    // Allocate state to persist after this function returns
+    async_framer_state_t* state = (async_framer_state_t*)malloc(sizeof(async_framer_state_t));
+    state->connection = connection;
+    state->callback = callback;
+    // No need to copy message - the library already did it for us!
+    state->message = (ct_message_t*)message;
+    state->context = context;
+
+    // Set up a timer to invoke the callback after 10ms
+    uv_timer_init(event_loop, &state->timer);
+    state->timer.data = state;
+    uv_timer_start(&state->timer, async_encode_timer_callback, 10, 0);
+
+    // Return immediately - callback will be invoked later from event loop
+}
+
+static ct_framer_impl_t async_framer = {
+    .encode_message = async_encode,
+    .decode_data = passthrough_decode
 };
 
 // =============================================================================
@@ -175,6 +218,53 @@ TEST_F(FramingTest, StripFirstCharFramerReceivesStrippedMessage) {
                               &strip_first_char_framer);
 
     ct_connection_t connection;
+
+    ct_connection_callbacks_t connection_callbacks = {
+      .ready = send_message_and_receive,
+      .user_connection_context = &test_context,
+    };
+
+    int rc = ct_preconnection_initiate(&preconnection,
+                                   &connection,
+                                   connection_callbacks);
+    ASSERT_EQ(rc, 0);
+    ct_start_event_loop();
+
+    // Wait for response
+
+
+    // Verify we got a response
+    ASSERT_EQ(received_messages.size(), 1);
+    ct_message_t* response = received_messages[0];
+
+    std::string response_str((char*)response->content, response->length);
+
+    ASSERT_STREQ(response_str.c_str(), "ong: ping");
+    ct_preconnection_free(&preconnection);
+}
+
+TEST_F(FramingTest, AsyncFramerDefersSendCallback) {
+    // Test that async framer properly defers the callback invocation
+    // This verifies that encode_message can return before calling the callback
+    // and the message remains valid until the callback is invoked
+    ct_transport_properties_t transport_properties;
+    ct_transport_properties_build(&transport_properties);
+    ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
+    ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, REQUIRE);
+    ct_tp_set_sel_prop_preference(&transport_properties, ACTIVE_READ_BEFORE_SEND, REQUIRE);
+
+    ct_remote_endpoint_t remote_endpoint;
+    ct_remote_endpoint_build(&remote_endpoint);
+    ct_remote_endpoint_with_hostname(&remote_endpoint, "127.0.0.1");
+    ct_remote_endpoint_with_port(&remote_endpoint, 5006);
+
+    ct_preconnection_t preconnection;
+    // Use the async framer which defers the callback by 10ms
+    ct_preconnection_build_ex(&preconnection, transport_properties,
+                              &remote_endpoint, 1, nullptr,
+                              &async_framer);
+
+    ct_connection_t connection;
     CallbackContext context = {
         .messages = &received_messages,
         .server_connections = received_connections,
@@ -195,15 +285,13 @@ TEST_F(FramingTest, StripFirstCharFramerReceivesStrippedMessage) {
     ASSERT_EQ(rc, 0);
     ct_start_event_loop();
 
-    // Wait for response
-
-
-    // Verify we got a response
+    // Verify we got a response (message was successfully sent even though callback was deferred)
     ASSERT_EQ(received_messages.size(), 1);
     ct_message_t* response = received_messages[0];
 
     std::string response_str((char*)response->content, response->length);
 
-    ASSERT_STREQ(response_str.c_str(), "ong: ping");
+    // Should get normal response since async_framer doesn't modify the message
+    ASSERT_STREQ(response_str.c_str(), "Pong: ping");
     ct_preconnection_free(&preconnection);
 }

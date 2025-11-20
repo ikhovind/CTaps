@@ -64,13 +64,10 @@ set_target_properties(CTaps PROPERTIES
 
 target_include_directories(CTaps
         PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include> # Path after installation
-)
-
-target_include_directories(CTaps
+          $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+          $<INSTALL_INTERFACE:include> # Path after installation
         PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
+          $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
 )
 
 # This is the only way I have managed to link against picotls

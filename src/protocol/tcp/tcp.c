@@ -49,17 +49,28 @@ void on_connect(struct uv_connect_s *req, int status) {
 
 void on_write(uv_write_t* req, int status) {
   ct_connection_t *connection = (ct_connection_t*)req->handle->data;
+  ct_message_t* message = (ct_message_t*)req->data;
+
   if (status < 0) {
     log_error("Write error: %s", uv_strerror(status));
     if (connection->connection_callbacks.send_error) {
       connection->connection_callbacks.send_error(connection);
     }
-    return;
+  } else {
+    if (connection->connection_callbacks.sent) {
+      connection->connection_callbacks.sent(connection);
+    }
+    log_info("Successfully sent message over TCP");
   }
-  if (connection->connection_callbacks.sent) {
-    connection->connection_callbacks.sent(connection);
+
+  // Free the message after sending (or error)
+  if (message) {
+    log_debug("Freeing sent message");
+    ct_message_free_all(message);
+    log_debug("Sent message freed");
   }
-  log_info("Successfully sent message over TCP");
+  log_debug("Freeing write request");
+  free(req);
 }
 
 int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks) {
@@ -132,21 +143,23 @@ int tcp_close(const ct_connection_t* connection) {
 
 int tcp_send(ct_connection_t* connection, ct_message_t* message, ct_message_context_t* ctx) {
   log_debug("Sending message over TCP");
-  uv_buf_t buffer[] = {
-    {
-      .base = message->content,
-      .len = message->length, 
-    }
-  };
+
+  uv_buf_t buffer = uv_buf_init(message->content, message->length);
+
   uv_write_t *req = malloc(sizeof(uv_write_t));
   if (!req) {
     log_error("Failed to allocate memory for write request");
     return -errno;
   }
-  int rc = uv_write(req, (uv_tcp_t*)connection->protocol_state, buffer, 1, on_write);
+
+  // Attach message to request so it can be freed in the callback
+  req->data = message;
+
+  int rc = uv_write(req, (uv_tcp_t*)connection->protocol_state, &buffer, 1, on_write);
   if (rc < 0) {
     log_error("Error sending message over TCP: %s", uv_strerror(rc));
     free(req);
+    ct_message_free_all(message);
     if (connection->connection_callbacks.send_error) {
       connection->connection_callbacks.send_error(connection);
     }
