@@ -8,6 +8,16 @@
 #include "connection/socket_manager/socket_manager.h"
 #include "glib.h"
 
+// Helper functions for framer implementations
+void ct_connection_send_to_protocol(ct_connection_t* connection,
+                                   ct_message_t* message,
+                                   ct_message_context_t* context);
+
+void ct_connection_deliver_to_app(ct_connection_t* connection,
+                                 ct_message_t* message,
+                                 ct_message_context_t* context);
+
+
 int ct_send_message(ct_connection_t* connection, ct_message_t* message) {
   return ct_send_message_full(connection, message, NULL);
 }
@@ -15,11 +25,11 @@ int ct_send_message(ct_connection_t* connection, ct_message_t* message) {
 int ct_send_message_full(ct_connection_t* connection, ct_message_t* message, ct_message_context_t* message_context) {
   if (connection->framer_impl != NULL) {
     log_info("User sending message on connection with framer");
-    connection->framer_impl->encode_message(connection, message, message_context);
+    connection->framer_impl->encode_message(connection, message, message_context, ct_connection_send_to_protocol);
     return 0;
   }
   log_info("User sending message on connection without framer");
-  return ct_connection_send_to_protocol(connection, message);
+  ct_connection_send_to_protocol(connection, message, message_context);
 }
 
 int ct_receive_message(ct_connection_t* connection,
@@ -130,19 +140,22 @@ void ct_connection_free(ct_connection_t* connection) {
 // Helper Functions for Framer Implementations
 // =============================================================================
 
-int ct_connection_send_to_protocol(ct_connection_t* connection,
-                                   ct_message_t* message) {
-  return connection->protocol.send(connection, message, NULL);
+void ct_connection_send_to_protocol(ct_connection_t* connection,
+                                   ct_message_t* message,
+                                   ct_message_context_t* context) {
+  int rc = connection->protocol.send(connection, message, context);
+  if (rc < 0) {
+    log_error("Error sending message to protocol: %d", rc);
+  }
 }
 
-int ct_connection_deliver_to_app(ct_connection_t* connection,
+void ct_connection_deliver_to_app(ct_connection_t* connection,
                                  ct_message_t* message,
                                  ct_message_context_t* context) {
   // Check if there's a waiting receive callback
   if (g_queue_is_empty(connection->received_callbacks)) {
     log_debug("No receive callback ready, queueing message");
     g_queue_push_tail(connection->received_messages, message);
-    return 0;
   } else {
     log_debug("Receive callback ready, calling it");
     ct_receive_callbacks_t* receive_callback = g_queue_pop_head(connection->received_callbacks);
@@ -152,7 +165,6 @@ int ct_connection_deliver_to_app(ct_connection_t* connection,
 
     receive_callback->receive_callback(connection, &message, &ctx);
     free(receive_callback);
-    return 0;
   }
 }
 

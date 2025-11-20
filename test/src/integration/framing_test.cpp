@@ -15,7 +15,8 @@ extern "C" {
 
 static void length_prepend_encode(ct_connection_t* connection,
                                    const ct_message_t* message,
-                                   ct_message_context_t* context) {
+                                   ct_message_context_t* context,
+                                   ct_framer_done_encoding_callback callback) {
     // Prepend the message length as a single byte
     size_t framed_len = 1 + message->length;
     ct_message_t framed_msg;
@@ -27,8 +28,8 @@ static void length_prepend_encode(ct_connection_t* connection,
     // Copy original message after length byte
     memcpy((char*)framed_msg.content + 1, message->content, message->length);
 
-    // Send to protocol
-    ct_connection_send_to_protocol(connection, &framed_msg);
+    // Call the callback when encoding is complete
+    callback(connection, &framed_msg, context);
 
     free(framed_msg.content);
 }
@@ -56,13 +57,14 @@ static ct_framer_impl_t length_prepend_framer = {
 
 static void passthrough_encode(ct_connection_t* connection,
                                 const ct_message_t* message,
-                                ct_message_context_t* context) {
+                                ct_message_context_t* context,
+                                ct_framer_done_encoding_callback callback) {
     // Just pass through - send as-is
     ct_message_t pass_msg;
     pass_msg.content = message->content;
     pass_msg.length = message->length;
 
-    ct_connection_send_to_protocol(connection, &pass_msg);
+    callback(connection, &pass_msg, context);
 }
 
 static void strip_first_char_decode(ct_connection_t* connection,
