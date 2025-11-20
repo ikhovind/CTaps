@@ -81,8 +81,9 @@ target_include_directories(CTaps
 
 target_link_libraries(
         CTaps
-        PRIVATE
+        PUBLIC
             uv
+        PRIVATE
             picoquic-core
 )
 
