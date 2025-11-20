@@ -440,13 +440,19 @@ typedef struct ct_listener_callbacks_s {
 // Forward declaration
 typedef struct ct_framer_impl_s ct_framer_impl_t;
 
+// Callback invoked by framer when encoding is complete
+typedef void (*ct_framer_done_encoding_callback)(struct ct_connection_s* connection,
+                                                  ct_message_t* encoded_message,
+                                                  ct_message_context_t* context);
+
 // Message Framer Implementation Interface
 typedef struct ct_framer_impl_s {
   // Encode outbound message
-  // Implementation should call ct_connection_send_to_protocol() when done
+  // Implementation should call the callback when encoding is complete
   void (*encode_message)(struct ct_connection_s* connection,
                         const ct_message_t* message,
-                        ct_message_context_t* context);
+                        ct_message_context_t* context,
+                        ct_framer_done_encoding_callback callback);
 
   // Decode inbound data into messages
   // Implementation should call ct_connection_deliver_to_app() for each complete message
@@ -615,15 +621,9 @@ CT_EXTERN void ct_connection_build(ct_connection_t* connection);
 CT_EXTERN void ct_connection_free(ct_connection_t* connection);
 CT_EXTERN void ct_connection_close(ct_connection_t* connection);
 
-// Helper functions for framer implementations
-int ct_connection_send_to_protocol(ct_connection_t* connection,
-                                   ct_message_t* message);
 
-int ct_connection_deliver_to_app(ct_connection_t* connection,
-                                 ct_message_t* message,
-                                 ct_message_context_t* context);
-
-void ct_connection_on_protocol_receive(ct_connection_t* connection,
+// External because the user may want to implement their own protocol
+CT_EXTERN void ct_connection_on_protocol_receive(ct_connection_t* connection,
                                        const void* data,
                                        size_t len);
 
