@@ -24,17 +24,11 @@ void on_send(uv_udp_send_t* req, int status) {
   if (status) {
     log_error("Send error: %s\n", uv_strerror(status));
   }
-  if (req) {
-    // Free the buffer data that was allocated for the async send
-    if (req->data) {
-      uv_buf_t* buf = (uv_buf_t*)req->data;
-      if (buf->base) {
-        free(buf->base);
-      }
-      free(buf);
-    }
-    free(req);  // Free the send request
+  if (req && req->data) {
+    ct_message_t* message = (ct_message_t*)req->data;
+    ct_message_free_all(message);
   }
+  free(req);
 }
 
 void on_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
@@ -118,43 +112,27 @@ int udp_stop_listen(struct ct_socket_manager_s* socket_manager) {
 int udp_send(ct_connection_t* connection, ct_message_t* message, ct_message_context_t* message_context) {
   log_debug("Sending message over UDP");
 
-  // Allocate buffer that will persist until the async send completes
-  uv_buf_t* ctx_buffer = malloc(sizeof(uv_buf_t));
-  if (!ctx_buffer) {
-    log_error("Failed to allocate buffer\n");
-    return -ENOMEM;
-  }
-
-  ctx_buffer->base = malloc(message->length);
-  if (!ctx_buffer->base) {
-    log_error("Failed to allocate buffer data\n");
-    free(ctx_buffer);
-    return -ENOMEM;
-  }
-
-  ctx_buffer->len = message->length;
-  memcpy(ctx_buffer->base, message->content, message->length);
+  // Use the message content directly as the send buffer (it's already heap-allocated)
+  uv_buf_t buffer = uv_buf_init(message->content, message->length);
 
   uv_udp_send_t* send_req = malloc(sizeof(uv_udp_send_t));
   if (!send_req) {
     log_error("Failed to allocate send request\n");
-    free(ctx_buffer->base);
-    free(ctx_buffer);
+    ct_message_free_all(message);
     return -ENOMEM;
   }
 
-  // Store the buffer in send_req->data so we can free it in the callback
-  send_req->data = ctx_buffer;
+  // Store the message in send_req->data so we can free it in the callback
+  send_req->data = message;
 
   int rc = uv_udp_send(
-      send_req, (uv_udp_t*)connection->protocol_state, ctx_buffer, 1,
+      send_req, (uv_udp_t*)connection->protocol_state, &buffer, 1,
       (const struct sockaddr*)&connection->remote_endpoint.data.resolved_address,
       on_send);
 
   if (rc < 0) {
     log_error("Error sending UDP message: %s", uv_strerror(rc));
-    free(ctx_buffer->base);
-    free(ctx_buffer);
+    ct_message_free_all(message);
     free(send_req);
   }
 

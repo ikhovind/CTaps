@@ -133,6 +133,7 @@ add_gtest(remote_endpoint_integration_test
             src/integration/endpoint/remote_endpoint_test.cpp
             ${CMAKE_SOURCE_DIR}/src/endpoint/remote_endpoint.c
             ${CMAKE_SOURCE_DIR}/src/logging/log.c
+            ${CMAKE_SOURCE_DIR}/src/message/message.c
             ${CMAKE_SOURCE_DIR}/src/endpoint/util.c
             ${CMAKE_SOURCE_DIR}/src/protocol/udp/udp.c
             ${CMAKE_SOURCE_DIR}/src/protocol/tcp/tcp.c

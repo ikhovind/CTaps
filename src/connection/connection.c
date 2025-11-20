@@ -4,8 +4,9 @@
 #include <sys/socket.h>
 #include <uv.h>
 
-#include "ctaps.h"
 #include "connection/socket_manager/socket_manager.h"
+#include "message/message.h"
+#include "ctaps.h"
 #include "glib.h"
 
 // Helper functions for framer implementations
@@ -23,13 +24,22 @@ int ct_send_message(ct_connection_t* connection, ct_message_t* message) {
 }
 
 int ct_send_message_full(ct_connection_t* connection, ct_message_t* message, ct_message_context_t* message_context) {
+  // Deep copy the message so the library owns its lifetime
+  // This allows framers to be asynchronous without worrying about message validity
+  ct_message_t* message_copy = ct_message_deep_copy(message);
+  if (!message_copy) {
+    log_error("Failed to deep copy message");
+    return -ENOMEM;
+  }
+
   if (connection->framer_impl != NULL) {
     log_info("User sending message on connection with framer");
-    connection->framer_impl->encode_message(connection, message, message_context, ct_connection_send_to_protocol);
+    connection->framer_impl->encode_message(connection, message_copy, message_context, ct_connection_send_to_protocol);
     return 0;
   }
   log_info("User sending message on connection without framer");
-  ct_connection_send_to_protocol(connection, message, message_context);
+  ct_connection_send_to_protocol(connection, message_copy, message_context);
+  return 0;
 }
 
 int ct_receive_message(ct_connection_t* connection,
@@ -173,7 +183,7 @@ void ct_connection_on_protocol_receive(ct_connection_t* connection,
                                        size_t len) {
   if (connection->framer_impl != NULL) {
     // Framer present - let it decode, it will call ct_connection_deliver_to_app()
-    connection->framer_impl->decode_data(connection, data, len);
+    connection->framer_impl->decode_data(connection, data, len, ct_connection_deliver_to_app);
   } else {
     // No framer - deliver directly to application
     ct_message_t* received_message = malloc(sizeof(ct_message_t));

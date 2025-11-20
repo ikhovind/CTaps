@@ -445,12 +445,16 @@ typedef void (*ct_framer_done_encoding_callback)(struct ct_connection_s* connect
                                                   ct_message_t* encoded_message,
                                                   ct_message_context_t* context);
 
+typedef void (*ct_framer_done_decoding_callback)(struct ct_connection_s* connection,
+                                                  ct_message_t* encoded_message,
+                                                  ct_message_context_t* context);
+
 // Message Framer Implementation Interface
 typedef struct ct_framer_impl_s {
   // Encode outbound message
   // Implementation should call the callback when encoding is complete
   void (*encode_message)(struct ct_connection_s* connection,
-                        const ct_message_t* message,
+                        ct_message_t* message,
                         ct_message_context_t* context,
                         ct_framer_done_encoding_callback callback);
 
@@ -458,7 +462,8 @@ typedef struct ct_framer_impl_s {
   // Implementation should call ct_connection_deliver_to_app() for each complete message
   void (*decode_data)(struct ct_connection_s* connection,
                      const void* data,
-                     size_t len);
+                     size_t len,
+                     ct_framer_done_decoding_callback callback);
 } ct_framer_impl_t;
 
 // =============================================================================
