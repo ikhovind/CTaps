@@ -9,7 +9,7 @@
 #include "ctaps.h"
 #include "glib.h"
 
-// Helper functions for framer implementations
+// Passed as callbacks to framer implementations
 void ct_connection_send_to_protocol(ct_connection_t* connection,
                                    ct_message_t* message,
                                    ct_message_context_t* context);
@@ -61,6 +61,10 @@ int ct_receive_message(ct_connection_t* connection,
   }
 
   ct_receive_callbacks_t* ptr = malloc(sizeof(ct_receive_callbacks_t));
+  if (!ptr) {
+    log_error("Failed to allocate memory for receive callbacks");
+    return -ENOMEM;
+  }
   memcpy(ptr, &receive_callbacks, sizeof(ct_receive_callbacks_t));
 
   // If we don't have a message to receive, add the callback to the queue of
@@ -146,10 +150,6 @@ void ct_connection_free(ct_connection_t* connection) {
   free(connection);
 }
 
-// =============================================================================
-// Helper Functions for Framer Implementations
-// =============================================================================
-
 void ct_connection_send_to_protocol(ct_connection_t* connection,
                                    ct_message_t* message,
                                    ct_message_context_t* context) {
@@ -187,7 +187,16 @@ void ct_connection_on_protocol_receive(ct_connection_t* connection,
   } else {
     // No framer - deliver directly to application
     ct_message_t* received_message = malloc(sizeof(ct_message_t));
+    if (!received_message) {
+      log_error("Failed to allocate memory for received message");
+      return;
+    }
     received_message->content = malloc(len);
+    if (!received_message->content) {
+      log_error("Failed to allocate memory for received message content");
+      free(received_message);
+      return;
+    }
     received_message->length = len;
     memcpy(received_message->content, data, len);
 
