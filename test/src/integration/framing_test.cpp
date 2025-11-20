@@ -24,6 +24,7 @@ static void length_prepend_encode(ct_connection_t* connection,
     memcpy(new_buf + 1, message->content, message->length);
     free(message->content);
     message->content = new_buf;
+    message->length += 1;
 
     callback(connection, message, context);
 }
@@ -67,7 +68,7 @@ static void strip_first_char_decode(ct_connection_t* connection,
     if (len <= 1) {
         // If message is 1 byte or empty, deliver empty message
         ct_message_t* msg = (ct_message_t*)malloc(sizeof(ct_message_t));
-        msg->content = (char*)malloc(1);
+        msg->content = nullptr;
         msg->length = 0;
         callback(connection, msg, NULL);
         return;
