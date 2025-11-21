@@ -30,6 +30,7 @@ set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "-s" CACHE STRING "Shared linker flags for
 
 include(tidy)
 include(format)
+include(doxygen)
 include(dependencies)
 
 set(CTAPS_SOURCES

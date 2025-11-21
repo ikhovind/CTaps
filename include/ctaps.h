@@ -450,7 +450,7 @@ typedef void (*ct_framer_done_decoding_callback)(struct ct_connection_s* connect
                                                   ct_message_context_t* context);
 
 // Message Framer Implementation Interface
-typedef struct ct_framer_impl_s {
+struct ct_framer_impl_s {
   // Encode outbound message
   // Implementation should call the callback when encoding is complete
   void (*encode_message)(struct ct_connection_s* connection,
@@ -464,7 +464,7 @@ typedef struct ct_framer_impl_s {
                      const void* data,
                      size_t len,
                      ct_framer_done_decoding_callback callback);
-} ct_framer_impl_t;
+};
 
 // =============================================================================
 // Protocol Interface - Protocol implementation abstraction
@@ -613,6 +613,63 @@ CT_EXTERN int ct_preconnection_build_with_local(ct_preconnection_t* preconnectio
 CT_EXTERN void ct_preconnection_add_remote_endpoint(ct_preconnection_t* preconnection, const ct_remote_endpoint_t* remote_endpoint);
 CT_EXTERN void ct_preconnection_set_local_endpoint(ct_preconnection_t* preconnection, const ct_local_endpoint_t* local_endpoint);
 CT_EXTERN void ct_preconnection_free(ct_preconnection_t* preconnection);
+
+/**
+ * @brief Initiates a connection using the configured Preconnection.
+ *
+ * This function begins the process of establishing a connection based on the transport
+ * properties, endpoints, and security parameters configured in the Preconnection object.
+ * The library will attempt to establish a connection using suitable protocol candidates
+ * (TCP, UDP, or QUIC) determined by the candidate gathering system.
+ *
+ * The function is asynchronous - it returns immediately and connection establishment
+ * proceeds in the background. Use the provided callbacks to receive notifications about
+ * connection state changes, readiness, and errors.
+ *
+ * @param[in] preconnection Pointer to the Preconnection object containing the connection
+ *                          configuration (transport properties, endpoints, security parameters).
+ *                          Must not be NULL.
+ * @param[out] connection Pointer to a Connection object that will be populated with the
+ *                        active connection state. Must be allocated by the caller using
+ *                        ct_connection_build(). Must not be NULL.
+ * @param[in] connection_callbacks Struct containing callback functions for connection events:
+ *                                 - ready: Called when the connection is established and ready
+ *                                 - connection_error: Called if connection establishment fails
+ *                                 - sent: Called when sent messages are acknowledged
+ *                                 - closed: Called when the connection is closed
+ *
+ * @return 0 on success (connection establishment initiated successfully)
+ * @return Non-zero error code on failure (invalid parameters, resource allocation failure, etc.)
+ *
+ * @note The Preconnection object remains owned by the caller and should not be freed until
+ *       the connection is established or has failed.
+ * @note The event loop (ctaps_event_loop) must be running via ctaps_start_event_loop() for
+ *       asynchronous operations to proceed.
+ *
+ * @see ct_preconnection_build() for creating a Preconnection
+ * @see ct_connection_build() for allocating a Connection object
+ * @see ct_send_message() for sending data over the established connection
+ * @see ct_connection_close() for closing an active connection
+ *
+ * @par Example:
+ * @code
+ * ct_preconnection_t* precon = ct_preconnection_build(...);
+ * ct_connection_t* conn = malloc(sizeof(ct_connection_t));
+ * ct_connection_build(conn);
+ *
+ * ct_connection_callbacks_t callbacks = {
+ *     .ready = on_ready,
+ *     .connection_error = on_error,
+ *     .sent = on_sent,
+ *     .closed = on_closed
+ * };
+ *
+ * int result = ct_preconnection_initiate(precon, conn, callbacks);
+ * if (result != 0) {
+ *     // Handle error
+ * }
+ * @endcode
+ */
 CT_EXTERN int ct_preconnection_initiate(ct_preconnection_t* preconnection, ct_connection_t* connection, ct_connection_callbacks_t connection_callbacks);
 CT_EXTERN int ct_preconnection_listen(ct_preconnection_t* preconnection, ct_listener_t* listener, ct_listener_callbacks_t listener_callbacks);
 
