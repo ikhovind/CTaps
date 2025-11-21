@@ -19,11 +19,9 @@ static void length_prepend_encode(ct_connection_t* connection,
                                    ct_framer_done_encoding_callback callback) {
     // Prepend the message length as a single byte
     // First byte is the length
-    char* new_buf = (char*)malloc(message->length + 1);
-    new_buf[0] = '0' + (char)message->length;
-    memcpy(new_buf + 1, message->content, message->length);
-    free(message->content);
-    message->content = new_buf;
+    message->content = (char*)realloc(message->content, message->length + 1);
+    memmove(message->content + 1, message->content, message->length);
+    message->content[0] = '0' + (char)(message->length);
     message->length += 1;
 
     callback(connection, message, context);
