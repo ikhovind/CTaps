@@ -13,6 +13,21 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_MESSAGE_LOG_LEVEL DEBUG)
 
+# ---- Build Type Configuration ----
+# Set default build type to Debug if not specified
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build (Debug, Release)")
+endif()
+
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+
+# Define compiler flags for different build types
+set(CMAKE_C_FLAGS_DEBUG "-O0 -g -Wall -Wextra" CACHE STRING "Flags for Debug build")
+set(CMAKE_C_FLAGS_RELEASE "-O2 -DNDEBUG -Wall -Wextra" CACHE STRING "Flags for Release build")
+
+# Linker flags for Release build (strip symbols)
+set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "-s" CACHE STRING "Shared linker flags for Release build")
+
 include(tidy)
 include(format)
 include(dependencies)
