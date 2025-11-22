@@ -39,16 +39,16 @@ extern ct_config_t global_config;
 extern uv_loop_t* event_loop;
 
 /**
- * @brief Initialize the CTaps library with TLS credentials.
+ * @brief Initialize the CTaps library
  *
  * This function must be called before any other CTaps functions. It initializes
  * the library state, sets up the protocol registry, and configures TLS credentials
- * for secure connections (QUIC/TLS).
+ * for secure connections (QUIC).
  *
  * @param[in] cert_file_name Path to the TLS certificate file (PEM format). Can be NULL
- *                           if TLS/QUIC will not be used.
+ *                           if QUIC will not be used.
  * @param[in] key_file_name Path to the TLS private key file (PEM format). Can be NULL
- *                          if TLS/QUIC will not be used.
+ *                          if QUIC will not be used.
  *
  * @return 0 on success
  * @return Non-zero error code on failure
@@ -64,33 +64,19 @@ CT_EXTERN int ct_initialize(const char *cert_file_name, const char *key_file_nam
 /**
  * @brief Start the CTaps event loop (blocking operation).
  *
- * This function starts the libuv event loop that drives all asynchronous I/O operations
- * in CTaps. It is a blocking call that runs until all active connections are closed or
- * until ct_close() is called from a callback.
- *
- * All connection establishment, data transfer, and callbacks occur within this event loop.
- *
  * @note This is a blocking function - it will not return until the event loop is stopped
  * @note Must be called after ct_initialize()
  * @note All CTaps callbacks are invoked from within this event loop's thread context
  *
  * @see ct_initialize() for library initialization
- * @see ct_close() for stopping the event loop
  */
 CT_EXTERN void ct_start_event_loop();
 
 /**
  * @brief Close and cleanup the CTaps library.
  *
- * This function stops the event loop, closes all active connections and listeners,
- * frees allocated resources, and shuts down the protocol registry.
- *
  * @return 0 on success
  * @return Non-zero error code on failure
- *
- * @note After calling this function, ct_initialize() must be called again before
- *       using any other CTaps functions
- * @note All Connection and Listener objects become invalid after this call
  *
  * @see ct_initialize() for re-initializing the library
  */
@@ -105,13 +91,22 @@ CT_EXTERN int ct_close();
  *
  * These values express how strongly a particular transport property is desired,
  * ranging from PROHIBIT (must not have) to REQUIRE (must have).
+ *
+ * If a candidate cannot fulfill a PROHIBIT or REQUIRE it is pruned completely.
+ *
+ * If a candidate cannot fulfill an AVOID or PREFER it is placed later in
+ * the order of possible candidates to race. 
+ *
+ * @note A missing PREFER is placed later than any missing avoids. even if
+ * a candidate cannot fulfill 10 AVOIDs, it will be placed before a candidate
+ * which is missing only a single PREFER
  */
 typedef enum {
   PROHIBIT = -2,      ///< Protocol MUST NOT have this property (eliminates candidates)
   AVOID,              ///< Prefer protocols without this property if possible
   NO_PREFERENCE,      ///< No preference - property does not affect selection
   PREFER,             ///< Prefer protocols with this property if available
-  REQUIRE,            ///< Protocol MUST have this property (eliminates candidates without it)
+  REQUIRE,            ///< Protocol MUST have this property (eliminates candidates)
 } ct_selection_preference_t;
 
 /**
@@ -130,8 +125,8 @@ typedef enum ct_property_type_t {
  */
 typedef enum ct_direction_of_communication_t {
   DIRECTION_BIDIRECTIONAL,          ///< Two-way communication (send and receive)
-  DIRECTION_UNIDIRECTIONAL_SEND,    ///< One-way send only
-  DIRECTION_UNIDIRECTIONAL_RECV     ///< One-way receive only
+  DIRECTION_UNIDIRECTIONAL_SEND,    ///< One-way, send only
+  DIRECTION_UNIDIRECTIONAL_RECV     ///< One-way, receive only
 } ct_direction_of_communication_enum_t;
 
 /**
@@ -140,7 +135,7 @@ typedef enum ct_direction_of_communication_t {
 typedef enum ct_multipath_enum_t {
   MULTIPATH_DISABLED,  ///< Do not use multipath
   MULTIPATH_ACTIVE,    ///< Actively use multiple paths simultaneously
-  MULTIPATH_PASSIVE    ///< Maintain backup paths but use single active path
+  MULTIPATH_PASSIVE    ///< TBD 
 } ct_multipath_enum_t;
 
 /**
@@ -332,10 +327,10 @@ typedef enum {
  * @brief Union holding connection property values.
  */
 typedef union {
-  uint32_t uint32_val;  ///< 32-bit unsigned integer value
-  uint64_t uint64_val;  ///< 64-bit unsigned integer value
-  bool bool_val;        ///< Boolean value
-  int enum_val;         ///< Enumeration value
+  uint32_t uint32_val;
+  uint64_t uint64_val;
+  bool bool_val;
+  int enum_val;
 } ct_connection_property_value_t;
 
 /**
@@ -421,20 +416,20 @@ static ct_connection_property_t DEFAULT_CONNECTION_PROPERTIES[] = {
  * @brief Type of value stored in a message property.
  */
 typedef enum ct_message_property_type_t {
-  TYPE_INTEGER_MSG,  ///< 32-bit integer value
-  TYPE_BOOLEAN_MSG,  ///< Boolean value
-  TYPE_UINT64_MSG,   ///< 64-bit unsigned integer value
-  TYPE_ENUM_MSG      ///< Enumeration value
+  TYPE_INTEGER_MSG,
+  TYPE_BOOLEAN_MSG,
+  TYPE_UINT64_MSG,
+  TYPE_ENUM_MSG
 } ct_message_property_type_t;
 
 /**
  * @brief Union holding message property values.
  */
 typedef union {
-  uint64_t uint64_value;                      ///< For TYPE_UINT64_MSG properties
-  uint32_t integer_value;                     ///< For TYPE_INTEGER_MSG properties
-  bool boolean_value;                         ///< For TYPE_BOOLEAN_MSG properties
-  ct_capacity_profile_enum_t enum_value;      ///< For TYPE_ENUM_MSG properties
+  uint32_t integer_value;
+  bool boolean_value;
+  uint64_t uint64_value;
+  ct_capacity_profile_enum_t enum_value;
 } ct_message_property_value_t;
 
 /**
@@ -463,8 +458,6 @@ typedef struct ct_message_property_s {
 
 /**
  * @brief Enumeration of all available message properties.
- *
- * Message properties control per-message behavior like reliability, ordering, and priority.
  */
 typedef enum { get_message_property_list(output_enum) MESSAGE_PROPERTY_END } ct_message_property_enum_t;
 
@@ -483,7 +476,7 @@ typedef struct {
 // =============================================================================
 
 /**
- * @brief Combined transport properties for protocol selection and connection configuration.
+ * @brief Transport properties for protocol selection and connection configuration.
  *
  * This structure contains both selection properties (for choosing protocols) and
  * connection properties (for configuring active connections).
@@ -541,17 +534,11 @@ typedef struct ct_sec_property_s {
 
 /**
  * @brief Enumeration of all available security parameters.
- *
- * These parameters configure TLS/QUIC security settings like supported groups,
- * cipher suites, signature algorithms, and ALPN protocols.
  */
 typedef enum { get_security_parameter_list(output_sec_enum) SEC_PROPERTY_END } ct_security_property_enum_t;
 
 /**
  * @brief Collection of all security parameters.
- *
- * Contains security configuration for TLS and QUIC connections.
- * Parameters are indexed by ct_security_property_enum_t.
  */
 typedef struct {
   ct_security_parameter_t security_parameters[SEC_PROPERTY_END];  ///< Array of security parameters
@@ -617,9 +604,6 @@ CT_EXTERN void ct_tp_set_sel_prop_interface(ct_transport_properties_t* props, ch
 
 /**
  * @brief Local endpoint specification for binding connections/listeners.
- *
- * Specifies the local address, port, interface, or service name to bind to.
- * Use the builder pattern: ct_local_endpoint_build() → ct_local_endpoint_with_*() → ct_local_endpoint_resolve()
  */
 typedef struct {
   uint16_t port;            ///< Port number (0 = any port)
@@ -836,13 +820,12 @@ struct ct_framer_impl_s {
   /**
    * @brief Decode inbound data into application messages.
    *
-   * Implementation should call ct_connection_deliver_to_app() for each complete
-   * message extracted from the data stream.
-   *
    * @param[in] connection The connection
    * @param[in] data Raw data buffer received from transport
    * @param[in] len Length of data buffer
-   * @param[in] callback Callback to invoke for each decoded message
+   * @param[in] callback Callback to invoke when decoding is complete
+   *
+   * TODO - Change this to take a message object instead of raw data?
    */
   void (*decode_data)(struct ct_connection_s* connection,
                      const void* data,
@@ -1132,6 +1115,8 @@ ct_local_endpoint_t ct_local_endpoint_copy_content(const ct_local_endpoint_t* lo
  * @param[out] out_list Output array of resolved endpoints (caller must free)
  * @param[out] out_count Number of endpoints in output array
  * @return 0 on success, non-zero on error
+ *  
+ * TODO - this shouldn't be public?
  */
 CT_EXTERN int ct_local_endpoint_resolve(const ct_local_endpoint_t* local_endpoint, ct_local_endpoint_t** out_list, size_t* out_count);
 
@@ -1346,15 +1331,6 @@ CT_EXTERN void ct_preconnection_free(ct_preconnection_t* preconnection);
 /**
  * @brief Initiates a connection using the configured Preconnection.
  *
- * This function begins the process of establishing a connection based on the transport
- * properties, endpoints, and security parameters configured in the Preconnection object.
- * The library will attempt to establish a connection using suitable protocol candidates
- * (TCP, UDP, or QUIC) determined by the candidate gathering system.
- *
- * The function is asynchronous - it returns immediately and connection establishment
- * proceeds in the background. Use the provided callbacks to receive notifications about
- * connection state changes, readiness, and errors.
- *
  * @param[in] preconnection Pointer to the Preconnection object containing the connection
  *                          configuration (transport properties, endpoints, security parameters).
  *                          Must not be NULL.
@@ -1369,43 +1345,11 @@ CT_EXTERN void ct_preconnection_free(ct_preconnection_t* preconnection);
  *
  * @return 0 on success (connection establishment initiated successfully)
  * @return Non-zero error code on failure (invalid parameters, resource allocation failure, etc.)
- *
- * @note The Preconnection object remains owned by the caller and should not be freed until
- *       the connection is established or has failed.
- * @note The event loop (ctaps_event_loop) must be running via ctaps_start_event_loop() for
- *       asynchronous operations to proceed.
- *
- * @see ct_preconnection_build() for creating a Preconnection
- * @see ct_connection_build() for allocating a Connection object
- * @see ct_send_message() for sending data over the established connection
- * @see ct_connection_close() for closing an active connection
- *
- * @par Example:
- * @code
- * ct_preconnection_t* precon = ct_preconnection_build(...);
- * ct_connection_t* conn = malloc(sizeof(ct_connection_t));
- * ct_connection_build(conn);
- *
- * ct_connection_callbacks_t callbacks = {
- *     .ready = on_ready,
- *     .connection_error = on_error,
- *     .sent = on_sent,
- *     .closed = on_closed
- * };
- *
- * int result = ct_preconnection_initiate(precon, conn, callbacks);
- * if (result != 0) {
- *     // Handle error
- * }
- * @endcode
  */
 CT_EXTERN int ct_preconnection_initiate(ct_preconnection_t* preconnection, ct_connection_t* connection, ct_connection_callbacks_t connection_callbacks);
 
 /**
  * @brief Start listening for incoming connections using the configured Preconnection.
- *
- * This function creates a listener that accepts incoming connections based on the
- * transport properties and local endpoint configured in the Preconnection.
  *
  * @param[in] preconnection Pointer to preconnection with listener configuration
  * @param[out] listener Pointer to listener object to initialize. Must be allocated by caller.
