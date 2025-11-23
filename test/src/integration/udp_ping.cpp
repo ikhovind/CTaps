@@ -27,6 +27,7 @@ TEST_F(UdpGenericTests, sendsSingleUdpPacket) {
 
   ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PROHIBIT);
   ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
+  ct_tp_set_sel_prop_preference(&transport_properties, CONGESTION_CONTROL, PROHIBIT);
 
   ct_preconnection_t preconnection;
   ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
@@ -72,6 +73,7 @@ TEST_F(UdpGenericTests, packetsAreReadInOrder) {
 
   ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PROHIBIT);
   ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
+  ct_tp_set_sel_prop_preference(&transport_properties, CONGESTION_CONTROL, PROHIBIT);
 
   ct_preconnection_t preconnection;
   ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
@@ -121,6 +123,7 @@ TEST_F(UdpGenericTests, canPingArbitraryBytes) {
 
   ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PROHIBIT);
   ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
+  ct_tp_set_sel_prop_preference(&transport_properties, CONGESTION_CONTROL, PROHIBIT);
 
   ct_preconnection_t preconnection;
   ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);

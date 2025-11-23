@@ -33,7 +33,8 @@ TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) 
     ct_transport_properties_build(&listener_props);
 
     ct_tp_set_sel_prop_preference(&listener_props, RELIABILITY, REQUIRE);
-    ct_tp_set_sel_prop_preference(&listener_props, ACTIVE_READ_BEFORE_SEND, REQUIRE);
+    ct_tp_set_sel_prop_preference(&listener_props, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
+    ct_tp_set_sel_prop_preference(&listener_props, MULTISTREAMING, PROHIBIT);
 
     ct_preconnection_t listener_precon;
     ct_preconnection_build_with_local(&listener_precon, listener_props, &listener_remote, 1, NULL, listener_endpoint);
@@ -57,7 +58,8 @@ TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) 
     ct_transport_properties_build(&client_props);
 
     ct_tp_set_sel_prop_preference(&client_props, RELIABILITY, REQUIRE);
-    ct_tp_set_sel_prop_preference(&client_props, ACTIVE_READ_BEFORE_SEND, REQUIRE);
+    ct_tp_set_sel_prop_preference(&client_props, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
+    ct_tp_set_sel_prop_preference(&client_props, MULTISTREAMING, PROHIBIT);
 
     ct_preconnection_t client_precon;
     ct_preconnection_build(&client_precon, client_props, &client_remote, 1, NULL);

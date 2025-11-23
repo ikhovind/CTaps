@@ -80,8 +80,9 @@ int custom_uv_interface_addresses(uv_interface_address_t** addresses, int* count
 }
 
 
+class LocalEndpointInitTest : public CTapsGenericFixture {};
 
-TEST_F(CTapsGenericFixture, UsesInterfaceAddress_whenInterfaceIsSpecified) {
+TEST_F(LocalEndpointInitTest, UsesInterfaceAddress_whenInterfaceIsSpecified) {
     FFF_RESET_HISTORY();
     RESET_FAKE(uv_udp_bind)
     RESET_FAKE(uv_interface_addresses)
@@ -107,17 +108,14 @@ TEST_F(CTapsGenericFixture, UsesInterfaceAddress_whenInterfaceIsSpecified) {
     ct_transport_properties_build(&transport_properties);
     ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PROHIBIT);
     ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
+    ct_tp_set_sel_prop_preference(&transport_properties, CONGESTION_CONTROL, PROHIBIT);
 
     ct_preconnection_t preconnection;
     ct_preconnection_build_with_local(&preconnection, transport_properties, &remote_endpoint, 1, NULL, local_endpoint);
 
-    CallbackContext callback_context = {
-        .messages = &received_messages,
-    };
-
     ct_connection_callbacks_t connection_callbacks = {
         .ready = on_connection_ready,
-        .user_connection_context = &callback_context
+        .user_connection_context = &test_context
     };
 
 

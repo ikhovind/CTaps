@@ -231,9 +231,10 @@ TEST(CandidateRacingTests, SingleCandidateOptimization) {
   ct_transport_properties_t transport_properties;
   ct_transport_properties_build(&transport_properties);
 
-  // Require both reliability and message boundaries - should only match one protocol
+  // Select TCP specifically - stream-based, reliable, no multistreaming
   ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
-  ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_MSG_BOUNDARIES, REQUIRE);
+  ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
+  ct_tp_set_sel_prop_preference(&transport_properties, MULTISTREAMING, PROHIBIT);
 
   ct_preconnection_t preconnection;
   ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);

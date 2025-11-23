@@ -27,7 +27,8 @@ TEST_F(TcpGenericTests, successfullyConnectsToTcpServer) {
   ct_transport_properties_build(&transport_properties);
 
   ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
-  ct_tp_set_sel_prop_preference(&transport_properties, ACTIVE_READ_BEFORE_SEND, REQUIRE);
+  ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
+  ct_tp_set_sel_prop_preference(&transport_properties, MULTISTREAMING, PROHIBIT);
 
   ct_preconnection_t preconnection;
   ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
@@ -61,7 +62,8 @@ TEST_F(TcpGenericTests, connectionErrorCalledWhenNoServer) {
   ct_transport_properties_build(&transport_properties);
 
   ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
-  ct_tp_set_sel_prop_preference(&transport_properties, ACTIVE_READ_BEFORE_SEND, REQUIRE);
+  ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
+  ct_tp_set_sel_prop_preference(&transport_properties, MULTISTREAMING, PROHIBIT);
 
   ct_preconnection_t preconnection;
   ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
@@ -98,7 +100,8 @@ TEST_F(TcpGenericTests, sendsSingleTcpMessage) {
   ct_transport_properties_build(&transport_properties);
 
   ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
-  ct_tp_set_sel_prop_preference(&transport_properties, ACTIVE_READ_BEFORE_SEND, REQUIRE);
+  ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
+  ct_tp_set_sel_prop_preference(&transport_properties, MULTISTREAMING, PROHIBIT);
 
   ct_preconnection_t preconnection;
   ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);

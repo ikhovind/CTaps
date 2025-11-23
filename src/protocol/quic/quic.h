@@ -21,11 +21,23 @@ static ct_protocol_impl_t quic_protocol_interface = {
     .name = "QUIC",
     .selection_properties = {
       .selection_property = {
-        get_selection_property_list(create_sel_property_initializer)
-        [RELIABILITY] = {.value = {.simple_preference = NO_PREFERENCE}},
+        [RELIABILITY] = {.value = {.simple_preference = REQUIRE}},
+        [PRESERVE_MSG_BOUNDARIES] = {.value = {.simple_preference = REQUIRE}},
+        [PER_MSG_RELIABILITY] = {.value = {.simple_preference = PREFER}},
         [PRESERVE_ORDER] = {.value = {.simple_preference = REQUIRE}},
-        [PRESERVE_MSG_BOUNDARIES] = {.value = {.simple_preference = NO_PREFERENCE}},
+        [ZERO_RTT_MSG] = {.value = {.simple_preference = NO_PREFERENCE}},
         [MULTISTREAMING] = {.value = {.simple_preference = NO_PREFERENCE}},
+        [FULL_CHECKSUM_SEND] = {.value = {.simple_preference = REQUIRE}},
+        [FULL_CHECKSUM_RECV] = {.value = {.simple_preference = REQUIRE}},
+        [CONGESTION_CONTROL] = {.value = {.simple_preference = REQUIRE}},
+        [KEEP_ALIVE] = {.value = {.simple_preference = NO_PREFERENCE}},
+        [INTERFACE] = {.value = {.simple_preference = NO_PREFERENCE}},
+        [PVD] = {.value = {.simple_preference = NO_PREFERENCE}},
+        [USE_TEMPORARY_LOCAL_ADDRESS] = {.value = {.simple_preference = NO_PREFERENCE}},
+        [MULTIPATH] = {.value = {.simple_preference = NO_PREFERENCE}},
+        [ADVERTISES_ALT_ADDRES] = {.value = {.simple_preference = NO_PREFERENCE}},
+        [DIRECTION] = {.value = {.simple_preference = NO_PREFERENCE}},
+        [SOFT_ERROR_NOTIFY] = {.value = {.simple_preference = NO_PREFERENCE}},
         [ACTIVE_READ_BEFORE_SEND] = {.value = {.simple_preference = PROHIBIT}}, // Temporary - to make it easy to ban quic
       }
     },

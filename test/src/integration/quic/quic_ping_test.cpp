@@ -25,6 +25,7 @@ TEST_F(QuicPingTest, successfullyConnectsToQuicServer) {
   ct_transport_properties_build(&transport_properties);
 
   ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
+  ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_MSG_BOUNDARIES, REQUIRE);
   ct_tp_set_sel_prop_preference(&transport_properties, MULTISTREAMING, REQUIRE); // force QUIC
 
   ct_security_parameters_t security_parameters;

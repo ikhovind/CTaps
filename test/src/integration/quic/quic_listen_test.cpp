@@ -34,6 +34,7 @@ TEST_F(QuicListenTests, QuicReceivesConnectionFromListenerAndExchangesMessages) 
     ct_transport_properties_t listener_props;
     ct_transport_properties_build(&listener_props);
     ct_tp_set_sel_prop_preference(&listener_props, RELIABILITY, REQUIRE);
+    ct_tp_set_sel_prop_preference(&listener_props, PRESERVE_MSG_BOUNDARIES, REQUIRE);
     ct_tp_set_sel_prop_preference(&listener_props, MULTISTREAMING, REQUIRE); // force QUIC
 
     ct_security_parameters_t server_security_parameters;
@@ -63,6 +64,7 @@ TEST_F(QuicListenTests, QuicReceivesConnectionFromListenerAndExchangesMessages) 
     ct_transport_properties_build(&client_props);
 
     ct_tp_set_sel_prop_preference(&client_props, RELIABILITY, REQUIRE);
+    ct_tp_set_sel_prop_preference(&client_props, PRESERVE_MSG_BOUNDARIES, REQUIRE);
     ct_tp_set_sel_prop_preference(&client_props, MULTISTREAMING, REQUIRE);
 
     ct_security_parameters_t client_security_parameters;
