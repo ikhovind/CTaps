@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "connection/socket_manager/socket_manager.h"
+#include "connection/connection.h"
 #include "ctaps.h"
 
 #define INT_TO_STRING(x) #x
@@ -130,7 +131,7 @@ void ct_preconnection_free(ct_preconnection_t* preconnection) {
 
 void ct_preconnection_build_user_connection(ct_connection_t* connection, const ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks) {
   log_debug("Building user connection from preconnection");
-  memset(connection, 0, sizeof(ct_connection_t));
+  ct_connection_build_base(connection);
 
   // Initialize transport properties with defaults
   ct_transport_properties_build(&connection->transport_properties);
