@@ -69,6 +69,7 @@ function(add_gtest test_name)
             gmock
             fff
             ${GLIB_LIBRARIES}
+            ${UUID_LIBRARIES}
             uv
             picoquic-core
     )

@@ -3,11 +3,20 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <uv.h>
+#include <uuid/uuid.h>
 
 #include "connection/socket_manager/socket_manager.h"
+#include "connection/connection.h"
 #include "message/message.h"
 #include "ctaps.h"
 #include "glib.h"
+
+void ct_connection_build_base(ct_connection_t* connection) {
+  memset(connection, 0, sizeof(ct_connection_t));
+  uuid_t uuid;
+  uuid_generate(uuid);
+  uuid_unparse(uuid, connection->uuid);
+}
 
 // Passed as callbacks to framer implementations
 void ct_connection_send_to_protocol(ct_connection_t* connection,
@@ -75,7 +84,7 @@ int ct_receive_message(ct_connection_t* connection,
 }
 
 void ct_connection_build_multiplexed(ct_connection_t* connection, const ct_listener_t* listener, const ct_remote_endpoint_t* remote_endpoint) {
-  memset(connection, 0, sizeof(ct_connection_t));
+  ct_connection_build_base(connection);
   connection->local_endpoint = listener->local_endpoint;
   connection->transport_properties = listener->transport_properties;
   connection->remote_endpoint = *remote_endpoint;
@@ -110,7 +119,7 @@ ct_connection_t* ct_connection_build_from_received_handle(const struct ct_listen
     log_error("Failed to allocate memory for ct_connection_t");
     return NULL;
   }
-  memset(connection, 0, sizeof(ct_connection_t));
+  ct_connection_build_base(connection);
 
   connection->transport_properties = listener->transport_properties;
   connection->local_endpoint = listener->local_endpoint;
@@ -202,4 +211,55 @@ void ct_connection_on_protocol_receive(ct_connection_t* connection,
 
     ct_connection_deliver_to_app(connection, received_message, NULL);
   }
+}
+
+void ct_connection_abort(ct_connection_t* connection) {
+  log_info("Aborting connection: %p", (void*)connection);
+  ct_connection_close(connection);
+}
+
+int ct_connection_clone(
+    const ct_connection_t* source_connection,
+    ct_connection_t* cloned_connection,
+    ct_framer_impl_t* framer,
+    const ct_transport_properties_t* connection_properties,
+    ct_connection_callbacks_t connection_callbacks
+) {
+  log_error("Connection cloning not yet implemented");
+  (void)source_connection;
+  (void)cloned_connection;
+  (void)framer;
+  (void)connection_properties;
+  (void)connection_callbacks;
+  return -ENOSYS;
+}
+
+int ct_connection_get_grouped_connections(
+    const ct_connection_t* connection,
+    ct_connection_t*** grouped_connections,
+    size_t* num_connections
+) {
+  log_debug("Getting grouped connections for connection: %p", (void*)connection);
+
+  ct_connection_t** group = malloc(sizeof(ct_connection_t*));
+  if (!group) {
+    log_error("Failed to allocate memory for grouped connections array");
+    return -ENOMEM;
+  }
+
+  group[0] = (ct_connection_t*)connection;
+  *grouped_connections = group;
+  *num_connections = 1;
+
+  return 0;
+}
+
+void ct_connection_close_group(ct_connection_t* connection) {
+  log_info("Closing connection group for connection: %p", (void*)connection);
+  ct_connection_close(connection);
+}
+
+void ct_connection_abort_group(ct_connection_t* connection) {
+  log_info("Aborting connection group for connection: %p", (void*)connection);
+  ct_connection_abort(connection);
 }

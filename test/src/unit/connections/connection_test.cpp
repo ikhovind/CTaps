@@ -6,6 +6,7 @@ extern "C" {
 #include "util/util.h"
 #include "ctaps.h"
 #include <connection/socket_manager/socket_manager.h>
+#include <connection/connection.h>
 }
 
 TEST(ConnectionUnitTests, TakesDeepCopyOfTransportProperties) {
@@ -43,4 +44,43 @@ TEST(ConnectionUnitTests, TakesDeepCopyOfTransportProperties) {
 
     ASSERT_EQ(connection.transport_properties.selection_properties.selection_property[RELIABILITY].value.simple_preference, REQUIRE);
     ASSERT_EQ(mock_listener.transport_properties.selection_properties.selection_property[RELIABILITY].value.simple_preference, PROHIBIT);
+}
+
+TEST(ConnectionUnitTests, GeneratesUniqueUUIDs) {
+    ct_connection_t connection1;
+    ct_connection_t connection2;
+
+    ct_connection_build_base(&connection1);
+    ct_connection_build_base(&connection2);
+
+    // Verify both have UUIDs
+    ASSERT_GT(strlen(connection1.uuid), 0);
+    ASSERT_GT(strlen(connection2.uuid), 0);
+
+    // Verify UUIDs are different
+    ASSERT_STRNE(connection1.uuid, connection2.uuid);
+
+    // Verify UUID format (36 characters: 8-4-4-4-12 with hyphens)
+    ASSERT_EQ(strlen(connection1.uuid), 36);
+    ASSERT_EQ(strlen(connection2.uuid), 36);
+
+    // Check hyphens are in the right places
+    ASSERT_EQ(connection1.uuid[8], '-');
+    ASSERT_EQ(connection1.uuid[13], '-');
+    ASSERT_EQ(connection1.uuid[18], '-');
+    ASSERT_EQ(connection1.uuid[23], '-');
+
+    ASSERT_EQ(connection2.uuid[8], '-');
+    ASSERT_EQ(connection2.uuid[13], '-');
+    ASSERT_EQ(connection2.uuid[18], '-');
+    ASSERT_EQ(connection2.uuid[23], '-');
+
+    // Verify all other characters are valid hex digits or hyphens
+    for (int i = 0; i < 36; i++) {
+        if (i == 8 || i == 13 || i == 18 || i == 23) {
+            continue; // Skip hyphens
+        }
+        ASSERT_TRUE(isxdigit(connection1.uuid[i]));
+        ASSERT_TRUE(isxdigit(connection2.uuid[i]));
+    }
 }

@@ -103,9 +103,10 @@ target_link_libraries(
 find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(GLIB REQUIRED glib-2.0)
+pkg_check_modules(UUID REQUIRED uuid)
 
-target_include_directories(CTaps PUBLIC ${GLIB_INCLUDE_DIRS})
-target_link_libraries(CTaps PUBLIC ${GLIB_LIBRARIES})
+target_include_directories(CTaps PUBLIC ${GLIB_INCLUDE_DIRS} ${UUID_INCLUDE_DIRS})
+target_link_libraries(CTaps PUBLIC ${GLIB_LIBRARIES} ${UUID_LIBRARIES})
 
 
 # ---- library for testing etc. -----
