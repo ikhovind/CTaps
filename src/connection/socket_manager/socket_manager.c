@@ -17,6 +17,9 @@ void socket_manager_alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_
 
 int socket_manager_build(ct_socket_manager_t* socket_manager, ct_listener_t* listener) {
   log_debug("Building socket manager for listener");
+  // Hash connections by remote endpoint (not UUID) because for connectionless protocols
+  // (UDP), incoming packets only provide the remote address - we need to demultiplex to
+  // the correct connection before we have access to the connection object and its UUID.
   socket_manager->active_connections = g_hash_table_new(g_bytes_hash, g_bytes_equal);
   socket_manager->listener = listener;
   return 0;

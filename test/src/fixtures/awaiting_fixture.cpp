@@ -79,7 +79,7 @@ int on_message_received(ct_connection_t* connection, ct_message_t** received_mes
 
 int close_on_message_received(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
     log_info("ct_callback_t: close_on_message_received.\n");
-    auto* ctx = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
+    auto* ctx = static_cast<CallbackContext*>(message_context->user_receive_context);
 
     ctx->messages->push_back(*received_message);
 
@@ -88,7 +88,7 @@ int close_on_message_received(ct_connection_t* connection, ct_message_t** receiv
 }
 
 int close_on_expected_num_messages_received(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
-    log_info("ct_callback_t: close_on_message_received.\n");
+    log_info("ct_callback_t: close_on_expected_num_messages_received.\n");
     auto* ctx = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
 
     ctx->messages->push_back(*received_message);
@@ -262,4 +262,66 @@ int send_two_messages_on_ready(struct ct_connection_s* connection) {
   ct_message_free_content(&message2);
 
   return 0;
+}
+
+// --- Callbacks for server-initiated stream tests ---
+
+// Callback for server to send first message when connection is received and wait for response
+int server_sends_first_and_waits_for_response(ct_listener_t* listener, ct_connection_t* new_connection) {
+    log_info("Server: Connection received, sending first and waiting for response");
+    
+    auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
+    context->server_connections.push_back(new_connection);
+
+    // Server sends first message
+    ct_message_t message;
+    ct_message_build_with_content(&message, "server-hello", strlen("server-hello") + 1);
+    int rc = ct_send_message(new_connection, &message);
+    ct_message_free_content(&message);
+    EXPECT_EQ(rc, 0);
+    if (rc != 0) {
+        log_error("Server failed to send initial message: %d", rc);
+        ct_connection_close(new_connection);
+        ct_listener_close(listener);
+        return rc;
+        // Close all connections from context
+    }
+
+    // Set up receive for client's response
+    ct_receive_callbacks_t receive_req = {
+        .receive_callback = close_on_message_received,
+        .user_receive_context = listener->listener_callbacks.user_listener_context
+    };
+
+    ct_receive_message(new_connection, receive_req);
+    ct_listener_close(listener);
+    return 0;
+}
+
+// Callback for client to wait for server's message and respond
+int client_waits_and_responds(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
+    log_info("Client: Received server-initiated message");
+    auto* ctx = static_cast<CallbackContext*>(message_context->user_receive_context);
+    ctx->messages->push_back(*received_message);
+
+    // Client responds to server's message
+    ct_message_t response;
+    ct_message_build_with_content(&response, "client-ack", strlen("client-ack") + 1);
+    ct_send_message(connection, &response);
+    ct_message_free_content(&response);
+
+    return 0;
+}
+
+// Client ready callback - just set up receive callback, don't send
+int client_ready_wait_for_server(ct_connection_t* connection) {
+    log_info("Client: Connection ready, waiting for server to initiate stream");
+
+    ct_receive_callbacks_t receive_req = {
+        .receive_callback = client_waits_and_responds,
+        .user_receive_context = connection->connection_callbacks.user_connection_context
+    };
+
+    ct_receive_message(connection, receive_req);
+    return 0;
 }

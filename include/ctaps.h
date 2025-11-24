@@ -780,10 +780,11 @@ typedef struct ct_framer_impl_s ct_framer_impl_t;
  * @param[in] connection The connection
  * @param[in] encoded_message The encoded message ready for transmission
  * @param[in] context Message context
+ * @return 0 on success, negative error code on failure
  */
-typedef void (*ct_framer_done_encoding_callback)(struct ct_connection_s* connection,
-                                                  ct_message_t* encoded_message,
-                                                  ct_message_context_t* context);
+typedef int (*ct_framer_done_encoding_callback)(struct ct_connection_s* connection,
+                                                 ct_message_t* encoded_message,
+                                                 ct_message_context_t* context);
 
 /**
  * @brief Callback invoked by framer when message decoding is complete.
@@ -811,8 +812,9 @@ struct ct_framer_impl_s {
    * @param[in] message The message to encode
    * @param[in] context Message context
    * @param[in] callback Callback to invoke when encoding is complete
+   * @return 0 on success, negative error code on failure
    */
-  void (*encode_message)(struct ct_connection_s* connection,
+  int (*encode_message)(struct ct_connection_s* connection,
                         ct_message_t* message,
                         ct_message_context_t* context,
                         ct_framer_done_encoding_callback callback);
@@ -908,6 +910,15 @@ typedef enum {
 } ct_connection_type_t;
 
 /**
+ * @brief Connection group for managing related connections.
+ */
+typedef struct ct_connection_group_s {
+  char connection_group_id[37];           ///< Unique identifier for this group
+  GHashTable* connections;                ///< Map of UUID string → ct_connection_t*
+  void* connection_group_state;           ///< Protocol-specific shared state
+} ct_connection_group_t;
+
+/**
  * @brief Active connection object.
  *
  * Represents an established or establishing connection. Created via ct_preconnection_initiate()
@@ -915,12 +926,13 @@ typedef enum {
  */
 typedef struct ct_connection_s {
   char uuid[37];                                       ///< Unique identifier for this connection (UUID string)
+  ct_connection_group_t* connection_group;             ///< Connection group (never NULL)
   ct_transport_properties_t transport_properties;      ///< Transport and connection properties
   const ct_security_parameters_t* security_parameters; ///< Security configuration (TLS/QUIC)
   ct_local_endpoint_t local_endpoint;                  ///< Local endpoint (bound address/port)
   ct_remote_endpoint_t remote_endpoint;                ///< Remote endpoint (peer address/port)
   ct_protocol_impl_t protocol;                         ///< Protocol implementation in use
-  void* protocol_state;                                ///< Protocol-specific state (opaque)
+  void* internal_connection_state;                     ///< Protocol-specific per-connection state (opaque)
   ct_framer_impl_t* framer_impl;                       ///< Optional message framer (NULL = no framing)
   ct_connection_type_t open_type;                      ///< Connection type
   ct_connection_callbacks_t connection_callbacks;      ///< User-provided callbacks for events

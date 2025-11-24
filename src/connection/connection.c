@@ -16,10 +16,31 @@ void ct_connection_build_base(ct_connection_t* connection) {
   uuid_t uuid;
   uuid_generate(uuid);
   uuid_unparse(uuid, connection->uuid);
+
+  // Create connection group for this connection
+  ct_connection_group_t* group = malloc(sizeof(ct_connection_group_t));
+  if (!group) {
+    log_error("Failed to allocate connection group");
+    return;
+  }
+
+  // Generate UUID for the connection group
+  uuid_t group_uuid;
+  uuid_generate(group_uuid);
+  uuid_unparse(group_uuid, group->connection_group_id);
+
+  // Initialize connections hash table (keyed by connection UUID)
+  group->connections = g_hash_table_new(g_str_hash, g_str_equal);
+  group->connection_group_state = NULL; // Will be set by protocol implementation
+
+  // Add this connection to the group
+  g_hash_table_insert(group->connections, connection->uuid, connection);
+
+  connection->connection_group = group;
 }
 
 // Passed as callbacks to framer implementations
-void ct_connection_send_to_protocol(ct_connection_t* connection,
+int ct_connection_send_to_protocol(ct_connection_t* connection,
                                    ct_message_t* message,
                                    ct_message_context_t* context);
 
@@ -34,21 +55,27 @@ int ct_send_message(ct_connection_t* connection, ct_message_t* message) {
 
 int ct_send_message_full(ct_connection_t* connection, ct_message_t* message, ct_message_context_t* message_context) {
   // Deep copy the message so the library owns its lifetime
-  // This allows framers to be asynchronous without worrying about message validity
+  // Ownership is transferred to the framer or protocol send function, so it is freed in protocol implementation
   ct_message_t* message_copy = ct_message_deep_copy(message);
   if (!message_copy) {
     log_error("Failed to deep copy message");
     return -ENOMEM;
   }
+  log_info("Message copy size: %zu", message_copy->length);
 
+  int rc;
   if (connection->framer_impl != NULL) {
     log_info("User sending message on connection with framer");
-    connection->framer_impl->encode_message(connection, message_copy, message_context, ct_connection_send_to_protocol);
-    return 0;
+    rc = connection->framer_impl->encode_message(connection, message_copy, message_context, ct_connection_send_to_protocol);
+    if (rc < 0) {
+      log_error("Framer encode_message failed: %d", rc);
+    }
+  } else {
+    log_info("User sending message on connection without framer");
+    rc = ct_connection_send_to_protocol(connection, message_copy, message_context);
   }
-  log_info("User sending message on connection without framer");
-  ct_connection_send_to_protocol(connection, message_copy, message_context);
-  return 0;
+
+  return rc;
 }
 
 int ct_receive_message(ct_connection_t* connection,
@@ -88,7 +115,7 @@ void ct_connection_build_multiplexed(ct_connection_t* connection, const ct_liste
   connection->local_endpoint = listener->local_endpoint;
   connection->transport_properties = listener->transport_properties;
   connection->remote_endpoint = *remote_endpoint;
-  connection->protocol_state = listener->socket_manager->protocol_state;
+  connection->internal_connection_state = listener->socket_manager->internal_socket_manager_state;
   connection->protocol = listener->socket_manager->protocol_impl;
   connection->framer_impl = NULL;  // No framer by default
   connection->socket_manager = listener->socket_manager;
@@ -135,7 +162,7 @@ ct_connection_t* ct_connection_build_from_received_handle(const struct ct_listen
   connection->open_type = CONNECTION_TYPE_STANDALONE;
   connection->received_callbacks = g_queue_new();
   connection->received_messages = g_queue_new();
-  connection->protocol_state = (uv_handle_t*)received_handle;
+  connection->internal_connection_state = (uv_handle_t*)received_handle;
 
   return connection;
 }
@@ -159,13 +186,14 @@ void ct_connection_free(ct_connection_t* connection) {
   free(connection);
 }
 
-void ct_connection_send_to_protocol(ct_connection_t* connection,
+int ct_connection_send_to_protocol(ct_connection_t* connection,
                                    ct_message_t* message,
                                    ct_message_context_t* context) {
   int rc = connection->protocol.send(connection, message, context);
   if (rc < 0) {
     log_error("Error sending message to protocol: %d", rc);
   }
+  return rc;
 }
 
 void ct_connection_deliver_to_app(ct_connection_t* connection,

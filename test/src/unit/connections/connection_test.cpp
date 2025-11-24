@@ -25,7 +25,7 @@ TEST(ConnectionUnitTests, TakesDeepCopyOfTransportProperties) {
     ct_connection_t connection;
     ct_local_endpoint_t local_endpoint;
     ct_socket_manager_t socket_manager = {
-        .protocol_state = nullptr,
+        .internal_socket_manager_state = nullptr,
         .protocol_impl = nullptr
     };
 

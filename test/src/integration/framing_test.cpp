@@ -13,7 +13,7 @@ extern "C" {
 // Test Framer 1: Prepend Length on Send, Passthrough on Receive
 // =============================================================================
 
-static void length_prepend_encode(ct_connection_t* connection,
+static int length_prepend_encode(ct_connection_t* connection,
                                    ct_message_t* message,
                                    ct_message_context_t* context,
                                    ct_framer_done_encoding_callback callback) {
@@ -24,7 +24,7 @@ static void length_prepend_encode(ct_connection_t* connection,
     message->content[0] = '0' + (char)(message->length);
     message->length += 1;
 
-    callback(connection, message, context);
+    return callback(connection, message, context);
 }
 
 static void passthrough_decode(struct ct_connection_s* connection,
@@ -49,12 +49,12 @@ static ct_framer_impl_t length_prepend_framer = {
 // Test Framer 2: Passthrough on Send, Remove First Char on Receive
 // =============================================================================
 
-static void passthrough_encode(ct_connection_t* connection,
+static int passthrough_encode(ct_connection_t* connection,
                                 ct_message_t* message,
                                 ct_message_context_t* context,
                                 ct_framer_done_encoding_callback callback) {
     // Just pass through - send as-is
-    callback(connection, message, context);
+    return callback(connection, message, context);
 }
 
 static void strip_first_char_decode(ct_connection_t* connection,
@@ -111,7 +111,7 @@ static void async_encode_timer_callback(uv_timer_t* timer) {
     free(state);
 }
 
-static void async_encode(ct_connection_t* connection,
+static int async_encode(ct_connection_t* connection,
                         ct_message_t* message,
                         ct_message_context_t* context,
                         ct_framer_done_encoding_callback callback) {
@@ -129,6 +129,7 @@ static void async_encode(ct_connection_t* connection,
     uv_timer_start(&state->timer, async_encode_timer_callback, 10, 0);
 
     // Return immediately - callback will be invoked later from event loop
+    return 0;
 }
 
 static ct_framer_impl_t async_framer = {

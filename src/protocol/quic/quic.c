@@ -17,6 +17,8 @@
 #define PICOQUIC_GET_REMOTE_ADDR 2
 #define MAX_QUIC_PACKET_SIZE 1500
 
+#define NEXT_STREAM_ID_INDEX(is_client, is_unidirectional) ((is_client ? 0 : 1) + (is_unidirectional ? 2 : 0))
+
 #define MICRO_TO_MILLI(us) ((us) / 1000)
 
 void on_quic_timer(uv_timer_t* timer_handle);
@@ -32,17 +34,43 @@ typedef struct ct_quic_global_state_t {
 } ct_quic_global_state_t;
 
 
-typedef struct ct_quic_connection_state_t {
+// Shared state across all streams in a QUIC connection group
+typedef struct ct_quic_group_state_s {
   uv_udp_t* udp_handle;
   struct sockaddr_storage* udp_sock_name;
   picoquic_cnx_t* picoquic_connection;
-} ct_quic_connection_state_t;
+  // Order is: client bidirectional, server bidirectional, client unidirectional, server unidirectional
+  uint64_t next_quic_stream_id[4];
+} ct_quic_group_state_t;
 
-void free_quic_connection_state(ct_quic_connection_state_t* state) {
+ct_quic_group_state_t* create_quic_group_state() {
+  ct_quic_group_state_t* state = malloc(sizeof(ct_quic_group_state_t));
+  if (state) {
+    memset(state, 0, sizeof(ct_quic_group_state_t));
+    for (int i = 0; i < 4; i++) {
+      state->next_quic_stream_id[i] = i; // Initialize stream IDs for client/server and bidirectional/unidirectional
+    }
+  }
+  return state;
+}
+
+// Per-stream state for individual connections
+typedef struct ct_quic_stream_state_t {
+  uint64_t stream_id;
+  bool stream_initialized;
+} ct_quic_stream_state_t;
+
+void free_quic_group_state(ct_quic_group_state_t* state) {
   if (state) {
     if (state->udp_sock_name) {
       free(state->udp_sock_name);
     }
+    free(state);
+  }
+}
+
+void free_quic_stream_state(ct_quic_stream_state_t* state) {
+  if (state) {
     free(state);
   }
 }
@@ -153,19 +181,22 @@ uint32_t decrement_active_socket_counter() {
 
 int handle_closed_picoquic_connection(ct_connection_t* connection) {
   int rc;
-  ct_quic_connection_state_t* connection_state = (ct_quic_connection_state_t*)connection->protocol_state;
+  ct_quic_group_state_t* group_state = (ct_quic_group_state_t*)connection->connection_group->connection_group_state;
+  ct_quic_stream_state_t* stream_state = (ct_quic_stream_state_t*)connection->internal_connection_state;
   if (connection->open_type == CONNECTION_TYPE_STANDALONE) {
-    log_info("Closing standalone QUIC connection with UDP handle: %p", connection_state->udp_handle);
+    log_info("Closing standalone QUIC connection with UDP handle: %p", group_state->udp_handle);
 
-    rc = uv_udp_recv_stop(connection_state->udp_handle);
+    rc = uv_udp_recv_stop(group_state->udp_handle);
     if (rc < 0) {
       log_error("Error closing underlying QUIC handles: %d", rc);
       return rc;
     }
-    uv_close((uv_handle_t*)connection_state->udp_handle, quic_closed_udp_handle_cb);
+    uv_close((uv_handle_t*)group_state->udp_handle, quic_closed_udp_handle_cb);
     log_info("Successfully handled closed QUIC connection");
-    free_quic_connection_state(connection_state);
-    connection->protocol_state = NULL;
+    free_quic_group_state(group_state);
+    free_quic_stream_state(stream_state);
+    connection->connection_group->connection_group_state = NULL;
+    connection->internal_connection_state = NULL;
   }
   else if (connection->open_type == CONNECTION_OPEN_TYPE_MULTIPLEXED) {
     log_info("Removing closed QUIC connection from socket manager");
@@ -182,6 +213,7 @@ int handle_closed_picoquic_connection(ct_connection_t* connection) {
     log_error("Unknown connection open type when handling closed QUIC connection");
     return -EINVAL;
   }
+  log_info("Setting connection state to CLOSED for connection: %p", (void*)connection);
   connection->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSED;
   reset_quic_timer();
   return 0;
@@ -203,21 +235,36 @@ int picoquic_callback(picoquic_cnx_t* cnx,
     picoquic_call_back_event_t fin_or_event, void* callback_ctx, void* v_stream_ctx)
 {
   int rc;
+  ct_connection_group_t* connection_group = (ct_connection_group_t*)callback_ctx;
   ct_connection_t* connection = NULL;
-  log_trace("ct_callback_t event with connection: %p", (void*)cnx);
-  log_trace("Received sample callback event: %d", fin_or_event);
+  log_trace("ct_callback_t event with connection group: %p", (void*)connection_group);
+  log_trace("Received callback event: %d", fin_or_event);
 
-  connection = (ct_connection_t*)callback_ctx;
-  ct_quic_connection_state_t* quic_state = (ct_quic_connection_state_t*)connection->protocol_state;
-  log_debug("ct_connection_t state is: %d", picoquic_get_cnx_state(quic_state->picoquic_connection));
+  if (!connection_group) {
+    log_error("Connection group is NULL in picoquic callback");
+    return -EINVAL;
+  }
+
+  ct_quic_group_state_t* group_state = (ct_quic_group_state_t*)connection_group->connection_group_state;
+  log_debug("QUIC connection state is: %d", picoquic_get_cnx_state(group_state->picoquic_connection));
   switch (fin_or_event) {
     case picoquic_callback_ready:
       log_debug("QUIC connection is ready, invoking CTaps callback");
+      // Get the first (and at this point, only) connection in the group
+      GHashTableIter iter;
+      gpointer key, value;
+      g_hash_table_iter_init(&iter, connection_group->connections);
+      if (!g_hash_table_iter_next(&iter, &key, &value)) {
+        log_error("No connections found in connection group during ready callback");
+        return -EINVAL;
+      }
+      connection = (ct_connection_t*)value;
+
       if (connection->open_type == CONNECTION_OPEN_TYPE_MULTIPLEXED) {
         log_debug("ct_connection_t is multiplexed, no need to increment active connection counter");
         ct_listener_t* listener = connection->socket_manager->listener;
         listener->listener_callbacks.connection_received(listener, connection);
-      } 
+      }
       else if (connection->open_type == CONNECTION_TYPE_STANDALONE) {
         log_debug("ct_connection_t is standalone, incrementing active connection counter");
         connection->connection_callbacks.ready(connection);
@@ -227,9 +274,62 @@ int picoquic_callback(picoquic_cnx_t* cnx,
       }
       break;
     case picoquic_callback_stream_data:
-      log_debug("Received %zu bytes on stream %d", length, stream_id);
-      // Delegate to connection receive handler (handles framing if present)
-      ct_connection_on_protocol_receive(connection, bytes, length);
+      log_debug("Received %zu bytes on stream %llu", length, (unsigned long long)stream_id);
+
+      // Check if this is a new stream (stream context is NULL)
+      if (v_stream_ctx == NULL) {
+        log_debug("Received data on new stream %llu from remote", (unsigned long long)stream_id);
+
+        // Get the first connection
+        GHashTableIter new_stream_iter;
+        gpointer new_key, new_value;
+        g_hash_table_iter_init(&new_stream_iter, connection_group->connections);
+        if (!g_hash_table_iter_next(&new_stream_iter, &new_key, &new_value)) {
+          log_error("No connections in group when receiving new stream");
+          return -EINVAL;
+        }
+        ct_connection_t* first_connection = (ct_connection_t*)new_value;
+        ct_quic_stream_state_t* stream_state = (ct_quic_stream_state_t*)first_connection->internal_connection_state;
+
+        // Check if the first connection has an uninitialized stream
+        if (!stream_state->stream_initialized) {
+          log_debug("First connection has uninitialized stream, using it for stream %llu", (unsigned long long)stream_id);
+          // Initialize the stream
+          stream_state->stream_id = stream_id;
+          stream_state->stream_initialized = true;
+
+          // Set stream context so future data goes to this connection
+          picoquic_set_app_stream_ctx(group_state->picoquic_connection, stream_id, first_connection);
+
+          // Deliver the data
+          ct_connection_on_protocol_receive(first_connection, bytes, length);
+        } else {
+          // First connection already has a stream, need to create a new connection
+          if (first_connection->open_type == CONNECTION_OPEN_TYPE_MULTIPLEXED) {
+            // Server side - should create new connection and notify listener
+            log_error("Received new remote-initiated stream on listener connection - multi-streaming not yet implemented");
+            return -ENOSYS;
+          } else {
+            // Client side - should notify application of new remote stream
+            log_error("Received new remote-initiated stream on client connection - multi-streaming not yet implemented");
+            return -ENOSYS;
+          }
+        }
+      } else {
+        // Existing stream - get connection from stream context
+        connection = (ct_connection_t*)v_stream_ctx;
+
+        // Initialize stream ID if not already done
+        ct_quic_stream_state_t* stream_state = (ct_quic_stream_state_t*)connection->internal_connection_state;
+        if (!stream_state->stream_initialized) {
+          stream_state->stream_id = stream_id;
+          stream_state->stream_initialized = true;
+          log_debug("Initialized QUIC stream from received data with ID: %llu", (unsigned long long)stream_id);
+        }
+
+        // Delegate to connection receive handler (handles framing if present)
+        ct_connection_on_protocol_receive(connection, bytes, length);
+      }
       break;
     case picoquic_callback_stream_fin:
       log_debug("Picoquic stream fin on stream %d", stream_id);
@@ -237,15 +337,27 @@ int picoquic_callback(picoquic_cnx_t* cnx,
       break;
     case picoquic_callback_close:
       log_info("Picoquic callback closed");
-      handle_closed_picoquic_connection(connection);
+      // Get first connection to determine type
+      {
+        int size = g_hash_table_size(connection_group->connections);
+        log_info("Number of connections in group at close event: %d", size);
+        GHashTableIter close_iter;
+        gpointer close_key, close_value;
+        g_hash_table_iter_init(&close_iter, connection_group->connections);
+        if (g_hash_table_iter_next(&close_iter, &close_key, &close_value)) {
+          connection = (ct_connection_t*)close_value;
+          log_info("Picoquic close callback for connection: %p", (void*)connection);
+          handle_closed_picoquic_connection(connection);
 
-      // Only decrement counter for standalone connections that own their UDP socket
-      // Multiplexed connections share the listener's socket and don't affect the counter
-      if (connection->open_type == CONNECTION_TYPE_STANDALONE) {
-        uint32_t active_sockets = decrement_active_socket_counter();
-        if (active_sockets == 0) {
-          log_info("No active QUIC sockets remaining, closing timer handle");
-          close_timer_handle();
+          // Only decrement counter for standalone connections that own their UDP socket
+          // Multiplexed connections share the listener's socket and don't affect the counter
+          if (connection->open_type == CONNECTION_TYPE_STANDALONE) {
+            uint32_t active_sockets = decrement_active_socket_counter();
+            if (active_sockets == 0) {
+              log_info("No active QUIC sockets remaining, closing timer handle");
+              close_timer_handle();
+            }
+          }
         }
       }
       break;
@@ -255,15 +367,26 @@ int picoquic_callback(picoquic_cnx_t* cnx,
       break;
     case picoquic_callback_request_alpn_list:
       log_debug("Picoquic requested ALPN list");
-      log_debug("ct_connection_t type is: %d", connection->open_type);
-      if (!connection->security_parameters) {
-        log_error("No security parameters set for connection when handling ALPN request");
-        return -EINVAL;
-      }
-      const ct_string_array_value_t* alpn_string_array = &connection->security_parameters->security_parameters[ALPN].value.array_of_strings;
-      log_trace("Number of ALPN strings to propose: %zu", alpn_string_array->num_strings);
-      for (size_t i = 0; i < alpn_string_array->num_strings; i++) {
-        picoquic_add_proposed_alpn(bytes, alpn_string_array->strings[i]);
+      // Get first connection to check security parameters
+      {
+        GHashTableIter alpn_iter;
+        gpointer alpn_key, alpn_value;
+        g_hash_table_iter_init(&alpn_iter, connection_group->connections);
+        if (!g_hash_table_iter_next(&alpn_iter, &alpn_key, &alpn_value)) {
+          log_error("No connections in group when handling ALPN request");
+          return -EINVAL;
+        }
+        connection = (ct_connection_t*)alpn_value;
+        log_debug("ct_connection_t type is: %d", connection->open_type);
+        if (!connection->security_parameters) {
+          log_error("No security parameters set for connection when handling ALPN request");
+          return -EINVAL;
+        }
+        const ct_string_array_value_t* alpn_string_array = &connection->security_parameters->security_parameters[ALPN].value.array_of_strings;
+        log_trace("Number of ALPN strings to propose: %zu", alpn_string_array->num_strings);
+        for (size_t i = 0; i < alpn_string_array->num_strings; i++) {
+          picoquic_add_proposed_alpn(bytes, alpn_string_array->strings[i]);
+        }
       }
       break;
     default:
@@ -356,31 +479,47 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
     ct_connection_t* connection = socket_manager_get_or_create_connection(listener->socket_manager, (struct sockaddr_storage*)addr_from, &was_new);
 
     log_trace("Created new ct_connection_t object for received QUIC cnx: %p", (void*)connection);
-    picoquic_set_callback(cnx, picoquic_callback, connection);
 
-    ct_quic_connection_state_t* quic_state = malloc(sizeof(ct_quic_connection_state_t));
-    if (!quic_state) {
-      log_error("Failed to allocate memory for QUIC connection state");
+    // Set picoquic callback to connection group (not individual connection)
+    picoquic_set_callback(cnx, picoquic_callback, connection->connection_group);
+
+    // Allocate shared group state for this connection
+    ct_quic_group_state_t* group_state = create_quic_group_state();
+    if (!group_state) {
+      log_error("Failed to allocate memory for QUIC group state");
       free(connection);
       return;
     }
-    quic_state->picoquic_connection = cnx;
+    group_state->picoquic_connection = cnx;
 
     log_trace("Setting up received ct_connection_t state for new ct_connection_t");
-    ct_quic_connection_state_t* listener_state = (ct_quic_connection_state_t*)listener->socket_manager->protocol_state;
-    quic_state->udp_handle = listener_state->udp_handle;
-    quic_state->udp_sock_name = malloc(sizeof(struct sockaddr_storage));
+    ct_quic_group_state_t* listener_group_state = (ct_quic_group_state_t*)listener->socket_manager->internal_socket_manager_state;
+    group_state->udp_handle = listener_group_state->udp_handle;
+    group_state->udp_sock_name = malloc(sizeof(struct sockaddr_storage));
     int namelen = sizeof(struct sockaddr_storage);
-    rc = uv_udp_getsockname(quic_state->udp_handle, (struct sockaddr*)quic_state->udp_sock_name, &namelen);
+    rc = uv_udp_getsockname(group_state->udp_handle, (struct sockaddr*)group_state->udp_sock_name, &namelen);
     if (rc < 0) {
       log_error("Could not get UDP socket name for QUIC connection: %s", uv_strerror(rc));
-      free(quic_state->udp_sock_name);
-      free(quic_state);
+      free(group_state->udp_sock_name);
+      free(group_state);
       free(connection);
       return;
     }
 
-    connection->protocol_state = quic_state;
+    connection->connection_group->connection_group_state = group_state;
+
+    // Allocate per-stream state (stream_id will be set when stream is created)
+    ct_quic_stream_state_t* stream_state = malloc(sizeof(ct_quic_stream_state_t));
+    if (!stream_state) {
+      log_error("Failed to allocate memory for QUIC stream state");
+      free(group_state->udp_sock_name);
+      free(group_state);
+      free(connection);
+      return;
+    }
+    stream_state->stream_id = 0;
+    stream_state->stream_initialized = false;
+    connection->internal_connection_state = stream_state;
     log_trace("Done setting up received QUIC connection state");
   }
 
@@ -433,10 +572,12 @@ void on_quic_timer(uv_timer_t* timer_handle) {
     log_debug("Prepared QUIC packet of length %zu", send_length);
     if (send_length > 0) {
 
-      ct_connection_t* connection = (ct_connection_t*)picoquic_get_callback_context(last_cnx);
-      ct_quic_connection_state_t* quic_state = connection->protocol_state;
+      ct_connection_group_t* connection_group = (ct_connection_group_t*)picoquic_get_callback_context(last_cnx);
+      ct_quic_group_state_t* group_state = (ct_quic_group_state_t*)connection_group->connection_group_state;
 
-      uv_udp_t* udp_handle = quic_state->udp_handle;
+      log_info("group state in quic timer handler: %p", (void*)group_state);
+
+      uv_udp_t* udp_handle = group_state->udp_handle;
 
       // Allocate uv_buf_t structure on heap
       uv_buf_t* send_buffer = malloc(sizeof(uv_buf_t));
@@ -459,6 +600,7 @@ void on_quic_timer(uv_timer_t* timer_handle) {
       send_req->data = send_buffer;
 
       log_trace("Sending QUIC data over UDP handle: %p", (void*)udp_handle);
+      log_trace("udp handle type: %d", udp_handle->type);
       rc = uv_udp_send(
         send_req,
         udp_handle,
@@ -501,6 +643,7 @@ uv_timer_t* set_up_timer_handle() {
 }
 
 int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks) {
+  log_info("Initializing standalone QUIC connection");
   picoquic_quic_t* quic_ctx = get_global_quic_ctx();
   if (!quic_ctx) {
     log_error("Failed to get global QUIC context");
@@ -525,26 +668,47 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
     default_global_quic_state.timer_handle = set_up_timer_handle();
   }
 
-  ct_quic_connection_state_t* connection_state = malloc(sizeof(ct_quic_connection_state_t));
+  // Allocate shared group state (UDP handle + QUIC connection)
+  ct_quic_group_state_t* group_state = create_quic_group_state();
+  if (!group_state) {
+    log_error("Failed to allocate QUIC group state");
+    return -ENOMEM;
+  }
 
-  *connection_state = (ct_quic_connection_state_t){
+  *group_state = (ct_quic_group_state_t){
     .udp_handle = udp_handle,
     .udp_sock_name = malloc(sizeof(struct sockaddr_storage)),
+    .picoquic_connection = NULL,
+    // Initialize next stream IDs according to QUIC spec:
+    // Stream IDs encode client/server and bidirectional/unidirectional in bits 0-1
+    // client bidirectional = 0, server bidirectional = 1, client unidirectional = 2, server unidirectional = 3
   };
-  connection->protocol_state = connection_state;
+  connection->connection_group->connection_group_state = group_state;
+
+  ct_quic_stream_state_t* stream_state = malloc(sizeof(ct_quic_stream_state_t));
+  if (!stream_state) {
+    log_error("Failed to allocate QUIC stream state");
+    free(group_state->udp_sock_name);
+    free(group_state);
+    return -ENOMEM;
+  }
+  stream_state->stream_id = 0;
+  stream_state->stream_initialized = false;
+  connection->internal_connection_state = stream_state;
 
   int namelen = sizeof(struct sockaddr_storage);
-  int rc = uv_udp_getsockname(udp_handle, (struct sockaddr*)connection_state->udp_sock_name, &namelen);
+  int rc = uv_udp_getsockname(udp_handle, (struct sockaddr*)group_state->udp_sock_name, &namelen);
   if (rc < 0) {
     log_error("Error getting UDP socket name: %s", uv_strerror(rc));
     log_error("Error code: %d", rc);
-    free(connection_state->udp_sock_name);
-    free(connection_state);
+    free(group_state->udp_sock_name);
+    free(group_state);
+    free(stream_state);
     return rc;
   }
 
   log_debug("Creating picoquic cnx to remote endpoint");
-  connection_state->picoquic_connection = picoquic_create_cnx(
+  group_state->picoquic_connection = picoquic_create_cnx(
       quic_ctx,
       picoquic_null_connection_id,
       picoquic_null_connection_id,
@@ -556,15 +720,17 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
       1
   );
 
-  log_trace("ct_connection_t object associated with picoquic cnx: %p", (void*)connection);
+  log_trace("Setting callback context to connection group: %p", (void*)connection->connection_group);
 
-  picoquic_set_callback(connection_state->picoquic_connection, picoquic_callback, connection);
+  // Set picoquic callback to connection group
+  picoquic_set_callback(group_state->picoquic_connection, picoquic_callback, connection->connection_group);
 
-  rc = picoquic_start_client_cnx(connection_state->picoquic_connection);
+  rc = picoquic_start_client_cnx(group_state->picoquic_connection);
   if (rc != 0) {
     log_error("Error starting QUIC client connection: %d", rc);
-    free(connection_state->udp_sock_name);
-    free(connection_state);
+    free(group_state->udp_sock_name);
+    free(group_state);
+    free(stream_state);
     return rc;
   }
   increment_active_socket_counter();
@@ -576,9 +742,9 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
 
 int quic_close(const ct_connection_t* connection) {
   int rc = 0;
-  ct_quic_connection_state_t* quic_state = (ct_quic_connection_state_t*)connection->protocol_state;
+  ct_quic_group_state_t* group_state = (ct_quic_group_state_t*)connection->connection_group->connection_group_state;
   log_info("Initiating closing of picoquic connection");
-  rc = picoquic_close(quic_state->picoquic_connection, 0);
+  rc = picoquic_close(group_state->picoquic_connection, 0);
   if (rc != 0) {
     log_error("Error closing picoquic connection: %d", rc);
   }
@@ -590,8 +756,9 @@ int quic_close(const ct_connection_t* connection) {
 
 int quic_send(ct_connection_t* connection, ct_message_t* message, ct_message_context_t* ctx) {
   log_debug("Sending message over QUIC");
-  ct_quic_connection_state_t* quic_state = (ct_quic_connection_state_t*)connection->protocol_state;
-  picoquic_cnx_t* cnx = quic_state->picoquic_connection;
+  ct_quic_group_state_t* group_state = (ct_quic_group_state_t*)connection->connection_group->connection_group_state;
+  ct_quic_stream_state_t* stream_state = (ct_quic_stream_state_t*)connection->internal_connection_state;
+  picoquic_cnx_t* cnx = group_state->picoquic_connection;
 
   if (!cnx) {
     log_error("No picoquic connection available for sending");
@@ -606,23 +773,43 @@ int quic_send(ct_connection_t* connection, ct_message_t* message, ct_message_con
     return -EAGAIN;
   }
 
-  // Using stream 0 (default bidirectional stream)
-  uint64_t stream_id = 0;
+  if (!stream_state->stream_initialized) {
+    // Determine stream ID based on connection role (client/server) and stream type (bidirectional/unidirectional)
+    bool is_client = picoquic_is_client(cnx);
+    bool is_unidirectional = false;
+    log_debug("Initializing QUIC stream for %s %s connection",
+      is_client ? "client" : "server",
+      is_unidirectional ? "unidirectional" : "bidirectional"
+    );
 
-  log_debug("Queuing %zu bytes for sending on stream %llu", message->length, (unsigned long long)stream_id);
+    uint64_t stream_id = group_state->next_quic_stream_id[NEXT_STREAM_ID_INDEX(is_client, is_unidirectional)];
+    log_debug("Assigned QUIC stream ID: %llu", (unsigned long long)stream_id);
+    log_debug("Initializing from index: %d", NEXT_STREAM_ID_INDEX(is_client, is_unidirectional));
+    group_state->next_quic_stream_id[NEXT_STREAM_ID_INDEX(is_client, is_unidirectional)] += 4;
+
+    stream_state->stream_id = stream_id;
+    stream_state->stream_initialized = true;
+
+    log_debug("Initialized QUIC stream with ID: %llu", (unsigned long long)stream_id);
+  }
+
+  log_debug("Queuing %zu bytes for sending on stream %llu", message->length, (unsigned long long)stream_state->stream_id);
 
   // Add data to the stream (set_fin=0 since we're not closing the stream)
   // picoquic_add_to_stream copies the data internally, so we can free the message afterward
-  int rc = picoquic_add_to_stream(cnx, stream_id, message->content, message->length, 0);
+  int rc = picoquic_add_to_stream(cnx, stream_state->stream_id, message->content, message->length, 0);
 
   if (rc != 0) {
     log_error("Error queuing data to QUIC stream: %d", rc);
     if (rc == PICOQUIC_ERROR_INVALID_STREAM_ID) {
-      log_error("Invalid stream ID: %llu", (unsigned long long)stream_id);
+      log_error("Invalid stream ID: %llu", (unsigned long long)stream_state->stream_id);
     }
     ct_message_free_all(message);
     return -EIO;
   }
+
+  // Set stream context so picoquic knows which connection this stream belongs to
+  picoquic_set_app_stream_ctx(cnx, stream_state->stream_id, connection);
 
   // Free the message after it's been queued (picoquic has copied the data)
   ct_message_free_all(message);
@@ -648,18 +835,21 @@ int quic_listen(ct_socket_manager_t* socket_manager) {
     return -ENOSYS;
   }
 
-  ct_quic_connection_state_t* listener_state = malloc(sizeof(ct_quic_connection_state_t));
-  memset(listener_state, 0, sizeof(ct_quic_connection_state_t));
+  ct_quic_group_state_t* listener_group_state = create_quic_group_state();
+  if (!listener_group_state) {
+    log_error("Failed to allocate QUIC listener group state");
+    return -ENOMEM;
+  }
   ct_local_endpoint_t local_endpoint = ct_listener_get_local_endpoint(socket_manager->listener);
 
-  listener_state->udp_handle = create_udp_listening_on_local(&local_endpoint, alloc_quic_buf, on_quic_udp_read);
+  listener_group_state->udp_handle = create_udp_listening_on_local(&local_endpoint, alloc_quic_buf, on_quic_udp_read);
 
-  if (!listener_state->udp_handle) {
-    free(listener_state);
+  if (!listener_group_state->udp_handle) {
+    free(listener_group_state);
     return -EIO;
   }
 
-  socket_manager->protocol_state = listener_state;
+  socket_manager->internal_socket_manager_state = listener_group_state;
   socket_manager_increment_ref(socket_manager);
   increment_active_socket_counter();
 
@@ -670,16 +860,16 @@ int quic_listen(ct_socket_manager_t* socket_manager) {
 
 int quic_stop_listen(ct_socket_manager_t* socket_manager) {
   log_debug("Stopping QUIC listen");
-  ct_quic_connection_state_t* quic_state = (ct_quic_connection_state_t*)socket_manager->protocol_state;
-  log_trace("Stopping receive on UDP handle: %p", quic_state->udp_handle);
+  ct_quic_group_state_t* group_state = (ct_quic_group_state_t*)socket_manager->internal_socket_manager_state;
+  log_trace("Stopping receive on UDP handle: %p", group_state->udp_handle);
   // TODO - write test for receive data on a created ct_connection_t after closing listener
-  int rc = uv_udp_recv_stop(quic_state->udp_handle);
+  int rc = uv_udp_recv_stop(group_state->udp_handle);
   if (rc < 0) {
     log_error("Problem with stopping receive: %s\n", uv_strerror(rc));
     return rc;
   }
-  uv_close((uv_handle_t*)quic_state->udp_handle, quic_closed_udp_handle_cb);
-  free_quic_connection_state(quic_state);
+  uv_close((uv_handle_t*)group_state->udp_handle, quic_closed_udp_handle_cb);
+  free_quic_group_state(group_state);
 
   uint32_t active_sockets = decrement_active_socket_counter();
   if (active_sockets == 0) {
@@ -695,20 +885,26 @@ int quic_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* reso
 }
 
 void quic_retarget_protocol_connection(ct_connection_t* from_connection, ct_connection_t* to_connection) {
-  // For QUIC, protocol_state is a ct_quic_connection_state_t that contains:
-  // - A UDP handle whose data pointer needs updating
-  // - A picoquic connection whose callback context needs updating
-  if (from_connection->protocol_state) {
-    ct_quic_connection_state_t* quic_state = (ct_quic_connection_state_t*)from_connection->protocol_state;
+  // For QUIC, connection_group_state contains the shared UDP handle and picoquic connection
+  if (from_connection->connection_group && from_connection->connection_group->connection_group_state) {
+    ct_quic_group_state_t* group_state = (ct_quic_group_state_t*)from_connection->connection_group->connection_group_state;
 
     // Update the UDP handle's data pointer
-    if (quic_state->udp_handle) {
-      quic_state->udp_handle->data = to_connection;
+    if (group_state->udp_handle) {
+      group_state->udp_handle->data = to_connection;
     }
 
-    // Update picoquic connection's callback context
-    if (quic_state->picoquic_connection) {
-      picoquic_set_callback(quic_state->picoquic_connection, picoquic_callback, to_connection);
+    // Update picoquic connection's callback context to point to new connection's group
+    if (group_state->picoquic_connection) {
+      picoquic_set_callback(group_state->picoquic_connection, picoquic_callback, to_connection->connection_group);
+    }
+
+    // Update the connection group's hash table to point to the new connection
+    // Remove the old connection pointer and insert the new one
+    if (to_connection->connection_group && to_connection->connection_group->connections) {
+      log_debug("Updating connection group hash table from %p to %p", (void*)from_connection, (void*)to_connection);
+      g_hash_table_remove(to_connection->connection_group->connections, from_connection->uuid);
+      g_hash_table_insert(to_connection->connection_group->connections, to_connection->uuid, to_connection);
     }
   }
 }

@@ -1,7 +1,8 @@
 #include "candidate_racing.h"
+#include "connection/connection.h"
 
-#include <logging/log.h>
 #include "ctaps.h"
+#include <logging/log.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -99,7 +100,7 @@ static int start_connection_attempt(ct_racing_context_t* context, int attempt_in
     attempt->state = ATTEMPT_STATE_FAILED;
     return -ENOMEM;
   }
-  memset(attempt->connection, 0, sizeof(ct_connection_t));
+  ct_connection_build_base(attempt->connection);
 
   // Setup connection with candidate parameters
   attempt->connection->protocol = *candidate->protocol;
@@ -178,7 +179,7 @@ int racing_on_attempt_ready(ct_connection_t* connection) {
   // This is protocol-specific (TCP/UDP update handle->data, QUIC also updates picoquic callback context)
   if (context->user_connection->protocol.retarget_protocol_connection) {
     context->user_connection->protocol.retarget_protocol_connection(
-      connection,  // from_connection (whose protocol_state we're using)
+      connection,  // from_connection (whose internal_connection_state we're using)
       context->user_connection  // to_connection (the new target for callbacks)
     );
   }
