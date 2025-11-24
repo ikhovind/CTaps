@@ -41,7 +41,7 @@ void on_connect(struct uv_connect_s *req, int status) {
     return;
   }
   log_info("Successfully connected to remote endpoint using TCP");
-  uv_read_start((uv_stream_t*)connection->protocol_state, alloc_cb, tcp_on_read);
+  uv_read_start((uv_stream_t*)connection->internal_connection_state, alloc_cb, tcp_on_read);
   if (connection->connection_callbacks.ready) {
     connection->connection_callbacks.ready(connection);
   }
@@ -82,7 +82,10 @@ int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
     return -ENOMEM;
   }
 
-  connection->protocol_state = (uv_handle_t*)new_tcp_handle;
+  // Store in internal connection state instead of connection group,
+  // because TCP does not have a multiplexing concept, so when cloning
+  // each connection gets its own handle
+  connection->internal_connection_state = (uv_handle_t*)new_tcp_handle;
 
   rc = uv_tcp_init(event_loop, new_tcp_handle);
 
@@ -131,8 +134,8 @@ int tcp_close(const ct_connection_t* connection) {
     }
   } else {
     // Standalone connection - close the TCP handle
-    if (connection->protocol_state) {
-      uv_close(connection->protocol_state, on_close);
+    if (connection->internal_connection_state) {
+      uv_close((uv_handle_t*)connection->internal_connection_state, on_close);
     }
   }
 
@@ -155,15 +158,12 @@ int tcp_send(ct_connection_t* connection, ct_message_t* message, ct_message_cont
   // Attach message to request so it can be freed in the callback
   req->data = message;
 
-  int rc = uv_write(req, (uv_tcp_t*)connection->protocol_state, &buffer, 1, on_write);
+  uv_tcp_t* tcp_handle = (uv_tcp_t*)connection->internal_connection_state;
+  int rc = uv_write(req, (uv_stream_t*)tcp_handle, &buffer, 1, on_write);
   if (rc < 0) {
     log_error("Error sending message over TCP: %s", uv_strerror(rc));
     free(req);
     ct_message_free_all(message);
-    if (connection->connection_callbacks.send_error) {
-      connection->connection_callbacks.send_error(connection);
-    }
-
     return rc;
   }
   return 0;
@@ -205,7 +205,7 @@ int tcp_listen(ct_socket_manager_t* socket_manager) {
   }
 
   socket_manager_increment_ref(socket_manager);
-  socket_manager->protocol_state = (uv_handle_t*)new_tcp_handle;
+  socket_manager->internal_socket_manager_state = (uv_handle_t*)new_tcp_handle;
   new_tcp_handle->data = listener;
 
   return 0;
@@ -265,9 +265,9 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
 int tcp_stop_listen(ct_socket_manager_t* socket_manager) {
   log_debug("Stopping TCP listen for ct_socket_manager_t %p", (void*)socket_manager);
 
-  if (socket_manager->protocol_state) {
-    uv_close(socket_manager->protocol_state, on_close);
-    socket_manager->protocol_state = NULL;
+  if (socket_manager->internal_socket_manager_state) {
+    uv_close((uv_handle_t*)socket_manager->internal_socket_manager_state, on_close);
+    socket_manager->internal_socket_manager_state = NULL;
   }
   return 0;
 }
@@ -290,10 +290,10 @@ int tcp_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* resol
 }
 
 void tcp_retarget_protocol_connection(ct_connection_t* from_connection, ct_connection_t* to_connection) {
-  // For TCP, protocol_state is the uv_tcp_t handle directly
+  // For TCP, internal_connection_state is the uv_tcp_t handle directly
   // Update the handle's data pointer to reference the new connection
-  if (from_connection->protocol_state) {
-    uv_handle_t* handle = (uv_handle_t*)from_connection->protocol_state;
+  if (from_connection->internal_connection_state) {
+    uv_handle_t* handle = (uv_handle_t*)from_connection->internal_connection_state;
     handle->data = to_connection;
   }
 }

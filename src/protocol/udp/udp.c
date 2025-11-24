@@ -65,7 +65,10 @@ int udp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
     return -EIO;
   }
 
-  connection->protocol_state = (uv_handle_t*)new_udp_handle;
+  // Store in internal connection state instead of connection group,
+  // because UDP does not have a multiplexing concept, so when cloning
+  // each connection gets its own handle (or is multiplexed)
+  connection->internal_connection_state = (uv_handle_t*)new_udp_handle;
   new_udp_handle->data = connection;
 
   connection_callbacks->ready(connection);
@@ -88,9 +91,9 @@ int udp_close(const ct_connection_t* connection) {
     }
   } else {
     // Standalone connection - close the UDP handle
-    if (connection->protocol_state) {
-      uv_udp_recv_stop((uv_udp_t*)connection->protocol_state);
-      uv_close(connection->protocol_state, closed_handle_cb);
+    if (connection->internal_connection_state) {
+      uv_udp_recv_stop((uv_udp_t*)connection->internal_connection_state);
+      uv_close(connection->internal_connection_state, closed_handle_cb);
     }
   }
 
@@ -101,7 +104,7 @@ int udp_close(const ct_connection_t* connection) {
 
 int udp_stop_listen(struct ct_socket_manager_s* socket_manager) {
   log_debug("Stopping UDP listen");
-  int rc = uv_udp_recv_stop((uv_udp_t*)socket_manager->protocol_state);
+  int rc = uv_udp_recv_stop((uv_udp_t*)socket_manager->internal_socket_manager_state);
   if (rc < 0) {
     log_error("Problem with stopping receive: %s\n", uv_strerror(rc));
     return rc;
@@ -126,7 +129,7 @@ int udp_send(ct_connection_t* connection, ct_message_t* message, ct_message_cont
   send_req->data = message;
 
   int rc = uv_udp_send(
-      send_req, (uv_udp_t*)connection->protocol_state, &buffer, 1,
+      send_req, (uv_udp_t*)connection->internal_connection_state, &buffer, 1,
       (const struct sockaddr*)&connection->remote_endpoint.data.resolved_address,
       on_send);
 
@@ -198,7 +201,7 @@ int udp_listen(ct_socket_manager_t* socket_manager) {
 
   udp_handle->data = socket_manager;
   socket_manager_increment_ref(socket_manager);
-  socket_manager->protocol_state = (uv_handle_t*)udp_handle;
+  socket_manager->internal_socket_manager_state = (uv_handle_t*)udp_handle;
 
   return 0;
 }
@@ -221,10 +224,10 @@ int udp_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* resol
 }
 
 void udp_retarget_protocol_connection(ct_connection_t* from_connection, ct_connection_t* to_connection) {
-  // For UDP, protocol_state is the uv_udp_t handle directly
+  // For UDP, internal_connection_state is the uv_udp_t handle directly
   // Update the handle's data pointer to reference the new connection
-  if (from_connection->protocol_state) {
-    uv_handle_t* handle = (uv_handle_t*)from_connection->protocol_state;
+  if (from_connection->internal_connection_state) {
+    uv_handle_t* handle = (uv_handle_t*)from_connection->internal_connection_state;
     handle->data = to_connection;
   }
 }

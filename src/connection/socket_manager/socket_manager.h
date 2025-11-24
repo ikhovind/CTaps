@@ -7,7 +7,7 @@
 struct ct_listener_s;
 
 typedef struct ct_socket_manager_s {
-  void* protocol_state;
+  void* internal_socket_manager_state;
   int ref_count; // Number of objects using this socket (ct_listener_t + Connections)
   GHashTable* active_connections;
   uv_udp_recv_cb on_read;

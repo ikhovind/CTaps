@@ -152,7 +152,7 @@ void ct_preconnection_build_user_connection(ct_connection_t* connection, const c
   connection->security_parameters = preconnection->security_parameters;
   connection->framer_impl = preconnection->framer_impl;  // Copy framer from preconnection
   connection->socket_manager = NULL;
-  connection->protocol_state = NULL;
+  connection->internal_connection_state = NULL;
 
   log_debug("Setting user connection callbacks");
   connection->connection_callbacks = connection_callbacks;

@@ -35,7 +35,7 @@ TEST_F(QuicPingTest, successfullyConnectsToQuicServer) {
 
   ct_preconnection_t preconnection;
   ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, &security_parameters);
-  ct_connection_t connection;
+  ct_connection_t client_connection;
 
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
@@ -43,19 +43,22 @@ TEST_F(QuicPingTest, successfullyConnectsToQuicServer) {
     .user_connection_context = &test_context,
   };
 
-  int rc = ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);
+  int rc = ct_preconnection_initiate(&preconnection, &client_connection, connection_callbacks);
+
+  log_info("Created client connection: %p", (void*)&client_connection);
 
   ASSERT_EQ(rc, 0);
 
   ct_receive_callbacks_t receive_req = { .receive_callback = close_on_message_received, .user_receive_context = &test_context };
 
-  rc = ct_receive_message(&connection, receive_req);
+  rc = ct_receive_message(&client_connection, receive_req);
 
   ASSERT_EQ(rc, 0);
 
   ct_start_event_loop();
 
-  ASSERT_EQ(connection.transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
+  log_info("Checking that client connection %p is closed", (void*)&client_connection);
+  ASSERT_EQ(client_connection.transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
   ASSERT_EQ(test_context.messages->size(), 1);
   ASSERT_STREQ(test_context.messages->at(0)->content, "Pong: ping");
 
