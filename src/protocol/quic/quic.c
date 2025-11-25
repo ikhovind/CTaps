@@ -1,13 +1,12 @@
 #include "quic.h"
 
+#include "ctaps.h"
 #include <logging/log.h>
 #include <picotls.h>
-#include "ctaps.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 
-#include "ctaps.h"
 #include "connection/connection.h"
 #include "connection/connection_group.h"
 #include "connection/socket_manager/socket_manager.h"
@@ -45,7 +44,7 @@ typedef struct ct_quic_group_state_s {
   uint64_t next_quic_stream_id[4];
 } ct_quic_group_state_t;
 
-ct_quic_group_state_t* create_quic_group_state() {
+ct_quic_group_state_t* ct_create_quic_group_state() {
   ct_quic_group_state_t* state = malloc(sizeof(ct_quic_group_state_t));
   if (state) {
     memset(state, 0, sizeof(ct_quic_group_state_t));
@@ -56,13 +55,14 @@ ct_quic_group_state_t* create_quic_group_state() {
   return state;
 }
 
+
 // Per-stream state for individual connections
 typedef struct ct_quic_stream_state_t {
   uint64_t stream_id;
   bool stream_initialized;
 } ct_quic_stream_state_t;
 
-void free_quic_group_state(ct_quic_group_state_t* state) {
+void ct_free_quic_group_state(ct_quic_group_state_t* state) {
   if (state) {
     if (state->udp_sock_name) {
       free(state->udp_sock_name);
@@ -71,10 +71,84 @@ void free_quic_group_state(ct_quic_group_state_t* state) {
   }
 }
 
-void free_quic_stream_state(ct_quic_stream_state_t* state) {
+void ct_free_quic_stream_state(ct_quic_stream_state_t* state) {
   if (state) {
     free(state);
   }
+}
+
+// Forward declarations of helper functions
+ct_quic_group_state_t* ct_create_quic_group_state(void);
+void ct_free_quic_group_state(ct_quic_group_state_t* state);
+void ct_free_quic_stream_state(ct_quic_stream_state_t* state);
+bool ct_connection_stream_is_initialized(ct_connection_t* connection);
+void ct_connection_set_stream(ct_connection_t* connection, uint64_t stream_id);
+void ct_connection_assign_next_free_stream(ct_connection_t* connection, bool is_unidirectional);
+uint64_t ct_connection_get_stream_id(const ct_connection_t* connection);
+ct_quic_group_state_t* ct_connection_get_quic_group_state(const ct_connection_t* connection);
+ct_quic_stream_state_t* ct_connection_get_stream_state(const ct_connection_t* connection);
+picoquic_cnx_t* ct_connection_get_picoquic_connection(const ct_connection_t* connection);
+
+bool ct_connection_stream_is_initialized(ct_connection_t* connection) {
+  ct_quic_stream_state_t* stream_state = ct_connection_get_stream_state(connection);
+  if (!stream_state) {
+    return false;
+  }
+  return stream_state->stream_initialized;
+}
+
+void ct_connection_set_stream(ct_connection_t* connection, uint64_t stream_id) {
+  ct_quic_stream_state_t* stream_state = ct_connection_get_stream_state(connection);
+  if (!stream_state) {
+    return;
+  }
+  log_debug("Setting QUIC stream ID %llu for connection %s", (unsigned long long)stream_id, connection->uuid);
+  stream_state->stream_id = stream_id;
+  stream_state->stream_initialized = true;
+}
+
+void ct_connection_assign_next_free_stream(ct_connection_t* connection, bool is_unidirectional) {
+  ct_quic_group_state_t* group_state = connection->connection_group->connection_group_state;
+  bool is_client = ct_connection_is_client(connection);
+  uint64_t next_stream_id = group_state->next_quic_stream_id[NEXT_STREAM_ID_INDEX(is_client, is_unidirectional)];
+  log_debug("Assigned QUIC stream ID: %llu", (unsigned long long)next_stream_id);
+  group_state->next_quic_stream_id[NEXT_STREAM_ID_INDEX(is_client, is_unidirectional)] += 4;
+
+  log_debug("Assigning next free stream ID, which is: ID %llu to connection %s", (unsigned long long)next_stream_id, connection->uuid);
+  ct_connection_set_stream(connection, next_stream_id);
+}
+
+uint64_t ct_connection_get_stream_id(const ct_connection_t* connection) {
+  ct_quic_stream_state_t* stream_state = ct_connection_get_stream_state(connection);
+  if (!stream_state) {
+    return 0;
+  }
+  return stream_state->stream_id;
+}
+
+ct_quic_group_state_t* ct_connection_get_quic_group_state(const ct_connection_t* connection) {
+  if (!connection || !connection->connection_group || !connection->connection_group->connection_group_state) {
+    log_error("Cannot get QUIC group state, connection or group state is NULL");
+    return NULL;
+  }
+  return (ct_quic_group_state_t*)connection->connection_group->connection_group_state;
+}
+
+ct_quic_stream_state_t* ct_connection_get_stream_state(const ct_connection_t* connection) {
+  if (!connection || !connection->internal_connection_state) {
+    log_error("Cannot get stream state, connection or internal state is NULL");
+    return NULL;
+  }
+  return (ct_quic_stream_state_t*)connection->internal_connection_state;
+}
+
+picoquic_cnx_t* ct_connection_get_picoquic_connection(const ct_connection_t* connection) {
+  ct_quic_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
+  if (!group_state) {
+    log_error("Cannot get picoquic connection, group state is NULL");
+    return NULL;
+  }
+  return group_state->picoquic_connection;
 }
 
 static picoquic_quic_t* global_quic_ctx;
@@ -183,8 +257,8 @@ uint32_t decrement_active_socket_counter() {
 
 int handle_closed_picoquic_connection(ct_connection_t* connection) {
   int rc;
-  ct_quic_group_state_t* group_state = (ct_quic_group_state_t*)connection->connection_group->connection_group_state;
-  ct_quic_stream_state_t* stream_state = (ct_quic_stream_state_t*)connection->internal_connection_state;
+  ct_quic_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
+  ct_quic_stream_state_t* stream_state = ct_connection_get_stream_state(connection);
   if (connection->socket_type == CONNECTION_SOCKET_TYPE_STANDALONE) {
     log_info("Closing standalone QUIC connection with UDP handle: %p", group_state->udp_handle);
 
@@ -195,8 +269,8 @@ int handle_closed_picoquic_connection(ct_connection_t* connection) {
     }
     uv_close((uv_handle_t*)group_state->udp_handle, quic_closed_udp_handle_cb);
     log_info("Successfully handled closed QUIC connection");
-    free_quic_group_state(group_state);
-    free_quic_stream_state(stream_state);
+    ct_free_quic_group_state(group_state);
+    ct_free_quic_stream_state(stream_state);
     connection->connection_group->connection_group_state = NULL;
     connection->internal_connection_state = NULL;
   }
@@ -285,42 +359,40 @@ int picoquic_callback(picoquic_cnx_t* cnx,
           log_error("No connections in group when receiving new stream");
           return -EINVAL;
         }
-        ct_quic_stream_state_t* stream_state = (ct_quic_stream_state_t*)first_connection->internal_connection_state;
 
-        // Check if the first connection has an uninitialized stream
-        if (!stream_state->stream_initialized) {
+        // If we have received a new stream, but the first connection already has a stream initialized,
+        if (ct_connection_stream_is_initialized(first_connection)) {
+          log_info("Received stream id is: %llu", (unsigned long long)stream_id);
+          log_info("first connection stream id is: %llu", (unsigned long long)ct_connection_get_stream_id(first_connection));
+          if (ct_connection_is_server(first_connection)) {
+            log_error("Received new remote-initiated stream on server connection - multi-streaming not yet implemented");
+            return -ENOSYS;
+          } if (ct_connection_is_client(first_connection)) {
+            log_error("Received new remote-initiated stream on client connection - multi-streaming not yet implemented");
+            return -ENOSYS;
+          } else {
+            log_error("Unknown connection role when handling new remote-initiated stream");
+            return -EINVAL;
+          }
+        } else {
           log_debug("First connection has uninitialized stream, using it for stream %llu", (unsigned long long)stream_id);
           // Initialize the stream
-          stream_state->stream_id = stream_id;
-          stream_state->stream_initialized = true;
+          ct_connection_set_stream(first_connection, stream_id);
 
           // Set stream context so future data goes to this connection
           picoquic_set_app_stream_ctx(group_state->picoquic_connection, stream_id, first_connection);
 
           // Deliver the data
           ct_connection_on_protocol_receive(first_connection, bytes, length);
-        } else {
-          // First connection already has a stream, need to create a new connection
-          if (ct_connection_is_server(first_connection)) {
-            // Server side - should create new connection and notify listener
-            log_error("Received new remote-initiated stream on server connection - multi-streaming not yet implemented");
-            return -ENOSYS;
-          } else {
-            // Client side - should notify application of new remote stream
-            log_error("Received new remote-initiated stream on client connection - multi-streaming not yet implemented");
-            return -ENOSYS;
-          }
         }
       } else {
         // Existing stream - get connection from stream context
         connection = (ct_connection_t*)v_stream_ctx;
 
-        // Initialize stream ID if not already done
-        ct_quic_stream_state_t* stream_state = (ct_quic_stream_state_t*)connection->internal_connection_state;
-        if (!stream_state->stream_initialized) {
-          stream_state->stream_id = stream_id;
-          stream_state->stream_initialized = true;
-          log_debug("Initialized QUIC stream from received data with ID: %llu", (unsigned long long)stream_id);
+        // TODO - is this actually possible, are streams created before data is received?
+        if (!ct_connection_stream_is_initialized(connection)) {
+          log_debug("Initialized QUIC stream from received data with stream ID: %llu", (unsigned long long)stream_id);
+          ct_connection_set_stream(connection, stream_id);
         }
 
         // Delegate to connection receive handler (handles framing if present)
@@ -513,7 +585,7 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
     picoquic_set_callback(cnx, picoquic_callback, connection->connection_group);
 
     // Allocate shared group state for this connection
-    ct_quic_group_state_t* group_state = create_quic_group_state();
+    ct_quic_group_state_t* group_state = ct_create_quic_group_state();
     if (!group_state) {
       log_error("Failed to allocate memory for QUIC group state");
       free(connection);
@@ -698,7 +770,7 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
   }
 
   // Allocate shared group state (UDP handle + QUIC connection)
-  ct_quic_group_state_t* group_state = create_quic_group_state();
+  ct_quic_group_state_t* group_state = ct_create_quic_group_state();
   if (!group_state) {
     log_error("Failed to allocate QUIC group state");
     return -ENOMEM;
@@ -771,23 +843,24 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
 
 int quic_close(ct_connection_t* connection) {
   int rc = 0;
-  ct_quic_group_state_t* group_state = (ct_quic_group_state_t*)connection->connection_group->connection_group_state;
-  ct_quic_stream_state_t* stream_state = (ct_quic_stream_state_t*)connection->internal_connection_state;
+  ct_quic_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
+  uint64_t stream_id = ct_connection_get_stream_id(connection);
   ct_connection_group_t* connection_group = connection->connection_group;
+  uint64_t num_active_connections = connection_group_get_num_active_connections(connection_group);
 
-  log_info("Closing QUIC connection, active connections in group: %u", connection_group->num_active_connections);
+  log_info("Closing QUIC connection, active connections in group: %u", num_active_connections);
 
   // Check if there are multiple active connections in the group
-  if (connection_group->num_active_connections > 1) {
+  if (num_active_connections > 1) {
     // Multiple streams active - only close this stream with FIN
     log_info("Multiple active connections in group, closing stream %llu with FIN",
-             (unsigned long long)stream_state->stream_id);
+             (unsigned long long)stream_id);
 
-    if (stream_state->stream_initialized) {
+    if (ct_connection_stream_is_initialized(connection)) {
       // Send FIN on this stream to gracefully close it
-      rc = picoquic_add_to_stream(group_state->picoquic_connection, stream_state->stream_id, NULL, 0, 1);
+      rc = picoquic_add_to_stream(group_state->picoquic_connection, stream_id, NULL, 0, 1);
       if (rc != 0) {
-        log_error("Error sending FIN on stream %llu: %d", (unsigned long long)stream_state->stream_id, rc);
+        log_error("Error sending FIN on stream %llu: %d", (unsigned long long)stream_id, rc);
       }
     } else {
       log_warn("Stream not initialized, cannot send FIN");
@@ -795,7 +868,7 @@ int quic_close(ct_connection_t* connection) {
 
     // Decrement active connection counter and mark as closed
     ct_connection_group_decrement_active(connection_group);
-    ct_connection_mark_as_closed((ct_connection_t*)connection);
+    ct_connection_mark_as_closed(connection);
   } else {
     // Last active connection - close the entire QUIC connection
     log_info("Last active connection in group, closing entire QUIC connection");
@@ -823,9 +896,7 @@ int quic_clone_connection(const struct ct_connection_s* source_connection, struc
 
 int quic_send(ct_connection_t* connection, ct_message_t* message, ct_message_context_t* ctx) {
   log_debug("Sending message over QUIC");
-  ct_quic_group_state_t* group_state = (ct_quic_group_state_t*)connection->connection_group->connection_group_state;
-  ct_quic_stream_state_t* stream_state = (ct_quic_stream_state_t*)connection->internal_connection_state;
-  picoquic_cnx_t* cnx = group_state->picoquic_connection;
+  picoquic_cnx_t* cnx = ct_connection_get_picoquic_connection(connection);
 
   if (!cnx) {
     log_error("No picoquic connection available for sending");
@@ -840,45 +911,28 @@ int quic_send(ct_connection_t* connection, ct_message_t* message, ct_message_con
     return -EAGAIN;
   }
 
-  if (!stream_state->stream_initialized) {
+
+  if (!ct_connection_stream_is_initialized(connection)) {
     // Determine stream ID based on connection role (client/server) and stream type (bidirectional/unidirectional)
-    bool is_client = picoquic_is_client(cnx);
-    bool is_unidirectional = false;
-    log_debug("Initializing QUIC stream for %s %s connection",
-      is_client ? "client" : "server",
-      is_unidirectional ? "unidirectional" : "bidirectional"
-    );
-
-    uint64_t stream_id = group_state->next_quic_stream_id[NEXT_STREAM_ID_INDEX(is_client, is_unidirectional)];
-    log_debug("Assigned QUIC stream ID: %llu", (unsigned long long)stream_id);
-    log_debug("Initializing from index: %d", NEXT_STREAM_ID_INDEX(is_client, is_unidirectional));
-    group_state->next_quic_stream_id[NEXT_STREAM_ID_INDEX(is_client, is_unidirectional)] += 4;
-
-    stream_state->stream_id = stream_id;
-    stream_state->stream_initialized = true;
-
-    log_debug("Initialized QUIC stream with ID: %llu", (unsigned long long)stream_id);
+    ct_connection_assign_next_free_stream(connection, false);
   }
 
-  log_debug("Queuing %zu bytes for sending on stream %llu", message->length, (unsigned long long)stream_state->stream_id);
 
   // Add data to the stream (set_fin=0 since we're not closing the stream)
-  // picoquic_add_to_stream copies the data internally, so we can free the message afterward
-  int rc = picoquic_add_to_stream(cnx, stream_state->stream_id, message->content, message->length, 0);
+  uint64_t stream_id = ct_connection_get_stream_id(connection);
+  log_debug("Queuing %zu bytes for sending on stream %llu", message->length, (unsigned long long)stream_id);
+  int rc = picoquic_add_to_stream_with_ctx(cnx, stream_id, message->content, message->length, 0, connection);
 
   if (rc != 0) {
     log_error("Error queuing data to QUIC stream: %d", rc);
     if (rc == PICOQUIC_ERROR_INVALID_STREAM_ID) {
-      log_error("Invalid stream ID: %llu", (unsigned long long)stream_state->stream_id);
+      log_error("Invalid stream ID: %llu", (unsigned long long)stream_id);
     }
     ct_message_free_all(message);
     return -EIO;
   }
 
-  // Set stream context so picoquic knows which connection this stream belongs to
-  picoquic_set_app_stream_ctx(cnx, stream_state->stream_id, connection);
-
-  // Free the message after it's been queued (picoquic has copied the data)
+  // picoquic_add_to_stream copies the data internally, so we can free the message now 
   ct_message_free_all(message);
 
   // Reset the timer to ensure data gets processed and sent immediately
@@ -902,7 +956,7 @@ int quic_listen(ct_socket_manager_t* socket_manager) {
     return -ENOSYS;
   }
 
-  ct_quic_group_state_t* listener_group_state = create_quic_group_state();
+  ct_quic_group_state_t* listener_group_state = ct_create_quic_group_state();
   if (!listener_group_state) {
     log_error("Failed to allocate QUIC listener group state");
     return -ENOMEM;
@@ -936,7 +990,7 @@ int quic_stop_listen(ct_socket_manager_t* socket_manager) {
     return rc;
   }
   uv_close((uv_handle_t*)group_state->udp_handle, quic_closed_udp_handle_cb);
-  free_quic_group_state(group_state);
+  ct_free_quic_group_state(group_state);
 
   uint32_t active_sockets = decrement_active_socket_counter();
   if (active_sockets == 0) {

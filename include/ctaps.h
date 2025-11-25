@@ -933,7 +933,7 @@ typedef struct ct_connection_group_s {
   char connection_group_id[37];           ///< Unique identifier for this group
   GHashTable* connections;                ///< Map of UUID string → ct_connection_t*
   void* connection_group_state;           ///< Protocol-specific shared state
-  uint32_t num_active_connections;        ///< Number of active connections in this group
+  uint64_t num_active_connections;        ///< Number of active connections in this group
 } ct_connection_group_t;
 
 /**
