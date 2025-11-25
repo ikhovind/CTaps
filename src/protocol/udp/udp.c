@@ -12,6 +12,8 @@
 #include <protocol/common/socket_utils.h>
 
 #include "ctaps.h"
+
+#include "connection/connection.h"
 #include "connection/socket_manager/socket_manager.h"
 
 #define MAX_FOUND_INTERFACE_ADDRS 64
@@ -79,10 +81,10 @@ void closed_handle_cb(uv_handle_t* handle) {
   log_info("Successfully closed UDP handle");
 }
 
-int udp_close(const ct_connection_t* connection) {
+int udp_close(ct_connection_t* connection) {
   log_info("Closing UDP connection");
 
-  if (connection->open_type == CONNECTION_OPEN_TYPE_MULTIPLEXED) {
+  if (connection->socket_type == CONNECTION_SOCKET_TYPE_MULTIPLEXED) {
     log_info("Closing multiplexed UDP connection, removing from socket manager");
     int rc = socket_manager_remove_connection(connection->socket_manager, (ct_connection_t*)connection);
     if (rc < 0) {
@@ -97,7 +99,7 @@ int udp_close(const ct_connection_t* connection) {
     }
   }
 
-  ((ct_connection_t*)connection)->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSED;
+  ct_connection_mark_as_closed(connection);
 
   return 0;
 }

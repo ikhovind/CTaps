@@ -49,8 +49,34 @@ ct_connection_t* create_empty_connection_with_uuid() {
 
   connection->received_callbacks = g_queue_new();
   connection->received_messages = g_queue_new();
-  
+
   return connection;
+}
+
+void ct_connection_mark_as_closed(ct_connection_t* connection) {
+  connection->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSED;
+  log_info("Marked connection %p as closed", (void*)connection);
+}
+
+bool ct_connection_is_closed(const ct_connection_t* connection) {
+  if (!connection) {
+    return false;
+  }
+  return connection->transport_properties.connection_properties.list[STATE].value.enum_val == CONN_STATE_CLOSED;
+}
+
+bool ct_connection_is_client(const ct_connection_t* connection) {
+  if (!connection) {
+    return false;
+  }
+  return connection->role == CONNECTION_ROLE_CLIENT;
+}
+
+bool ct_connection_is_server(const ct_connection_t* connection) {
+  if (!connection) {
+    return false;
+  }
+  return connection->role == CONNECTION_ROLE_SERVER;
 }
 
 // Passed as callbacks to framer implementations
@@ -136,7 +162,8 @@ void ct_connection_build_multiplexed(ct_connection_t* connection, const ct_liste
   connection->security_parameters = listener->security_parameters;
   connection->received_callbacks = g_queue_new();
   connection->received_messages = g_queue_new();
-  connection->open_type = CONNECTION_OPEN_TYPE_MULTIPLEXED;
+  connection->socket_type = CONNECTION_SOCKET_TYPE_MULTIPLEXED;
+  connection->role = CONNECTION_ROLE_SERVER;
 }
 
 void ct_connection_close(ct_connection_t* connection) {
@@ -173,7 +200,8 @@ ct_connection_t* ct_connection_build_from_received_handle(const struct ct_listen
 
   connection->protocol = listener->socket_manager->protocol_impl;
   connection->framer_impl = NULL;  // No framer by default
-  connection->open_type = CONNECTION_TYPE_STANDALONE;
+  connection->socket_type = CONNECTION_SOCKET_TYPE_STANDALONE;
+  connection->role = CONNECTION_ROLE_SERVER;
   connection->received_callbacks = g_queue_new();
   connection->received_messages = g_queue_new();
   connection->internal_connection_state = (uv_handle_t*)received_handle;
@@ -295,7 +323,8 @@ ct_connection_t* ct_connection_clone_full(
   new_connection->remote_endpoint = source_connection->remote_endpoint;
   new_connection->protocol = source_connection->protocol;
   new_connection->framer_impl = source_connection->framer_impl;
-  new_connection->open_type = source_connection->open_type;
+  new_connection->socket_type = source_connection->socket_type;
+  new_connection->role = source_connection->role;
   new_connection->connection_callbacks = source_connection->connection_callbacks;
   
   if (source_connection->socket_manager) {

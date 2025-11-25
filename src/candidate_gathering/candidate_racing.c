@@ -106,7 +106,8 @@ static int start_connection_attempt(ct_racing_context_t* context, int attempt_in
   attempt->connection->protocol = *candidate->protocol;
   attempt->connection->remote_endpoint = *candidate->remote_endpoint;
   attempt->connection->local_endpoint = *candidate->local_endpoint;
-  attempt->connection->open_type = CONNECTION_TYPE_STANDALONE;
+  attempt->connection->socket_type = CONNECTION_SOCKET_TYPE_STANDALONE;
+  attempt->connection->role = CONNECTION_ROLE_CLIENT;
   attempt->connection->security_parameters = context->preconnection->security_parameters;
   attempt->connection->received_messages = g_queue_new();
   attempt->connection->received_callbacks = g_queue_new();
@@ -217,7 +218,7 @@ static int on_attempt_establishment_error(ct_connection_t* connection) {
 
   // set connection state to CLOSED
   log_debug("Setting connection state to CLOSED for failed attempt %d", attempt->attempt_index);
-  connection->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSED;
+  ct_connection_mark_as_closed(connection);
 
   // Check if race is already complete (another attempt won)
   if (context->race_complete) {
@@ -251,7 +252,7 @@ static int on_attempt_establishment_error(ct_connection_t* connection) {
 
     // Mark the user connection as closed since all attempts failed
     log_debug("Setting user connection state to CLOSED after all attempts failed");
-    context->user_connection->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSED;
+    ct_connection_mark_as_closed(context->user_connection);
 
     if (context->user_callbacks.establishment_error) {
       rc = context->user_callbacks.establishment_error(context->user_connection);

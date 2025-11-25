@@ -1,6 +1,7 @@
 #include "tcp.h"
 #include "ctaps.h"
 #include "connection/socket_manager/socket_manager.h"
+#include "connection/connection.h"
 #include <errno.h>
 #include <logging/log.h>
 #include <stdbool.h>
@@ -122,10 +123,10 @@ int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
   return 0;
 }
 
-int tcp_close(const ct_connection_t* connection) {
+int tcp_close(ct_connection_t* connection) {
   log_info("Closing TCP connection");
 
-  if (connection->open_type == CONNECTION_OPEN_TYPE_MULTIPLEXED) {
+  if (connection->socket_type == CONNECTION_SOCKET_TYPE_MULTIPLEXED) {
     log_info("Closing multiplexed TCP connection, removing from socket manager");
     int rc = socket_manager_remove_connection(connection->socket_manager, (ct_connection_t*)connection);
     if (rc < 0) {
@@ -139,7 +140,7 @@ int tcp_close(const ct_connection_t* connection) {
     }
   }
 
-  ((ct_connection_t*)connection)->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSED;
+  ct_connection_mark_as_closed(connection);
 
   return 0;
 }

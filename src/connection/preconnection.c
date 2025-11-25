@@ -148,7 +148,8 @@ void ct_preconnection_build_user_connection(ct_connection_t* connection, const c
   log_info("Received callback of user connection: %p", connection->received_callbacks);
 
   // Set basic fields from preconnection
-  connection->open_type = CONNECTION_TYPE_STANDALONE;
+  connection->socket_type = CONNECTION_SOCKET_TYPE_STANDALONE;
+  connection->role = CONNECTION_ROLE_CLIENT;
   connection->security_parameters = preconnection->security_parameters;
   connection->framer_impl = preconnection->framer_impl;  // Copy framer from preconnection
   connection->socket_manager = NULL;

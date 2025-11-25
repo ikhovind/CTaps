@@ -10,7 +10,7 @@ struct ct_socket_manager_s;
 #define MAX_CONCURRENT_QUIC_CONNECTIONS 256
 
 int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks);
-int quic_close(const ct_connection_t* connection);
+int quic_close(ct_connection_t* connection);
 int quic_send(ct_connection_t* connection, ct_message_t* message, ct_message_context_t*);
 int quic_listen(struct ct_socket_manager_s* socket_manager);
 int quic_stop_listen(struct ct_socket_manager_s* listener);
@@ -18,7 +18,7 @@ int quic_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* reso
 void quic_retarget_protocol_connection(ct_connection_t* from_connection, ct_connection_t* to_connection);
 int quic_clone_connection(const struct ct_connection_s* source_connection, struct ct_connection_s* target_connection);
 
-static ct_protocol_impl_t quic_protocol_interface = {
+const static ct_protocol_impl_t quic_protocol_interface = {
     .name = "QUIC",
     .selection_properties = {
       .selection_property = {
