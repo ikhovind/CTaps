@@ -883,6 +883,15 @@ typedef struct ct_protocol_impl_s {
    */
   int (*close)(const struct ct_connection_s*);
 
+  /** @brief Clone a connection's protocol specific state.
+   *
+   * @param[in] source_connection The source connection to clone from
+   * @param[out] target_connection The target connection to clone into
+   * @return 0 on success, non-zero on error
+   */
+  int (*clone_connection)(const struct ct_connection_s* source_connection,
+                          struct ct_connection_s* target_connection);
+
   /** @brief Extract remote endpoint information from a connected peer handle.
    * @param[in] peer The libuv handle for the peer
    * @param[out] resolved_peer Output endpoint structure
@@ -916,6 +925,7 @@ typedef struct ct_connection_group_s {
   char connection_group_id[37];           ///< Unique identifier for this group
   GHashTable* connections;                ///< Map of UUID string → ct_connection_t*
   void* connection_group_state;           ///< Protocol-specific shared state
+  uint32_t num_active_connections;        ///< Number of active connections in this group
 } ct_connection_group_t;
 
 /**
@@ -1454,19 +1464,25 @@ CT_EXTERN void ct_connection_abort(ct_connection_t* connection);
  * multiple logical connections (streams) over a single transport session.
  *
  * @param[in] source_connection The connection to clone
- * @param[out] cloned_connection The newly created connection (caller must allocate)
  * @param[in] framer Optional framer for the cloned connection (NULL to inherit)
  * @param[in] connection_properties Optional properties for cloned connection (NULL to inherit)
  * @param[in] connection_callbacks Callbacks for the cloned connection
- * @return 0 on success, -1 on error (e.g., protocol doesn't support cloning)
+ * @return An allocated connection object on success, or NULL on error
  */
-CT_EXTERN int ct_connection_clone(
+CT_EXTERN ct_connection_t* ct_connection_clone_full(
     const ct_connection_t* source_connection,
-    ct_connection_t* cloned_connection,
     ct_framer_impl_t* framer,
-    const ct_transport_properties_t* connection_properties,
-    ct_connection_callbacks_t connection_callbacks
+    const ct_transport_properties_t* connection_properties
 );
+
+/**
+ * @brief Clone a connection with only mandatory parameters.
+ *
+ * Is a wrapper around ct_connection_clone_full()
+ *
+ * @see ct_connection_clone_full
+ */
+CT_EXTERN ct_connection_t* ct_connection_clone(ct_connection_t* source_connection);
 
 /**
  * @brief Get all connections in the same connection group.

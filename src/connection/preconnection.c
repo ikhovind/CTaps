@@ -131,7 +131,7 @@ void ct_preconnection_free(ct_preconnection_t* preconnection) {
 
 void ct_preconnection_build_user_connection(ct_connection_t* connection, const ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks) {
   log_debug("Building user connection from preconnection");
-  ct_connection_build_base(connection);
+  ct_connection_build_with_connection_group(connection);
 
   // Initialize transport properties with defaults
   ct_transport_properties_build(&connection->transport_properties);

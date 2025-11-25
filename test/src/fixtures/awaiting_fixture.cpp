@@ -8,6 +8,7 @@ extern "C" {
 
 struct CallbackContext {
     std::vector<ct_message_t*>* messages;
+    std::map<ct_connection_t*, std::vector<ct_message_t*>>* per_connection_messages;
     std::vector<ct_connection_t*> server_connections; // created by the listener callback
     std::vector<ct_connection_t*> client_connections;
     std::function<void(CallbackContext*)>* closing_function; // To close any connections/listeners etc.
@@ -20,6 +21,7 @@ class CTapsGenericFixture : public ::testing::Test {
 protected:
     // Each test gets its own awaiter and message vector
     std::vector<ct_message_t*> received_messages;
+    std::map<ct_connection_t*, std::vector<ct_message_t*>> per_connection_messages;
     std::vector<ct_connection_t*> received_connections;
     std::vector<ct_connection_t*> client_connections;
     CallbackContext test_context;
@@ -30,6 +32,7 @@ protected:
         ASSERT_EQ(rc, 0);
 
         test_context.messages = &received_messages;
+        test_context.per_connection_messages = &per_connection_messages;
         test_context.server_connections = received_connections;
         test_context.client_connections = client_connections;
         test_context.closing_function = nullptr;
@@ -42,6 +45,12 @@ protected:
         // Clean up any messages the test didn't
         for (ct_message_t* msg : received_messages) {
             ct_message_free_all(msg);
+        }
+
+        for (auto& pair : per_connection_messages) {
+            for (ct_message_t* msg : pair.second) {
+                ct_message_free_all(msg);
+            }
         }
     }
 

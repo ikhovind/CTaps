@@ -332,15 +332,72 @@ int picoquic_callback(picoquic_cnx_t* cnx,
       }
       break;
     case picoquic_callback_stream_fin:
-      log_debug("Picoquic stream fin on stream %d", stream_id);
-      // Handle stream FIN
+      log_info("Received FIN on stream %llu", (unsigned long long)stream_id);
+      // Get the connection for this stream from the stream context
+      if (v_stream_ctx) {
+        connection = (ct_connection_t*)v_stream_ctx;
+        log_info("Peer closed stream for connection %p", (void*)connection);
+
+        // Check if connection is already marked as closed
+        if (connection->transport_properties.connection_properties.list[STATE].value.enum_val != CONN_STATE_CLOSED) {
+          // Decrement active connection counter
+          if (connection_group->num_active_connections > 0) {
+            connection_group->num_active_connections--;
+            log_info("Stream closed by peer, remaining active connections: %u", connection_group->num_active_connections);
+          }
+
+          // Mark this connection as closed
+          connection->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSED;
+          log_info("Marked connection as closed after receiving FIN");
+        }
+      } else {
+        log_warn("Received FIN on stream %llu but no stream context available", (unsigned long long)stream_id);
+      }
+      break;
+    case picoquic_callback_stream_reset:
+      log_info("Received RESET on stream %llu", (unsigned long long)stream_id);
+      // Get the connection for this stream from the stream context
+      if (v_stream_ctx) {
+        connection = (ct_connection_t*)v_stream_ctx;
+        log_info("Peer reset stream for connection %p", (void*)connection);
+
+        // Check if connection is already marked as closed
+        if (connection->transport_properties.connection_properties.list[STATE].value.enum_val != CONN_STATE_CLOSED) {
+          // Decrement active connection counter
+          if (connection_group->num_active_connections > 0) {
+            connection_group->num_active_connections--;
+            log_info("Stream reset by peer, remaining active connections: %u", connection_group->num_active_connections);
+          }
+
+          // Mark this connection as closed
+          connection->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSED;
+          log_info("Marked connection as closed after receiving RESET");
+        }
+      } else {
+        log_warn("Received RESET on stream %llu but no stream context available", (unsigned long long)stream_id);
+      }
       break;
     case picoquic_callback_close:
       log_info("Picoquic callback closed");
-      // Get first connection to determine type
+      // When the QUIC connection closes, all streams are closed
       {
         int size = g_hash_table_size(connection_group->connections);
         log_info("Number of connections in group at close event: %d", size);
+        log_info("Active connections before close: %u", connection_group->num_active_connections);
+
+        // Mark all connections in the group as closed
+        GHashTableIter iter;
+        gpointer key, value;
+        g_hash_table_iter_init(&iter, connection_group->connections);
+        while (g_hash_table_iter_next(&iter, &key, &value)) {
+          ct_connection_t* conn = (ct_connection_t*)value;
+          conn->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSED;
+        }
+
+        // Reset the active connection counter since entire QUIC connection is closed
+        connection_group->num_active_connections = 0;
+
+        // Get first connection to determine type and handle cleanup
         GHashTableIter close_iter;
         gpointer close_key, close_value;
         g_hash_table_iter_init(&close_iter, connection_group->connections);
@@ -743,14 +800,58 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
 int quic_close(const ct_connection_t* connection) {
   int rc = 0;
   ct_quic_group_state_t* group_state = (ct_quic_group_state_t*)connection->connection_group->connection_group_state;
-  log_info("Initiating closing of picoquic connection");
-  rc = picoquic_close(group_state->picoquic_connection, 0);
-  if (rc != 0) {
-    log_error("Error closing picoquic connection: %d", rc);
-  }
-  reset_quic_timer();
+  ct_quic_stream_state_t* stream_state = (ct_quic_stream_state_t*)connection->internal_connection_state;
+  ct_connection_group_t* group = connection->connection_group;
 
+  log_info("Closing QUIC connection, active connections in group: %u", group->num_active_connections);
+
+  // Check if there are multiple active connections in the group
+  if (group->num_active_connections > 1) {
+    // Multiple streams active - only close this stream with FIN
+    log_info("Multiple active connections in group, closing stream %llu with FIN",
+             (unsigned long long)stream_state->stream_id);
+
+    if (stream_state->stream_initialized) {
+      // Send FIN on this stream to gracefully close it
+      rc = picoquic_add_to_stream(group_state->picoquic_connection, stream_state->stream_id, NULL, 0, 1);
+      if (rc != 0) {
+        log_error("Error sending FIN on stream %llu: %d", (unsigned long long)stream_state->stream_id, rc);
+      }
+    } else {
+      log_warn("Stream not initialized, cannot send FIN");
+    }
+
+    // Decrement active connection counter
+    group->num_active_connections--;
+
+    // Mark this connection as closed but keep it in the group
+    ((ct_connection_t*)connection)->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSED;
+
+    log_info("Stream closed, remaining active connections: %u", group->num_active_connections);
+  } else {
+    // Last active connection - close the entire QUIC connection
+    log_info("Last active connection in group, closing entire QUIC connection");
+    rc = picoquic_close(group_state->picoquic_connection, 0);
+    if (rc != 0) {
+      log_error("Error closing picoquic connection: %d", rc);
+    }
+
+    // Decrement counter (will be 0 after this)
+    if (group->num_active_connections > 0) {
+      group->num_active_connections--;
+    }
+  }
+
+  reset_quic_timer();
   return rc;
+}
+
+int quic_clone_connection(const struct ct_connection_s* source_connection, struct ct_connection_s* target_connection) {
+  target_connection->internal_connection_state = malloc(sizeof(ct_quic_stream_state_t));
+  ct_quic_stream_state_t* target_state = (target_connection->internal_connection_state);
+  target_state->stream_id = 0;
+  target_state->stream_initialized = false;
+  return 0;
 }
 
 

@@ -44,6 +44,7 @@ set(CTAPS_SOURCES
     # Connections
     src/connection/preconnection.c
     src/connection/connection.c
+    src/connection/connection_group.c
     src/connection/listener.c
     src/connection/socket_manager/socket_manager.c
     # Endpoints
@@ -66,6 +67,8 @@ set(CTAPS_SOURCES
     src/candidate_gathering/candidate_racing.c
     # Logging
     src/logging/log.c
+    # Utilities
+    src/util/uuid_util.c
 )
 
 add_library(

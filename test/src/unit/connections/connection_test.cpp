@@ -50,8 +50,8 @@ TEST(ConnectionUnitTests, GeneratesUniqueUUIDs) {
     ct_connection_t connection1;
     ct_connection_t connection2;
 
-    ct_connection_build_base(&connection1);
-    ct_connection_build_base(&connection2);
+    ct_connection_build_with_connection_group(&connection1);
+    ct_connection_build_with_connection_group(&connection2);
 
     // Verify both have UUIDs
     ASSERT_GT(strlen(connection1.uuid), 0);
