@@ -37,3 +37,7 @@ void ct_connection_group_decrement_active(ct_connection_group_t* group) {
     log_info("Decremented active connections, remaining: %u", group->num_active_connections);
   }
 }
+
+uint64_t connection_group_get_num_active_connections(ct_connection_group_t* group) {
+  return group->num_active_connections;
+}
