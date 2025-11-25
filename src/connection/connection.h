@@ -21,5 +21,12 @@ void ct_connection_build_with_connection_group(ct_connection_t* connection);
   */
 ct_connection_t* create_empty_connection_with_uuid();
 
+/**
+ * @brief Mark a connection as closed.
+ *
+ * @param[in,out] connection The connection to mark as closed
+ */
+void ct_connection_mark_as_closed(ct_connection_t* connection);
+
 
 #endif // CONNECTION_H

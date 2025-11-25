@@ -881,7 +881,7 @@ typedef struct ct_protocol_impl_s {
    * @param[in] connection The connection to close
    * @return 0 on success, non-zero on error
    */
-  int (*close)(const struct ct_connection_s*);
+  int (*close)(struct ct_connection_s*);
 
   /** @brief Clone a connection's protocol specific state.
    *
@@ -911,12 +911,20 @@ typedef struct ct_protocol_impl_s {
 // =============================================================================
 
 /**
- * @brief Connection type classification.
+ * @brief Connection socket type classification.
  */
 typedef enum {
-  CONNECTION_TYPE_STANDALONE = 0,       ///< Independent connection
-  CONNECTION_OPEN_TYPE_MULTIPLEXED,     ///< Multiplexed connection (e.g., QUIC stream)
-} ct_connection_type_t;
+  CONNECTION_SOCKET_TYPE_STANDALONE = 0,    ///< Independent connection
+  CONNECTION_SOCKET_TYPE_MULTIPLEXED,       ///< Multiplexed connection (e.g., QUIC stream)
+} ct_connection_socket_type_t;
+
+/**
+ * @brief Connection role classification.
+ */
+typedef enum {
+  CONNECTION_ROLE_CLIENT = 0,           ///< Connection initiated by local endpoint
+  CONNECTION_ROLE_SERVER,               ///< Connection accepted from remote endpoint
+} ct_connection_role_t;
 
 /**
  * @brief Connection group for managing related connections.
@@ -944,7 +952,8 @@ typedef struct ct_connection_s {
   ct_protocol_impl_t protocol;                         ///< Protocol implementation in use
   void* internal_connection_state;                     ///< Protocol-specific per-connection state (opaque)
   ct_framer_impl_t* framer_impl;                       ///< Optional message framer (NULL = no framing)
-  ct_connection_type_t open_type;                      ///< Connection type
+  ct_connection_socket_type_t socket_type;             ///< Socket type (standalone vs multiplexed)
+  ct_connection_role_t role;                           ///< Connection role (client vs server)
   ct_connection_callbacks_t connection_callbacks;      ///< User-provided callbacks for events
   struct ct_socket_manager_s* socket_manager;          ///< Socket manager (for listeners/mux)
   GQueue* received_callbacks;                          ///< Queue of pending receive callbacks
@@ -1410,6 +1419,27 @@ CT_EXTERN int ct_send_message_full(ct_connection_t* connection, ct_message_t* me
  * @return 0 on success, non-zero on error
  */
 CT_EXTERN int ct_receive_message(ct_connection_t* connection, ct_receive_callbacks_t receive_callbacks);
+
+/**
+ * @brief Check if a connection is closed.
+ * @param[in] connection The connection to check
+ * @return true if connection is closed, false if open or connection is NULL
+ */
+CT_EXTERN bool ct_connection_is_closed(const ct_connection_t* connection);
+
+/**
+ * @brief Check if a connection is a client connection.
+ * @param[in] connection The connection to check
+ * @return true if connection is client role, false otherwise or if connection is NULL
+ */
+CT_EXTERN bool ct_connection_is_client(const ct_connection_t* connection);
+
+/**
+ * @brief Check if a connection is a server connection.
+ * @param[in] connection The connection to check
+ * @return true if connection is server role, false otherwise or if connection is NULL
+ */
+CT_EXTERN bool ct_connection_is_server(const ct_connection_t* connection);
 
 /**
  * @brief Initialize a multiplexed connection (internal helper).
