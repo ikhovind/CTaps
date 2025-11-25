@@ -104,6 +104,7 @@ add_gtest(
             ${CTAPS_SOURCES}
 )
 add_gtest(quic_listener_test SOURCES src/integration/quic/quic_listen_test.cpp ${CTAPS_SOURCES})
+add_gtest(connection_clone_test SOURCES src/integration/quic/connection_clone_test.cpp ${CTAPS_SOURCES})
 add_gtest(initiation_test SOURCES src/preconnection/initiation.cpp ${CTAPS_SOURCES} src/util/util.c)
 add_gtest(remote_endpoint_unit_test SOURCES src/unit/endpoint/remote.cpp ${CTAPS_SOURCES})
 add_gtest(preconnection_unit_test SOURCES src/unit/connections/preconnection.cpp ${CTAPS_SOURCES})
@@ -140,11 +141,13 @@ add_gtest(remote_endpoint_integration_test
             ${CMAKE_SOURCE_DIR}/src/protocol/tcp/tcp.c
             ${CMAKE_SOURCE_DIR}/src/protocol/quic/quic.c
             ${CMAKE_SOURCE_DIR}/src/protocol/common/socket_utils.c
+            ${CMAKE_SOURCE_DIR}/src/util/uuid_util.c
             ${CMAKE_SOURCE_DIR}/src/state/ctaps_state.c
             ${CMAKE_SOURCE_DIR}/src/transport_property/transport_properties.c
             ${CMAKE_SOURCE_DIR}/src/transport_property/selection_properties/selection_properties.c
             ${CMAKE_SOURCE_DIR}/src/transport_property/connection_properties/connection_properties.c
             ${CMAKE_SOURCE_DIR}/src/connection/connection.c
+            ${CMAKE_SOURCE_DIR}/src/connection/connection_group.c
             ${CMAKE_SOURCE_DIR}/src/protocol/protocol_registry.c
             ${CMAKE_SOURCE_DIR}/src/connection/listener.c
             ${CMAKE_SOURCE_DIR}/src/connection/socket_manager/socket_manager.c

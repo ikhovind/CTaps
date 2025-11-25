@@ -100,7 +100,7 @@ static int start_connection_attempt(ct_racing_context_t* context, int attempt_in
     attempt->state = ATTEMPT_STATE_FAILED;
     return -ENOMEM;
   }
-  ct_connection_build_base(attempt->connection);
+  ct_connection_build_with_connection_group(attempt->connection);
 
   // Setup connection with candidate parameters
   attempt->connection->protocol = *candidate->protocol;

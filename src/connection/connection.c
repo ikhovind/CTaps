@@ -3,19 +3,18 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <uv.h>
-#include <uuid/uuid.h>
 
 #include "connection/socket_manager/socket_manager.h"
 #include "connection/connection.h"
+#include "connection/connection_group.h"
+#include "util/uuid_util.h"
 #include "message/message.h"
 #include "ctaps.h"
 #include "glib.h"
 
-void ct_connection_build_base(ct_connection_t* connection) {
+void ct_connection_build_with_connection_group(ct_connection_t* connection) {
   memset(connection, 0, sizeof(ct_connection_t));
-  uuid_t uuid;
-  uuid_generate(uuid);
-  uuid_unparse(uuid, connection->uuid);
+  generate_uuid_string(connection->uuid);
 
   // Create connection group for this connection
   ct_connection_group_t* group = malloc(sizeof(ct_connection_group_t));
@@ -25,18 +24,33 @@ void ct_connection_build_base(ct_connection_t* connection) {
   }
 
   // Generate UUID for the connection group
-  uuid_t group_uuid;
-  uuid_generate(group_uuid);
-  uuid_unparse(group_uuid, group->connection_group_id);
+  generate_uuid_string(group->connection_group_id);
 
   // Initialize connections hash table (keyed by connection UUID)
   group->connections = g_hash_table_new(g_str_hash, g_str_equal);
   group->connection_group_state = NULL; // Will be set by protocol implementation
+  group->num_active_connections = 0;
 
   // Add this connection to the group
   g_hash_table_insert(group->connections, connection->uuid, connection);
+  group->num_active_connections++;
 
   connection->connection_group = group;
+}
+
+ct_connection_t* create_empty_connection_with_uuid() {
+  ct_connection_t* connection = malloc(sizeof(ct_connection_t));
+  if (!connection) {
+    log_error("Failed to allocate memory for ct_connection_t");
+    return NULL;
+  }
+  memset(connection, 0, sizeof(ct_connection_t));
+  generate_uuid_string(connection->uuid);
+
+  connection->received_callbacks = g_queue_new();
+  connection->received_messages = g_queue_new();
+  
+  return connection;
 }
 
 // Passed as callbacks to framer implementations
@@ -111,7 +125,7 @@ int ct_receive_message(ct_connection_t* connection,
 }
 
 void ct_connection_build_multiplexed(ct_connection_t* connection, const ct_listener_t* listener, const ct_remote_endpoint_t* remote_endpoint) {
-  ct_connection_build_base(connection);
+  ct_connection_build_with_connection_group(connection);
   connection->local_endpoint = listener->local_endpoint;
   connection->transport_properties = listener->transport_properties;
   connection->remote_endpoint = *remote_endpoint;
@@ -146,7 +160,7 @@ ct_connection_t* ct_connection_build_from_received_handle(const struct ct_listen
     log_error("Failed to allocate memory for ct_connection_t");
     return NULL;
   }
-  ct_connection_build_base(connection);
+  ct_connection_build_with_connection_group(connection);
 
   connection->transport_properties = listener->transport_properties;
   connection->local_endpoint = listener->local_endpoint;
@@ -246,20 +260,56 @@ void ct_connection_abort(ct_connection_t* connection) {
   ct_connection_close(connection);
 }
 
-int ct_connection_clone(
-    const ct_connection_t* source_connection,
-    ct_connection_t* cloned_connection,
-    ct_framer_impl_t* framer,
-    const ct_transport_properties_t* connection_properties,
-    ct_connection_callbacks_t connection_callbacks
-) {
-  log_error("Connection cloning not yet implemented");
-  (void)source_connection;
-  (void)cloned_connection;
-  (void)framer;
-  (void)connection_properties;
-  (void)connection_callbacks;
-  return -ENOSYS;
+ct_connection_t* ct_connection_clone_full(
+  const ct_connection_t* source_connection,
+  ct_framer_impl_t* framer,
+  const ct_transport_properties_t* connection_properties) {
+
+  ct_connection_t* new_connection = create_empty_connection_with_uuid();
+  if (!new_connection) {
+    log_error("Failed to allocate memory for cloned connection");
+    return NULL;
+  }
+
+  if (framer != NULL) {
+    log_error("Cloning with custom framer not implemented yet");
+    return NULL;
+  }
+  if (connection_properties != NULL) {
+    log_error("Cloning with custom transport properties not implemented yet");
+    return NULL;
+  }
+
+  ct_connection_group_t* connection_group = source_connection->connection_group;
+  int rc = ct_connection_group_add_connection(connection_group, new_connection);
+  if (rc < 0) {
+    log_error("Failed to add cloned connection to connection group: %d", rc);
+    ct_connection_free(new_connection);
+    return NULL;
+  }
+
+  new_connection->connection_group = connection_group;
+  new_connection->transport_properties = source_connection->transport_properties;
+  new_connection->security_parameters = source_connection->security_parameters;
+  new_connection->local_endpoint = source_connection->local_endpoint;
+  new_connection->remote_endpoint = source_connection->remote_endpoint;
+  new_connection->protocol = source_connection->protocol;
+  new_connection->framer_impl = source_connection->framer_impl;
+  new_connection->open_type = source_connection->open_type;
+  new_connection->connection_callbacks = source_connection->connection_callbacks;
+  
+  if (source_connection->socket_manager) {
+    log_error("TODO: Figure out how to clone with socket manager");
+    return NULL;
+  }
+
+  new_connection->protocol.clone_connection(source_connection, new_connection);
+
+  return new_connection;
+}
+
+ct_connection_t* ct_connection_clone(ct_connection_t* source_connection) {
+  return ct_connection_clone_full(source_connection, NULL, NULL);
 }
 
 int ct_connection_get_grouped_connections(
