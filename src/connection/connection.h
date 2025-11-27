@@ -28,5 +28,17 @@ ct_connection_t* create_empty_connection_with_uuid();
  */
 void ct_connection_mark_as_closed(ct_connection_t* connection);
 
+/**
+ * @brief Create a new connection by cloning from an existing connection.
+ *
+ * Allocates and initializes a new connection in the same connection group as the source,
+ * copying all relevant properties (endpoints, transport properties, security parameters, etc.).
+ * This is used for creating additional streams in QUIC or cloning UDP connections.
+ *
+ * @param[in] src_clone Source connection to clone from
+ * @return Pointer to newly created connection, or NULL on error
+ */
+ct_connection_t* ct_connection_create_clone(const ct_connection_t* src_clone);
+
 
 #endif // CONNECTION_H

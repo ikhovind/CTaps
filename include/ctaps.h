@@ -1546,6 +1546,14 @@ CT_EXTERN int ct_connection_get_grouped_connections(
 CT_EXTERN void ct_connection_close_group(ct_connection_t* connection);
 
 /**
+ * @brief Get the connection group of a connection.
+ *
+ * @param[in] connection The connection
+ * @return Pointer to the connection group, NULL if connection is NULL or other error
+ */
+CT_EXTERN ct_connection_group_t* ct_connection_get_connection_group(const ct_connection_t* connection);
+
+/**
  * @brief Forcefully abort all connections in the same connection group.
  *
  * Immediately terminates all connections in the group without graceful shutdown.

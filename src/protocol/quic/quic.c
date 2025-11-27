@@ -82,7 +82,7 @@ ct_quic_group_state_t* ct_create_quic_group_state(void);
 void ct_free_quic_group_state(ct_quic_group_state_t* state);
 void ct_free_quic_stream_state(ct_quic_stream_state_t* state);
 bool ct_connection_stream_is_initialized(ct_connection_t* connection);
-void ct_connection_set_stream(ct_connection_t* connection, uint64_t stream_id);
+void ct_quic_set_connection_stream(ct_connection_t* connection, uint64_t stream_id);
 void ct_connection_assign_next_free_stream(ct_connection_t* connection, bool is_unidirectional);
 uint64_t ct_connection_get_stream_id(const ct_connection_t* connection);
 ct_quic_group_state_t* ct_connection_get_quic_group_state(const ct_connection_t* connection);
@@ -97,7 +97,7 @@ bool ct_connection_stream_is_initialized(ct_connection_t* connection) {
   return stream_state->stream_initialized;
 }
 
-void ct_connection_set_stream(ct_connection_t* connection, uint64_t stream_id) {
+void ct_quic_set_connection_stream(ct_connection_t* connection, uint64_t stream_id) {
   ct_quic_stream_state_t* stream_state = ct_connection_get_stream_state(connection);
   if (!stream_state) {
     return;
@@ -115,7 +115,7 @@ void ct_connection_assign_next_free_stream(ct_connection_t* connection, bool is_
   group_state->next_quic_stream_id[NEXT_STREAM_ID_INDEX(is_client, is_unidirectional)] += 4;
 
   log_debug("Assigning next free stream ID, which is: ID %llu to connection %s", (unsigned long long)next_stream_id, connection->uuid);
-  ct_connection_set_stream(connection, next_stream_id);
+  ct_quic_set_connection_stream(connection, next_stream_id);
 }
 
 uint64_t ct_connection_get_stream_id(const ct_connection_t* connection) {
@@ -275,15 +275,17 @@ int handle_closed_picoquic_connection(ct_connection_t* connection) {
     connection->internal_connection_state = NULL;
   }
   else if (connection->socket_type == CONNECTION_SOCKET_TYPE_MULTIPLEXED) {
-    log_info("Removing closed QUIC connection from socket manager");
-    rc = socket_manager_remove_connection(connection->socket_manager, connection);
-
+    log_info("Removing closed QUIC connection group from socket manager");
+    // The connection group's active count is already 0 at this point
+    rc = socket_manager_remove_connection_group(
+        connection->socket_manager,
+        &connection->remote_endpoint.data.resolved_address);
 
     if (rc < 0) {
-      log_error("Error removing closed QUIC connection from socket manager: %d", rc);
+      log_error("Error removing connection group from socket manager: %d", rc);
       return rc;
     }
-    log_info("Successfully removed closed QUIC connection from socket manager");
+    log_info("Successfully removed connection group from socket manager");
   }
   else {
     log_error("Unknown connection open type when handling closed QUIC connection");
@@ -326,7 +328,9 @@ int picoquic_callback(picoquic_cnx_t* cnx,
   switch (fin_or_event) {
     case picoquic_callback_ready:
       log_debug("QUIC connection is ready, invoking CTaps callback");
-      // Get the first (and at this point, only) connection in the group
+      // This callback is per-cnx.
+      // This means that this callback only happens once per connection group.
+      // We therefore know that the connection group only has one connection at this point.
       connection = ct_connection_group_get_first(connection_group);
       if (!connection) {
         log_error("No connections found in connection group during ready callback");
@@ -365,8 +369,35 @@ int picoquic_callback(picoquic_cnx_t* cnx,
           log_info("Received stream id is: %llu", (unsigned long long)stream_id);
           log_info("first connection stream id is: %llu", (unsigned long long)ct_connection_get_stream_id(first_connection));
           if (ct_connection_is_server(first_connection)) {
-            log_error("Received new remote-initiated stream on server connection - multi-streaming not yet implemented");
-            return -ENOSYS;
+            log_info("Received new remote-initiated stream on server connection");
+
+            // Create new connection for this stream by cloning the first connection
+            ct_connection_t* new_stream_connection = ct_connection_create_clone(first_connection);
+            if (!new_stream_connection) {
+              log_error("Failed to create cloned connection for new stream");
+              return -ENOMEM;
+            }
+
+            // Set the stream ID on the cloned connection so responses go to the correct stream
+            ct_quic_set_connection_stream(new_stream_connection, stream_id);
+
+            int rc;
+
+            rc = picoquic_set_app_stream_ctx(group_state->picoquic_connection, stream_id, new_stream_connection);
+            if (rc < 0) {
+              log_error("Failed to set stream context for new stream connection: %d", rc);
+              return rc;
+            }
+
+            ct_listener_t* listener = first_connection->socket_manager->listener;
+            if (listener) {
+              listener->listener_callbacks.connection_received(listener, new_stream_connection);
+            } else {
+              log_warn("Received new stream but listener has been closed, not notifying application");
+            }
+            ct_connection_on_protocol_receive(new_stream_connection, bytes, length);
+
+            return 0;
           } if (ct_connection_is_client(first_connection)) {
             log_error("Received new remote-initiated stream on client connection - multi-streaming not yet implemented");
             return -ENOSYS;
@@ -376,13 +407,10 @@ int picoquic_callback(picoquic_cnx_t* cnx,
           }
         } else {
           log_debug("First connection has uninitialized stream, using it for stream %llu", (unsigned long long)stream_id);
-          // Initialize the stream
-          ct_connection_set_stream(first_connection, stream_id);
+          ct_quic_set_connection_stream(first_connection, stream_id);
 
-          // Set stream context so future data goes to this connection
           picoquic_set_app_stream_ctx(group_state->picoquic_connection, stream_id, first_connection);
 
-          // Deliver the data
           ct_connection_on_protocol_receive(first_connection, bytes, length);
         }
       } else {
@@ -392,7 +420,7 @@ int picoquic_callback(picoquic_cnx_t* cnx,
         // TODO - is this actually possible, are streams created before data is received?
         if (!ct_connection_stream_is_initialized(connection)) {
           log_debug("Initialized QUIC stream from received data with stream ID: %llu", (unsigned long long)stream_id);
-          ct_connection_set_stream(connection, stream_id);
+          ct_quic_set_connection_stream(connection, stream_id);
         }
 
         // Delegate to connection receive handler (handles framing if present)
@@ -576,8 +604,22 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
       return;
     }
 
-    bool was_new = false;
-    ct_connection_t* connection = socket_manager_get_or_create_connection(listener->socket_manager, (struct sockaddr_storage*)addr_from, &was_new);
+    ct_connection_group_t* connection_group = socket_manager_get_or_create_connection_group(
+        listener->socket_manager,
+        (struct sockaddr_storage*)addr_from,
+        NULL);
+
+    if (!connection_group) {
+      log_error("Failed to get or create connection group for new QUIC connection");
+      return;
+    }
+
+    // Get the first (and only) connection in the newly created group
+    ct_connection_t* connection = ct_connection_group_get_first(connection_group);
+    if (!connection) {
+      log_error("Connection group exists but has no connections");
+      return;
+    }
 
     log_trace("Created new ct_connection_t object for received QUIC cnx: %p", (void*)connection);
 
