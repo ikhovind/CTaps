@@ -344,6 +344,7 @@ ct_connection_t* ct_connection_clone_full(
   const ct_connection_t* source_connection,
   ct_framer_impl_t* framer,
   const ct_transport_properties_t* connection_properties) {
+  log_debug("Cloning connection: %s", source_connection->uuid);
 
   ct_connection_t* new_connection = create_empty_connection_with_uuid();
   if (!new_connection) {
@@ -384,7 +385,17 @@ ct_connection_t* ct_connection_clone_full(
     return NULL;
   }
 
-  new_connection->protocol.clone_connection(source_connection, new_connection);
+  if (new_connection->protocol.clone_connection == NULL) {
+    log_error("Protocol has not implemented connection cloning");
+    ct_connection_free(new_connection);
+    return NULL;
+  }
+  rc = new_connection->protocol.clone_connection(source_connection, new_connection);
+  if (rc < 0) {
+    log_error("Failed to initialize protocol state for cloned connection: %d", rc);
+    ct_connection_free(new_connection);
+    return NULL;
+  }
 
   return new_connection;
 }
