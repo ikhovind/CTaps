@@ -7,9 +7,10 @@ int ct_connection_group_add_connection(ct_connection_group_t* group, ct_connecti
     return -EINVAL;
   }
 
-  log_debug("Adding connection with UUID %s to connection group", connection->uuid);
+  log_debug("Adding connection with UUID %to connection group", connection->uuid);
   int rc = g_hash_table_insert(group->connections, connection->uuid, connection);
   if (!rc) {
+    log_error("Connection with UUID %to already exists in group", connection->uuid);
     return -EEXIST; // Connection already in group
   }
   group->num_active_connections++;

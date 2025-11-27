@@ -287,3 +287,19 @@ void udp_retarget_protocol_connection(ct_connection_t* from_connection, ct_conne
     handle->data = to_connection;
   }
 }
+
+int udp_clone_connection(const struct ct_connection_s* source_connection, struct ct_connection_s* target_connection) {
+  if (!source_connection || !target_connection) {
+    log_error("Source or target connection is NULL in udp_clone_connection");
+    return -EINVAL;
+  }
+  // Create ephemeral local port
+  uv_udp_t* new_udp_handle = create_udp_listening_on_ephemeral(alloc_buffer, on_read);
+  
+  target_connection->internal_connection_state = (uv_handle_t*)new_udp_handle;
+  new_udp_handle->data = target_connection;
+
+  //target_connection->connection_callbacks.ready(target_connection);
+
+  return 0;
+}
