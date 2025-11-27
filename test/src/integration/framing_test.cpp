@@ -168,7 +168,7 @@ TEST_F(FramingTest, LengthPrependFramerSendsCorrectFormat) {
 
     ct_connection_t connection;
     CallbackContext context = {
-        .messages = &received_messages,
+        .per_connection_messages = &per_connection_messages,
         .server_connections = received_connections,
         .client_connections = client_connections,
         .closing_function = nullptr,
@@ -191,8 +191,9 @@ TEST_F(FramingTest, LengthPrependFramerSendsCorrectFormat) {
 
 
     // Verify we got a response
-    ASSERT_EQ(received_messages.size(), 1);
-    ct_message_t* response = received_messages[0];
+    ASSERT_EQ(per_connection_messages.size(), 1);
+    ASSERT_EQ(per_connection_messages[&connection].size(), 1);
+    ct_message_t* response = per_connection_messages[&connection][0];
 
     std::string response_str((char*)response->content, response->length);
 
@@ -234,8 +235,9 @@ TEST_F(FramingTest, StripFirstCharFramerReceivesStrippedMessage) {
 
 
     // Verify we got a response
-    ASSERT_EQ(received_messages.size(), 1);
-    ct_message_t* response = received_messages[0];
+    ASSERT_EQ(per_connection_messages.size(), 1);
+    ASSERT_EQ(per_connection_messages[&connection].size(), 1);
+    ct_message_t* response = per_connection_messages[&connection][0];
 
     std::string response_str((char*)response->content, response->length);
 
@@ -266,7 +268,7 @@ TEST_F(FramingTest, AsyncFramerDefersSendCallback) {
 
     ct_connection_t connection;
     CallbackContext context = {
-        .messages = &received_messages,
+        .per_connection_messages = &per_connection_messages,
         .server_connections = received_connections,
         .client_connections = client_connections,
         .closing_function = nullptr,
@@ -286,8 +288,9 @@ TEST_F(FramingTest, AsyncFramerDefersSendCallback) {
     ct_start_event_loop();
 
     // Verify we got a response (message was successfully sent even though callback was deferred)
-    ASSERT_EQ(received_messages.size(), 1);
-    ct_message_t* response = received_messages[0];
+    ASSERT_EQ(per_connection_messages.size(), 1);
+    ASSERT_EQ(per_connection_messages[&connection].size(), 1);
+    ct_message_t* response = per_connection_messages[&connection][0];
 
     std::string response_str((char*)response->content, response->length);
 

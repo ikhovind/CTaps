@@ -13,7 +13,7 @@ class QuicListenTests : public CTapsGenericFixture {};
 
 TEST_F(QuicListenTests, QuicReceivesConnectionFromListenerAndExchangesMessages) {
     CallbackContext callback_context = {
-        .messages = &received_messages,
+        .per_connection_messages = &per_connection_messages,
         .server_connections = received_connections,
         .client_connections = client_connections,
     };
@@ -89,11 +89,19 @@ TEST_F(QuicListenTests, QuicReceivesConnectionFromListenerAndExchangesMessages) 
     ct_start_event_loop();
 
     // --- ASSERTIONS ---
-    ASSERT_EQ(callback_context.messages->size(), 2);
-    ASSERT_EQ(callback_context.messages->at(0)->length, 5);
-    ASSERT_STREQ(callback_context.messages->at(0)->content, "ping");
-    ASSERT_EQ(callback_context.messages->at(1)->length, 5);
-    ASSERT_STREQ(callback_context.messages->at(1)->content, "pong");
+    ASSERT_EQ(per_connection_messages.size(), 2); // Both client and server connections
+
+    // Client receives "pong"
+    ASSERT_EQ(per_connection_messages[&client_connection].size(), 1);
+    ASSERT_EQ(per_connection_messages[&client_connection][0]->length, 5);
+    ASSERT_STREQ(per_connection_messages[&client_connection][0]->content, "pong");
+
+    // Server receives "ping"
+    ASSERT_EQ(callback_context.server_connections.size(), 1);
+    ct_connection_t* server_connection = callback_context.server_connections[0];
+    ASSERT_EQ(per_connection_messages[server_connection].size(), 1);
+    ASSERT_EQ(per_connection_messages[server_connection][0]->length, 5);
+    ASSERT_STREQ(per_connection_messages[server_connection][0]->content, "ping");
 
     ct_free_security_parameter_content(&server_security_parameters);
     ct_free_security_parameter_content(&client_security_parameters);
@@ -174,11 +182,19 @@ TEST_F(QuicListenTests, ServerInitiatesStreamByWritingFirst) {
 
     // --- ASSERTIONS ---
     // Should have 2 messages: server's "server-hello" and client's "client-ack"
-    ASSERT_EQ(test_context.messages->size(), 2);
-    ASSERT_EQ(test_context.messages->at(0)->length, strlen("server-hello") + 1);
-    ASSERT_STREQ(test_context.messages->at(0)->content, "server-hello");
-    ASSERT_EQ(test_context.messages->at(1)->length, strlen("client-ack") + 1);
-    ASSERT_STREQ(test_context.messages->at(1)->content, "client-ack");
+    ASSERT_EQ(per_connection_messages.size(), 2); // Both client and server connections
+
+    // Client receives "server-hello"
+    ASSERT_EQ(per_connection_messages[&client_connection].size(), 1);
+    ASSERT_EQ(per_connection_messages[&client_connection][0]->length, strlen("server-hello") + 1);
+    ASSERT_STREQ(per_connection_messages[&client_connection][0]->content, "server-hello");
+
+    // Server receives "client-ack"
+    ASSERT_EQ(test_context.server_connections.size(), 1);
+    ct_connection_t* server_connection = test_context.server_connections[0];
+    ASSERT_EQ(per_connection_messages[server_connection].size(), 1);
+    ASSERT_EQ(per_connection_messages[server_connection][0]->length, strlen("client-ack") + 1);
+    ASSERT_STREQ(per_connection_messages[server_connection][0]->content, "client-ack");
 
     ct_free_security_parameter_content(&server_security_parameters);
     ct_free_security_parameter_content(&client_security_parameters);
