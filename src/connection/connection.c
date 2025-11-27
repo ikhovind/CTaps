@@ -166,6 +166,58 @@ void ct_connection_build_multiplexed(ct_connection_t* connection, const ct_liste
   connection->role = CONNECTION_ROLE_SERVER;
 }
 
+ct_connection_t* ct_connection_create_clone(const ct_connection_t* src_clone) {
+  log_debug("Creating cloned connection from source: %s", src_clone->uuid);
+
+  // Allocate new connection with UUID
+  ct_connection_t* dest_clone = create_empty_connection_with_uuid();
+  if (!dest_clone) {
+    log_error("Failed to allocate memory for cloned connection");
+    return NULL;
+  }
+
+  // Copy properties from source
+  dest_clone->connection_group = src_clone->connection_group;
+  dest_clone->local_endpoint = src_clone->local_endpoint;
+  dest_clone->remote_endpoint = src_clone->remote_endpoint;
+  dest_clone->transport_properties = src_clone->transport_properties;
+  dest_clone->security_parameters = src_clone->security_parameters;
+  dest_clone->protocol = src_clone->protocol;
+  dest_clone->framer_impl = src_clone->framer_impl;
+  dest_clone->socket_manager = src_clone->socket_manager;
+  dest_clone->socket_type = src_clone->socket_type;
+  dest_clone->role = src_clone->role;
+
+  // Initialize new queues for this connection
+  dest_clone->received_callbacks = g_queue_new();
+  dest_clone->received_messages = g_queue_new();
+
+  // Add to the connection group
+  int rc = ct_connection_group_add_connection(dest_clone->connection_group, dest_clone);
+  if (rc < 0) {
+    log_error("Failed to add cloned connection to group: %d", rc);
+    g_queue_free(dest_clone->received_callbacks);
+    g_queue_free(dest_clone->received_messages);
+    free(dest_clone);
+    return NULL;
+  }
+
+  // Initialize protocol-specific state (e.g., QUIC stream state)
+  if (src_clone->protocol.clone_connection) {
+    rc = src_clone->protocol.clone_connection(src_clone, dest_clone);
+    if (rc < 0) {
+      log_error("Failed to initialize protocol state for cloned connection: %d", rc);
+      g_queue_free(dest_clone->received_callbacks);
+      g_queue_free(dest_clone->received_messages);
+      free(dest_clone);
+      return NULL;
+    }
+  }
+
+  log_debug("Successfully created cloned connection: %s", dest_clone->uuid);
+  return dest_clone;
+}
+
 void ct_connection_close(ct_connection_t* connection) {
   int rc;
   log_info("Closing connection: %p", (void*)connection);
@@ -369,4 +421,16 @@ void ct_connection_close_group(ct_connection_t* connection) {
 void ct_connection_abort_group(ct_connection_t* connection) {
   log_info("Aborting connection group for connection: %p", (void*)connection);
   ct_connection_abort(connection);
+}
+
+ct_connection_group_t* ct_connection_get_connection_group(const ct_connection_t* connection) {
+  if (!connection) {
+    log_error("ct_connection_get_connection_group called with NULL connection");
+    return NULL;
+  }
+  if (!connection->connection_group) {
+    log_error("Connection has no connection group");
+    return NULL;
+  }
+  return connection->connection_group;
 }

@@ -14,12 +14,54 @@
 #include "ctaps.h"
 
 #include "connection/connection.h"
+#include "connection/connection_group.h"
 #include "connection/socket_manager/socket_manager.h"
 
 #define MAX_FOUND_INTERFACE_ADDRS 64
 
 void alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
   *buf = uv_buf_init(malloc(suggested_size), suggested_size);
+}
+
+void udp_multiplex_received_message(ct_socket_manager_t* socket_manager, ct_message_t* message, const struct sockaddr_storage* remote_addr) {
+  log_trace("UDP listener received message, demultiplexing to connection");
+
+  bool was_new = false;
+  ct_connection_group_t* connection_group = socket_manager_get_or_create_connection_group(
+      socket_manager, remote_addr, &was_new);
+
+  if (connection_group == NULL) {
+    log_error("Failed to get or create connection group for UDP message");
+    ct_message_free_all(message);
+    return;
+  }
+
+  // For UDP, get the first (and typically only) connection in the group
+  ct_connection_t* connection = ct_connection_group_get_first(connection_group);
+  if (connection == NULL) {
+    log_error("Connection group exists but has no connections");
+    ct_message_free_all(message);
+    return;
+  }
+
+  if (was_new) {
+    log_debug("UDP listener invoking callback for new connection from remote endpoint");
+    socket_manager->listener->listener_callbacks.connection_received(socket_manager->listener, connection);
+  }
+
+  if (g_queue_is_empty(connection->received_callbacks)) {
+    log_debug("Connection has no receive callback ready, queueing message");
+    g_queue_push_tail(connection->received_messages, message);
+  }
+  else {
+    log_debug("Connection has receive callback ready, invoking it");
+    ct_receive_callbacks_t* receive_callback = g_queue_pop_head(connection->received_callbacks);
+
+    ct_message_context_t ctx = {0};
+    ctx.user_receive_context = receive_callback->user_receive_context;
+    receive_callback->receive_callback(connection, &message, &ctx);
+    free(receive_callback);
+  }
 }
 
 void on_send(uv_udp_send_t* req, int status) {
@@ -85,11 +127,24 @@ int udp_close(ct_connection_t* connection) {
   log_info("Closing UDP connection");
 
   if (connection->socket_type == CONNECTION_SOCKET_TYPE_MULTIPLEXED) {
-    log_info("Closing multiplexed UDP connection, removing from socket manager");
-    int rc = socket_manager_remove_connection(connection->socket_manager, (ct_connection_t*)connection);
-    if (rc < 0) {
-      log_error("Error removing UDP connection from socket manager: %d", rc);
-      return rc;
+    log_info("Closing multiplexed UDP connection");
+
+    ct_connection_group_t* connection_group = connection->connection_group;
+
+    // Decrement active connection counter and mark as closed
+    ct_connection_group_decrement_active(connection_group);
+    ct_connection_mark_as_closed(connection);
+
+    // If no more active connections in group, remove group from socket manager
+    if (connection_group_get_num_active_connections(connection_group) == 0) {
+      log_info("No more active connections in group, removing from socket manager");
+      int rc = socket_manager_remove_connection_group(
+          connection->socket_manager,
+          &connection->remote_endpoint.data.resolved_address);
+      if (rc < 0) {
+        log_error("Error removing connection group from socket manager: %d", rc);
+        return rc;
+      }
     }
   } else {
     // Standalone connection - close the UDP handle
@@ -97,9 +152,8 @@ int udp_close(ct_connection_t* connection) {
       uv_udp_recv_stop((uv_udp_t*)connection->internal_connection_state);
       uv_close(connection->internal_connection_state, closed_handle_cb);
     }
+    ct_connection_mark_as_closed(connection);
   }
-
-  ct_connection_mark_as_closed(connection);
 
   return 0;
 }
@@ -185,7 +239,7 @@ void socket_listen_callback(uv_udp_t* handle,
   // Free the buffer allocated by alloc_buffer now that we've copied the data
   free(buf->base);
 
-  socket_manager_multiplex_received_message(socket_manager, received_message, (struct sockaddr_storage*)addr);
+  udp_multiplex_received_message(socket_manager, received_message, (struct sockaddr_storage*)addr);
 }
 
 int udp_listen(ct_socket_manager_t* socket_manager) {

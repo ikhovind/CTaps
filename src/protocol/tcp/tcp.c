@@ -2,6 +2,7 @@
 #include "ctaps.h"
 #include "connection/socket_manager/socket_manager.h"
 #include "connection/connection.h"
+#include "connection/connection_group.h"
 #include <errno.h>
 #include <logging/log.h>
 #include <stdbool.h>
@@ -127,20 +128,32 @@ int tcp_close(ct_connection_t* connection) {
   log_info("Closing TCP connection");
 
   if (connection->socket_type == CONNECTION_SOCKET_TYPE_MULTIPLEXED) {
-    log_info("Closing multiplexed TCP connection, removing from socket manager");
-    int rc = socket_manager_remove_connection(connection->socket_manager, (ct_connection_t*)connection);
-    if (rc < 0) {
-      log_error("Error removing TCP connection from socket manager: %d", rc);
-      return rc;
+    log_info("Closing multiplexed TCP connection");
+
+    ct_connection_group_t* connection_group = connection->connection_group;
+
+    // Decrement active connection counter and mark as closed
+    ct_connection_group_decrement_active(connection_group);
+    ct_connection_mark_as_closed(connection);
+
+    // If no more active connections in group, remove group from socket manager
+    if (connection_group_get_num_active_connections(connection_group) == 0) {
+      log_info("No more active connections in group, removing from socket manager");
+      int rc = socket_manager_remove_connection_group(
+          connection->socket_manager,
+          &connection->remote_endpoint.data.resolved_address);
+      if (rc < 0) {
+        log_error("Error removing connection group from socket manager: %d", rc);
+        return rc;
+      }
     }
   } else {
     // Standalone connection - close the TCP handle
     if (connection->internal_connection_state) {
       uv_close((uv_handle_t*)connection->internal_connection_state, on_close);
     }
+    ct_connection_mark_as_closed(connection);
   }
-
-  ct_connection_mark_as_closed(connection);
 
   return 0;
 }

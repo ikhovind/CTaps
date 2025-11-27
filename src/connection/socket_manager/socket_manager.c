@@ -4,6 +4,7 @@
 #include <logging/log.h>
 #include <netinet/in.h>
 #include <stdlib.h>
+#include "connection/connection.h"
 #include <errno.h>
 
 #include "ctaps.h"
@@ -17,39 +18,42 @@ void socket_manager_alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_
 
 int socket_manager_build(ct_socket_manager_t* socket_manager, ct_listener_t* listener) {
   log_debug("Building socket manager for listener");
-  // Hash connections by remote endpoint (not UUID) because for connectionless protocols
-  // (UDP), incoming packets only provide the remote address - we need to demultiplex to
-  // the correct connection before we have access to the connection object and its UUID.
-  socket_manager->active_connections = g_hash_table_new(g_bytes_hash, g_bytes_equal);
+  // Hash connection groups by remote endpoint because incoming packets only provide
+  // the remote address - we demultiplex to the correct connection group, then within
+  // the group use protocol-specific logic (UDP: local endpoint, QUIC: stream_id)
+  socket_manager->connection_groups = g_hash_table_new(g_bytes_hash, g_bytes_equal);
   socket_manager->listener = listener;
   return 0;
 }
 
-int socket_manager_remove_connection(ct_socket_manager_t* socket_manager, const ct_connection_t* connection) {
-  log_debug("Removing connection from socket manager: %p", (void*)connection);
+int socket_manager_remove_connection_group(ct_socket_manager_t* socket_manager, const struct sockaddr_storage* remote_addr) {
+  log_debug("Removing connection group from socket manager for remote endpoint");
+
   GBytes* addr_bytes = NULL;
-  if (connection->remote_endpoint.data.resolved_address.ss_family == AF_INET) {
-    log_trace("Removing IPv4 connection from socket manager");
-    addr_bytes = g_bytes_new(&connection->remote_endpoint.data.resolved_address, sizeof(struct sockaddr_in));
+  if (remote_addr->ss_family == AF_INET) {
+    log_trace("Removing connection group for IPv4 remote endpoint");
+    addr_bytes = g_bytes_new(remote_addr, sizeof(struct sockaddr_in));
   }
-  else if (connection->remote_endpoint.data.resolved_address.ss_family == AF_INET6) {
-    log_trace("Removing IPv6 connection from socket manager");
-    addr_bytes = g_bytes_new(&connection->remote_endpoint.data.resolved_address, sizeof(struct sockaddr_in6));
+  else if (remote_addr->ss_family == AF_INET6) {
+    log_trace("Removing connection group for IPv6 remote endpoint");
+    addr_bytes = g_bytes_new(remote_addr, sizeof(struct sockaddr_in6));
   }
   else {
-    log_error("socket_manager_remove_connection encountered connection with unknown address family: %d", connection->remote_endpoint.data.resolved_address.ss_family);
+    log_error("socket_manager_remove_connection_group encountered unknown address family: %d", remote_addr->ss_family);
     return -EINVAL;
   }
+
   log_trace("Hash code of addr_bytes when removing is: %u", g_bytes_hash(addr_bytes));
-  // print gbytes:
-  const gboolean removed = g_hash_table_remove(socket_manager->active_connections, addr_bytes);
+  const gboolean removed = g_hash_table_remove(socket_manager->connection_groups, addr_bytes);
+  g_bytes_unref(addr_bytes);
+
   if (removed) {
     // Log before since decrementing might free the socket manager
-    log_info("ct_connection_t removed successfully, decrementing socket manager reference count");
+    log_info("Connection group removed successfully, decrementing socket manager reference count");
     socket_manager_decrement_ref(socket_manager);
     return 0;
   }
-  log_warn("Could not remove ct_connection_t from socket manager hash table");
+  log_warn("Could not remove connection group from socket manager hash table");
   return -EINVAL;
 }
 
@@ -70,81 +74,68 @@ void socket_manager_increment_ref(ct_socket_manager_t* socket_manager) {
   log_debug("Incremented socket manager reference count, updated count: %d", socket_manager->ref_count);
 }
 
-ct_connection_t* socket_manager_get_or_create_connection(ct_socket_manager_t* socket_manager, const struct sockaddr_storage* remote_addr, bool* was_new) {
-  *was_new = false;
+ct_connection_group_t* socket_manager_get_or_create_connection_group(ct_socket_manager_t* socket_manager, const struct sockaddr_storage* remote_addr, bool* was_new) {
+  log_info("Trying to fetch or create connection group for remote endpoint in socket manager");
+  if (was_new) {
+    *was_new = false;
+  }
   GBytes* addr_bytes = NULL;
   if (remote_addr->ss_family == AF_INET) {
-    log_debug("socket_manager_get_connection_from_remote received IPv4 address");
+    log_debug("socket_manager_get_or_create_connection_group received IPv4 address");
     addr_bytes = g_bytes_new(remote_addr, sizeof(struct sockaddr_in));
   }
   else if (remote_addr->ss_family == AF_INET6) {
-    log_debug("socket_manager_get_connection_from_remote received IPv6 address");
+    log_debug("socket_manager_get_or_create_connection_group received IPv6 address");
     addr_bytes = g_bytes_new(remote_addr, sizeof(struct sockaddr_in6));
   }
   else {
-    log_error("socket_manager_get_connection_from_remote encountered unknown address family: %d", remote_addr->ss_family);
+    log_error("socket_manager_get_or_create_connection_group encountered unknown address family: %d", remote_addr->ss_family);
     return NULL;
   }
-  ct_connection_t* connection = g_hash_table_lookup(socket_manager->active_connections, addr_bytes);
+
+  // Look up connection group by remote endpoint
+  ct_connection_group_t* connection_group = g_hash_table_lookup(socket_manager->connection_groups, addr_bytes);
   ct_listener_t* listener = socket_manager->listener;
-  
+
   // This means we have received a message from a new remote endpoint
-  if (connection == NULL) {
-    log_debug("Socket manager did not find existing connection for remote endpoint");
+  if (connection_group == NULL) {
+    log_debug("Socket manager did not find existing connection group for remote endpoint");
     if (socket_manager->listener == NULL) {
       log_debug("Socket manager is not accepting new connections, ignoring");
+      g_bytes_unref(addr_bytes);
       return NULL;
     }
-    log_debug("No connection found for remote endpoint in socket manager, creating new one");
+    log_debug("No connection group found for remote endpoint, creating new one with first connection");
 
     ct_remote_endpoint_t remote_endpoint;
     ct_remote_endpoint_build(&remote_endpoint);
     ct_remote_endpoint_from_sockaddr(&remote_endpoint, (struct sockaddr_storage*)remote_addr);
 
-    connection = malloc(sizeof(ct_connection_t));
+    // Create first connection for this remote endpoint
+    ct_connection_t* connection = create_empty_connection_with_uuid();
     if (connection == NULL) {
       log_error("Failed to allocate memory for new connection");
       g_bytes_unref(addr_bytes);
       return NULL;
     }
     ct_connection_build_multiplexed(connection, listener, &remote_endpoint);
+
+    // The connection was built with a new connection_group, so get it
+    connection_group = connection->connection_group;
+
     log_trace("Hash code of addr_bytes when inserting is: %u", g_bytes_hash(addr_bytes));
-    g_hash_table_insert(socket_manager->active_connections, addr_bytes, connection);
-    log_debug("Inserted new connection into socket manager hash table");
+    g_hash_table_insert(socket_manager->connection_groups, addr_bytes, connection_group);
+    log_debug("Inserted new connection group into socket manager hash table");
     socket_manager->ref_count++;
     log_debug("Socket manager reference count is now: %d", socket_manager->ref_count);
-    *was_new = true;
+    if (was_new) {
+      *was_new = true;
+    }
   }
   else {
-    log_debug("Found existing connection for remote endpoint in socket manager");
+    log_debug("Found existing connection group for remote endpoint in socket manager");
+    g_bytes_unref(addr_bytes);
   }
-  return connection;
+  return connection_group;
 }
 
-void socket_manager_multiplex_received_message(ct_socket_manager_t* socket_manager, ct_message_t* message, const struct sockaddr_storage* addr) {
-  log_trace("Socket manager received message, multiplexing to connection");
-
-  bool was_new = false;
-  ct_connection_t* connection = socket_manager_get_or_create_connection(socket_manager, addr, &was_new);
-  ct_listener_t* listener = socket_manager->listener;
-
-  if (connection != NULL) {
-    if (was_new) {
-      log_debug("Socket manager invoking listener callback for new connection");
-      listener->listener_callbacks.connection_received(listener, connection);
-    }
-    if (g_queue_is_empty(connection->received_callbacks)) {
-      log_debug("Found ct_connection_t has no receive callback ready, queueing message");
-      g_queue_push_tail(connection->received_messages, message);
-    }
-    else {
-      log_debug("Found ct_connection_t has receive callback ready, invoking it");
-      ct_receive_callbacks_t* receive_callback = g_queue_pop_head(connection->received_callbacks);
-
-      ct_message_context_t ctx = {0};
-      ctx.user_receive_context = receive_callback->user_receive_context;
-      receive_callback->receive_callback(connection, &message, &ctx);
-      free(receive_callback);
-    }
-  }
-}
