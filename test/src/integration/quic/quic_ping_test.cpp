@@ -59,8 +59,9 @@ TEST_F(QuicPingTest, successfullyConnectsToQuicServer) {
 
   log_info("Checking that client connection %p is closed", (void*)&client_connection);
   ASSERT_EQ(client_connection.transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
-  ASSERT_EQ(test_context.messages->size(), 1);
-  ASSERT_STREQ(test_context.messages->at(0)->content, "Pong: ping");
+  ASSERT_EQ(per_connection_messages.size(), 1);
+  ASSERT_EQ(per_connection_messages[&client_connection].size(), 1);
+  ASSERT_STREQ(per_connection_messages[&client_connection][0]->content, "Pong: ping");
 
   ct_free_security_parameter_content(&security_parameters);
   ct_preconnection_free(&preconnection);

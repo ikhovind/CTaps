@@ -12,54 +12,6 @@ extern "C" {
 #define QUIC_PING_PORT 4433
 #define QUIC_CLONE_LISTENER_PORT 4434
 
-int receive_and_close_connection(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
-    log_info("Connection %p received message", (void*)connection);
-    auto* ctx = static_cast<CallbackContext*>(message_context->user_receive_context);
-
-    (*ctx->per_connection_messages)[connection].push_back(*received_message);
-
-    ct_connection_close(connection);
-    return 0;
-}
-
-int clone_send_and_setup_receive_on_both(ct_connection_t* connection) {
-    log_info("Connection ready, cloning");
-    auto* ctx = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
-
-    ct_connection_t* cloned = ct_connection_clone(connection);
-    if (!cloned) {
-        log_error("Failed to clone connection");
-        ct_connection_close(connection);
-        return -1;
-    }
-
-    log_info("Successfully cloned: original=%p, cloned=%p", (void*)connection, (void*)cloned);
-
-    ctx->client_connections.push_back(connection);
-    ctx->client_connections.push_back(cloned);
-
-    ct_message_t message1;
-    ct_message_build_with_content(&message1, "ping-original", strlen("ping-original") + 1);
-    ct_send_message(connection, &message1);
-    ct_message_free_content(&message1);
-
-    ct_message_t message2;
-    ct_message_build_with_content(&message2, "ping-cloned", strlen("ping-cloned") + 1);
-    ct_send_message(cloned, &message2);
-    ct_message_free_content(&message2);
-
-    ct_receive_callbacks_t receive_req = {
-        .receive_callback = receive_and_close_connection,
-        .user_receive_context = ctx
-    };
-
-    ct_receive_message(connection, receive_req);
-    ct_receive_message(cloned, receive_req);
-
-    log_info("Sent messages and set up receives on both connections");
-    return 0;
-}
-
 class ConnectionCloneTest : public CTapsGenericFixture {};
 
 TEST_F(ConnectionCloneTest, clonesConnectionSendsOnBothAndReceivesIndividualResponses) {
@@ -112,121 +64,6 @@ TEST_F(ConnectionCloneTest, clonesConnectionSendsOnBothAndReceivesIndividualResp
     ct_preconnection_free(&preconnection);
 }
 
-// --- Callbacks for listener-based clone test ---
-
-// Server callback: Receives a message from client, echoes it back with "Response: " prefix
-int server_receive_and_respond(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
-    log_info("Server: Received message from connection %p: %s", (void*)connection, (*received_message)->content);
-    auto* ctx = static_cast<CallbackContext*>(message_context->user_receive_context);
-
-    // Store the received message
-    ctx->messages->push_back(*received_message);
-
-    // Send response with "Response: " prefix
-    std::string response = std::string("Response: ") + std::string((char*)(*received_message)->content);
-    ct_message_t response_msg;
-    ct_message_build_with_content(&response_msg, response.c_str(), response.length() + 1);
-    ct_send_message(connection, &response_msg);
-    ct_message_free_content(&response_msg);
-
-    log_info("Server: Sent response: %s", response.c_str());
-
-    // Close listener after receiving both messages (original + clone)
-    if (ctx->messages->size() >= 2 && ctx->listener) {
-        log_info("Server: Received all expected messages, closing listener");
-        ct_listener_close(ctx->listener);
-        ctx->listener = nullptr;
-    }
-
-    // Set up to receive next message (in case there are more)
-    ct_receive_callbacks_t receive_req = {
-        .receive_callback = server_receive_and_respond,
-        .user_receive_context = ctx
-    };
-    ct_receive_message(connection, receive_req);
-
-    return 0;
-}
-
-// Server listener callback: When a connection is received, set up receive
-int server_on_connection_received(ct_listener_t* listener, ct_connection_t* new_connection) {
-    log_info("Server: New connection received %p", (void*)new_connection);
-    auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
-    context->server_connections.push_back(new_connection);
-
-    // Don't close listener yet - need to receive all streams (original + cloned)
-    // Listener will be cleaned up when test ends
-
-    // Set up receive callback
-    ct_receive_callbacks_t receive_req = {
-        .receive_callback = server_receive_and_respond,
-        .user_receive_context = listener->listener_callbacks.user_listener_context
-    };
-
-    ct_receive_message(new_connection, receive_req);
-    return 0;
-}
-
-// Client receive callback: Store the response and close the connection
-int client_receive_response_and_close(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
-    log_info("Client connection %p received message: %s", (void*)connection, (*received_message)->content);
-    auto* ctx = static_cast<CallbackContext*>(message_context->user_receive_context);
-
-    // Store message per connection
-    (*ctx->per_connection_messages)[connection].push_back(*received_message);
-
-    // Close this connection
-    ct_connection_close(connection);
-
-    return 0;
-}
-
-// Client ready callback for listener test: Clone connection, send messages on both, set up receives
-int client_ready_clone_and_send_to_listener(ct_connection_t* connection) {
-    log_info("Client: Connection ready, cloning");
-    auto* ctx = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
-
-    // Clone the connection
-    ct_connection_t* cloned = ct_connection_clone(connection);
-    if (!cloned) {
-        log_error("Failed to clone connection");
-        ct_connection_close(connection);
-        return -1;
-    }
-
-    log_info("Client: Successfully cloned: original=%p, cloned=%p", (void*)connection, (void*)cloned);
-
-    // Store both connections
-    ctx->client_connections.push_back(connection);
-    ctx->client_connections.push_back(cloned);
-
-    // Send message from original connection
-    ct_message_t message1;
-    ct_message_build_with_content(&message1, "Message from original", strlen("Message from original") + 1);
-    ct_send_message(connection, &message1);
-    ct_message_free_content(&message1);
-    log_info("Client: Original sent message");
-
-    // Send message from cloned connection
-    ct_message_t message2;
-    ct_message_build_with_content(&message2, "Message from clone", strlen("Message from clone") + 1);
-    ct_send_message(cloned, &message2);
-    ct_message_free_content(&message2);
-    log_info("Client: Clone sent message");
-
-    // Set up receives on both connections
-    ct_receive_callbacks_t receive_req = {
-        .receive_callback = client_receive_response_and_close,
-        .user_receive_context = ctx
-    };
-
-    ct_receive_message(connection, receive_req);
-    ct_receive_message(cloned, receive_req);
-
-    log_info("Client: Set up receives on both connections");
-    return 0;
-}
-
 TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses) {
     // --- SETUP SERVER/LISTENER ---
     ct_listener_t listener;
@@ -257,7 +94,7 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
                                       &server_security_parameters, listener_endpoint);
 
     ct_listener_callbacks_t listener_callbacks = {
-        .connection_received = server_on_connection_received,
+        .connection_received = server_on_connection_received_for_cloning,
         .user_listener_context = &test_context
     };
 
@@ -287,7 +124,7 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     ct_connection_t client_connection;
     ct_connection_callbacks_t client_callbacks = {
         .establishment_error = on_establishment_error,
-        .ready = client_ready_clone_and_send_to_listener,
+        .ready = clone_send_and_setup_receive_on_both,
         .user_connection_context = &test_context,
     };
 
@@ -301,11 +138,15 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     log_info("Event loop completed");
 
     // --- ASSERTIONS ---
-    // Server should have received 2 messages (one from original, one from clone)
-    ASSERT_EQ(received_messages.size(), 2);
+    // Server connections: Could be 1 connection with 2 messages, or 2 connections with 1 each
+    // Check total messages received by all server connections
+    ASSERT_EQ(test_context.server_connections.size(), 2); // QUIC creates separate streams
+    ASSERT_EQ(per_connection_messages[test_context.server_connections[0]].size(), 1);
+    ASSERT_EQ(per_connection_messages[test_context.server_connections[1]].size(), 1);
 
     // Clients should have received 2 responses total (one per connection)
-    ASSERT_EQ(per_connection_messages.size(), 2);
+    // The map should have 4 entries: 2 client connections + 2 server connections
+    ASSERT_EQ(per_connection_messages.size(), 4);
 
     ct_connection_t* original = test_context.client_connections[0];
     ct_connection_t* cloned = test_context.client_connections[1];
@@ -315,8 +156,8 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     ASSERT_EQ(per_connection_messages[cloned].size(), 1);
 
     // Verify message contents
-    ASSERT_STREQ(per_connection_messages[original][0]->content, "Response: Message from original");
-    ASSERT_STREQ(per_connection_messages[cloned][0]->content, "Response: Message from clone");
+    ASSERT_STREQ(per_connection_messages[original][0]->content, "Response: ping-original");
+    ASSERT_STREQ(per_connection_messages[cloned][0]->content, "Response: ping-cloned");
 
     log_info("Test completed successfully");
 
