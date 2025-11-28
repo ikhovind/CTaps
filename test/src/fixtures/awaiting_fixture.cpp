@@ -324,40 +324,47 @@ int client_ready_wait_for_server(ct_connection_t* connection) {
 
 // Client ready callback: Clone connection, send on both, set up receives
 int clone_send_and_setup_receive_on_both(ct_connection_t* connection) {
-    log_info("Connection ready, cloning");
     auto* ctx = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
 
-    ct_connection_t* cloned = ct_connection_clone(connection);
-    if (!cloned) {
-        log_error("Failed to clone connection");
-        ct_connection_close(connection);
-        return -1;
+    // Check connection group size to determine if this is original or cloned connection
+    uint64_t num_active = ct_connection_group_get_num_active_connections(connection->connection_group);
+
+    const char* message_content;
+    if (num_active == 1) {
+        // This is the original connection - clone it
+        log_info("Original connection %p ready, cloning", (void*)connection);
+
+        ct_connection_t* cloned = ct_connection_clone(connection);
+        if (!cloned) {
+            log_error("Failed to clone connection");
+            ct_connection_close(connection);
+            return -1;
+        }
+
+        log_info("Successfully cloned: original=%p, cloned=%p", (void*)connection, (void*)cloned);
+        message_content = "ping-original";
+    } else {
+        // This is the cloned connection
+        log_info("Cloned connection %p ready", (void*)connection);
+        message_content = "ping-cloned";
     }
 
-    log_info("Successfully cloned: original=%p, cloned=%p", (void*)connection, (void*)cloned);
-
+    // Add this connection to client_connections
     ctx->client_connections.push_back(connection);
-    ctx->client_connections.push_back(cloned);
 
-    ct_message_t message1;
-    ct_message_build_with_content(&message1, "ping-original", strlen("ping-original") + 1);
-    ct_send_message(connection, &message1);
-    ct_message_free_content(&message1);
-
-    ct_message_t message2;
-    ct_message_build_with_content(&message2, "ping-cloned", strlen("ping-cloned") + 1);
-    ct_send_message(cloned, &message2);
-    ct_message_free_content(&message2);
+    // Send and set up receive (same for both original and clone)
+    ct_message_t message;
+    ct_message_build_with_content(&message, message_content, strlen(message_content) + 1);
+    ct_send_message(connection, &message);
+    ct_message_free_content(&message);
 
     ct_receive_callbacks_t receive_req = {
         .receive_callback = close_on_message_received,
         .user_receive_context = ctx
     };
-
     ct_receive_message(connection, receive_req);
-    ct_receive_message(cloned, receive_req);
 
-    log_info("Sent messages and set up receives on both connections");
+    log_info("Sent message '%s' and set up receive on connection %p", message_content, (void*)connection);
     return 0;
 }
 

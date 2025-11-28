@@ -31,6 +31,35 @@ void tcp_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
   free(buf->base);
 }
 
+void on_clone_connect(struct uv_connect_s *req, int status) {
+  ct_connection_t* connection = (ct_connection_t*)req->handle->data;
+  free(req);
+
+  if (status < 0) {
+    log_error("Cloned TCP connection failed: %s", uv_strerror(status));
+    ct_connection_close(connection);
+    if (connection->connection_callbacks.establishment_error) {
+      connection->connection_callbacks.establishment_error(connection);
+    }
+    return;
+  }
+
+  log_info("Cloned TCP connection established successfully");
+
+  int rc = uv_read_start((uv_stream_t*)connection->internal_connection_state,
+                         alloc_cb, tcp_on_read);
+  if (rc < 0) {
+    log_error("Failed to start reading on cloned connection: %s", uv_strerror(rc));
+    ct_connection_close(connection);
+    return;
+  }
+
+  // Call ready callback to notify that cloned connection is established
+  if (connection->connection_callbacks.ready) {
+    connection->connection_callbacks.ready(connection);
+  }
+}
+
 void on_connect(struct uv_connect_s *req, int status) {
   ct_connection_t* connection = (ct_connection_t*)req->handle->data;
   if (status < 0) {
@@ -137,7 +166,7 @@ int tcp_close(ct_connection_t* connection) {
     ct_connection_mark_as_closed(connection);
 
     // If no more active connections in group, remove group from socket manager
-    if (connection_group_get_num_active_connections(connection_group) == 0) {
+    if (ct_connection_group_get_num_active_connections(connection_group) == 0) {
       log_info("No more active connections in group, removing from socket manager");
       int rc = socket_manager_remove_connection_group(
           connection->socket_manager,
@@ -310,4 +339,69 @@ void tcp_retarget_protocol_connection(ct_connection_t* from_connection, ct_conne
     uv_handle_t* handle = (uv_handle_t*)from_connection->internal_connection_state;
     handle->data = to_connection;
   }
+}
+
+int tcp_clone_connection(const struct ct_connection_s* source_connection,
+                         struct ct_connection_s* target_connection) {
+  if (!source_connection || !target_connection) {
+    log_error("Source or target connection is NULL in tcp_clone_connection");
+    return -EINVAL;
+  }
+
+  log_info("Cloning TCP connection");
+  int rc;
+
+  // Allocate and initialize TCP handle
+  uv_tcp_t* new_tcp_handle = malloc(sizeof(uv_tcp_t));
+  if (new_tcp_handle == NULL) {
+    log_error("Failed to allocate memory for TCP handle");
+    return -ENOMEM;
+  }
+
+  rc = uv_tcp_init(event_loop, new_tcp_handle);
+  if (rc < 0) {
+    log_error("Error initializing tcp handle for clone: %s", uv_strerror(rc));
+    free(new_tcp_handle);
+    return rc;
+  }
+
+  target_connection->internal_connection_state = (uv_handle_t*)new_tcp_handle;
+  new_tcp_handle->data = target_connection;
+
+  // Copy TCP keepalive settings
+  uint32_t keepalive_timeout = target_connection->transport_properties
+      .connection_properties.list[KEEP_ALIVE_TIMEOUT].value.uint32_val;
+
+  if (keepalive_timeout != CONN_TIMEOUT_DISABLED) {
+    log_info("Setting TCP keepalive with timeout: %u seconds", keepalive_timeout);
+    rc = uv_tcp_keepalive(new_tcp_handle, true, keepalive_timeout);
+    if (rc < 0) {
+      log_warn("Error setting TCP keepalive: %s", uv_strerror(rc));
+    }
+  }
+
+  // Initiate async connection to same remote endpoint
+  uv_connect_t* connect_req = malloc(sizeof(uv_connect_t));
+  if (!connect_req) {
+    log_error("Failed to allocate connect request");
+    uv_close((uv_handle_t*)new_tcp_handle, on_close);
+    return -ENOMEM;
+  }
+
+  rc = uv_tcp_connect(
+      connect_req,
+      new_tcp_handle,
+      (const struct sockaddr*)&target_connection->remote_endpoint.data.resolved_address,
+      on_clone_connect
+  );
+
+  if (rc < 0) {
+    log_error("Error initiating TCP clone connection: %s", uv_strerror(rc));
+    free(connect_req);
+    uv_close((uv_handle_t*)new_tcp_handle, on_close);
+    return rc;
+  }
+
+  log_info("TCP clone connection initiated, establishing asynchronously");
+  return 0;
 }

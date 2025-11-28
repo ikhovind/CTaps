@@ -40,6 +40,6 @@ void ct_connection_group_decrement_active(ct_connection_group_t* group) {
   }
 }
 
-uint64_t connection_group_get_num_active_connections(ct_connection_group_t* group) {
+uint64_t ct_connection_group_get_num_active_connections(ct_connection_group_t* group) {
   return group->num_active_connections;
 }
