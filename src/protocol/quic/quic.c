@@ -888,7 +888,7 @@ int quic_close(ct_connection_t* connection) {
   ct_quic_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
   uint64_t stream_id = ct_connection_get_stream_id(connection);
   ct_connection_group_t* connection_group = connection->connection_group;
-  uint64_t num_active_connections = connection_group_get_num_active_connections(connection_group);
+  uint64_t num_active_connections = ct_connection_group_get_num_active_connections(connection_group);
 
   log_info("Closing QUIC connection, active connections in group: %u", num_active_connections);
 

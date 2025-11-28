@@ -1554,6 +1554,14 @@ CT_EXTERN void ct_connection_close_group(ct_connection_t* connection);
 CT_EXTERN ct_connection_group_t* ct_connection_get_connection_group(const ct_connection_t* connection);
 
 /**
+ * @brief Get the number of active connections in a connection group.
+ *
+ * @param[in] group Connection group to query
+ * @return Number of active connections in the group
+ */
+CT_EXTERN uint64_t ct_connection_group_get_num_active_connections(ct_connection_group_t* group);
+
+/**
  * @brief Forcefully abort all connections in the same connection group.
  *
  * Immediately terminates all connections in the group without graceful shutdown.

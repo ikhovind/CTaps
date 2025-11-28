@@ -136,7 +136,7 @@ int udp_close(ct_connection_t* connection) {
     ct_connection_mark_as_closed(connection);
 
     // If no more active connections in group, remove group from socket manager
-    if (connection_group_get_num_active_connections(connection_group) == 0) {
+    if (ct_connection_group_get_num_active_connections(connection_group) == 0) {
       log_info("No more active connections in group, removing from socket manager");
       int rc = socket_manager_remove_connection_group(
           connection->socket_manager,

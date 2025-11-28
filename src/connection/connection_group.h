@@ -28,7 +28,14 @@ ct_connection_t* ct_connection_group_get_first(ct_connection_group_t* group);
  */
 void ct_connection_group_decrement_active(ct_connection_group_t* group);
 
-uint64_t connection_group_get_num_active_connections(ct_connection_group_t* group);
+/**
+ * @brief Get the number of active connections in a connection group.
+ *
+ * @param[in] group Connection group to query
+ *
+ * @return Number of active connections in the group
+ */
+uint64_t ct_connection_group_get_num_active_connections(ct_connection_group_t* group);
 
 
 #endif // CT_CONNECTION_GROUP_H

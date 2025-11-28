@@ -10,7 +10,8 @@ extern "C" {
 }
 
 #define QUIC_PING_PORT 4433
-#define UDP_PING_PORT 5005 
+#define UDP_PING_PORT 5005
+#define TCP_PING_PORT 5006
 #define QUIC_CLONE_LISTENER_PORT 4434
 
 class ConnectionCloneTest : public CTapsGenericFixture {};
@@ -183,6 +184,51 @@ TEST_F(ConnectionCloneTest, clonesUdpConnectionSendsOnBothAndReceivesIndividualR
     ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PROHIBIT);
     ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
     ct_tp_set_sel_prop_preference(&transport_properties, CONGESTION_CONTROL, PROHIBIT);
+
+    ct_preconnection_t preconnection;
+    ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
+    ct_connection_t client_connection;
+
+    ct_connection_callbacks_t connection_callbacks = {
+        .establishment_error = on_establishment_error,
+        .ready = clone_send_and_setup_receive_on_both,
+        .user_connection_context = &test_context,
+    };
+
+    int rc = ct_preconnection_initiate(&preconnection, &client_connection, connection_callbacks);
+    log_info("Created client connection: %p", (void*)&client_connection);
+    ASSERT_EQ(rc, 0);
+
+    ct_start_event_loop();
+
+    log_info("Event loop completed, checking results");
+
+    ASSERT_EQ(client_connection.transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
+    ASSERT_EQ(per_connection_messages.size(), 2);
+
+    ct_connection_t* original = test_context.client_connections[0];
+    ct_connection_t* cloned = test_context.client_connections[1];
+
+    ASSERT_EQ(per_connection_messages[original].size(), 1);
+    ASSERT_EQ(per_connection_messages[cloned].size(), 1);
+    ASSERT_STREQ(per_connection_messages[original][0]->content, "Pong: ping-original");
+    ASSERT_STREQ(per_connection_messages[cloned][0]->content, "Pong: ping-cloned");
+
+    ct_preconnection_free(&preconnection);
+}
+
+TEST_F(ConnectionCloneTest, clonesTcpConnectionSendsOnBothAndReceivesIndividualResponses) {
+    ct_remote_endpoint_t remote_endpoint;
+    ct_remote_endpoint_build(&remote_endpoint);
+    ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
+    ct_remote_endpoint_with_port(&remote_endpoint, TCP_PING_PORT);
+
+    ct_transport_properties_t transport_properties;
+    ct_transport_properties_build(&transport_properties);
+    // Force TCP selection
+    ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
+    ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
+    ct_tp_set_sel_prop_preference(&transport_properties, MULTISTREAMING, PROHIBIT);
 
     ct_preconnection_t preconnection;
     ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
