@@ -1493,13 +1493,17 @@ CT_EXTERN void ct_connection_abort(ct_connection_t* connection);
  * connection. This enables multi-streaming protocols like QUIC and SCTP to create
  * multiple logical connections (streams) over a single transport session.
  *
+ * The callbacks of the source connection are copied into the cloned connection.
+ * The ready callback is invoked with the cloned connection as a parameter, when
+ * connection succeeds.
+ *
  * @param[in] source_connection The connection to clone
  * @param[in] framer Optional framer for the cloned connection (NULL to inherit)
  * @param[in] connection_properties Optional properties for cloned connection (NULL to inherit)
  * @param[in] connection_callbacks Callbacks for the cloned connection
  * @return An allocated connection object on success, or NULL on error
  */
-CT_EXTERN ct_connection_t* ct_connection_clone_full(
+CT_EXTERN int ct_connection_clone_full(
     const ct_connection_t* source_connection,
     ct_framer_impl_t* framer,
     const ct_transport_properties_t* connection_properties
@@ -1511,8 +1515,11 @@ CT_EXTERN ct_connection_t* ct_connection_clone_full(
  * Is a wrapper around ct_connection_clone_full()
  *
  * @see ct_connection_clone_full
+ * @param[in] source_connection The connection to clone
+ *
+ * @return An allocated connection object on success, or NULL on error
  */
-CT_EXTERN ct_connection_t* ct_connection_clone(ct_connection_t* source_connection);
+CT_EXTERN int ct_connection_clone(ct_connection_t* source_connection);
 
 /**
  * @brief Get all connections in the same connection group.

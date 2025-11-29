@@ -932,6 +932,11 @@ int quic_clone_connection(const struct ct_connection_s* source_connection, struc
   ct_quic_stream_state_t* target_state = (target_connection->internal_connection_state);
   target_state->stream_id = 0;
   target_state->stream_initialized = false;
+
+  // call ready callback of target connection
+  if (target_connection->connection_callbacks.ready) {
+    target_connection->connection_callbacks.ready(target_connection);
+  }
   return 0;
 }
 

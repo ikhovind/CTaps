@@ -340,7 +340,7 @@ void ct_connection_abort(ct_connection_t* connection) {
   ct_connection_close(connection);
 }
 
-ct_connection_t* ct_connection_clone_full(
+int ct_connection_clone_full(
   const ct_connection_t* source_connection,
   ct_framer_impl_t* framer,
   const ct_transport_properties_t* connection_properties) {
@@ -349,16 +349,16 @@ ct_connection_t* ct_connection_clone_full(
   ct_connection_t* new_connection = create_empty_connection_with_uuid();
   if (!new_connection) {
     log_error("Failed to allocate memory for cloned connection");
-    return NULL;
+    return -ENOMEM;
   }
 
   if (framer != NULL) {
     log_error("Cloning with custom framer not implemented yet");
-    return NULL;
+    return -ENOSYS;
   }
   if (connection_properties != NULL) {
     log_error("Cloning with custom transport properties not implemented yet");
-    return NULL;
+    return -ENOSYS;
   }
 
   ct_connection_group_t* connection_group = source_connection->connection_group;
@@ -366,7 +366,7 @@ ct_connection_t* ct_connection_clone_full(
   if (rc < 0) {
     log_error("Failed to add cloned connection to connection group: %d", rc);
     ct_connection_free(new_connection);
-    return NULL;
+    return rc;
   }
 
   new_connection->connection_group = connection_group;
@@ -382,25 +382,25 @@ ct_connection_t* ct_connection_clone_full(
   
   if (source_connection->socket_manager) {
     log_error("TODO: Figure out how to clone with socket manager");
-    return NULL;
+    return -ENOSYS;
   }
 
   if (new_connection->protocol.clone_connection == NULL) {
     log_error("Protocol has not implemented connection cloning");
     ct_connection_free(new_connection);
-    return NULL;
+    return -ENOSYS;
   }
   rc = new_connection->protocol.clone_connection(source_connection, new_connection);
   if (rc < 0) {
     log_error("Failed to initialize protocol state for cloned connection: %d", rc);
     ct_connection_free(new_connection);
-    return NULL;
+    return rc;
   }
 
-  return new_connection;
+  return 0;
 }
 
-ct_connection_t* ct_connection_clone(ct_connection_t* source_connection) {
+int ct_connection_clone(ct_connection_t* source_connection) {
   return ct_connection_clone_full(source_connection, NULL, NULL);
 }
 

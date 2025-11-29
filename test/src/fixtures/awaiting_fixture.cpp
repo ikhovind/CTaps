@@ -329,28 +329,28 @@ int clone_send_and_setup_receive_on_both(ct_connection_t* connection) {
     // Check connection group size to determine if this is original or cloned connection
     uint64_t num_active = ct_connection_group_get_num_active_connections(connection->connection_group);
 
+    // Add this connection to client_connections
+    ctx->client_connections.push_back(connection);
+
     const char* message_content;
     if (num_active == 1) {
         // This is the original connection - clone it
         log_info("Original connection %p ready, cloning", (void*)connection);
 
-        ct_connection_t* cloned = ct_connection_clone(connection);
-        if (!cloned) {
-            log_error("Failed to clone connection");
+        int rc = ct_connection_clone(connection);
+        if (rc < 0) {
+            log_error("Failed to clone connection: %d", rc);
             ct_connection_close(connection);
-            return -1;
+            return rc;
         }
 
-        log_info("Successfully cloned: original=%p, cloned=%p", (void*)connection, (void*)cloned);
+        log_info("Successfully cloned: original=%s", connection->uuid);
         message_content = "ping-original";
     } else {
         // This is the cloned connection
         log_info("Cloned connection %p ready", (void*)connection);
         message_content = "ping-cloned";
     }
-
-    // Add this connection to client_connections
-    ctx->client_connections.push_back(connection);
 
     // Send and set up receive (same for both original and clone)
     ct_message_t message;
