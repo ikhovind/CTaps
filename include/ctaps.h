@@ -275,7 +275,7 @@ CT_EXTERN void ct_set_sel_prop_bool(ct_selection_properties_t* props, ct_selecti
 CT_EXTERN void ct_set_sel_prop_interface(ct_selection_properties_t* props, const char* interface_name, ct_selection_preference_t preference);
 
 // =============================================================================
-// Connection Properties - Properties of active connections
+// Connection Properties
 // =============================================================================
 
 #define CONN_TIMEOUT_DISABLED UINT32_MAX            ///< Special value: no timeout
@@ -344,19 +344,19 @@ typedef struct ct_connection_property_s {
 
 // clang-format off
 #define get_writable_connection_property_list(f)                                                                    \
-f(RECV_CHECKSUM_LEN,          "recvChecksumLen",          uint32_t,                CONN_CHECKSUM_FULL_COVERAGE)        \
-f(CONN_PRIORITY,              "connPriority",             uint32_t,                100)                                \
-f(CONN_TIMEOUT,               "connTimeout",              uint32_t,                CONN_TIMEOUT_DISABLED)              \
-f(KEEP_ALIVE_TIMEOUT,         "keepAliveTimeout",         uint32_t,                CONN_TIMEOUT_DISABLED)              \
+f(RECV_CHECKSUM_LEN,          "recvChecksumLen",          uint32_t,                       CONN_CHECKSUM_FULL_COVERAGE)        \
+f(CONN_PRIORITY,              "connPriority",             uint32_t,                       100)                                \
+f(CONN_TIMEOUT,               "connTimeout",              uint32_t,                       CONN_TIMEOUT_DISABLED)              \
+f(KEEP_ALIVE_TIMEOUT,         "keepAliveTimeout",         uint32_t,                       CONN_TIMEOUT_DISABLED)              \
 f(CONN_SCHEDULER,             "connScheduler",            ct_connection_scheduler_enum_t, CONN_SCHEDULER_WEIGHTED_FAIR_QUEUEING) \
 f(CONN_CAPACITY_PROFILE,      "connCapacityProfile",      ct_capacity_profile_enum_t,     CAPACITY_PROFILE_BEST_EFFORT)           \
 f(MULTIPATH_POLICY,           "multipathPolicy",          ct_multipath_policy_enum_t,     MULTIPATH_POLICY_HANDOVER)          \
-f(MIN_SEND_RATE,              "minSendRate",              uint64_t,                CONN_RATE_UNLIMITED)                \
-f(MIN_RECV_RATE,              "minRecvRate",              uint64_t,                CONN_RATE_UNLIMITED)                \
-f(MAX_SEND_RATE,              "maxSendRate",              uint64_t,                CONN_RATE_UNLIMITED)                \
-f(MAX_RECV_RATE,              "maxRecvRate",              uint64_t,                CONN_RATE_UNLIMITED)                \
-f(GROUP_CONN_LIMIT,           "groupConnLimit",           uint64_t,                CONN_RATE_UNLIMITED)                \
-f(ISOLATE_SESSION,            "isolateSession",           bool,                    false)
+f(MIN_SEND_RATE,              "minSendRate",              uint64_t,                       CONN_RATE_UNLIMITED)                \
+f(MIN_RECV_RATE,              "minRecvRate",              uint64_t,                       CONN_RATE_UNLIMITED)                \
+f(MAX_SEND_RATE,              "maxSendRate",              uint64_t,                       CONN_RATE_UNLIMITED)                \
+f(MAX_RECV_RATE,              "maxRecvRate",              uint64_t,                       CONN_RATE_UNLIMITED)                \
+f(GROUP_CONN_LIMIT,           "groupConnLimit",           uint64_t,                       CONN_RATE_UNLIMITED)                \
+f(ISOLATE_SESSION,            "isolateSession",           bool,                           false)
 
 #define get_read_only_connection_properties(f)                                                                \
 f(STATE,                               "state",                               ct_connection_state_enum_t, 0)        \
@@ -780,10 +780,11 @@ typedef struct ct_framer_impl_s ct_framer_impl_t;
  * @param[in] connection The connection
  * @param[in] encoded_message The encoded message ready for transmission
  * @param[in] context Message context
+ * @return 0 on success, negative error code on failure
  */
-typedef void (*ct_framer_done_encoding_callback)(struct ct_connection_s* connection,
-                                                  ct_message_t* encoded_message,
-                                                  ct_message_context_t* context);
+typedef int (*ct_framer_done_encoding_callback)(struct ct_connection_s* connection,
+                                                 ct_message_t* encoded_message,
+                                                 ct_message_context_t* context);
 
 /**
  * @brief Callback invoked by framer when message decoding is complete.
@@ -811,8 +812,9 @@ struct ct_framer_impl_s {
    * @param[in] message The message to encode
    * @param[in] context Message context
    * @param[in] callback Callback to invoke when encoding is complete
+   * @return 0 on success, negative error code on failure
    */
-  void (*encode_message)(struct ct_connection_s* connection,
+  int (*encode_message)(struct ct_connection_s* connection,
                         ct_message_t* message,
                         ct_message_context_t* context,
                         ct_framer_done_encoding_callback callback);
@@ -879,7 +881,16 @@ typedef struct ct_protocol_impl_s {
    * @param[in] connection The connection to close
    * @return 0 on success, non-zero on error
    */
-  int (*close)(const struct ct_connection_s*);
+  int (*close)(struct ct_connection_s*);
+
+  /** @brief Clone a connection's protocol specific state.
+   *
+   * @param[in] source_connection The source connection to clone from
+   * @param[out] target_connection The target connection to clone into
+   * @return 0 on success, non-zero on error
+   */
+  int (*clone_connection)(const struct ct_connection_s* source_connection,
+                          struct ct_connection_s* target_connection);
 
   /** @brief Extract remote endpoint information from a connected peer handle.
    * @param[in] peer The libuv handle for the peer
@@ -900,12 +911,30 @@ typedef struct ct_protocol_impl_s {
 // =============================================================================
 
 /**
- * @brief Connection type classification.
+ * @brief Connection socket type classification.
  */
 typedef enum {
-  CONNECTION_TYPE_STANDALONE = 0,       ///< Independent connection
-  CONNECTION_OPEN_TYPE_MULTIPLEXED,     ///< Multiplexed connection (e.g., QUIC stream)
-} ct_connection_type_t;
+  CONNECTION_SOCKET_TYPE_STANDALONE = 0,    ///< Independent connection
+  CONNECTION_SOCKET_TYPE_MULTIPLEXED,       ///< Multiplexed connection (e.g., QUIC stream)
+} ct_connection_socket_type_t;
+
+/**
+ * @brief Connection role classification.
+ */
+typedef enum {
+  CONNECTION_ROLE_CLIENT = 0,           ///< Connection initiated by local endpoint
+  CONNECTION_ROLE_SERVER,               ///< Connection accepted from remote endpoint
+} ct_connection_role_t;
+
+/**
+ * @brief Connection group for managing related connections.
+ */
+typedef struct ct_connection_group_s {
+  char connection_group_id[37];           ///< Unique identifier for this group
+  GHashTable* connections;                ///< Map of UUID string → ct_connection_t*
+  void* connection_group_state;           ///< Protocol-specific shared state
+  uint64_t num_active_connections;        ///< Number of active connections in this group
+} ct_connection_group_t;
 
 /**
  * @brief Active connection object.
@@ -914,18 +943,21 @@ typedef enum {
  * for client connections or via listener callbacks for server connections.
  */
 typedef struct ct_connection_s {
-  ct_transport_properties_t transport_properties;     ///< Transport and connection properties
+  char uuid[37];                                       ///< Unique identifier for this connection (UUID string)
+  ct_connection_group_t* connection_group;             ///< Connection group (never NULL)
+  ct_transport_properties_t transport_properties;      ///< Transport and connection properties
   const ct_security_parameters_t* security_parameters; ///< Security configuration (TLS/QUIC)
-  ct_local_endpoint_t local_endpoint;                 ///< Local endpoint (bound address/port)
-  ct_remote_endpoint_t remote_endpoint;               ///< Remote endpoint (peer address/port)
-  ct_protocol_impl_t protocol;                        ///< Protocol implementation in use
-  void* protocol_state;                               ///< Protocol-specific state (opaque)
-  ct_framer_impl_t* framer_impl;                      ///< Optional message framer (NULL = no framing)
-  ct_connection_type_t open_type;                     ///< Connection type
-  ct_connection_callbacks_t connection_callbacks;     ///< User-provided callbacks for events
-  struct ct_socket_manager_s* socket_manager;         ///< Socket manager (for listeners/mux)
-  GQueue* received_callbacks;                         ///< Queue of pending receive callbacks
-  GQueue* received_messages;                          ///< Queue of received messages
+  ct_local_endpoint_t local_endpoint;                  ///< Local endpoint (bound address/port)
+  ct_remote_endpoint_t remote_endpoint;                ///< Remote endpoint (peer address/port)
+  ct_protocol_impl_t protocol;                         ///< Protocol implementation in use
+  void* internal_connection_state;                     ///< Protocol-specific per-connection state (opaque)
+  ct_framer_impl_t* framer_impl;                       ///< Optional message framer (NULL = no framing)
+  ct_connection_socket_type_t socket_type;             ///< Socket type (standalone vs multiplexed)
+  ct_connection_role_t role;                           ///< Connection role (client vs server)
+  ct_connection_callbacks_t connection_callbacks;      ///< User-provided callbacks for events
+  struct ct_socket_manager_s* socket_manager;          ///< Socket manager (for listeners/mux)
+  GQueue* received_callbacks;                          ///< Queue of pending receive callbacks
+  GQueue* received_messages;                           ///< Queue of received messages
 } ct_connection_t;
 
 /**
@@ -1256,8 +1288,10 @@ CT_EXTERN void ct_message_context_free(ct_message_context_t* message_context);
  * @param[out] connection Connection structure to initialize
  * @param[in] preconnection Source preconnection configuration
  * @param[in] connection_callbacks Callbacks for connection events
+ *
+ * @return 0 on success, non-zero on error
  */
-CT_EXTERN void ct_preconnection_build_user_connection(ct_connection_t* connection, const ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks);
+CT_EXTERN int ct_preconnection_build_user_connection(ct_connection_t* connection, const ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks);
 
 /**
  * @brief Initialize a preconnection with transport properties and endpoints.
@@ -1389,12 +1423,35 @@ CT_EXTERN int ct_send_message_full(ct_connection_t* connection, ct_message_t* me
 CT_EXTERN int ct_receive_message(ct_connection_t* connection, ct_receive_callbacks_t receive_callbacks);
 
 /**
+ * @brief Check if a connection is closed.
+ * @param[in] connection The connection to check
+ * @return true if connection is closed, false if open or connection is NULL
+ */
+CT_EXTERN bool ct_connection_is_closed(const ct_connection_t* connection);
+
+/**
+ * @brief Check if a connection is a client connection.
+ * @param[in] connection The connection to check
+ * @return true if connection is client role, false otherwise or if connection is NULL
+ */
+CT_EXTERN bool ct_connection_is_client(const ct_connection_t* connection);
+
+/**
+ * @brief Check if a connection is a server connection.
+ * @param[in] connection The connection to check
+ * @return true if connection is server role, false otherwise or if connection is NULL
+ */
+CT_EXTERN bool ct_connection_is_server(const ct_connection_t* connection);
+
+/**
  * @brief Initialize a multiplexed connection (internal helper).
  * @param[out] connection Connection to initialize
  * @param[in] listener Parent listener
  * @param[in] remote_endpoint Remote endpoint of the peer
+ *
+ * @return 0 on success, non-zero on error
  */
-CT_EXTERN void ct_connection_build_multiplexed(ct_connection_t* connection, const struct ct_listener_s* listener, const ct_remote_endpoint_t* remote_endpoint);
+CT_EXTERN int ct_connection_build_multiplexed(ct_connection_t* connection, const struct ct_listener_s* listener, const ct_remote_endpoint_t* remote_endpoint);
 
 /**
  * @brief Create a connection from an accepted handle (internal helper).
@@ -1422,6 +1479,108 @@ CT_EXTERN void ct_connection_free(ct_connection_t* connection);
  */
 CT_EXTERN void ct_connection_close(ct_connection_t* connection);
 
+/**
+ * @brief Forcefully abort a connection without graceful shutdown.
+ *
+ * Unlike ct_connection_close() which performs a graceful shutdown (e.g., TCP FIN),
+ * this immediately terminates the connection (e.g., TCP RST). Use when an error
+ * condition requires immediate termination.
+ *
+ * @param[in] connection Connection to abort
+ */
+CT_EXTERN void ct_connection_abort(ct_connection_t* connection);
+
+/**
+ * @brief Clone a connection to create a new connection in the same connection group.
+ *
+ * Creates a new connection that shares the same transport session as the parent
+ * connection. This enables multi-streaming protocols like QUIC and SCTP to create
+ * multiple logical connections (streams) over a single transport session.
+ *
+ * The callbacks of the source connection are copied into the cloned connection.
+ * The ready callback is invoked with the cloned connection as a parameter, when
+ * connection succeeds.
+ *
+ * @param[in] source_connection The connection to clone
+ * @param[in] framer Optional framer for the cloned connection (NULL to inherit)
+ * @param[in] connection_properties Optional properties for cloned connection (NULL to inherit)
+ * @param[in] connection_callbacks Callbacks for the cloned connection
+ * @return An allocated connection object on success, or NULL on error
+ */
+CT_EXTERN int ct_connection_clone_full(
+    const ct_connection_t* source_connection,
+    ct_framer_impl_t* framer,
+    const ct_transport_properties_t* connection_properties
+);
+
+/**
+ * @brief Clone a connection with only mandatory parameters.
+ *
+ * Is a wrapper around ct_connection_clone_full()
+ *
+ * @see ct_connection_clone_full
+ * @param[in] source_connection The connection to clone
+ *
+ * @return An allocated connection object on success, or NULL on error
+ */
+CT_EXTERN int ct_connection_clone(ct_connection_t* source_connection);
+
+/**
+ * @brief Get all connections in the same connection group.
+ *
+ * Returns an array of all connections that share the same transport session
+ * (i.e., the original connection and all its clones). For protocols that don't
+ * support connection groups, returns only the connection itself.
+ *
+ * @param[in] connection The connection to query
+ * @param[out] grouped_connections Array of connection pointers (allocated by this function)
+ * @param[out] num_connections Number of connections in the returned array
+ * @return 0 on success, -1 on error
+ *
+ * @note Caller must free the returned array with free() when done
+ */
+CT_EXTERN int ct_connection_get_grouped_connections(
+    const ct_connection_t* connection,
+    ct_connection_t*** grouped_connections,
+    size_t* num_connections
+);
+
+/**
+ * @brief Close all connections in the same connection group gracefully.
+ *
+ * Performs graceful shutdown of all connections in the group (the connection
+ * and all its clones). For protocols without connection groups, equivalent
+ * to ct_connection_close().
+ *
+ * @param[in] connection Any connection in the group
+ */
+CT_EXTERN void ct_connection_close_group(ct_connection_t* connection);
+
+/**
+ * @brief Get the connection group of a connection.
+ *
+ * @param[in] connection The connection
+ * @return Pointer to the connection group, NULL if connection is NULL or other error
+ */
+CT_EXTERN ct_connection_group_t* ct_connection_get_connection_group(const ct_connection_t* connection);
+
+/**
+ * @brief Get the number of active connections in a connection group.
+ *
+ * @param[in] group Connection group to query
+ * @return Number of active connections in the group
+ */
+CT_EXTERN uint64_t ct_connection_group_get_num_active_connections(ct_connection_group_t* group);
+
+/**
+ * @brief Forcefully abort all connections in the same connection group.
+ *
+ * Immediately terminates all connections in the group without graceful shutdown.
+ * For protocols without connection groups, equivalent to ct_connection_abort().
+ *
+ * @param[in] connection Any connection in the group
+ */
+CT_EXTERN void ct_connection_abort_group(ct_connection_t* connection);
 
 /**
  * @brief Deliver received protocol data to the connection (for custom protocols).

@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "connection/socket_manager/socket_manager.h"
+#include "connection/connection.h"
 #include "ctaps.h"
 
 #define INT_TO_STRING(x) #x
@@ -128,9 +129,14 @@ void ct_preconnection_free(ct_preconnection_t* preconnection) {
   ct_free_local_endpoint_strings(&preconnection->local);
 }
 
-void ct_preconnection_build_user_connection(ct_connection_t* connection, const ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks) {
+int ct_preconnection_build_user_connection(ct_connection_t* connection, const ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks) {
   log_debug("Building user connection from preconnection");
-  memset(connection, 0, sizeof(ct_connection_t));
+  int rc = ct_connection_build_with_connection_group(connection);
+  if (rc < 0) {
+    log_error("Failed to build connection with connection group: %d", rc);
+    return rc;
+  }
+
 
   // Initialize transport properties with defaults
   ct_transport_properties_build(&connection->transport_properties);
@@ -147,12 +153,14 @@ void ct_preconnection_build_user_connection(ct_connection_t* connection, const c
   log_info("Received callback of user connection: %p", connection->received_callbacks);
 
   // Set basic fields from preconnection
-  connection->open_type = CONNECTION_TYPE_STANDALONE;
+  connection->socket_type = CONNECTION_SOCKET_TYPE_STANDALONE;
+  connection->role = CONNECTION_ROLE_CLIENT;
   connection->security_parameters = preconnection->security_parameters;
   connection->framer_impl = preconnection->framer_impl;  // Copy framer from preconnection
   connection->socket_manager = NULL;
-  connection->protocol_state = NULL;
+  connection->internal_connection_state = NULL;
 
   log_debug("Setting user connection callbacks");
   connection->connection_callbacks = connection_callbacks;
+  return 0;
 }

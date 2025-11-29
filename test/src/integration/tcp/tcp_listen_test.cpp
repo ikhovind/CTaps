@@ -10,7 +10,7 @@ extern "C" {
 
 TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) {
     CallbackContext callback_context = {
-        .messages = &received_messages,
+        .per_connection_messages = &per_connection_messages,
         .server_connections = received_connections,
         .client_connections = client_connections,
     };
@@ -76,10 +76,17 @@ TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) 
     ct_start_event_loop();
 
     // --- ASSERTIONS ---
-    ASSERT_EQ(callback_context.messages->size(), 2);
-    ASSERT_EQ(callback_context.messages->at(0)->length, 5);
-    ASSERT_STREQ(callback_context.messages->at(0)->content, "ping");
+    ASSERT_EQ(per_connection_messages.size(), 2); // Both client and server connections
 
-    ASSERT_EQ(callback_context.messages->at(1)->length, 5);
-    ASSERT_STREQ(callback_context.messages->at(1)->content, "pong");
+    // Client receives "pong"
+    ASSERT_EQ(per_connection_messages[&client_connection].size(), 1);
+    ASSERT_EQ(per_connection_messages[&client_connection][0]->length, 5);
+    ASSERT_STREQ(per_connection_messages[&client_connection][0]->content, "pong");
+
+    // Server receives "ping"
+    ASSERT_EQ(callback_context.server_connections.size(), 1);
+    ct_connection_t* server_connection = callback_context.server_connections[0];
+    ASSERT_EQ(per_connection_messages[server_connection].size(), 1);
+    ASSERT_EQ(per_connection_messages[server_connection][0]->length, 5);
+    ASSERT_STREQ(per_connection_messages[server_connection][0]->content, "ping");
 }

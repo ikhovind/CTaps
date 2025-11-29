@@ -1,7 +1,8 @@
 #include "candidate_racing.h"
+#include "connection/connection.h"
 
-#include <logging/log.h>
 #include "ctaps.h"
+#include <logging/log.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -99,13 +100,21 @@ static int start_connection_attempt(ct_racing_context_t* context, int attempt_in
     attempt->state = ATTEMPT_STATE_FAILED;
     return -ENOMEM;
   }
-  memset(attempt->connection, 0, sizeof(ct_connection_t));
+  int rc = ct_connection_build_with_connection_group(attempt->connection);
+  if (rc < 0) {
+    log_error("Failed to build connection for attempt %d: %d", attempt_index, rc);
+    free(attempt->connection);
+    attempt->connection = NULL;
+    attempt->state = ATTEMPT_STATE_FAILED;
+    return rc;
+  }
 
   // Setup connection with candidate parameters
   attempt->connection->protocol = *candidate->protocol;
   attempt->connection->remote_endpoint = *candidate->remote_endpoint;
   attempt->connection->local_endpoint = *candidate->local_endpoint;
-  attempt->connection->open_type = CONNECTION_TYPE_STANDALONE;
+  attempt->connection->socket_type = CONNECTION_SOCKET_TYPE_STANDALONE;
+  attempt->connection->role = CONNECTION_ROLE_CLIENT;
   attempt->connection->security_parameters = context->preconnection->security_parameters;
   attempt->connection->received_messages = g_queue_new();
   attempt->connection->received_callbacks = g_queue_new();
@@ -122,7 +131,7 @@ static int start_connection_attempt(ct_racing_context_t* context, int attempt_in
   attempt->state = ATTEMPT_STATE_CONNECTING;
 
   // Initiate the connection using the protocol's init function
-  int rc = attempt->connection->protocol.init(attempt->connection, &attempt->connection->connection_callbacks);
+  rc = attempt->connection->protocol.init(attempt->connection, &attempt->connection->connection_callbacks);
   if (rc != 0) {
     log_error("Failed to initiate connection attempt %d: %d", attempt_index, rc);
     attempt->state = ATTEMPT_STATE_FAILED;
@@ -178,7 +187,7 @@ int racing_on_attempt_ready(ct_connection_t* connection) {
   // This is protocol-specific (TCP/UDP update handle->data, QUIC also updates picoquic callback context)
   if (context->user_connection->protocol.retarget_protocol_connection) {
     context->user_connection->protocol.retarget_protocol_connection(
-      connection,  // from_connection (whose protocol_state we're using)
+      connection,  // from_connection (whose internal_connection_state we're using)
       context->user_connection  // to_connection (the new target for callbacks)
     );
   }
@@ -216,7 +225,7 @@ static int on_attempt_establishment_error(ct_connection_t* connection) {
 
   // set connection state to CLOSED
   log_debug("Setting connection state to CLOSED for failed attempt %d", attempt->attempt_index);
-  connection->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSED;
+  ct_connection_mark_as_closed(connection);
 
   // Check if race is already complete (another attempt won)
   if (context->race_complete) {
@@ -250,7 +259,7 @@ static int on_attempt_establishment_error(ct_connection_t* connection) {
 
     // Mark the user connection as closed since all attempts failed
     log_debug("Setting user connection state to CLOSED after all attempts failed");
-    context->user_connection->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSED;
+    ct_connection_mark_as_closed(context->user_connection);
 
     if (context->user_callbacks.establishment_error) {
       rc = context->user_callbacks.establishment_error(context->user_connection);
@@ -344,7 +353,11 @@ int preconnection_initiate_with_racing(ct_preconnection_t* preconnection,
                                        ct_connection_callbacks_t connection_callbacks) {
   // Initialize user connection immediately so it's usable (e.g., for early receive_message() calls)
   log_trace("About to build user connection from preconnection");
-  ct_preconnection_build_user_connection(user_connection, preconnection, connection_callbacks);
+  int rc = ct_preconnection_build_user_connection(user_connection, preconnection, connection_callbacks);
+  if (rc < 0) {
+    log_error("Failed to build user connection from preconnection: %d", rc);
+    return rc;
+  }
 
   // Get ordered candidate nodes
   GArray* candidate_nodes = get_ordered_candidate_nodes(preconnection);
@@ -371,7 +384,7 @@ int preconnection_initiate_with_racing(ct_preconnection_t* preconnection,
     user_connection->connection_callbacks = connection_callbacks;
     user_connection->framer_impl = preconnection->framer_impl;
 
-    int rc = user_connection->protocol.init(user_connection, &user_connection->connection_callbacks);
+    rc = user_connection->protocol.init(user_connection, &user_connection->connection_callbacks);
     free_candidate_array(candidate_nodes);
     return rc;
   }

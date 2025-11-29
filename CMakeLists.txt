@@ -44,6 +44,7 @@ set(CTAPS_SOURCES
     # Connections
     src/connection/preconnection.c
     src/connection/connection.c
+    src/connection/connection_group.c
     src/connection/listener.c
     src/connection/socket_manager/socket_manager.c
     # Endpoints
@@ -66,6 +67,8 @@ set(CTAPS_SOURCES
     src/candidate_gathering/candidate_racing.c
     # Logging
     src/logging/log.c
+    # Utilities
+    src/util/uuid_util.c
 )
 
 add_library(
@@ -103,9 +106,10 @@ target_link_libraries(
 find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(GLIB REQUIRED glib-2.0)
+pkg_check_modules(UUID REQUIRED uuid)
 
-target_include_directories(CTaps PUBLIC ${GLIB_INCLUDE_DIRS})
-target_link_libraries(CTaps PUBLIC ${GLIB_LIBRARIES})
+target_include_directories(CTaps PUBLIC ${GLIB_INCLUDE_DIRS} ${UUID_INCLUDE_DIRS})
+target_link_libraries(CTaps PUBLIC ${GLIB_LIBRARIES} ${UUID_LIBRARIES})
 
 
 # ---- library for testing etc. -----

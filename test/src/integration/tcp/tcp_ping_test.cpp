@@ -130,6 +130,7 @@ TEST_F(TcpGenericTests, sendsSingleTcpMessage) {
 
   // assert state of connection is closed
   ASSERT_EQ(connection.transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
-  ASSERT_EQ(test_context.messages->size(), 1);
-  ASSERT_STREQ(test_context.messages->at(0)->content, "Pong: ping");
+  ASSERT_EQ(per_connection_messages.size(), 1);
+  ASSERT_EQ(per_connection_messages[&connection].size(), 1);
+  ASSERT_STREQ(per_connection_messages[&connection][0]->content, "Pong: ping");
 }

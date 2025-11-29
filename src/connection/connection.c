@@ -5,12 +5,83 @@
 #include <uv.h>
 
 #include "connection/socket_manager/socket_manager.h"
+#include "connection/connection.h"
+#include "connection/connection_group.h"
+#include "util/uuid_util.h"
 #include "message/message.h"
 #include "ctaps.h"
 #include "glib.h"
 
+int ct_connection_build_with_connection_group(ct_connection_t* connection) {
+  memset(connection, 0, sizeof(ct_connection_t));
+  generate_uuid_string(connection->uuid);
+
+  // Create connection group for this connection
+  ct_connection_group_t* group = malloc(sizeof(ct_connection_group_t));
+  if (!group) {
+    log_error("Failed to allocate connection group");
+    return -ENOMEM;
+  }
+
+  // Generate UUID for the connection group
+  generate_uuid_string(group->connection_group_id);
+
+  // Initialize connections hash table (keyed by connection UUID)
+  group->connections = g_hash_table_new(g_str_hash, g_str_equal);
+  group->connection_group_state = NULL; // Will be set by protocol implementation
+  group->num_active_connections = 0;
+
+  // Add this connection to the group
+  g_hash_table_insert(group->connections, connection->uuid, connection);
+  group->num_active_connections++;
+
+  connection->connection_group = group;
+  return 0;
+}
+
+ct_connection_t* create_empty_connection_with_uuid() {
+  ct_connection_t* connection = malloc(sizeof(ct_connection_t));
+  if (!connection) {
+    log_error("Failed to allocate memory for ct_connection_t");
+    return NULL;
+  }
+  memset(connection, 0, sizeof(ct_connection_t));
+  generate_uuid_string(connection->uuid);
+
+  connection->received_callbacks = g_queue_new();
+  connection->received_messages = g_queue_new();
+
+  return connection;
+}
+
+void ct_connection_mark_as_closed(ct_connection_t* connection) {
+  connection->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSED;
+  log_info("Marked connection %p as closed", (void*)connection);
+}
+
+bool ct_connection_is_closed(const ct_connection_t* connection) {
+  if (!connection) {
+    return false;
+  }
+  return connection->transport_properties.connection_properties.list[STATE].value.enum_val == CONN_STATE_CLOSED;
+}
+
+bool ct_connection_is_client(const ct_connection_t* connection) {
+  if (!connection) {
+    return false;
+  }
+  return connection->role == CONNECTION_ROLE_CLIENT;
+}
+
+bool ct_connection_is_server(const ct_connection_t* connection) {
+  if (!connection) {
+    return false;
+  }
+  return connection->role == CONNECTION_ROLE_SERVER;
+}
+
 // Passed as callbacks to framer implementations
-void ct_connection_send_to_protocol(ct_connection_t* connection,
+int ct_connection_send_to_protocol(ct_connection_t* connection,
                                    ct_message_t* message,
                                    ct_message_context_t* context);
 
@@ -25,21 +96,27 @@ int ct_send_message(ct_connection_t* connection, ct_message_t* message) {
 
 int ct_send_message_full(ct_connection_t* connection, ct_message_t* message, ct_message_context_t* message_context) {
   // Deep copy the message so the library owns its lifetime
-  // This allows framers to be asynchronous without worrying about message validity
+  // Ownership is transferred to the framer or protocol send function, so it is freed in protocol implementation
   ct_message_t* message_copy = ct_message_deep_copy(message);
   if (!message_copy) {
     log_error("Failed to deep copy message");
     return -ENOMEM;
   }
+  log_info("Message copy size: %zu", message_copy->length);
 
+  int rc;
   if (connection->framer_impl != NULL) {
     log_info("User sending message on connection with framer");
-    connection->framer_impl->encode_message(connection, message_copy, message_context, ct_connection_send_to_protocol);
-    return 0;
+    rc = connection->framer_impl->encode_message(connection, message_copy, message_context, ct_connection_send_to_protocol);
+    if (rc < 0) {
+      log_error("Framer encode_message failed: %d", rc);
+    }
+  } else {
+    log_info("User sending message on connection without framer");
+    rc = ct_connection_send_to_protocol(connection, message_copy, message_context);
   }
-  log_info("User sending message on connection without framer");
-  ct_connection_send_to_protocol(connection, message_copy, message_context);
-  return 0;
+
+  return rc;
 }
 
 int ct_receive_message(ct_connection_t* connection,
@@ -74,19 +151,78 @@ int ct_receive_message(ct_connection_t* connection,
   return 0;
 }
 
-void ct_connection_build_multiplexed(ct_connection_t* connection, const ct_listener_t* listener, const ct_remote_endpoint_t* remote_endpoint) {
-  memset(connection, 0, sizeof(ct_connection_t));
+int ct_connection_build_multiplexed(ct_connection_t* connection, const ct_listener_t* listener, const ct_remote_endpoint_t* remote_endpoint) {
+  int rc = ct_connection_build_with_connection_group(connection);
+  if (rc < 0) {
+    log_error("Failed to build connection with connection group: %d", rc);
+    return rc;
+  }
+
   connection->local_endpoint = listener->local_endpoint;
   connection->transport_properties = listener->transport_properties;
   connection->remote_endpoint = *remote_endpoint;
-  connection->protocol_state = listener->socket_manager->protocol_state;
+  connection->internal_connection_state = listener->socket_manager->internal_socket_manager_state;
   connection->protocol = listener->socket_manager->protocol_impl;
   connection->framer_impl = NULL;  // No framer by default
   connection->socket_manager = listener->socket_manager;
   connection->security_parameters = listener->security_parameters;
   connection->received_callbacks = g_queue_new();
   connection->received_messages = g_queue_new();
-  connection->open_type = CONNECTION_OPEN_TYPE_MULTIPLEXED;
+  connection->socket_type = CONNECTION_SOCKET_TYPE_MULTIPLEXED;
+  connection->role = CONNECTION_ROLE_SERVER;
+  return 0;
+}
+
+ct_connection_t* ct_connection_create_clone(const ct_connection_t* src_clone) {
+  log_debug("Creating cloned connection from source: %s", src_clone->uuid);
+
+  // Allocate new connection with UUID
+  ct_connection_t* dest_clone = create_empty_connection_with_uuid();
+  if (!dest_clone) {
+    log_error("Failed to allocate memory for cloned connection");
+    return NULL;
+  }
+
+  // Copy properties from source
+  dest_clone->connection_group = src_clone->connection_group;
+  dest_clone->local_endpoint = src_clone->local_endpoint;
+  dest_clone->remote_endpoint = src_clone->remote_endpoint;
+  dest_clone->transport_properties = src_clone->transport_properties;
+  dest_clone->security_parameters = src_clone->security_parameters;
+  dest_clone->protocol = src_clone->protocol;
+  dest_clone->framer_impl = src_clone->framer_impl;
+  dest_clone->socket_manager = src_clone->socket_manager;
+  dest_clone->socket_type = src_clone->socket_type;
+  dest_clone->role = src_clone->role;
+
+  // Initialize new queues for this connection
+  dest_clone->received_callbacks = g_queue_new();
+  dest_clone->received_messages = g_queue_new();
+
+  // Add to the connection group
+  int rc = ct_connection_group_add_connection(dest_clone->connection_group, dest_clone);
+  if (rc < 0) {
+    log_error("Failed to add cloned connection to group: %d", rc);
+    g_queue_free(dest_clone->received_callbacks);
+    g_queue_free(dest_clone->received_messages);
+    free(dest_clone);
+    return NULL;
+  }
+
+  // Initialize protocol-specific state (e.g., QUIC stream state)
+  if (src_clone->protocol.clone_connection) {
+    rc = src_clone->protocol.clone_connection(src_clone, dest_clone);
+    if (rc < 0) {
+      log_error("Failed to initialize protocol state for cloned connection: %d", rc);
+      g_queue_free(dest_clone->received_callbacks);
+      g_queue_free(dest_clone->received_messages);
+      free(dest_clone);
+      return NULL;
+    }
+  }
+
+  log_debug("Successfully created cloned connection: %s", dest_clone->uuid);
+  return dest_clone;
 }
 
 void ct_connection_close(ct_connection_t* connection) {
@@ -110,7 +246,7 @@ ct_connection_t* ct_connection_build_from_received_handle(const struct ct_listen
     log_error("Failed to allocate memory for ct_connection_t");
     return NULL;
   }
-  memset(connection, 0, sizeof(ct_connection_t));
+  ct_connection_build_with_connection_group(connection);
 
   connection->transport_properties = listener->transport_properties;
   connection->local_endpoint = listener->local_endpoint;
@@ -123,10 +259,11 @@ ct_connection_t* ct_connection_build_from_received_handle(const struct ct_listen
 
   connection->protocol = listener->socket_manager->protocol_impl;
   connection->framer_impl = NULL;  // No framer by default
-  connection->open_type = CONNECTION_TYPE_STANDALONE;
+  connection->socket_type = CONNECTION_SOCKET_TYPE_STANDALONE;
+  connection->role = CONNECTION_ROLE_SERVER;
   connection->received_callbacks = g_queue_new();
   connection->received_messages = g_queue_new();
-  connection->protocol_state = (uv_handle_t*)received_handle;
+  connection->internal_connection_state = (uv_handle_t*)received_handle;
 
   return connection;
 }
@@ -150,13 +287,14 @@ void ct_connection_free(ct_connection_t* connection) {
   free(connection);
 }
 
-void ct_connection_send_to_protocol(ct_connection_t* connection,
+int ct_connection_send_to_protocol(ct_connection_t* connection,
                                    ct_message_t* message,
                                    ct_message_context_t* context) {
   int rc = connection->protocol.send(connection, message, context);
   if (rc < 0) {
     log_error("Error sending message to protocol: %d", rc);
   }
+  return rc;
 }
 
 void ct_connection_deliver_to_app(ct_connection_t* connection,
@@ -202,4 +340,115 @@ void ct_connection_on_protocol_receive(ct_connection_t* connection,
 
     ct_connection_deliver_to_app(connection, received_message, NULL);
   }
+}
+
+void ct_connection_abort(ct_connection_t* connection) {
+  log_info("Aborting connection: %p", (void*)connection);
+  ct_connection_close(connection);
+}
+
+int ct_connection_clone_full(
+  const ct_connection_t* source_connection,
+  ct_framer_impl_t* framer,
+  const ct_transport_properties_t* connection_properties) {
+  log_debug("Cloning connection: %s", source_connection->uuid);
+
+  ct_connection_t* new_connection = create_empty_connection_with_uuid();
+  if (!new_connection) {
+    log_error("Failed to allocate memory for cloned connection");
+    return -ENOMEM;
+  }
+
+  if (framer != NULL) {
+    log_error("Cloning with custom framer not implemented yet");
+    return -ENOSYS;
+  }
+  if (connection_properties != NULL) {
+    log_error("Cloning with custom transport properties not implemented yet");
+    return -ENOSYS;
+  }
+
+  ct_connection_group_t* connection_group = source_connection->connection_group;
+  int rc = ct_connection_group_add_connection(connection_group, new_connection);
+  if (rc < 0) {
+    log_error("Failed to add cloned connection to connection group: %d", rc);
+    ct_connection_free(new_connection);
+    return rc;
+  }
+
+  new_connection->connection_group = connection_group;
+  new_connection->transport_properties = source_connection->transport_properties;
+  new_connection->security_parameters = source_connection->security_parameters;
+  new_connection->local_endpoint = source_connection->local_endpoint;
+  new_connection->remote_endpoint = source_connection->remote_endpoint;
+  new_connection->protocol = source_connection->protocol;
+  new_connection->framer_impl = source_connection->framer_impl;
+  new_connection->socket_type = source_connection->socket_type;
+  new_connection->role = source_connection->role;
+  new_connection->connection_callbacks = source_connection->connection_callbacks;
+  
+  if (source_connection->socket_manager) {
+    log_error("TODO: Figure out how to clone with socket manager");
+    return -ENOSYS;
+  }
+
+  if (new_connection->protocol.clone_connection == NULL) {
+    log_error("Protocol has not implemented connection cloning");
+    ct_connection_free(new_connection);
+    return -ENOSYS;
+  }
+  rc = new_connection->protocol.clone_connection(source_connection, new_connection);
+  if (rc < 0) {
+    log_error("Failed to initialize protocol state for cloned connection: %d", rc);
+    ct_connection_free(new_connection);
+    return rc;
+  }
+
+  return 0;
+}
+
+int ct_connection_clone(ct_connection_t* source_connection) {
+  return ct_connection_clone_full(source_connection, NULL, NULL);
+}
+
+int ct_connection_get_grouped_connections(
+    const ct_connection_t* connection,
+    ct_connection_t*** grouped_connections,
+    size_t* num_connections
+) {
+  log_debug("Getting grouped connections for connection: %p", (void*)connection);
+
+  ct_connection_t** group = malloc(sizeof(ct_connection_t*));
+  if (!group) {
+    log_error("Failed to allocate memory for grouped connections array");
+    return -ENOMEM;
+  }
+
+  group[0] = (ct_connection_t*)connection;
+  *grouped_connections = group;
+  *num_connections = 1;
+
+  return 0;
+}
+
+void ct_connection_close_group(ct_connection_t* connection) {
+  log_info("Closing connection group for connection: %p", (void*)connection);
+  ct_connection_close(connection);
+}
+
+void ct_connection_abort_group(ct_connection_t* connection) {
+  log_info("Aborting connection group for connection: %p", (void*)connection);
+  ct_connection_abort(connection);
+}
+
+ct_connection_group_t* ct_connection_get_connection_group(const ct_connection_t* connection) {
+  if (!connection) {
+    log_error("ct_connection_get_connection_group called with NULL connection");
+    return NULL;
+  }
+  if (!connection->connection_group) {
+    log_error("Connection has no connection group");
+    return NULL;
+  }
+  return connection->connection_group;
 }

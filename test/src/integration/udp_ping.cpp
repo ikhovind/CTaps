@@ -54,8 +54,9 @@ TEST_F(UdpGenericTests, sendsSingleUdpPacket) {
   // assert state of connection is closed
   ASSERT_EQ(connection.transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
 
-  ASSERT_EQ(test_context.messages->size(), 1);
-  ASSERT_STREQ(test_context.messages->at(0)->content, "Pong: ping");
+  ASSERT_EQ(per_connection_messages.size(), 1);
+  ASSERT_EQ(per_connection_messages[&connection].size(), 1);
+  ASSERT_STREQ(per_connection_messages[&connection][0]->content, "Pong: ping");
 }
 
 TEST_F(UdpGenericTests, packetsAreReadInOrder) {
@@ -103,9 +104,10 @@ TEST_F(UdpGenericTests, packetsAreReadInOrder) {
 
   // --- Assertions ---
   ASSERT_EQ(connection.transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
-  ASSERT_EQ(test_context.messages->size(), 2);
-  EXPECT_STREQ(test_context.messages->at(0)->content, "Pong: hello 1");
-  EXPECT_STREQ(test_context.messages->at(1)->content, "Pong: hello 2");
+  ASSERT_EQ(per_connection_messages.size(), 1);
+  ASSERT_EQ(per_connection_messages[&connection].size(), 2);
+  EXPECT_STREQ(per_connection_messages[&connection][0]->content, "Pong: hello 1");
+  EXPECT_STREQ(per_connection_messages[&connection][1]->content, "Pong: hello 2");
 }
 
 TEST_F(UdpGenericTests, canPingArbitraryBytes) {
@@ -151,7 +153,8 @@ TEST_F(UdpGenericTests, canPingArbitraryBytes) {
   ASSERT_EQ(connection.transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
 
   char expected_output[] = {'P', 'o', 'n', 'g', ':', ' ', 0, 1, 2, 3, 4, 5};
-  ASSERT_EQ(test_context.messages->size(), 1);
-  EXPECT_EQ(memcmp(test_context.messages->at(0)->content, expected_output, sizeof(expected_output)), 0);
-  EXPECT_EQ(test_context.messages->at(0)->length, sizeof(expected_output));
+  ASSERT_EQ(per_connection_messages.size(), 1);
+  ASSERT_EQ(per_connection_messages[&connection].size(), 1);
+  EXPECT_EQ(memcmp(per_connection_messages[&connection][0]->content, expected_output, sizeof(expected_output)), 0);
+  EXPECT_EQ(per_connection_messages[&connection][0]->length, sizeof(expected_output));
 }
