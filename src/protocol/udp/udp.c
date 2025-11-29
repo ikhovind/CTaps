@@ -299,7 +299,9 @@ int udp_clone_connection(const struct ct_connection_s* source_connection, struct
   target_connection->internal_connection_state = (uv_handle_t*)new_udp_handle;
   new_udp_handle->data = target_connection;
 
-  //target_connection->connection_callbacks.ready(target_connection);
+  if (target_connection->connection_callbacks.ready) {
+    target_connection->connection_callbacks.ready(target_connection);
+  }
 
   return 0;
 }
