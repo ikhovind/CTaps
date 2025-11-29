@@ -12,7 +12,7 @@
 #include "ctaps.h"
 #include "glib.h"
 
-void ct_connection_build_with_connection_group(ct_connection_t* connection) {
+int ct_connection_build_with_connection_group(ct_connection_t* connection) {
   memset(connection, 0, sizeof(ct_connection_t));
   generate_uuid_string(connection->uuid);
 
@@ -20,7 +20,7 @@ void ct_connection_build_with_connection_group(ct_connection_t* connection) {
   ct_connection_group_t* group = malloc(sizeof(ct_connection_group_t));
   if (!group) {
     log_error("Failed to allocate connection group");
-    return;
+    return -ENOMEM;
   }
 
   // Generate UUID for the connection group
@@ -36,6 +36,7 @@ void ct_connection_build_with_connection_group(ct_connection_t* connection) {
   group->num_active_connections++;
 
   connection->connection_group = group;
+  return 0;
 }
 
 ct_connection_t* create_empty_connection_with_uuid() {
@@ -150,8 +151,13 @@ int ct_receive_message(ct_connection_t* connection,
   return 0;
 }
 
-void ct_connection_build_multiplexed(ct_connection_t* connection, const ct_listener_t* listener, const ct_remote_endpoint_t* remote_endpoint) {
-  ct_connection_build_with_connection_group(connection);
+int ct_connection_build_multiplexed(ct_connection_t* connection, const ct_listener_t* listener, const ct_remote_endpoint_t* remote_endpoint) {
+  int rc = ct_connection_build_with_connection_group(connection);
+  if (rc < 0) {
+    log_error("Failed to build connection with connection group: %d", rc);
+    return rc;
+  }
+
   connection->local_endpoint = listener->local_endpoint;
   connection->transport_properties = listener->transport_properties;
   connection->remote_endpoint = *remote_endpoint;
@@ -164,6 +170,7 @@ void ct_connection_build_multiplexed(ct_connection_t* connection, const ct_liste
   connection->received_messages = g_queue_new();
   connection->socket_type = CONNECTION_SOCKET_TYPE_MULTIPLEXED;
   connection->role = CONNECTION_ROLE_SERVER;
+  return 0;
 }
 
 ct_connection_t* ct_connection_create_clone(const ct_connection_t* src_clone) {

@@ -118,7 +118,13 @@ ct_connection_group_t* socket_manager_get_or_create_connection_group(ct_socket_m
       g_bytes_unref(addr_bytes);
       return NULL;
     }
-    ct_connection_build_multiplexed(connection, listener, &remote_endpoint);
+    int rc = ct_connection_build_multiplexed(connection, listener, &remote_endpoint);
+    if (rc < 0) {
+      log_error("Failed to build multiplexed connection for new connection group: %d", rc);
+      ct_connection_free(connection);
+      g_bytes_unref(addr_bytes);
+      return NULL;
+    }
 
     // The connection was built with a new connection_group, so get it
     connection_group = connection->connection_group;
