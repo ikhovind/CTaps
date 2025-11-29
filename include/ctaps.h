@@ -1288,8 +1288,10 @@ CT_EXTERN void ct_message_context_free(ct_message_context_t* message_context);
  * @param[out] connection Connection structure to initialize
  * @param[in] preconnection Source preconnection configuration
  * @param[in] connection_callbacks Callbacks for connection events
+ *
+ * @return 0 on success, non-zero on error
  */
-CT_EXTERN void ct_preconnection_build_user_connection(ct_connection_t* connection, const ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks);
+CT_EXTERN int ct_preconnection_build_user_connection(ct_connection_t* connection, const ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks);
 
 /**
  * @brief Initialize a preconnection with transport properties and endpoints.
@@ -1446,8 +1448,10 @@ CT_EXTERN bool ct_connection_is_server(const ct_connection_t* connection);
  * @param[out] connection Connection to initialize
  * @param[in] listener Parent listener
  * @param[in] remote_endpoint Remote endpoint of the peer
+ *
+ * @return 0 on success, non-zero on error
  */
-CT_EXTERN void ct_connection_build_multiplexed(ct_connection_t* connection, const struct ct_listener_s* listener, const ct_remote_endpoint_t* remote_endpoint);
+CT_EXTERN int ct_connection_build_multiplexed(ct_connection_t* connection, const struct ct_listener_s* listener, const ct_remote_endpoint_t* remote_endpoint);
 
 /**
  * @brief Create a connection from an accepted handle (internal helper).

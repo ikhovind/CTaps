@@ -129,9 +129,14 @@ void ct_preconnection_free(ct_preconnection_t* preconnection) {
   ct_free_local_endpoint_strings(&preconnection->local);
 }
 
-void ct_preconnection_build_user_connection(ct_connection_t* connection, const ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks) {
+int ct_preconnection_build_user_connection(ct_connection_t* connection, const ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks) {
   log_debug("Building user connection from preconnection");
-  ct_connection_build_with_connection_group(connection);
+  int rc = ct_connection_build_with_connection_group(connection);
+  if (rc < 0) {
+    log_error("Failed to build connection with connection group: %d", rc);
+    return rc;
+  }
+
 
   // Initialize transport properties with defaults
   ct_transport_properties_build(&connection->transport_properties);
@@ -157,4 +162,5 @@ void ct_preconnection_build_user_connection(ct_connection_t* connection, const c
 
   log_debug("Setting user connection callbacks");
   connection->connection_callbacks = connection_callbacks;
+  return 0;
 }

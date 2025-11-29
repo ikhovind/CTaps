@@ -12,7 +12,7 @@
  *
  * @param[out] connection Connection to initialize
  */
-void ct_connection_build_with_connection_group(ct_connection_t* connection);
+int ct_connection_build_with_connection_group(ct_connection_t* connection);
 
 /**
   * @brief Allocate 0-initialized connection with only UUID.

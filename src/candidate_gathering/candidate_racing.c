@@ -100,7 +100,14 @@ static int start_connection_attempt(ct_racing_context_t* context, int attempt_in
     attempt->state = ATTEMPT_STATE_FAILED;
     return -ENOMEM;
   }
-  ct_connection_build_with_connection_group(attempt->connection);
+  int rc = ct_connection_build_with_connection_group(attempt->connection);
+  if (rc < 0) {
+    log_error("Failed to build connection for attempt %d: %d", attempt_index, rc);
+    free(attempt->connection);
+    attempt->connection = NULL;
+    attempt->state = ATTEMPT_STATE_FAILED;
+    return rc;
+  }
 
   // Setup connection with candidate parameters
   attempt->connection->protocol = *candidate->protocol;
@@ -124,7 +131,7 @@ static int start_connection_attempt(ct_racing_context_t* context, int attempt_in
   attempt->state = ATTEMPT_STATE_CONNECTING;
 
   // Initiate the connection using the protocol's init function
-  int rc = attempt->connection->protocol.init(attempt->connection, &attempt->connection->connection_callbacks);
+  rc = attempt->connection->protocol.init(attempt->connection, &attempt->connection->connection_callbacks);
   if (rc != 0) {
     log_error("Failed to initiate connection attempt %d: %d", attempt_index, rc);
     attempt->state = ATTEMPT_STATE_FAILED;
@@ -346,7 +353,11 @@ int preconnection_initiate_with_racing(ct_preconnection_t* preconnection,
                                        ct_connection_callbacks_t connection_callbacks) {
   // Initialize user connection immediately so it's usable (e.g., for early receive_message() calls)
   log_trace("About to build user connection from preconnection");
-  ct_preconnection_build_user_connection(user_connection, preconnection, connection_callbacks);
+  int rc = ct_preconnection_build_user_connection(user_connection, preconnection, connection_callbacks);
+  if (rc < 0) {
+    log_error("Failed to build user connection from preconnection: %d", rc);
+    return rc;
+  }
 
   // Get ordered candidate nodes
   GArray* candidate_nodes = get_ordered_candidate_nodes(preconnection);
@@ -373,7 +384,7 @@ int preconnection_initiate_with_racing(ct_preconnection_t* preconnection,
     user_connection->connection_callbacks = connection_callbacks;
     user_connection->framer_impl = preconnection->framer_impl;
 
-    int rc = user_connection->protocol.init(user_connection, &user_connection->connection_callbacks);
+    rc = user_connection->protocol.init(user_connection, &user_connection->connection_callbacks);
     free_candidate_array(candidate_nodes);
     return rc;
   }
