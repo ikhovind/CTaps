@@ -37,5 +37,31 @@ void ct_connection_group_decrement_active(ct_connection_group_t* group);
  */
 uint64_t ct_connection_group_get_num_active_connections(ct_connection_group_t* group);
 
+/**
+ * @brief Remove a connection from a connection group.
+ *
+ * @param[in,out] group Connection group to remove from
+ * @param[in] connection Connection to remove
+ *
+ * @return 0 on success, -EINVAL if group or connection is NULL, -ENOENT if connection not in group
+ */
+int ct_connection_group_remove_connection(ct_connection_group_t* group, ct_connection_t* connection);
+
+/**
+ * @brief Check if a connection group is empty.
+ *
+ * @param[in] group Connection group to check
+ *
+ * @return true if the group has no connections, false otherwise
+ */
+bool ct_connection_group_is_empty(ct_connection_group_t* group);
+
+/**
+ * @brief Free a connection group and its internal resources.
+ *
+ * @param[in] group Connection group to free
+ */
+void ct_connection_group_free(ct_connection_group_t* group);
+
 
 #endif // CT_CONNECTION_GROUP_H

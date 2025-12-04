@@ -213,7 +213,7 @@ typedef struct {
     .value = { (ct_selection_preference_t)default_value }                     \
 },
 
-const static ct_selection_properties_t DEFAULT_SELECTION_PROPERTIES = {
+static const ct_selection_properties_t DEFAULT_SELECTION_PROPERTIES = {
   .selection_property = {
     get_selection_property_list(create_sel_property_initializer)
   }
@@ -1444,30 +1444,6 @@ CT_EXTERN bool ct_connection_is_client(const ct_connection_t* connection);
 CT_EXTERN bool ct_connection_is_server(const ct_connection_t* connection);
 
 /**
- * @brief Initialize a multiplexed connection (internal helper).
- * @param[out] connection Connection to initialize
- * @param[in] listener Parent listener
- * @param[in] remote_endpoint Remote endpoint of the peer
- *
- * @return 0 on success, non-zero on error
- */
-CT_EXTERN int ct_connection_build_multiplexed(ct_connection_t* connection, const struct ct_listener_s* listener, const ct_remote_endpoint_t* remote_endpoint);
-
-/**
- * @brief Create a connection from an accepted handle (internal helper).
- * @param[in] listener Parent listener
- * @param[in] received_handle libuv stream handle for the accepted connection
- * @return Pointer to newly created connection, or NULL on error
- */
-CT_EXTERN ct_connection_t* ct_connection_build_from_received_handle(const struct ct_listener_s* listener, uv_stream_t* received_handle);
-
-/**
- * @brief Initialize a connection structure with default values.
- * @param[out] connection Connection to initialize
- */
-CT_EXTERN void ct_connection_build(ct_connection_t* connection);
-
-/**
  * @brief Free resources in a connection.
  * @param[in] connection Connection to free
  */
@@ -1526,26 +1502,6 @@ CT_EXTERN int ct_connection_clone_full(
 CT_EXTERN int ct_connection_clone(ct_connection_t* source_connection);
 
 /**
- * @brief Get all connections in the same connection group.
- *
- * Returns an array of all connections that share the same transport session
- * (i.e., the original connection and all its clones). For protocols that don't
- * support connection groups, returns only the connection itself.
- *
- * @param[in] connection The connection to query
- * @param[out] grouped_connections Array of connection pointers (allocated by this function)
- * @param[out] num_connections Number of connections in the returned array
- * @return 0 on success, -1 on error
- *
- * @note Caller must free the returned array with free() when done
- */
-CT_EXTERN int ct_connection_get_grouped_connections(
-    const ct_connection_t* connection,
-    ct_connection_t*** grouped_connections,
-    size_t* num_connections
-);
-
-/**
  * @brief Close all connections in the same connection group gracefully.
  *
  * Performs graceful shutdown of all connections in the group (the connection
@@ -1561,6 +1517,10 @@ CT_EXTERN void ct_connection_close_group(ct_connection_t* connection);
  *
  * @param[in] connection The connection
  * @return Pointer to the connection group, NULL if connection is NULL or other error
+ *
+ * @warning The returned pointer is only valid while at least one connection in the group
+ *          still exists. The group is automatically freed when the last connection in it
+ *          is freed.
  */
 CT_EXTERN ct_connection_group_t* ct_connection_get_connection_group(const ct_connection_t* connection);
 

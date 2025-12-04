@@ -52,6 +52,9 @@ ct_quic_group_state_t* ct_create_quic_group_state() {
       state->next_quic_stream_id[i] = i; // Initialize stream IDs for client/server and bidirectional/unidirectional
     }
   }
+  else {
+    log_error("Failed to allocate memory for QUIC group state");
+  }
   return state;
 }
 
@@ -258,7 +261,15 @@ uint32_t decrement_active_socket_counter() {
 int handle_closed_picoquic_connection(ct_connection_t* connection) {
   int rc;
   ct_quic_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
+  if (!group_state) {
+    log_error("Cannot handle closed QUIC connection due to invalid parameter");
+    return -EINVAL;
+  }
   ct_quic_stream_state_t* stream_state = ct_connection_get_stream_state(connection);
+  if (!stream_state) {
+    log_error("Cannot handle closed QUIC connection, due to invalid parameter");
+    return -EINVAL;
+  }
   if (connection->socket_type == CONNECTION_SOCKET_TYPE_STANDALONE) {
     log_info("Closing standalone QUIC connection with UDP handle: %p", group_state->udp_handle);
 
@@ -328,7 +339,7 @@ int picoquic_callback(picoquic_cnx_t* cnx,
   switch (fin_or_event) {
     case picoquic_callback_ready:
       log_debug("QUIC connection is ready, invoking CTaps callback");
-      // This callback is per-cnx.
+      // the picoquic_callback_ready event is per-cnx.
       // This means that this callback only happens once per connection group.
       // We therefore know that the connection group only has one connection at this point.
       connection = ct_connection_group_get_first(connection_group);

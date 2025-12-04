@@ -7,10 +7,10 @@ int ct_connection_group_add_connection(ct_connection_group_t* group, ct_connecti
     return -EINVAL;
   }
 
-  log_debug("Adding connection with UUID %to connection group", connection->uuid);
+  log_debug("Adding connection with UUID %s connection group", connection->uuid);
   int rc = g_hash_table_insert(group->connections, connection->uuid, connection);
   if (!rc) {
-    log_error("Connection with UUID %to already exists in group", connection->uuid);
+    log_error("Connection with UUID %s already exists in group", connection->uuid);
     return -EEXIST; // Connection already in group
   }
   group->num_active_connections++;
@@ -42,4 +42,44 @@ void ct_connection_group_decrement_active(ct_connection_group_t* group) {
 
 uint64_t ct_connection_group_get_num_active_connections(ct_connection_group_t* group) {
   return group->num_active_connections;
+}
+
+int ct_connection_group_remove_connection(ct_connection_group_t* group, ct_connection_t* connection) {
+  if (!group || !connection) {
+    return -EINVAL;
+  }
+
+  log_debug("Removing connection with UUID %s from connection group", connection->uuid);
+  gboolean removed = g_hash_table_remove(group->connections, connection->uuid);
+  if (!removed) {
+    log_warn("Connection with UUID %s not found in group", connection->uuid);
+    return -ENOENT;
+  }
+
+  log_debug("Connection removed, remaining connections in group: %u", g_hash_table_size(group->connections));
+  return 0;
+}
+
+bool ct_connection_group_is_empty(ct_connection_group_t* group) {
+  if (!group || !group->connections) {
+    return true;
+  }
+  return g_hash_table_size(group->connections) == 0;
+}
+
+void ct_connection_group_free(ct_connection_group_t* group) {
+  if (!group) {
+    return;
+  }
+
+  log_debug("Freeing connection group %s", group->connection_group_id);
+
+  if (group->connections) {
+    g_hash_table_destroy(group->connections);
+    group->connections = NULL;
+  }
+
+  // TODO: maybe we have to free connection_group_state in protocol interface?
+
+  free(group);
 }
