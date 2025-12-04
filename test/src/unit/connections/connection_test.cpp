@@ -44,14 +44,17 @@ TEST(ConnectionUnitTests, TakesDeepCopyOfTransportProperties) {
 
     ASSERT_EQ(connection.transport_properties.selection_properties.selection_property[RELIABILITY].value.simple_preference, REQUIRE);
     ASSERT_EQ(mock_listener.transport_properties.selection_properties.selection_property[RELIABILITY].value.simple_preference, PROHIBIT);
+
+    // Cleanup
+    ct_connection_free_content(&connection);
 }
 
 TEST(ConnectionUnitTests, GeneratesUniqueUUIDs) {
     ct_connection_t connection1;
     ct_connection_t connection2;
 
-    ct_connection_build_with_connection_group(&connection1);
-    ct_connection_build_with_connection_group(&connection2);
+    ct_connection_build_with_new_connection_group(&connection1);
+    ct_connection_build_with_new_connection_group(&connection2);
 
     // Verify both have UUIDs
     ASSERT_GT(strlen(connection1.uuid), 0);
@@ -83,4 +86,8 @@ TEST(ConnectionUnitTests, GeneratesUniqueUUIDs) {
         ASSERT_TRUE(isxdigit(connection1.uuid[i]));
         ASSERT_TRUE(isxdigit(connection2.uuid[i]));
     }
+
+    // Cleanup
+    ct_connection_free_content(&connection1);
+    ct_connection_free_content(&connection2);
 }

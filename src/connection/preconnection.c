@@ -131,7 +131,7 @@ void ct_preconnection_free(ct_preconnection_t* preconnection) {
 
 int ct_preconnection_build_user_connection(ct_connection_t* connection, const ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks) {
   log_debug("Building user connection from preconnection");
-  int rc = ct_connection_build_with_connection_group(connection);
+  int rc = ct_connection_build_with_new_connection_group(connection);
   if (rc < 0) {
     log_error("Failed to build connection with connection group: %d", rc);
     return rc;
@@ -148,8 +148,6 @@ int ct_preconnection_build_user_connection(ct_connection_t* connection, const ct
   connection->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_ESTABLISHING;
 
   // Initialize message queues
-  connection->received_messages = g_queue_new();
-  connection->received_callbacks = g_queue_new();
   log_info("Received callback of user connection: %p", connection->received_callbacks);
 
   // Set basic fields from preconnection

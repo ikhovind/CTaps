@@ -100,7 +100,7 @@ static int start_connection_attempt(ct_racing_context_t* context, int attempt_in
     attempt->state = ATTEMPT_STATE_FAILED;
     return -ENOMEM;
   }
-  int rc = ct_connection_build_with_connection_group(attempt->connection);
+  int rc = ct_connection_build_with_new_connection_group(attempt->connection);
   if (rc < 0) {
     log_error("Failed to build connection for attempt %d: %d", attempt_index, rc);
     free(attempt->connection);
@@ -116,8 +116,6 @@ static int start_connection_attempt(ct_racing_context_t* context, int attempt_in
   attempt->connection->socket_type = CONNECTION_SOCKET_TYPE_STANDALONE;
   attempt->connection->role = CONNECTION_ROLE_CLIENT;
   attempt->connection->security_parameters = context->preconnection->security_parameters;
-  attempt->connection->received_messages = g_queue_new();
-  attempt->connection->received_callbacks = g_queue_new();
   attempt->connection->framer_impl = context->preconnection->framer_impl;
 
   // Setup wrapped callbacks that point back to this attempt
@@ -135,9 +133,7 @@ static int start_connection_attempt(ct_racing_context_t* context, int attempt_in
   if (rc != 0) {
     log_error("Failed to initiate connection attempt %d: %d", attempt_index, rc);
     attempt->state = ATTEMPT_STATE_FAILED;
-    g_queue_free(attempt->connection->received_messages);
-    g_queue_free(attempt->connection->received_callbacks);
-    free(attempt->connection);
+    ct_connection_free(attempt->connection);
     attempt->connection = NULL;
     return rc;
   }
@@ -443,13 +439,7 @@ void racing_context_free(ct_racing_context_t* context) {
 
       // Free connection if it wasn't the winner
       if (attempt->connection != NULL && i != context->winning_attempt_index) {
-        if (attempt->connection->received_messages) {
-          g_queue_free(attempt->connection->received_messages);
-        }
-        if (attempt->connection->received_callbacks) {
-          g_queue_free(attempt->connection->received_callbacks);
-        }
-        free(attempt->connection);
+        ct_connection_free(attempt->connection);
       }
     }
     free(context->attempts);

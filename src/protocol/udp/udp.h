@@ -16,7 +16,7 @@ int udp_clone_connection(const struct ct_connection_s* source_connection, struct
 void udp_retarget_protocol_connection(ct_connection_t* from_connection, ct_connection_t* to_connection);
 
 
-const static ct_protocol_impl_t udp_protocol_interface = {
+static const ct_protocol_impl_t udp_protocol_interface = {
     .name = "UDP",
     .selection_properties = {
       .selection_property = {

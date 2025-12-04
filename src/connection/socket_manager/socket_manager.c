@@ -9,18 +9,13 @@
 
 #include "ctaps.h"
 
-void socket_manager_alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
-  // We'll use a static buffer for this simple example, but in a real
-  // application, you would likely use malloc or a buffer pool.
-  static char slab[65536];
-  *buf = uv_buf_init(slab, sizeof(slab));
-}
-
 int socket_manager_build(ct_socket_manager_t* socket_manager, ct_listener_t* listener) {
   log_debug("Building socket manager for listener");
   // Hash connection groups by remote endpoint because incoming packets only provide
-  // the remote address - we demultiplex to the correct connection group, then within
-  // the group use protocol-specific logic (UDP: local endpoint, QUIC: stream_id)
+  // the remote address - we demultiplex to the correct connection group
+  //
+  // This connection group is associated with a single socket. Any further
+  // demultiplexing to individual connections within the group is protocol-specific.
   socket_manager->connection_groups = g_hash_table_new(g_bytes_hash, g_bytes_equal);
   socket_manager->listener = listener;
   return 0;
@@ -126,7 +121,6 @@ ct_connection_group_t* socket_manager_get_or_create_connection_group(ct_socket_m
       return NULL;
     }
 
-    // The connection was built with a new connection_group, so get it
     connection_group = connection->connection_group;
 
     log_trace("Hash code of addr_bytes when inserting is: %u", g_bytes_hash(addr_bytes));

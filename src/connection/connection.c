@@ -11,8 +11,9 @@
 #include "message/message.h"
 #include "ctaps.h"
 #include "glib.h"
+#include <stdbool.h>
 
-int ct_connection_build_with_connection_group(ct_connection_t* connection) {
+int ct_connection_build_with_new_connection_group(ct_connection_t* connection) {
   memset(connection, 0, sizeof(ct_connection_t));
   generate_uuid_string(connection->uuid);
 
@@ -35,7 +36,10 @@ int ct_connection_build_with_connection_group(ct_connection_t* connection) {
   g_hash_table_insert(group->connections, connection->uuid, connection);
   group->num_active_connections++;
 
+  connection->framer_impl = NULL;
   connection->connection_group = group;
+  connection->received_messages = g_queue_new();
+  connection->received_callbacks = g_queue_new();
   return 0;
 }
 
@@ -152,7 +156,7 @@ int ct_receive_message(ct_connection_t* connection,
 }
 
 int ct_connection_build_multiplexed(ct_connection_t* connection, const ct_listener_t* listener, const ct_remote_endpoint_t* remote_endpoint) {
-  int rc = ct_connection_build_with_connection_group(connection);
+  int rc = ct_connection_build_with_new_connection_group(connection);
   if (rc < 0) {
     log_error("Failed to build connection with connection group: %d", rc);
     return rc;
@@ -163,11 +167,8 @@ int ct_connection_build_multiplexed(ct_connection_t* connection, const ct_listen
   connection->remote_endpoint = *remote_endpoint;
   connection->internal_connection_state = listener->socket_manager->internal_socket_manager_state;
   connection->protocol = listener->socket_manager->protocol_impl;
-  connection->framer_impl = NULL;  // No framer by default
   connection->socket_manager = listener->socket_manager;
   connection->security_parameters = listener->security_parameters;
-  connection->received_callbacks = g_queue_new();
-  connection->received_messages = g_queue_new();
   connection->socket_type = CONNECTION_SOCKET_TYPE_MULTIPLEXED;
   connection->role = CONNECTION_ROLE_SERVER;
   return 0;
@@ -203,9 +204,7 @@ ct_connection_t* ct_connection_create_clone(const ct_connection_t* src_clone) {
   int rc = ct_connection_group_add_connection(dest_clone->connection_group, dest_clone);
   if (rc < 0) {
     log_error("Failed to add cloned connection to group: %d", rc);
-    g_queue_free(dest_clone->received_callbacks);
-    g_queue_free(dest_clone->received_messages);
-    free(dest_clone);
+    ct_connection_free(dest_clone);
     return NULL;
   }
 
@@ -214,9 +213,7 @@ ct_connection_t* ct_connection_create_clone(const ct_connection_t* src_clone) {
     rc = src_clone->protocol.clone_connection(src_clone, dest_clone);
     if (rc < 0) {
       log_error("Failed to initialize protocol state for cloned connection: %d", rc);
-      g_queue_free(dest_clone->received_callbacks);
-      g_queue_free(dest_clone->received_messages);
-      free(dest_clone);
+      ct_connection_free(dest_clone);
       return NULL;
     }
   }
@@ -240,17 +237,16 @@ void ct_connection_close(ct_connection_t* connection) {
 
 ct_connection_t* ct_connection_build_from_received_handle(const struct ct_listener_s* listener, uv_stream_t* received_handle) {
   log_debug("Building ct_connection_t from received handle");
-  int rc;
   ct_connection_t* connection = malloc(sizeof(ct_connection_t));
   if (!connection) {
     log_error("Failed to allocate memory for ct_connection_t");
     return NULL;
   }
-  ct_connection_build_with_connection_group(connection);
+  ct_connection_build_with_new_connection_group(connection);
 
   connection->transport_properties = listener->transport_properties;
   connection->local_endpoint = listener->local_endpoint;
-  rc = listener->socket_manager->protocol_impl.remote_endpoint_from_peer((uv_handle_t*)received_handle, &connection->remote_endpoint);
+  int rc = listener->socket_manager->protocol_impl.remote_endpoint_from_peer((uv_handle_t*)received_handle, &connection->remote_endpoint);
   if (rc < 0) {
     log_error("Could not build remote endpoint from received handle's remote address");
     free(connection);
@@ -258,21 +254,32 @@ ct_connection_t* ct_connection_build_from_received_handle(const struct ct_listen
   }
 
   connection->protocol = listener->socket_manager->protocol_impl;
-  connection->framer_impl = NULL;  // No framer by default
   connection->socket_type = CONNECTION_SOCKET_TYPE_STANDALONE;
   connection->role = CONNECTION_ROLE_SERVER;
-  connection->received_callbacks = g_queue_new();
-  connection->received_messages = g_queue_new();
   connection->internal_connection_state = (uv_handle_t*)received_handle;
 
   return connection;
 }
 
-void ct_connection_free(ct_connection_t* connection) {
-  if (connection->received_callbacks) {
-    g_queue_free(connection->received_callbacks);
+void ct_connection_free_content(ct_connection_t* connection) {
+  if (!connection) {
+    return;
   }
+
+  if (connection->received_callbacks) {
+    // Free any pending callbacks in the queue
+    while (!g_queue_is_empty(connection->received_callbacks)) {
+      ct_receive_callbacks_t* callback = g_queue_pop_head(connection->received_callbacks);
+      if (callback) {
+        free(callback);
+      }
+    }
+    g_queue_free(connection->received_callbacks);
+    connection->received_callbacks = NULL;
+  }
+
   if (connection->received_messages) {
+    // Free any pending messages in the queue
     while (!g_queue_is_empty(connection->received_messages)) {
       ct_message_t* msg = g_queue_pop_head(connection->received_messages);
       if (msg) {
@@ -283,7 +290,27 @@ void ct_connection_free(ct_connection_t* connection) {
       }
     }
     g_queue_free(connection->received_messages);
+    connection->received_messages = NULL;
   }
+
+  // Remove connection from its group and free the group if this was the last connection
+  ct_connection_group_t* group = ct_connection_get_connection_group(connection);
+  if (group) {
+    // Remove this connection from the group
+    ct_connection_group_remove_connection(group, connection);
+
+    // If the group is now empty, free it
+    if (ct_connection_group_is_empty(group)) {
+      log_debug("Connection group %s is now empty, freeing it", group->connection_group_id);
+      ct_connection_group_free(group);
+    }
+
+    connection->connection_group = NULL;
+  }
+}
+
+void ct_connection_free(ct_connection_t* connection) {
+  ct_connection_free_content(connection);
   free(connection);
 }
 
@@ -409,26 +436,6 @@ int ct_connection_clone_full(
 
 int ct_connection_clone(ct_connection_t* source_connection) {
   return ct_connection_clone_full(source_connection, NULL, NULL);
-}
-
-int ct_connection_get_grouped_connections(
-    const ct_connection_t* connection,
-    ct_connection_t*** grouped_connections,
-    size_t* num_connections
-) {
-  log_debug("Getting grouped connections for connection: %p", (void*)connection);
-
-  ct_connection_t** group = malloc(sizeof(ct_connection_t*));
-  if (!group) {
-    log_error("Failed to allocate memory for grouped connections array");
-    return -ENOMEM;
-  }
-
-  group[0] = (ct_connection_t*)connection;
-  *grouped_connections = group;
-  *num_connections = 1;
-
-  return 0;
 }
 
 void ct_connection_close_group(ct_connection_t* connection) {

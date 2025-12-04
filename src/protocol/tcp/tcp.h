@@ -15,7 +15,7 @@ void tcp_retarget_protocol_connection(ct_connection_t* from_connection, ct_conne
 int tcp_clone_connection(const struct ct_connection_s* source_connection,
                          struct ct_connection_s* target_connection);
 
-const static ct_protocol_impl_t tcp_protocol_interface = {
+static const ct_protocol_impl_t tcp_protocol_interface = {
     .name = "TCP",
     .selection_properties = {
       .selection_property = {
