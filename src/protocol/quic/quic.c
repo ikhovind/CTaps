@@ -112,6 +112,7 @@ void ct_connection_assign_next_free_stream(ct_connection_t* connection, bool is_
 
   log_debug("Assigning next free stream ID, which is: ID %llu to connection %s", (unsigned long long)next_stream_id, connection->uuid);
   ct_quic_set_connection_stream(connection, next_stream_id);
+  picoquic_set_app_stream_ctx(cnx, next_stream_id, connection);
 }
 
 uint64_t ct_connection_get_stream_id(const ct_connection_t* connection) {
@@ -380,7 +381,7 @@ int picoquic_callback(picoquic_cnx_t* cnx,
   int rc;
   ct_connection_group_t* connection_group = (ct_connection_group_t*)callback_ctx;
   ct_connection_t* connection = NULL;
-  log_trace("ct_callback_t event with connection group: %p", (void*)connection_group);
+  log_trace("ct_callback_t event with connection group: %s", connection_group->connection_group_id);
   log_trace("Received callback event: %d", fin_or_event);
 
   if (!connection_group) {
@@ -487,6 +488,7 @@ int picoquic_callback(picoquic_cnx_t* cnx,
       } else {
         // Existing stream - get connection from stream context
         connection = (ct_connection_t*)v_stream_ctx;
+        log_trace("Got connection %s from stream context for stream %llu", connection->uuid, (unsigned long long)stream_id);
 
         // TODO - is this actually possible, are streams created before data is received?
         if (!ct_connection_stream_is_initialized(connection)) {
@@ -635,10 +637,11 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
     return;
   }
 
-  if (addr_from == NULL) {
-    log_warn("No source address for incoming QUIC packet");
-    free(buf->base);
-    // No more data to read, or an empty packet.
+  if (addr_from == NULL && nread == 0) {
+    // No more data to read
+    if (buf->base) {
+      free(buf->base);
+    }
     return;
   }
 
@@ -752,7 +755,7 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
 }
 
 void on_quic_timer(uv_timer_t* timer_handle) {
-  log_debug("QUIC timer triggered, preparing packets to send");
+  log_trace("QUIC timer triggered, checking for new QUIC packets to send");
 
   picoquic_quic_t* quic_ctx = get_global_quic_ctx();
   size_t send_length = 0;
@@ -764,7 +767,6 @@ void on_quic_timer(uv_timer_t* timer_handle) {
 
   do {
     send_length = 0;
-    log_debug("Preparing next QUIC packet");
 
     // Allocate buffer on heap for each packet (freed in on_quic_udp_send callback)
     unsigned char* send_buffer_base = malloc(MAX_QUIC_PACKET_SIZE);
@@ -797,8 +799,6 @@ void on_quic_timer(uv_timer_t* timer_handle) {
       ct_connection_group_t* connection_group = (ct_connection_group_t*)picoquic_get_callback_context(last_cnx);
       ct_quic_group_state_t* group_state = (ct_quic_group_state_t*)connection_group->connection_group_state;
 
-      log_info("group state in quic timer handler: %p", (void*)group_state);
-
       uv_udp_t* udp_handle = group_state->udp_handle;
 
       // Allocate uv_buf_t structure on heap
@@ -821,8 +821,7 @@ void on_quic_timer(uv_timer_t* timer_handle) {
       // Store buffer in send_req->data so callback can free it
       send_req->data = send_buffer;
 
-      log_trace("Sending QUIC data over UDP handle: %p", (void*)udp_handle);
-      log_trace("udp handle type: %d", udp_handle->type);
+      log_trace("Sending QUIC data over UDP handle");
       rc = uv_udp_send(
         send_req,
         udp_handle,
@@ -839,6 +838,7 @@ void on_quic_timer(uv_timer_t* timer_handle) {
       }
       log_debug("Sent QUIC packet of length %zu", send_length);
     } else {
+      log_trace("No QUIC data to send at this time");
       // No data to send, free the buffer
       free(send_buffer_base);
     }
@@ -1003,12 +1003,14 @@ int quic_close(ct_connection_t* connection) {
 }
 
 int quic_clone_connection(const struct ct_connection_s* source_connection, struct ct_connection_s* target_connection) {
+  log_debug("Creating clone of QUIC connection using multistreaming");
   target_connection->internal_connection_state = malloc(sizeof(ct_quic_stream_state_t));
   ct_quic_stream_state_t* target_state = (target_connection->internal_connection_state);
   target_state->stream_id = 0;
   target_state->stream_initialized = false;
   ct_connection_mark_as_established(target_connection);
 
+  log_trace("QUIC cloned connection ready: %s", target_connection->uuid);
   // call ready callback of target connection
   if (target_connection->connection_callbacks.ready) {
     target_connection->connection_callbacks.ready(target_connection);
@@ -1035,14 +1037,14 @@ int quic_send(ct_connection_t* connection, ct_message_t* message, ct_message_con
   }
 
   if (!ct_connection_stream_is_initialized(connection)) {
+    log_trace("First message sent on QUIC stream for connection %s, initializing stream", connection->uuid);
     // Determine stream ID based on connection role (client/server) and stream type (bidirectional/unidirectional)
     ct_connection_assign_next_free_stream(connection, false);
   }
 
   // Add data to the stream (set_fin=0 since we're not closing the stream)
   uint64_t stream_id = ct_connection_get_stream_id(connection);
-  log_debug("Queuing %zu bytes for sending on stream %llu", message->length, (unsigned long long)stream_id);
-  log_debug("Queuing data: %.*s", (int)message->length, message->content);
+  log_debug("Queuing %zu bytes for QUIC, sending on stream %llu, connection: %s", message->length, (unsigned long long)stream_id, connection->uuid);
 
   int set_fin = 0;
   if (ctx && ct_message_properties_is_final(&ctx->message_properties)) {

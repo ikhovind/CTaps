@@ -15,14 +15,15 @@ void ct_message_build_without_content(ct_message_t* message) {
   message->content = 0;
 }
 
-void ct_message_free_all(ct_message_t* message) {
-  log_info("Freeing message of size %zu", message->length);
-  free(message->content);
-  free(message);
-}
 
 void ct_message_free_content(const ct_message_t* message) {
   free(message->content);
+}
+
+void ct_message_free_all(ct_message_t* message) {
+  log_trace("Freeing message of size %zu", message->length);
+  ct_message_free_content(message);
+  free(message);
 }
 
 ct_message_t* ct_message_deep_copy(const ct_message_t* message) {
@@ -34,7 +35,7 @@ ct_message_t* ct_message_deep_copy(const ct_message_t* message) {
   if (!copy) {
     return NULL;
   }
-  log_info("Deep copying message of size %zu", message->length);
+  log_trace("Deep copying message of size %zu", message->length);
 
   copy->length = message->length;
   copy->content = malloc(message->length);

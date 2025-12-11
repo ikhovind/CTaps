@@ -220,7 +220,6 @@ gint compare_prefer_and_avoid_preferences(gconstpointer a, gconstpointer b, gpoi
         // If A cannot provide but B can, then A's score should decrease
         if (candidate_b->protocol->selection_properties.selection_property[i].value.simple_preference != PROHIBIT) {
           log_trace("B could supply prefer property at index %d", i);
-          log_trace("B simple preference: %d", candidate_b->transport_properties->selection_properties.selection_property[i].value.simple_preference);
           a_prefer_score--;
         }
       }
@@ -247,13 +246,6 @@ gint compare_prefer_and_avoid_preferences(gconstpointer a, gconstpointer b, gpoi
   return -a_avoid_score;
 }
 
-int sort_candidate_tree(GArray* root, ct_selection_properties_t selection_properties) {
-  log_debug("Sorting candidate tree based on selection properties");
-  // TODO - give more importance to properties set by the user
-
-}
-
-
 /**
  * @brief Creates a new candidate_node.
  * * @param type The type of the node (e.g., NODE_TYPE_ROOT).
@@ -268,7 +260,7 @@ struct ct_candidate_node_t* candidate_node_new(ct_node_type_t type,
                                          const ct_remote_endpoint_t* remote_ep,
                                          const ct_protocol_impl_t* proto,
                                          const ct_transport_properties_t* props) {
-  log_info("Creating new candidate node of type %d", type);
+  log_debug("Creating new candidate node of type %d", type);
   ct_candidate_node_t* node = malloc(sizeof(struct ct_candidate_node_t));
   if (node == NULL) {
     log_error("Could not allocate memory for ct_candidate_node_t");
@@ -321,13 +313,11 @@ gboolean get_leaf_nodes(GNode *node, gpointer user_data) {
  * @return A GArray Containing all the candidate nodes, ordered by preference.
  */
 GArray* get_ordered_candidate_nodes(const ct_preconnection_t* precon) {
-  log_info("Creating root candidate node from preconnection");
+  log_info("Creating candidate node tree from preconnection");
   if (precon == NULL) {
     log_error("NULL preconnection provided");
     return NULL;
   }
-
-  log_trace("ct_preconnection_t local interface name: %s", precon->local.interface_name);
   // 1. Create a new ct_candidate_node_t struct for the root
   struct ct_candidate_node_t* root_data = candidate_node_new(
     NODE_TYPE_ROOT,
@@ -336,8 +326,6 @@ GArray* get_ordered_candidate_nodes(const ct_preconnection_t* precon) {
     NULL, // Protocol is selected in a later stage
     &precon->transport_properties
   );
-
-  log_info("Local port of root is: %d", root_data->local_endpoint->port);
 
   if (root_data == NULL) {
     log_error("Could not create root candidate node data");
@@ -384,7 +372,7 @@ GArray* get_ordered_candidate_nodes(const ct_preconnection_t* precon) {
  * @param parent_node The current node to expand.
  */
 void build_candidate_tree_recursive(GNode* parent_node) {
-  log_info("Expanding candidate tree node of type %d", ((struct ct_candidate_node_t*)parent_node->data)->type);
+  log_debug("Expanding candidate tree node of type %d", ((struct ct_candidate_node_t*)parent_node->data)->type);
   struct ct_candidate_node_t* parent_data = (struct ct_candidate_node_t*)parent_node->data;
 
   // According to RFC 9623, the branching order should be:
@@ -398,12 +386,10 @@ void build_candidate_tree_recursive(GNode* parent_node) {
     ct_local_endpoint_t* local_endpoint_list = NULL;
     size_t num_found_local = 0;
 
-    log_trace("Resolving local endpoint with port: %d", parent_data->local_endpoint->port);
     // Resolve the local endpoint. The `ct_local_endpoint_resolve` function
     // will find all available interfaces when the interface is not specified.
     ct_local_endpoint_resolve(parent_data->local_endpoint, &local_endpoint_list, &num_found_local);
     log_trace("Found %zu local endpoints, adding as children to ROOT node", num_found_local);
-    log_trace("Port of first is: %d", local_endpoint_list[0].port);
 
     for (size_t i = 0; i < num_found_local; i++) {
       // Create a child node for each local endpoint found.
@@ -474,7 +460,6 @@ void build_candidate_tree_recursive(GNode* parent_node) {
         parent_data->protocol,
         parent_data->transport_properties
       );
-      log_info("leaf node data local endpoint interface_name: %s", leaf_node_data->local_endpoint->interface_name);
       g_node_append_data(parent_node, leaf_node_data);
     }
 

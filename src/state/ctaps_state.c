@@ -48,7 +48,7 @@ int ct_close() {
 }
 
 void ct_start_event_loop() {
-  log_info("Starting the libuv event event_loop...\n");
+  log_info("Starting the libuv event event_loop...");
 
   // Run until there are no more waiting tasks
   uv_run(event_loop, UV_RUN_DEFAULT);

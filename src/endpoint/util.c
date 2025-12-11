@@ -54,11 +54,10 @@ int perform_dns_lookup(const char* hostname, const char* service, ct_remote_endp
   *out_count = 0;
   int count = 0;
 
-  log_debug("Counting resolved addresses for hostname %s", hostname);
   for (struct addrinfo* ptr = request.addrinfo; ptr != NULL; ptr = ptr->ai_next) {
     count++;
   }
-  log_info("Found %d addresses for hostname %s", count, hostname);
+  log_debug("Found %d addresses for hostname %s", count, hostname);
 
   *out_list = malloc(count * sizeof(ct_remote_endpoint_t));
   if (*out_list == NULL) {

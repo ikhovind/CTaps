@@ -161,7 +161,7 @@ int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
 }
 
 int tcp_close(ct_connection_t* connection) {
-  log_info("Closing TCP connection");
+  log_info("Closing TCP connection: %s", connection->uuid);
 
   if (connection->socket_type == CONNECTION_SOCKET_TYPE_MULTIPLEXED) {
     log_info("Closing multiplexed TCP connection");
