@@ -142,7 +142,7 @@ int ct_preconnection_build_user_connection(ct_connection_t* connection, const ct
   log_debug("Building user connection from preconnection");
   int rc = ct_connection_build_with_new_connection_group(connection);
   if (rc < 0) {
-    log_error("Failed to build connection with connection group: %d", rc);
+    log_error("Failed to build connection with connection group, error code: %d", rc);
     return rc;
   }
 

@@ -70,7 +70,7 @@ void ct_connection_mark_as_established(ct_connection_t* connection) {
   connection->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_ESTABLISHED;
   ct_connection_set_can_send(connection, true);
   ct_connection_set_can_receive(connection, true);
-  log_trace("Marked connection %s as closing", connection->uuid);
+  log_trace("Marked connection %s as established", connection->uuid);
 }
 
 void ct_connection_mark_as_closing(ct_connection_t* connection) {
@@ -101,7 +101,6 @@ bool ct_connection_is_closed_or_closing(const ct_connection_t* connection) {
   if (!connection) {
     return false;
   }
-  log_info("checking state of connection: %s, which is: %d", connection->uuid, connection->transport_properties.connection_properties.list[STATE].value.enum_val);
   return ct_connection_is_closed(connection) || ct_connection_is_closing(connection);
 }
 
@@ -149,6 +148,7 @@ int ct_send_message(ct_connection_t* connection, ct_message_t* message) {
 
 int ct_send_message_full(ct_connection_t* connection, ct_message_t* message, ct_message_context_t* message_context) {
   // Fail early if for example FINAL has been sent already
+  log_debug("Trying to send message over connection: %s", connection->uuid);
   if (!ct_connection_can_send(connection)) {
     log_error("Connection %s cannot send messages in its current state", connection->uuid);
     return -EPIPE;
@@ -183,7 +183,7 @@ int ct_send_message_full(ct_connection_t* connection, ct_message_t* message, ct_
 int ct_receive_message(ct_connection_t* connection,
                     ct_receive_callbacks_t receive_callbacks
                     ) {
-  log_info("User attempting to receive message on connection: %p", connection);
+  log_info("User attempting to receive message on connection: %s", connection->uuid);
   if (!connection->received_messages || !connection->received_callbacks) {
     log_error("ct_connection_t queues not initialized for receiving messages");
     return -EIO;
@@ -215,7 +215,7 @@ int ct_receive_message(ct_connection_t* connection,
 int ct_connection_build_multiplexed(ct_connection_t* connection, const ct_listener_t* listener, const ct_remote_endpoint_t* remote_endpoint) {
   int rc = ct_connection_build_with_new_connection_group(connection);
   if (rc < 0) {
-    log_error("Failed to build connection with connection group: %d", rc);
+    log_error("Failed to build connection with connection group, error code: %d", rc);
     return rc;
   }
 
@@ -294,7 +294,6 @@ void ct_connection_close(ct_connection_t* connection) {
   if (rc < 0) {
     log_error("Error closing connection: %d", rc);
   }
-  log_info("connection mark: %d", connection->transport_properties.connection_properties.list[STATE].value.enum_val);
 }
 
 ct_connection_t* ct_connection_build_from_received_handle(const struct ct_listener_s* listener, uv_stream_t* received_handle) {
@@ -440,7 +439,7 @@ int ct_connection_clone_full(
   const ct_connection_t* source_connection,
   ct_framer_impl_t* framer,
   const ct_transport_properties_t* connection_properties) {
-  log_debug("Cloning connection: %s", source_connection->uuid);
+  log_debug("Creating clone from connection: %s", source_connection->uuid);
 
   ct_connection_t* new_connection = create_empty_connection_with_uuid();
   if (!new_connection) {
