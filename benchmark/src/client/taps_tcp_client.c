@@ -1,19 +1,28 @@
 #include "common_taps.h"
 
 client_context_t client_ctx;
+int json_only_mode = 0;
 
 int main(int argc, char *argv[]) {
     const char *host = "127.0.0.1";
     int port = DEFAULT_PORT;
+    int arg_idx = 1;
 
-    if (argc > 1) {
-        host = argv[1];
+    if (argc > arg_idx) {
+        host = argv[arg_idx];
+        arg_idx++;
     }
-    if (argc > 2) {
-        port = atoi(argv[2]);
+    if (argc > arg_idx) {
+        port = atoi(argv[arg_idx]);
+        arg_idx++;
+    }
+    /* Parse --json flag */
+    if (argc > arg_idx && strcmp(argv[arg_idx], "--json") == 0) {
+        json_only_mode = 1;
+        arg_idx++;
     }
 
-    printf("TAPS TCP Client connecting to %s:%d\n", host, port);
+    if (!json_only_mode) printf("TAPS TCP Client connecting to %s:%d\n", host, port);
 
     memset(&client_ctx, 0, sizeof(client_ctx));
     client_ctx.host = host;
@@ -24,11 +33,15 @@ int main(int argc, char *argv[]) {
     memset(&client_ctx.short_stats, 0, sizeof(transfer_stats_t));
 
     if (ct_initialize(NULL, NULL) != 0) {
-        fprintf(stderr, "Failed to initialize CTaps\n");
+        if (json_only_mode) {
+            printf("ERROR\n");
+        } else {
+            fprintf(stderr, "Failed to initialize CTaps\n");
+        }
         return 1;
     }
 
-    printf("\n--- Transferring LARGE file via TAPS ---\n");
+    if (!json_only_mode) printf("\n--- Transferring LARGE file via TAPS ---\n");
 
     ct_set_log_level(CT_LOG_WARN);
 
@@ -63,13 +76,21 @@ int main(int argc, char *argv[]) {
     if (client_ctx.transfer_complete == 1) {
         char *json = get_json_stats(TRANSFER_MODE_TAPS, &client_ctx.large_stats, &client_ctx.short_stats, 0);
         if (json) {
-            printf("\n%s\n", json);
+            if (json_only_mode) {
+                printf("%s\n", json);
+            } else {
+                printf("\n%s\n", json);
+            }
             free(json);
         }
         ct_close();
         return 0;
     } else {
-        fprintf(stderr, "Transfer failed\n");
+        if (json_only_mode) {
+            printf("ERROR\n");
+        } else {
+            fprintf(stderr, "Transfer failed\n");
+        }
         ct_close();
         return 1;
     }
