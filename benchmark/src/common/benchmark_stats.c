@@ -36,44 +36,27 @@ char* get_json_stats(transfer_mode_t mode,
     char *json_str = NULL;
     int result;
 
-    if (multi_streaming) {
-        result = asprintf(&json_str,
-            "{\"implementation\": \"%s\","
-            "\"large_file\": {"
-            "\"handshake_time_ms\": %.2f,"
-            "\"transfer_time_ms\": %.2f,"
-            "\"bytes\": %zu,"
-            "\"throughput_mbps\": %.2f"
-            "},"
-            "\"small_file\": {"
-            "\"handshake_time_ms\": %.2f,"
-            "\"transfer_time_ms\": %.2f,"
-            "\"bytes\": %zu,"
-            "\"throughput_mbps\": %.2f"
-            "},"
-            "\"multi_streaming\": true}",
-            implementation,
-            large_handshake_ms, large_transfer_ms, large_file_stats->bytes_received, large_throughput,
-            small_handshake_ms, small_transfer_ms, small_file_stats->bytes_received, small_throughput);
-    } else {
-        result = asprintf(&json_str,
-            "{\"implementation\": \"%s\","
-            "\"large_file\": {"
-            "\"handshake_time_ms\": %.2f,"
-            "\"transfer_time_ms\": %.2f,"
-            "\"bytes\": %zu,"
-            "\"throughput_mbps\": %.2f"
-            "},"
-            "\"small_file\": {"
-            "\"handshake_time_ms\": %.2f,"
-            "\"transfer_time_ms\": %.2f,"
-            "\"bytes\": %zu,"
-            "\"throughput_mbps\": %.2f"
-            "}}",
-            implementation,
-            large_handshake_ms, large_transfer_ms, large_file_stats->bytes_received, large_throughput,
-            small_handshake_ms, small_transfer_ms, small_file_stats->bytes_received, small_throughput);
-    }
+    char* multi_streaming_str = multi_streaming ? "true" : "false";
+
+    result = asprintf(&json_str,
+        "{\"implementation\": \"%s\","
+        "\"large_file\": {"
+        "\"handshake_time_ms\": %.2f,"
+        "\"transfer_time_ms\": %.2f,"
+        "\"bytes\": %zu,"
+        "\"throughput_mbps\": %.2f"
+        "},"
+        "\"small_file\": {"
+        "\"handshake_time_ms\": %.2f,"
+        "\"transfer_time_ms\": %.2f,"
+        "\"bytes\": %zu,"
+        "\"throughput_mbps\": %.2f"
+        "},"
+        "\"multi_streaming\": %s}",
+        implementation,
+        large_handshake_ms, large_transfer_ms, large_file_stats->bytes_received, large_throughput,
+        small_handshake_ms, small_transfer_ms, small_file_stats->bytes_received, small_throughput,
+        multi_streaming_str);
 
     if (result == -1) {
         return NULL;

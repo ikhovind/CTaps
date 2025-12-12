@@ -7,20 +7,18 @@ set -e
 INTERFACE="lo"  # loopback interface for local testing
 RTT_MS=50       # Round-trip time in milliseconds (25ms delay each way)
 BANDWIDTH_MBIT=100  # Bandwidth in Mbit/s
-LOSS_PERCENT=0  # Packet loss percentage (0 = no loss)
 
 print_usage() {
-    echo "Usage: $0 {setup|teardown|status} [interface] [rtt_ms] [bandwidth_mbit] [loss_percent]"
+    echo "Usage: $0 {setup|teardown|status} [interface] [rtt_ms] [bandwidth_mbit]"
     echo ""
     echo "Default values:"
     echo "  interface: lo (loopback)"
     echo "  rtt_ms: 50ms"
     echo "  bandwidth_mbit: 100 Mbit/s"
-    echo "  loss_percent: 0%"
     echo ""
     echo "Examples:"
-    echo "  $0 setup                    # Use defaults (50ms RTT, 100 Mbps, 0% loss)"
-    echo "  $0 setup lo 100 50 1        # 100ms RTT, 50 Mbps, 1% loss"
+    echo "  $0 setup                    # Use defaults (50ms RTT, 100 Mbps)"
+    echo "  $0 setup lo 100 50 1        # 100ms RTT, 50 Mbps"
     echo "  $0 teardown                 # Remove network emulation"
     echo "  $0 status                   # Show current settings"
     echo ""
@@ -34,12 +32,10 @@ setup_network() {
     local iface=$1
     local rtt=$2
     local bw=$3
-    local loss=$4
 
     echo "Setting up network emulation on $iface:"
     echo "  RTT: ${rtt}ms"
     echo "  Bandwidth: ${bw} Mbit/s"
-    echo "  Packet loss: ${loss}%"
 
     # Calculate delay (half of RTT for each direction)
     local delay=$((rtt / 2))
@@ -102,11 +98,10 @@ fi
 [ -n "$2" ] && INTERFACE=$2
 [ -n "$3" ] && RTT_MS=$3
 [ -n "$4" ] && BANDWIDTH_MBIT=$4
-[ -n "$5" ] && LOSS_PERCENT=$5
 
 case "$COMMAND" in
     setup)
-        setup_network "$INTERFACE" "$RTT_MS" "$BANDWIDTH_MBIT" "$LOSS_PERCENT"
+        setup_network "$INTERFACE" "$RTT_MS" "$BANDWIDTH_MBIT"
         ;;
     teardown|clean)
         teardown_network "$INTERFACE"
