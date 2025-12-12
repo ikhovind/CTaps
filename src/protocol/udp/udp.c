@@ -115,6 +115,7 @@ int udp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
   connection->internal_connection_state = (uv_handle_t*)new_udp_handle;
   new_udp_handle->data = connection;
 
+  ct_connection_mark_as_established(connection);
   connection_callbacks->ready(connection);
   return 0;
 }
@@ -299,6 +300,7 @@ int udp_clone_connection(const struct ct_connection_s* source_connection, struct
   target_connection->internal_connection_state = (uv_handle_t*)new_udp_handle;
   new_udp_handle->data = target_connection;
 
+  ct_connection_mark_as_established(target_connection);
   if (target_connection->connection_callbacks.ready) {
     target_connection->connection_callbacks.ready(target_connection);
   }

@@ -405,6 +405,7 @@ int picoquic_callback(picoquic_cnx_t* cnx,
       if (ct_connection_is_server(connection)) {
         log_debug("Server connection ready, notifying listener");
         ct_listener_t* listener = connection->socket_manager->listener;
+        ct_connection_mark_as_established(connection);
         listener->listener_callbacks.connection_received(listener, connection);
       }
       else if (ct_connection_is_client(connection)) {
@@ -459,6 +460,7 @@ int picoquic_callback(picoquic_cnx_t* cnx,
 
             ct_listener_t* listener = first_connection->socket_manager->listener;
             if (listener) {
+              ct_connection_mark_as_established(new_stream_connection);
               listener->listener_callbacks.connection_received(listener, new_stream_connection);
             } else {
               log_warn("Received new stream but listener has been closed, not notifying application");

@@ -15,8 +15,32 @@ static int on_attempt_establishment_error(ct_connection_t* connection);
 static void cancel_all_other_attempts(ct_racing_context_t* context, int winning_index);
 static int start_connection_attempt(ct_racing_context_t* context, int attempt_index);
 
-static void on_handle_close(uv_handle_t* handle) {
+static void on_timer_close_free_context(uv_handle_t* handle) {
+  ct_racing_context_t* context = (ct_racing_context_t*)handle->data;
   free(handle);
+
+  if (context != NULL) {
+    log_debug("Timer closed, now freeing racing context");
+
+    // Free all connection attempts
+    if (context->attempts != NULL) {
+      for (size_t i = 0; i < context->num_attempts; i++) {
+        ct_racing_attempt_t* attempt = &context->attempts[i];
+
+        // Free candidate endpoints (they were copied)
+        ct_free_local_endpoint(attempt->candidate.local_endpoint);
+        ct_free_remote_endpoint(attempt->candidate.remote_endpoint);
+
+        // Free connection if it wasn't the winner
+        if (attempt->connection != NULL && i != context->winning_attempt_index) {
+          ct_connection_free(attempt->connection);
+        }
+      }
+      free(context->attempts);
+    }
+
+    free(context);
+  }
 }
 
 /**
@@ -435,37 +459,21 @@ int preconnection_initiate_with_racing(ct_preconnection_t* preconnection,
 /**
  * @brief Frees a racing context and all associated resources.
  *
- * Does not free the user connection
+ * Does not free the user connection.
+ * Note: This function initiates async cleanup. The context will be freed
+ * when all async operations (timer close) complete.
  */
 void racing_context_free(ct_racing_context_t* context) {
   if (context == NULL) {
     return;
   }
 
-  log_debug("Freeing racing context");
+  log_debug("Initiating racing context cleanup");
 
-  // Stop and free timer
-  if (context->stagger_timer != NULL) {
-    uv_timer_stop(context->stagger_timer);
-    uv_close((uv_handle_t*)context->stagger_timer, on_handle_close);
-  }
-
-  // Free all connection attempts
-  if (context->attempts != NULL) {
-    for (size_t i = 0; i < context->num_attempts; i++) {
-      ct_racing_attempt_t* attempt = &context->attempts[i];
-
-      // Free candidate endpoints (they were copied)
-      ct_free_local_endpoint(attempt->candidate.local_endpoint);
-      ct_free_remote_endpoint(attempt->candidate.remote_endpoint);
-
-      // Free connection if it wasn't the winner
-      if (attempt->connection != NULL && i != context->winning_attempt_index) {
-        ct_connection_free(attempt->connection);
-      }
-    }
-    free(context->attempts);
-  }
-
-  free(context);
+  // Pass context via timer->data so close callback can free it
+  context->stagger_timer->data = context;
+  // The context will be freed in the close callback to ensure no pending
+  // timer callbacks access freed memory
+  uv_timer_stop(context->stagger_timer);
+  uv_close((uv_handle_t*)context->stagger_timer, on_timer_close_free_context);
 }
