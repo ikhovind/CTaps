@@ -164,17 +164,16 @@ int ct_send_message_full(ct_connection_t* connection, ct_message_t* message, ct_
     log_error("Failed to deep copy message");
     return -ENOMEM;
   }
-  log_info("Message copy size: %zu", message_copy->length);
 
   int rc;
   if (connection->framer_impl != NULL) {
-    log_info("User sending message on connection with framer");
+    log_debug("User sending message on connection with framer");
     rc = connection->framer_impl->encode_message(connection, message_copy, message_context, ct_connection_send_to_protocol);
     if (rc < 0) {
       log_error("Framer encode_message failed: %d", rc);
     }
   } else {
-    log_info("User sending message on connection without framer");
+    log_debug("User sending message on connection without framer");
     rc = ct_connection_send_to_protocol(connection, message_copy, message_context);
   }
 

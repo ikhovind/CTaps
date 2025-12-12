@@ -310,6 +310,7 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
   }
 
   log_trace("TCP invoking new connection callback");
+  ct_connection_mark_as_established(connection);
   listener->listener_callbacks.connection_received(listener, connection);
 }
 
