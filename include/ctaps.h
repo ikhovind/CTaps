@@ -1425,43 +1425,21 @@ CT_EXTERN void ct_preconnection_set_local_endpoint(ct_preconnection_t* preconnec
 CT_EXTERN void ct_preconnection_free(ct_preconnection_t* preconnection);
 
 /**
- * @brief Initiates a connection using the configured Preconnection.
+ * @brief Initiate a connection
+ *
+ * Initiates a connection using the configured Preconnection. The connection is allocated
+ * internally and provided to the user via the ready() callback.
  *
  * @param[in] preconnection Pointer to the Preconnection object containing the connection
- *                          configuration (transport properties, endpoints, security parameters).
- *                          Must not be NULL.
- * @param[out] connection Pointer to a Connection object that will be populated with the
- *                        active connection state. Must be allocated by the caller using
- *                        ct_connection_build(). Must not be NULL.
+ *                          configuration.
  * @param[in] connection_callbacks Struct containing callback functions for connection events:
- *                                 - ready: Called when the connection is established and ready
- *                                 - connection_error: Called if connection establishment fails
- *                                 - sent: Called when sent messages are acknowledged
- *                                 - closed: Called when the connection is closed
  *
- * @return 0 on success (connection establishment initiated successfully)
- * @return Non-zero error code on failure (invalid parameters, resource allocation failure, etc.)
+ * @return 0 on no synchronous errors
+ * @return Non-zero error code on synchronous error
+ *
+ * @note Asynchronous errors are reported via the establishment_error callback
  */
-CT_EXTERN int ct_preconnection_initiate(ct_preconnection_t* preconnection, ct_connection_t* connection, ct_connection_callbacks_t connection_callbacks);
-
-/**
- * @brief Initiate a connection (RFC 9622 compliant - connection available only in ready callback).
- *
- * This is the new, cleaner API where the connection is allocated internally and provided
- * to the user via the ready() callback. Per RFC 9622: "Once a Connection is established,
- * it can be used for receiving data" - no early receives are supported.
- *
- * @param[in] preconnection Pointer to preconnection with configuration
- * @param[in] connection_callbacks Callbacks for connection events (ready, establishment_error, etc.)
- *                                 The ready callback receives the established ct_connection_t* pointer.
- *
- * @return 0 on success (connection establishment initiated)
- * @return Non-zero error code on failure
- *
- * @note This will replace ct_preconnection_initiate() - see REFACTOR.md
- * @note Connection is only valid after ready() callback is invoked
- */
-CT_EXTERN int ct_preconnection_initiate_v2(ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks);
+CT_EXTERN int ct_preconnection_initiate(ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks);
 
 /**
  * @brief Start listening for incoming connections using the configured Preconnection.

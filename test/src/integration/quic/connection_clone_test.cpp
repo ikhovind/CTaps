@@ -4,7 +4,6 @@
 #include "fff.h"
 extern "C" {
 #include "ctaps.h"
-#include "util/util.h"
 #include "fixtures/awaiting_fixture.cpp"
 #include <logging/log.h>
 }
@@ -35,7 +34,6 @@ TEST_F(ConnectionCloneTest, clonesConnectionSendsOnBothAndReceivesIndividualResp
 
     ct_preconnection_t preconnection;
     ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, &security_parameters);
-    ct_connection_t client_connection;
 
     ct_connection_callbacks_t connection_callbacks = {
         .establishment_error = on_establishment_error,
@@ -43,19 +41,20 @@ TEST_F(ConnectionCloneTest, clonesConnectionSendsOnBothAndReceivesIndividualResp
         .user_connection_context = &test_context,
     };
 
-    int rc = ct_preconnection_initiate(&preconnection, &client_connection, connection_callbacks);
-    log_info("Created client connection: %p", (void*)&client_connection);
+    int rc = ct_preconnection_initiate(&preconnection, connection_callbacks);
     ASSERT_EQ(rc, 0);
 
     ct_start_event_loop();
 
     log_info("Event loop completed, checking results");
 
-    ASSERT_EQ(client_connection.transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
-    ASSERT_EQ(per_connection_messages.size(), 2);
-
     ct_connection_t* original = test_context.client_connections[0];
     ct_connection_t* cloned = test_context.client_connections[1];
+
+    ASSERT_EQ(per_connection_messages.size(), 2);
+    ASSERT_EQ(original->transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
+    ASSERT_EQ(cloned->transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
+
 
     ASSERT_EQ(per_connection_messages[original].size(), 1);
     ASSERT_EQ(per_connection_messages[cloned].size(), 1);
@@ -123,15 +122,13 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     ct_preconnection_t client_precon;
     ct_preconnection_build(&client_precon, client_props, &client_remote, 1, &client_security_parameters);
 
-    ct_connection_t client_connection;
     ct_connection_callbacks_t client_callbacks = {
         .establishment_error = on_establishment_error,
         .ready = clone_send_and_setup_receive_on_both,
         .user_connection_context = &test_context,
     };
 
-    int rc = ct_preconnection_initiate(&client_precon, &client_connection, client_callbacks);
-    log_info("Client connection initiated: %p", (void*)&client_connection);
+    int rc = ct_preconnection_initiate(&client_precon, client_callbacks);
     ASSERT_EQ(rc, 0);
 
     // --- RUN EVENT LOOP ---
@@ -187,7 +184,6 @@ TEST_F(ConnectionCloneTest, clonesUdpConnectionSendsOnBothAndReceivesIndividualR
 
     ct_preconnection_t preconnection;
     ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
-    ct_connection_t client_connection;
 
     ct_connection_callbacks_t connection_callbacks = {
         .establishment_error = on_establishment_error,
@@ -195,19 +191,19 @@ TEST_F(ConnectionCloneTest, clonesUdpConnectionSendsOnBothAndReceivesIndividualR
         .user_connection_context = &test_context,
     };
 
-    int rc = ct_preconnection_initiate(&preconnection, &client_connection, connection_callbacks);
-    log_info("Created client connection: %p", (void*)&client_connection);
+    int rc = ct_preconnection_initiate(&preconnection, connection_callbacks);
     ASSERT_EQ(rc, 0);
 
     ct_start_event_loop();
 
     log_info("Event loop completed, checking results");
 
-    ASSERT_EQ(client_connection.transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
-    ASSERT_EQ(per_connection_messages.size(), 2);
 
     ct_connection_t* original = test_context.client_connections[0];
     ct_connection_t* cloned = test_context.client_connections[1];
+    ASSERT_EQ(original->transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
+    ASSERT_EQ(cloned->transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
+    ASSERT_EQ(per_connection_messages.size(), 2);
 
     ASSERT_EQ(per_connection_messages[original].size(), 1);
     ASSERT_EQ(per_connection_messages[cloned].size(), 1);
@@ -232,7 +228,6 @@ TEST_F(ConnectionCloneTest, clonesTcpConnectionSendsOnBothAndReceivesIndividualR
 
     ct_preconnection_t preconnection;
     ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
-    ct_connection_t client_connection;
 
     ct_connection_callbacks_t connection_callbacks = {
         .establishment_error = on_establishment_error,
@@ -240,19 +235,20 @@ TEST_F(ConnectionCloneTest, clonesTcpConnectionSendsOnBothAndReceivesIndividualR
         .user_connection_context = &test_context,
     };
 
-    int rc = ct_preconnection_initiate(&preconnection, &client_connection, connection_callbacks);
-    log_info("Created client connection: %p", (void*)&client_connection);
+    int rc = ct_preconnection_initiate(&preconnection, connection_callbacks);
     ASSERT_EQ(rc, 0);
 
     ct_start_event_loop();
 
     log_info("Event loop completed, checking results");
 
-    ASSERT_EQ(client_connection.transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
-    ASSERT_EQ(per_connection_messages.size(), 2);
-
     ct_connection_t* original = test_context.client_connections[0];
     ct_connection_t* cloned = test_context.client_connections[1];
+
+    ASSERT_EQ(original->transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
+    ASSERT_EQ(cloned->transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
+    ASSERT_EQ(per_connection_messages.size(), 2);
+
 
     ASSERT_EQ(per_connection_messages[original].size(), 1);
     ASSERT_EQ(per_connection_messages[cloned].size(), 1);

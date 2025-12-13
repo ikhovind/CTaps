@@ -40,7 +40,6 @@ struct ct_racing_context_t {
 
   // User's original callbacks and the connection they provided
   ct_connection_callbacks_t user_callbacks;
-  ct_connection_t* user_connection;
 
   // Racing state
   bool race_complete;
