@@ -131,3 +131,4 @@ target_compile_features(mocking_exe PRIVATE c_std_99)
 enable_testing()
 
 add_subdirectory (test)
+add_subdirectory (benchmark)

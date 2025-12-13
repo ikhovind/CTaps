@@ -1,0 +1,19 @@
+1) showing that a performance gain can easily be achieved in comparison with sockets. This means to show two aspects: a) the performance gain itself, and b) what “easily” means.
+Both of these things must be done in comparison with the state of the art, which is, in the easiest case: “write it native over sockets” (hm, Eirik - I guess: “write it native over the RUST socket library”) and in the most performant case: “write it native over QUIC”.
+I.e., with TAPS, the performance should be almost as good as if we write it over QUIC, but easier.
+
+The idea is to do this with the simplest possible case that shows a big gain: multi-streaming, via “clone”, as opposed to the case of multiple separate TCP connections.
+The easiest way to show a performance  benefit here is do two transfers: one that is a large file, and one that is a short one, starting later. The short one must be large enough to need a few round-trips in slow start, in case it’s a separate TCP connection. And, it must start after a significant amount of time has passed.
+
+Consider the following case, for example: the short file is exactly 70 packets long - this would mean that TCP can transmit it in exactly 4 RTTs: SYN/SYN-ACK handshake, and then: 10, followed by 20, followed by 40 packets.
+Now assume that streaming is used, and the large file transfer has lasted long enough for cwnd to become 200 (make sure the path’s BDP is large enough!), and let’s assume fair scheduling between the streams. Then the second, short transfer can finish within one RTT: it gets cwnd = 100 but it only needs 70, and there’s no SYN/SYN-ACK handshake needed.
+Ingebrigt said he’d do this with a client making a request for download to a server. That seems fine - I just say this so you both have it the same way and we can get a comparable result  (putting both in a paper would be fantastic!).
+
+Show the transfer duration of both files; the large one isn’t so important and will not get a huge effect anyway, but the short one should be transferred a LOT faster.
+
+Now, to show “easily", this code must be written over sockets, over TAPS, and over QUIC - so that we can compare the code pieces and see, along with the performance data.
+
+Finally, tests must show:
+* there is not much performance difference between TAPS/QUIC and native QUIC (the difference is the overhead of TAPS), but TAPS/QUIC is much better than sockets
+* there is not much performance difference between TAPS/TCP and native sockets. Here, the difference is the overhead of protocol racing in TAPS.
+
