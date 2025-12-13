@@ -4,7 +4,6 @@
 #include "fff.h"
 extern "C" {
 #include "ctaps.h"
-#include "util/util.h"
 #include "fixtures/awaiting_fixture.cpp"
 #include <logging/log.h>
 }
@@ -35,33 +34,25 @@ TEST_F(QuicPingTest, successfullyConnectsToQuicServer) {
 
   ct_preconnection_t preconnection;
   ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, &security_parameters);
-  ct_connection_t client_connection;
 
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
-    .ready = send_message_on_connection_ready,
+    .ready = send_message_and_receive,
     .user_connection_context = &test_context,
   };
 
-  int rc = ct_preconnection_initiate(&preconnection, &client_connection, connection_callbacks);
-
-  log_info("Created client connection: %p", (void*)&client_connection);
-
-  ASSERT_EQ(rc, 0);
-
-  ct_receive_callbacks_t receive_req = { .receive_callback = close_on_message_received, .user_receive_context = &test_context };
-
-  rc = ct_receive_message(&client_connection, receive_req);
+  int rc = ct_preconnection_initiate(&preconnection, connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
   ct_start_event_loop();
 
-  log_info("Checking that client connection %p is closed", (void*)&client_connection);
-  ASSERT_EQ(client_connection.transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
+  ct_connection_t* connection = test_context.client_connections[0];
+
+  ASSERT_EQ(connection->transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
   ASSERT_EQ(per_connection_messages.size(), 1);
-  ASSERT_EQ(per_connection_messages[&client_connection].size(), 1);
-  ASSERT_STREQ(per_connection_messages[&client_connection][0]->content, "Pong: ping");
+  ASSERT_EQ(per_connection_messages[connection].size(), 1);
+  ASSERT_STREQ(per_connection_messages[connection][0]->content, "Pong: ping");
 
   ct_free_security_parameter_content(&security_parameters);
   ct_preconnection_free(&preconnection);

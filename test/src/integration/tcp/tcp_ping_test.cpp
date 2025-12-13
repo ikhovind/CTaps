@@ -4,7 +4,6 @@
 #include "fff.h"
 extern "C" {
 #include "ctaps.h"
-#include "util/util.h"
 #include <logging/log.h>
 }
 #include "fixtures/awaiting_fixture.cpp"
@@ -32,7 +31,6 @@ TEST_F(TcpGenericTests, successfullyConnectsToTcpServer) {
 
   ct_preconnection_t preconnection;
   ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
-  ct_connection_t connection;
 
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
@@ -40,7 +38,7 @@ TEST_F(TcpGenericTests, successfullyConnectsToTcpServer) {
     .user_connection_context = &test_context,
   };
 
-  int rc = ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);
+  int rc = ct_preconnection_initiate(&preconnection, connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -67,24 +65,21 @@ TEST_F(TcpGenericTests, connectionErrorCalledWhenNoServer) {
 
   ct_preconnection_t preconnection;
   ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
-  ct_connection_t connection;
 
   // Set to true, since only on_connection_error will set it to false
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
-    .ready = mark_connection_as_success_and_close,
+    .ready = on_connection_ready,
     .user_connection_context = &test_context,
   };
 
-  int rc = ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);
+  int rc = ct_preconnection_initiate(&preconnection, connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
   ct_start_event_loop();
 
   ASSERT_FALSE(test_context.connection_succeeded);
-  // assert state of connection is closed
-  ASSERT_EQ(connection.transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
 }
 
 TEST_F(TcpGenericTests, sendsSingleTcpMessage) {
@@ -105,32 +100,28 @@ TEST_F(TcpGenericTests, sendsSingleTcpMessage) {
 
   ct_preconnection_t preconnection;
   ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
-  ct_connection_t connection;
+
+  ct_message_t* msg_received = nullptr;
+  ct_receive_callbacks_t receive_req = { .receive_callback = close_on_message_received, .user_receive_context = &test_context };
+
 
   // Set to true, since only on_connection_error will set it to false
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
-    .ready = send_message_on_connection_ready,
+    .ready = send_message_and_receive,
     .user_connection_context = &test_context,
   };
 
-  rc = ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);
-
-  ASSERT_EQ(rc, 0);
-
-  ct_message_t* msg_received = nullptr;
-
-  ct_receive_callbacks_t receive_req = { .receive_callback = close_on_message_received, .user_receive_context = &test_context };
-
-  rc = ct_receive_message(&connection, receive_req);
+  rc = ct_preconnection_initiate(&preconnection, connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
   ct_start_event_loop();
 
+  ct_connection_t* saved_connection = test_context.client_connections[0];
   // assert state of connection is closed
-  ASSERT_EQ(connection.transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
+  ASSERT_EQ(saved_connection->transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
   ASSERT_EQ(per_connection_messages.size(), 1);
-  ASSERT_EQ(per_connection_messages[&connection].size(), 1);
-  ASSERT_STREQ(per_connection_messages[&connection][0]->content, "Pong: ping");
+  ASSERT_EQ(per_connection_messages[saved_connection].size(), 1);
+  ASSERT_STREQ(per_connection_messages[saved_connection][0]->content, "Pong: ping");
 }

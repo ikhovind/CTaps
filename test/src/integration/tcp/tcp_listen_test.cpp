@@ -4,20 +4,12 @@
 #include "fff.h"
 extern "C" {
 #include "ctaps.h"
-#include "util/util.h"
 }
 #include "fixtures/awaiting_fixture.cpp"
 
 TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) {
-    CallbackContext callback_context = {
-        .per_connection_messages = &per_connection_messages,
-        .server_connections = received_connections,
-        .client_connections = client_connections,
-    };
-
     ct_initialize(NULL,NULL);
     ct_listener_t listener;
-    ct_connection_t client_connection;
 
     ct_local_endpoint_t listener_endpoint;
     ct_local_endpoint_build(&listener_endpoint);
@@ -41,7 +33,7 @@ TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) 
 
     ct_listener_callbacks_t listener_callbacks = {
         .connection_received = receive_message_respond_and_close_listener_on_connection_received,
-        .user_listener_context = &callback_context
+        .user_listener_context = &test_context
     };
 
     int listen_res = ct_preconnection_listen(&listener_precon, &listener, listener_callbacks);
@@ -64,28 +56,32 @@ TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) 
     ct_preconnection_t client_precon;
     ct_preconnection_build(&client_precon, client_props, &client_remote, 1, NULL);
 
+    // Custom ready callback that saves connection and calls original ready
+
     ct_connection_callbacks_t client_callbacks {
         .ready = send_message_and_receive,
-        .user_connection_context = &callback_context
+        .user_connection_context = &test_context
     };
 
-    ct_preconnection_initiate(&client_precon, &client_connection, client_callbacks);
+    ct_preconnection_initiate(&client_precon, client_callbacks);
 
     // --- RUN EVENT LOOP ---
     // This will block until the callbacks close the handles
     ct_start_event_loop();
 
+    ct_connection_t* client_connection = test_context.client_connections[0];
+
     // --- ASSERTIONS ---
     ASSERT_EQ(per_connection_messages.size(), 2); // Both client and server connections
 
     // Client receives "pong"
-    ASSERT_EQ(per_connection_messages[&client_connection].size(), 1);
-    ASSERT_EQ(per_connection_messages[&client_connection][0]->length, 5);
-    ASSERT_STREQ(per_connection_messages[&client_connection][0]->content, "pong");
+    ASSERT_EQ(per_connection_messages[client_connection].size(), 1);
+    ASSERT_EQ(per_connection_messages[client_connection][0]->length, 5);
+    ASSERT_STREQ(per_connection_messages[client_connection][0]->content, "pong");
 
     // Server receives "ping"
-    ASSERT_EQ(callback_context.server_connections.size(), 1);
-    ct_connection_t* server_connection = callback_context.server_connections[0];
+    ASSERT_EQ(test_context.server_connections.size(), 1);
+    ct_connection_t* server_connection = test_context.server_connections[0];
     ASSERT_EQ(per_connection_messages[server_connection].size(), 1);
     ASSERT_EQ(per_connection_messages[server_connection][0]->length, 5);
     ASSERT_STREQ(per_connection_messages[server_connection][0]->content, "ping");

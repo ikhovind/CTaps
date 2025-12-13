@@ -3,7 +3,6 @@
 #include "gtest/gtest.h"
 #include "fff.h"
 extern "C" {
-#include "util/util.h"
 #include "ctaps.h"
 #include "fff.h"
 }
@@ -121,8 +120,7 @@ TEST_F(LocalEndpointInitTest, UsesInterfaceAddress_whenInterfaceIsSpecified) {
 
     // --- ACT ---
 
-    ct_connection_t connection;
-    ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);
+    ct_preconnection_initiate(&preconnection, connection_callbacks);
 
     // --- ASSERT ---
     // 1. Verify that our mocked functions were called as expected

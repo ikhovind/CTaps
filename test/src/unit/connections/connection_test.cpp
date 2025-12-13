@@ -3,7 +3,6 @@
 #include "gtest/gtest.h"
 #include "fff.h"
 extern "C" {
-#include "util/util.h"
 #include "ctaps.h"
 #include <connection/socket_manager/socket_manager.h>
 #include <connection/connection.h>

@@ -110,20 +110,10 @@ int ct_preconnection_listen(ct_preconnection_t* preconnection, ct_listener_t* li
   return -EINVAL;
 }
 
-int ct_preconnection_initiate(ct_preconnection_t* preconnection, ct_connection_t* connection,
-                           ct_connection_callbacks_t connection_callbacks) {
+int ct_preconnection_initiate(ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks) {
   log_info("Initiating connection from preconnection with candidate racing");
 
-  // Use candidate racing to establish connection
-  return preconnection_initiate_with_racing(preconnection, connection, connection_callbacks);
-}
-
-int ct_preconnection_initiate_v2(ct_preconnection_t* preconnection,
-                                   ct_connection_callbacks_t connection_callbacks) {
-  log_info("Initiating connection from preconnection with candidate racing (v2 API)");
-
-  // Use candidate racing without pre-allocated user connection
-  // The winning connection will be passed directly to the ready() callback
+  // The winning connection will be passed to the ready()
   return preconnection_initiate_with_racing(preconnection, NULL, connection_callbacks);
 }
 
@@ -136,38 +126,4 @@ void ct_preconnection_free(ct_preconnection_t* preconnection) {
     preconnection->remote_endpoints = NULL;
   }
   ct_free_local_endpoint_strings(&preconnection->local);
-}
-
-int ct_preconnection_build_user_connection(ct_connection_t* connection, const ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks) {
-  log_debug("Building user connection from preconnection");
-  int rc = ct_connection_build_with_new_connection_group(connection);
-  if (rc < 0) {
-    log_error("Failed to build connection with connection group, error code: %d", rc);
-    return rc;
-  }
-
-
-  // Initialize transport properties with defaults
-  ct_transport_properties_build(&connection->transport_properties);
-
-  // Copy transport properties from preconnection
-  connection->transport_properties = preconnection->transport_properties;
-
-  // Set initial connection state to ESTABLISHING
-  connection->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_ESTABLISHING;
-
-  // Initialize message queues
-  log_info("Received callback of user connection: %p", connection->received_callbacks);
-
-  // Set basic fields from preconnection
-  connection->socket_type = CONNECTION_SOCKET_TYPE_STANDALONE;
-  connection->role = CONNECTION_ROLE_CLIENT;
-  connection->security_parameters = preconnection->security_parameters;
-  connection->framer_impl = preconnection->framer_impl;  // Copy framer from preconnection
-  connection->socket_manager = NULL;
-  connection->internal_connection_state = NULL;
-
-  log_debug("Setting user connection callbacks");
-  connection->connection_callbacks = connection_callbacks;
-  return 0;
 }

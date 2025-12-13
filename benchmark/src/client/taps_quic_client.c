@@ -71,8 +71,7 @@ int main(int argc, char *argv[]) {
 
     timing_start(&client_ctx.large_stats.handshake_time);
 
-    // Use new v2 API - connection provided in ready() callback, no pre-allocation needed
-    int rc = ct_preconnection_initiate_v2(&preconnection, connection_callbacks);
+    int rc = ct_preconnection_initiate(&preconnection, connection_callbacks);
 
     ct_start_event_loop();
 

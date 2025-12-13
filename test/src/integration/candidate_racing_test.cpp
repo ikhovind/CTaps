@@ -27,6 +27,10 @@ extern "C" {
 
   // ct_callback_t that tracks failures
   int racing_test_on_establishment_error(struct ct_connection_s* connection) {
+    if (connection == nullptr) {
+      log_error("No successful connection could be created on establishment error");
+      return 0;
+    }
     log_error("ct_connection_t failed");
     bool* connection_succeeded = (bool*)connection->connection_callbacks.user_connection_context;
     *connection_succeeded = false;
@@ -64,7 +68,6 @@ TEST(CandidateRacingTests, FirstCandidateSucceeds) {
   ct_preconnection_t preconnection;
   ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
 
-  ct_connection_t connection;
   bool connection_succeeded = false;
 
   ct_connection_callbacks_t connection_callbacks = {
@@ -74,7 +77,7 @@ TEST(CandidateRacingTests, FirstCandidateSucceeds) {
   };
 
   // Execute
-  int rc = ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);
+  int rc = ct_preconnection_initiate(&preconnection, connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -106,8 +109,7 @@ TEST(CandidateRacingTests, AllCandidatesFail) {
   ct_preconnection_t preconnection;
   ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
 
-  ct_connection_t connection;
-  bool connection_succeeded = true; // Start as true, should be set to false
+  bool connection_succeeded = false;
 
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = racing_test_on_establishment_error,
@@ -116,7 +118,7 @@ TEST(CandidateRacingTests, AllCandidatesFail) {
   };
 
   // Execute
-  int rc = ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);
+  int rc = ct_preconnection_initiate(&preconnection, connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -150,7 +152,6 @@ TEST(CandidateRacingTests, RespectsProtocolPreferences) {
   ct_preconnection_t preconnection;
   ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
 
-  ct_connection_t connection;
   char* winning_protocol = NULL;
 
   ct_connection_callbacks_t connection_callbacks = {
@@ -160,7 +161,7 @@ TEST(CandidateRacingTests, RespectsProtocolPreferences) {
   };
 
   // Execute
-  int rc = ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);
+  int rc = ct_preconnection_initiate(&preconnection, connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -194,7 +195,6 @@ TEST(CandidateRacingTests, WorksWithHostnameResolution) {
   ct_preconnection_t preconnection;
   ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
 
-  ct_connection_t connection;
   bool connection_succeeded = false;
 
   ct_connection_callbacks_t connection_callbacks = {
@@ -204,7 +204,7 @@ TEST(CandidateRacingTests, WorksWithHostnameResolution) {
   };
 
   // Execute
-  int rc = ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);
+  int rc = ct_preconnection_initiate(&preconnection, connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -239,7 +239,6 @@ TEST(CandidateRacingTests, SingleCandidateOptimization) {
   ct_preconnection_t preconnection;
   ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
 
-  ct_connection_t connection;
   bool connection_succeeded = false;
 
   ct_connection_callbacks_t connection_callbacks = {
@@ -249,7 +248,7 @@ TEST(CandidateRacingTests, SingleCandidateOptimization) {
   };
 
   // Execute - should use single-candidate path
-  int rc = ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);
+  int rc = ct_preconnection_initiate(&preconnection, connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -281,7 +280,6 @@ TEST(CandidateRacingTests, ConnectionUsableAfterRacing) {
   ct_preconnection_t preconnection;
   ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
 
-  ct_connection_t connection;
   bool connection_ready = false;
 
   // ct_callback_t that sends a message when connection is ready
@@ -311,7 +309,7 @@ TEST(CandidateRacingTests, ConnectionUsableAfterRacing) {
   };
 
   // Execute
-  int rc = ct_preconnection_initiate(&preconnection, &connection, connection_callbacks);
+  int rc = ct_preconnection_initiate(&preconnection, connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 

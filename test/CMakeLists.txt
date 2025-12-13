@@ -105,7 +105,6 @@ add_gtest(
 )
 add_gtest(quic_listener_test SOURCES src/integration/quic/quic_listen_test.cpp ${CTAPS_SOURCES})
 add_gtest(connection_clone_test SOURCES src/integration/quic/connection_clone_test.cpp ${CTAPS_SOURCES})
-add_gtest(initiation_test SOURCES src/preconnection/initiation.cpp ${CTAPS_SOURCES} src/util/util.c)
 add_gtest(remote_endpoint_unit_test SOURCES src/unit/endpoint/remote.cpp ${CTAPS_SOURCES})
 add_gtest(preconnection_unit_test SOURCES src/unit/connections/preconnection.cpp ${CTAPS_SOURCES})
 add_gtest(connection_unit_test SOURCES src/unit/connections/connection_test.cpp ${CTAPS_SOURCES})
@@ -128,7 +127,6 @@ add_gtest(dns_integration_test
         SOURCES
             src/integration/dns/dns_test.cpp
             ${CTAPS_SOURCES}
-            src/util/util.c
 )
 add_gtest(remote_endpoint_integration_test
         SOURCES
