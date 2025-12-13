@@ -11,3 +11,7 @@
    * Instead of having global configuration and a single ctaps_initialize(); call, create a struct which is passed to every function
      Like NEAT or picoquic etc.
  * Write better tests for candidate racing
+ * **Replace ct_preconnection_initiate() with ct_preconnection_initiate_v2()**
+   * The old API requires pre-allocating a connection object, which leads to complex memcpy/retargeting bugs
+   * The new v2 API provides the connection in the ready() callback (RFC 9622 compliant - "Once a Connection is established, it can be used")
+   * Once all tests/benchmarks are migrated to v2, delete the old function and remove the memcpy logic from candidate_racing.c

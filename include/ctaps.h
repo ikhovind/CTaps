@@ -1383,6 +1383,25 @@ CT_EXTERN void ct_preconnection_free(ct_preconnection_t* preconnection);
 CT_EXTERN int ct_preconnection_initiate(ct_preconnection_t* preconnection, ct_connection_t* connection, ct_connection_callbacks_t connection_callbacks);
 
 /**
+ * @brief Initiate a connection (RFC 9622 compliant - connection available only in ready callback).
+ *
+ * This is the new, cleaner API where the connection is allocated internally and provided
+ * to the user via the ready() callback. Per RFC 9622: "Once a Connection is established,
+ * it can be used for receiving data" - no early receives are supported.
+ *
+ * @param[in] preconnection Pointer to preconnection with configuration
+ * @param[in] connection_callbacks Callbacks for connection events (ready, establishment_error, etc.)
+ *                                 The ready callback receives the established ct_connection_t* pointer.
+ *
+ * @return 0 on success (connection establishment initiated)
+ * @return Non-zero error code on failure
+ *
+ * @note This will replace ct_preconnection_initiate() - see REFACTOR.md
+ * @note Connection is only valid after ready() callback is invoked
+ */
+CT_EXTERN int ct_preconnection_initiate_v2(ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks);
+
+/**
  * @brief Start listening for incoming connections using the configured Preconnection.
  *
  * @param[in] preconnection Pointer to preconnection with listener configuration

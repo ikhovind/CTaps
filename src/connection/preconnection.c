@@ -118,6 +118,15 @@ int ct_preconnection_initiate(ct_preconnection_t* preconnection, ct_connection_t
   return preconnection_initiate_with_racing(preconnection, connection, connection_callbacks);
 }
 
+int ct_preconnection_initiate_v2(ct_preconnection_t* preconnection,
+                                   ct_connection_callbacks_t connection_callbacks) {
+  log_info("Initiating connection from preconnection with candidate racing (v2 API)");
+
+  // Use candidate racing without pre-allocated user connection
+  // The winning connection will be passed directly to the ready() callback
+  return preconnection_initiate_with_racing(preconnection, NULL, connection_callbacks);
+}
+
 void ct_preconnection_free(ct_preconnection_t* preconnection) {
   if (preconnection->remote_endpoints != NULL) {
     for (int i = 0; i < preconnection->num_remote_endpoints; i++) {
