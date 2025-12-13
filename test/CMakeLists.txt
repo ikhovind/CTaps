@@ -145,6 +145,7 @@ add_gtest(remote_endpoint_integration_test
             ${CMAKE_SOURCE_DIR}/src/state/ctaps_state.c
             ${CMAKE_SOURCE_DIR}/src/transport_property/transport_properties.c
             ${CMAKE_SOURCE_DIR}/src/transport_property/selection_properties/selection_properties.c
+            ${CMAKE_SOURCE_DIR}/src/transport_property/message_properties/message_properties.c
             ${CMAKE_SOURCE_DIR}/src/transport_property/connection_properties/connection_properties.c
             ${CMAKE_SOURCE_DIR}/src/connection/connection.c
             ${CMAKE_SOURCE_DIR}/src/connection/connection_group.c

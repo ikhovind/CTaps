@@ -58,8 +58,18 @@ ct_connection_t* create_empty_connection_with_uuid() {
   return connection;
 }
 
+void ct_connection_set_can_receive(ct_connection_t* connection, bool can_receive) {
+  connection->transport_properties.connection_properties.list[CAN_RECEIVE].value.enum_val = can_receive;
+}
+
+void ct_connection_set_can_send(ct_connection_t* connection, bool can_send) {
+  connection->transport_properties.connection_properties.list[CAN_SEND].value.enum_val = can_send;
+}
+
 void ct_connection_mark_as_established(ct_connection_t* connection) {
   connection->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_ESTABLISHED;
+  ct_connection_set_can_send(connection, true);
+  ct_connection_set_can_receive(connection, true);
   log_trace("Marked connection %s as closing", connection->uuid);
 }
 
@@ -109,6 +119,20 @@ bool ct_connection_is_server(const ct_connection_t* connection) {
   return connection->role == CONNECTION_ROLE_SERVER;
 }
 
+bool ct_connection_can_send(const ct_connection_t* connection) {
+  if (!connection) {
+    return false;
+  }
+  return connection->transport_properties.connection_properties.list[CAN_SEND].value.enum_val;
+}
+
+bool ct_connection_can_receive(const ct_connection_t* connection) {
+  if (!connection) {
+    return false;
+  }
+  return connection->transport_properties.connection_properties.list[CAN_RECEIVE].value.enum_val;
+}
+
 // Passed as callbacks to framer implementations
 int ct_connection_send_to_protocol(ct_connection_t* connection,
                                    ct_message_t* message,
@@ -124,6 +148,15 @@ int ct_send_message(ct_connection_t* connection, ct_message_t* message) {
 }
 
 int ct_send_message_full(ct_connection_t* connection, ct_message_t* message, ct_message_context_t* message_context) {
+  // Fail early if for example FINAL has been sent already
+  if (!ct_connection_can_send(connection)) {
+    log_error("Connection %s cannot send messages in its current state", connection->uuid);
+    return -EPIPE;
+  }
+  if (message_context && ct_message_properties_is_final(&message_context->message_properties)) {
+    log_info("Sending FINAL message over connection %s, setting canSend to false", connection->uuid);
+    ct_connection_set_can_send(connection, false);
+  }
   // Deep copy the message so the library owns its lifetime
   // Ownership is transferred to the framer or protocol send function, so it is freed in protocol implementation
   ct_message_t* message_copy = ct_message_deep_copy(message);
@@ -253,6 +286,10 @@ void ct_connection_close(ct_connection_t* connection) {
   // Always let the protocol handle the close logic
   // For protocols like QUIC, this will initiate close handshake
   // The protocol is responsible for cleaning up (removing from socket manager, etc.)
+  if (ct_connection_is_closed_or_closing(connection)) {
+    log_warn("Trying to close closing or closed connection: %s, ignoring", connection->uuid);
+    return;
+  }
   ct_connection_mark_as_closing(connection);
   int rc = connection->protocol.close(connection);
   if (rc < 0) {

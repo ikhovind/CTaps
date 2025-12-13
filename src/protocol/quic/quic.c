@@ -18,8 +18,6 @@
 #define PICOQUIC_GET_REMOTE_ADDR 2
 #define MAX_QUIC_PACKET_SIZE 1500
 
-#define NEXT_STREAM_ID_INDEX(is_client, is_unidirectional) ((is_client ? 0 : 1) + (is_unidirectional ? 2 : 0))
-
 #define MICRO_TO_MILLI(us) ((us) / 1000)
 
 void on_quic_timer(uv_timer_t* timer_handle);
@@ -40,17 +38,12 @@ typedef struct ct_quic_group_state_s {
   uv_udp_t* udp_handle;
   struct sockaddr_storage* udp_sock_name;
   picoquic_cnx_t* picoquic_connection;
-  // Order is: client bidirectional, server bidirectional, client unidirectional, server unidirectional
-  uint64_t next_quic_stream_id[4];
 } ct_quic_group_state_t;
 
 ct_quic_group_state_t* ct_create_quic_group_state() {
   ct_quic_group_state_t* state = malloc(sizeof(ct_quic_group_state_t));
   if (state) {
     memset(state, 0, sizeof(ct_quic_group_state_t));
-    for (int i = 0; i < 4; i++) {
-      state->next_quic_stream_id[i] = i; // Initialize stream IDs for client/server and bidirectional/unidirectional
-    }
   }
   else {
     log_error("Failed to allocate memory for QUIC group state");
@@ -112,10 +105,10 @@ void ct_quic_set_connection_stream(ct_connection_t* connection, uint64_t stream_
 
 void ct_connection_assign_next_free_stream(ct_connection_t* connection, bool is_unidirectional) {
   ct_quic_group_state_t* group_state = connection->connection_group->connection_group_state;
-  bool is_client = ct_connection_is_client(connection);
-  uint64_t next_stream_id = group_state->next_quic_stream_id[NEXT_STREAM_ID_INDEX(is_client, is_unidirectional)];
-  log_debug("Assigned QUIC stream ID: %llu", (unsigned long long)next_stream_id);
-  group_state->next_quic_stream_id[NEXT_STREAM_ID_INDEX(is_client, is_unidirectional)] += 4;
+  picoquic_cnx_t* cnx = group_state->picoquic_connection;
+
+  uint64_t next_stream_id = picoquic_get_next_local_stream_id(cnx, is_unidirectional);
+  log_debug("Assigned QUIC stream ID: %llu (unidirectional: %d)", (unsigned long long)next_stream_id, is_unidirectional);
 
   log_debug("Assigning next free stream ID, which is: ID %llu to connection %s", (unsigned long long)next_stream_id, connection->uuid);
   ct_quic_set_connection_stream(connection, next_stream_id);
@@ -196,7 +189,6 @@ size_t quic_alpn_select_cb(picoquic_quic_t* quic, ptls_iovec_t* list, size_t cou
 }
 
 picoquic_quic_t* get_global_quic_ctx() {
-  log_debug("Getting global QUIC context");
   if (global_quic_ctx == NULL) {
     log_debug("Initializing global QUIC context");
     if (global_config.cert_file_name == NULL) {
@@ -319,6 +311,68 @@ int close_timer_handle() {
   return 0;
 }
 
+/**
+ * Helper function to process received stream data and deliver it to the application.
+ *
+ * @param connection The CTaps connection object
+ * @param bytes Pointer to received data
+ * @param length Length of received data in bytes
+ * @return 0 on success, negative error code on failure
+ */
+static int handle_stream_data(ct_connection_t* connection, const uint8_t* bytes, size_t length) {
+  if (length == 0) {
+    log_trace("Received empty data chunk, nothing to process");
+    return 0;
+  }
+
+  if (!connection) {
+    log_error("Cannot handle stream data: connection is NULL");
+    return -EINVAL;
+  }
+
+  // Check if connection can still receive data
+  if (!ct_connection_can_receive(connection)) {
+    log_error("Received data on stream after FIN was already received for connection %s", connection->uuid);
+    return -EPIPE;
+  }
+
+  log_debug("Processing %zu bytes of received data for connection %s", length, connection->uuid);
+
+  // Delegate to connection receive handler (handles framing and application delivery)
+  ct_connection_on_protocol_receive(connection, bytes, length);
+
+  return 0;
+}
+
+/**
+ * Helper function to handle FIN reception on a stream.
+ * Sets canReceive=false and closes the connection if both directions are closed.
+ *
+ * @param connection The CTaps connection object
+ */
+static void handle_stream_fin(ct_connection_t* connection) {
+  if (!connection) {
+    log_error("Cannot handle stream FIN: connection is NULL");
+    return;
+  }
+
+  log_info("Handling FIN for connection %s", connection->uuid);
+
+  // RFC 9622: Set canReceive to false when Final message received
+  ct_connection_set_can_receive(connection, false);
+
+  // Check if both send and receive directions are closed
+  bool can_send = ct_connection_can_send(connection);
+
+  if (!can_send) {
+    // Both directions closed - close the connection per our earlier decision
+    log_info("Both send and receive sides closed for connection %s, closing connection", connection->uuid);
+    ct_connection_close(connection);
+  } else {
+    log_debug("FIN received but send direction still open for connection %s (half-close)", connection->uuid);
+  }
+}
+
 int picoquic_callback(picoquic_cnx_t* cnx,
     uint64_t stream_id, uint8_t* bytes, size_t length,
     picoquic_call_back_event_t fin_or_event, void* callback_ctx, void* v_stream_ctx)
@@ -355,7 +409,10 @@ int picoquic_callback(picoquic_cnx_t* cnx,
       }
       else if (ct_connection_is_client(connection)) {
         log_debug("Client connection ready, notifying application");
-        connection->connection_callbacks.ready(connection);
+        ct_connection_mark_as_established(connection);
+        if (connection->connection_callbacks.ready) {
+          connection->connection_callbacks.ready(connection);
+        }
       }
       else {
         log_error("Unknown connection role in picoquic ready callback");
@@ -406,9 +463,9 @@ int picoquic_callback(picoquic_cnx_t* cnx,
             } else {
               log_warn("Received new stream but listener has been closed, not notifying application");
             }
-            ct_connection_on_protocol_receive(new_stream_connection, bytes, length);
 
-            return 0;
+            // Use helper function to handle received data
+            return handle_stream_data(new_stream_connection, bytes, length);
           } if (ct_connection_is_client(first_connection)) {
             log_error("Received new remote-initiated stream on client connection - multi-streaming not yet implemented");
             return -ENOSYS;
@@ -422,7 +479,8 @@ int picoquic_callback(picoquic_cnx_t* cnx,
 
           picoquic_set_app_stream_ctx(group_state->picoquic_connection, stream_id, first_connection);
 
-          ct_connection_on_protocol_receive(first_connection, bytes, length);
+          // Use helper function to handle received data
+          return handle_stream_data(first_connection, bytes, length);
         }
       } else {
         // Existing stream - get connection from stream context
@@ -434,20 +492,28 @@ int picoquic_callback(picoquic_cnx_t* cnx,
           ct_quic_set_connection_stream(connection, stream_id);
         }
 
-        // Delegate to connection receive handler (handles framing if present)
-        ct_connection_on_protocol_receive(connection, bytes, length);
+        // Use helper function to handle received data
+        return handle_stream_data(connection, bytes, length);
       }
       break;
     case picoquic_callback_stream_fin:
-      log_info("Received FIN on stream %llu", (unsigned long long)stream_id);
+      log_info("Received FIN on stream %llu, with data length: %zu", (unsigned long long)stream_id, length);
+
       if (v_stream_ctx) {
         connection = (ct_connection_t*)v_stream_ctx;
-        log_info("Peer closed stream for connection %p", (void*)connection);
 
-        if (!ct_connection_is_closed_or_closing(connection)) {
-          ct_connection_group_decrement_active(connection_group);
-          ct_connection_mark_as_closed(connection);
+        // Handle any data that came with the FIN first
+        if (length > 0) {
+          log_debug("FIN received with %zu bytes of data, processing data first", length);
+          int ret = handle_stream_data(connection, bytes, length);
+          if (ret != 0) {
+            log_error("Error handling data received with FIN: %d", ret);
+            return ret;
+          }
         }
+
+        // Now handle the FIN itself
+        handle_stream_fin(connection);
       } else {
         log_warn("Received FIN on stream %llu but no stream context available", (unsigned long long)stream_id);
       }
@@ -833,9 +899,6 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
     .udp_handle = udp_handle,
     .udp_sock_name = malloc(sizeof(struct sockaddr_storage)),
     .picoquic_connection = NULL,
-    // Initialize next stream IDs according to QUIC spec:
-    // Stream IDs encode client/server and bidirectional/unidirectional in bits 0-1
-    // client bidirectional = 0, server bidirectional = 1, client unidirectional = 2, server unidirectional = 3
   };
   connection->connection_group->connection_group_state = group_state;
 
@@ -911,26 +974,25 @@ int quic_close(ct_connection_t* connection) {
 
     if (ct_connection_stream_is_initialized(connection)) {
       // Send FIN on this stream to gracefully close it
-      rc = picoquic_add_to_stream(group_state->picoquic_connection, stream_id, NULL, 0, 1);
-      if (rc != 0) {
-        log_error("Error sending FIN on stream %llu: %d", (unsigned long long)stream_id, rc);
+      if (ct_connection_can_send(connection)) {
+        log_debug("Sending FIN on stream %llu for connection: %s", (unsigned long long)stream_id, connection->uuid);
+        rc = picoquic_add_to_stream(group_state->picoquic_connection, stream_id, NULL, 0, 1);
+        if (rc != 0) {
+          log_error("Error sending FIN on stream %llu: %d", (unsigned long long)stream_id, rc);
+        }
       }
-    } else {
-      log_warn("Stream not initialized, cannot send FIN");
     }
 
     // Decrement active connection counter and mark as closed
     ct_connection_group_decrement_active(connection_group);
     ct_connection_mark_as_closed(connection);
   } else {
-    // Last active connection - close the entire QUIC connection
     log_info("Last active connection in group, closing entire QUIC connection");
     rc = picoquic_close(group_state->picoquic_connection, 0);
     if (rc != 0) {
       log_error("Error closing picoquic connection: %d", rc);
     }
 
-    // Decrement counter (will be 0 after this)
     ct_connection_group_decrement_active(connection_group);
   }
 
@@ -943,6 +1005,7 @@ int quic_clone_connection(const struct ct_connection_s* source_connection, struc
   ct_quic_stream_state_t* target_state = (target_connection->internal_connection_state);
   target_state->stream_id = 0;
   target_state->stream_initialized = false;
+  ct_connection_mark_as_established(target_connection);
 
   // call ready callback of target connection
   if (target_connection->connection_callbacks.ready) {
@@ -969,17 +1032,23 @@ int quic_send(ct_connection_t* connection, ct_message_t* message, ct_message_con
     return -EAGAIN;
   }
 
-
   if (!ct_connection_stream_is_initialized(connection)) {
     // Determine stream ID based on connection role (client/server) and stream type (bidirectional/unidirectional)
     ct_connection_assign_next_free_stream(connection, false);
   }
 
-
   // Add data to the stream (set_fin=0 since we're not closing the stream)
   uint64_t stream_id = ct_connection_get_stream_id(connection);
   log_debug("Queuing %zu bytes for sending on stream %llu", message->length, (unsigned long long)stream_id);
-  int rc = picoquic_add_to_stream_with_ctx(cnx, stream_id, message->content, message->length, 0, connection);
+  log_debug("Queuing data: %.*s", (int)message->length, message->content);
+
+  int set_fin = 0;
+  if (ctx && ct_message_properties_is_final(&ctx->message_properties)) {
+    log_debug("Setting FIN on QUIC stream %llu for connection: %s", (unsigned long long)stream_id, connection->uuid);
+    set_fin = 1;
+  }
+
+  int rc = picoquic_add_to_stream_with_ctx(cnx, stream_id, message->content, message->length, set_fin, connection);
 
   if (rc != 0) {
     log_error("Error queuing data to QUIC stream: %d", rc);

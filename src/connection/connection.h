@@ -62,6 +62,14 @@ void ct_connection_free_content(ct_connection_t* connection);
 ct_connection_t* ct_connection_create_clone(const ct_connection_t* src_clone);
 
 /**
+ * @brief Set the can receive connection property
+ *
+ * @param[in,out] connection The connection to modify
+ * @param[in] can_receive New value for the canReceive property
+ */
+void ct_connection_set_can_receive(ct_connection_t* connection, bool can_receive);
+
+/**
  * @brief Create a connection from an accepted handle (internal helper).
  * @param[in] listener Parent listener
  * @param[in] received_handle libuv stream handle for the accepted connection
