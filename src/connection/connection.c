@@ -58,9 +58,26 @@ ct_connection_t* create_empty_connection_with_uuid() {
   return connection;
 }
 
+void ct_connection_mark_as_established(ct_connection_t* connection) {
+  connection->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_ESTABLISHED;
+  log_trace("Marked connection %s as closing", connection->uuid);
+}
+
+void ct_connection_mark_as_closing(ct_connection_t* connection) {
+  connection->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSING;
+  log_trace("Marked connection %s as closing", connection->uuid);
+}
+
 void ct_connection_mark_as_closed(ct_connection_t* connection) {
   connection->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSED;
-  log_info("Marked connection %p as closed", (void*)connection);
+  log_trace("Marked connection %s as closed", connection->uuid);
+}
+
+bool ct_connection_is_closing(const ct_connection_t* connection) {
+  if (!connection) {
+    return false;
+  }
+  return connection->transport_properties.connection_properties.list[STATE].value.enum_val == CONN_STATE_CLOSING;
 }
 
 bool ct_connection_is_closed(const ct_connection_t* connection) {
@@ -68,6 +85,14 @@ bool ct_connection_is_closed(const ct_connection_t* connection) {
     return false;
   }
   return connection->transport_properties.connection_properties.list[STATE].value.enum_val == CONN_STATE_CLOSED;
+}
+
+bool ct_connection_is_closed_or_closing(const ct_connection_t* connection) {
+  if (!connection) {
+    return false;
+  }
+  log_info("checking state of connection: %s, which is: %d", connection->uuid, connection->transport_properties.connection_properties.list[STATE].value.enum_val);
+  return ct_connection_is_closed(connection) || ct_connection_is_closing(connection);
 }
 
 bool ct_connection_is_client(const ct_connection_t* connection) {
@@ -223,16 +248,17 @@ ct_connection_t* ct_connection_create_clone(const ct_connection_t* src_clone) {
 }
 
 void ct_connection_close(ct_connection_t* connection) {
-  int rc;
-  log_info("Closing connection: %p", (void*)connection);
+  log_info("Closing connection: %s", (void*)connection->uuid);
 
   // Always let the protocol handle the close logic
   // For protocols like QUIC, this will initiate close handshake
   // The protocol is responsible for cleaning up (removing from socket manager, etc.)
-  rc = connection->protocol.close(connection);
+  ct_connection_mark_as_closing(connection);
+  int rc = connection->protocol.close(connection);
   if (rc < 0) {
     log_error("Error closing connection: %d", rc);
   }
+  log_info("connection mark: %d", connection->transport_properties.connection_properties.list[STATE].value.enum_val);
 }
 
 ct_connection_t* ct_connection_build_from_received_handle(const struct ct_listener_s* listener, uv_stream_t* received_handle) {

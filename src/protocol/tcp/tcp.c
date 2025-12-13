@@ -18,7 +18,12 @@ void on_close(uv_handle_t* handle) {
 
 void tcp_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
   ct_connection_t* connection = (ct_connection_t*)handle->data;
-  log_info("TCP received message for ct_connection_t: %p", connection);
+  if (nread == UV_EOF) {
+    log_info("TCP connection closed by peer");
+    ct_connection_close(connection);
+    free(buf->base);
+    return;
+  }
   if (nread < 0) {
     log_error("Read error: %s\n", uv_strerror(nread));
     ct_connection_close(connection);
@@ -53,6 +58,7 @@ void on_clone_connect(struct uv_connect_s *req, int status) {
     ct_connection_close(connection);
     return;
   }
+  ct_connection_mark_as_established(connection);
 
   // Call ready callback to notify that cloned connection is established
   if (connection->connection_callbacks.ready) {
@@ -73,6 +79,7 @@ void on_connect(struct uv_connect_s *req, int status) {
   }
   log_info("Successfully connected to remote endpoint using TCP");
   uv_read_start((uv_stream_t*)connection->internal_connection_state, alloc_cb, tcp_on_read);
+  ct_connection_mark_as_established(connection);
   if (connection->connection_callbacks.ready) {
     connection->connection_callbacks.ready(connection);
   }
@@ -177,6 +184,7 @@ int tcp_close(ct_connection_t* connection) {
       }
     }
   } else {
+    log_debug("Closing standalone TCP connection");
     // Standalone connection - close the TCP handle
     if (connection->internal_connection_state) {
       uv_close((uv_handle_t*)connection->internal_connection_state, on_close);

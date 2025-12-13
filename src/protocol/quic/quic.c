@@ -444,7 +444,7 @@ int picoquic_callback(picoquic_cnx_t* cnx,
         connection = (ct_connection_t*)v_stream_ctx;
         log_info("Peer closed stream for connection %p", (void*)connection);
 
-        if (!ct_connection_is_closed(connection)) {
+        if (!ct_connection_is_closed_or_closing(connection)) {
           ct_connection_group_decrement_active(connection_group);
           ct_connection_mark_as_closed(connection);
         }
@@ -458,7 +458,7 @@ int picoquic_callback(picoquic_cnx_t* cnx,
         connection = (ct_connection_t*)v_stream_ctx;
         log_info("Peer reset stream for connection %p", (void*)connection);
 
-        if (!ct_connection_is_closed(connection)) {
+        if (!ct_connection_is_closed_or_closing(connection)) {
           ct_connection_group_decrement_active(connection_group);
           ct_connection_mark_as_closed(connection);
         }

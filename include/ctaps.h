@@ -1282,17 +1282,6 @@ CT_EXTERN void ct_message_context_build(ct_message_context_t* message_context);
  */
 CT_EXTERN void ct_message_context_free(ct_message_context_t* message_context);
 
-// Preconnection
-/**
- * @brief Initialize a connection from preconnection configuration (internal helper).
- * @param[out] connection Connection structure to initialize
- * @param[in] preconnection Source preconnection configuration
- * @param[in] connection_callbacks Callbacks for connection events
- *
- * @return 0 on success, non-zero on error
- */
-CT_EXTERN int ct_preconnection_build_user_connection(ct_connection_t* connection, const ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks);
-
 /**
  * @brief Initialize a preconnection with transport properties and endpoints.
  * @param[out] preconnection Preconnection structure to initialize
@@ -1447,6 +1436,20 @@ CT_EXTERN int ct_receive_message(ct_connection_t* connection, ct_receive_callbac
  * @return true if connection is closed, false if open or connection is NULL
  */
 CT_EXTERN bool ct_connection_is_closed(const ct_connection_t* connection);
+
+/**
+ * @brief Check if a connection is currently being closed.
+ * @param[in] connection The connection to check
+ * @return true if connection is closed, false if open or connection is NULL
+ */
+CT_EXTERN bool ct_connection_is_closing(const ct_connection_t* connection);
+
+/**
+ * @brief Check if a connection is closed.
+ * @param[in] connection The connection to check
+ * @return true if connection is closed, false if open or connection is NULL
+ */
+CT_EXTERN bool ct_connection_is_closed_or_closing(const ct_connection_t* connection);
 
 /**
  * @brief Check if a connection is a client connection.
