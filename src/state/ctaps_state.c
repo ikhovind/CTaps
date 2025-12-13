@@ -15,6 +15,9 @@ ct_config_t global_config = {
 };
 
 int ct_initialize(const char *cert_file_name, const char *key_file_name) {
+  // Set default log level to INFO
+  log_set_level(LOG_INFO);
+
   event_loop = malloc(sizeof(uv_loop_t));
   uv_loop_init(event_loop);
 
@@ -49,4 +52,16 @@ void ct_start_event_loop() {
 
   // Run until there are no more waiting tasks
   uv_run(event_loop, UV_RUN_DEFAULT);
+}
+
+void ct_set_log_level(ct_log_level_t level) {
+  log_set_level(level);
+}
+
+int ct_add_log_file(const char* file_path, ct_log_level_t min_level) {
+  FILE* fp = fopen(file_path, "a");
+  if (fp == NULL) {
+    return -1;
+  }
+  return log_add_fp(fp, min_level);
 }
