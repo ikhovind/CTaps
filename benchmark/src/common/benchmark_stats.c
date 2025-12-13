@@ -16,7 +16,14 @@ char* get_json_stats(transfer_mode_t mode,
                      const transfer_stats_t *large_file_stats,
                      const transfer_stats_t *small_file_stats,
                      int multi_streaming) {
-    const char *implementation = (mode == TRANSFER_MODE_TCP_NATIVE) ? "tcp_native" : "quic_native";
+    const char *implementation;
+    if (mode == TRANSFER_MODE_TCP_NATIVE) {
+        implementation = "tcp_native";
+    } else if (mode == TRANSFER_MODE_PICOQUIC) {
+        implementation = "quic_native";
+    } else {
+        implementation = "taps";
+    }
 
     double large_handshake_ms = timing_get_duration_ms(&large_file_stats->handshake_time);
     double large_transfer_ms = timing_get_duration_ms(&large_file_stats->transfer_time);
