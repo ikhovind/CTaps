@@ -40,12 +40,28 @@ target_link_libraries(tcp_client
 # TAPS TCP Client
 add_executable(taps_tcp_client
     src/client/taps_tcp_client.c
+    src/client/common_taps.c
 )
 
 target_link_libraries(taps_tcp_client
     benchmark_common
     CTaps
-    Threads::Threads
+)
+
+# TAPS QUIC Client
+add_executable(taps_quic_client
+    src/client/taps_quic_client.c
+    src/client/common_taps.c
+)
+
+target_link_libraries(taps_quic_client
+    benchmark_common
+    CTaps
+)
+
+target_compile_definitions(taps_quic_client
+    PRIVATE
+    RESOURCE_FOLDER=\"${CMAKE_CURRENT_SOURCE_DIR}/../test/quic\"
 )
 
 # QUIC Server
@@ -74,6 +90,6 @@ target_link_libraries(quic_client
 )
 
 # Installation
-install(TARGETS tcp_server tcp_client taps_tcp_client quic_server quic_client
+install(TARGETS tcp_server tcp_client taps_tcp_client taps_quic_client quic_server quic_client
     RUNTIME DESTINATION bin
 )

@@ -23,7 +23,7 @@ int main(int argc, char *argv[]) {
     memset(&client_ctx.large_stats, 0, sizeof(transfer_stats_t));
     memset(&client_ctx.short_stats, 0, sizeof(transfer_stats_t));
 
-    if (ct_initialize(NULL, NULL) != 0) {
+    if (ct_initialize(RESOURCE_FOLDER "/cert.pem", RESOURCE_FOLDER "/key.pem") != 0) {
         fprintf(stderr, "Failed to initialize CTaps\n");
         return 1;
     }
@@ -39,11 +39,16 @@ int main(int argc, char *argv[]) {
     ct_transport_properties_build(&transport_properties);
 
     ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
-    ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
-    ct_tp_set_sel_prop_preference(&transport_properties, MULTISTREAMING, PROHIBIT);
+    ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_MSG_BOUNDARIES, REQUIRE);
+    ct_tp_set_sel_prop_preference(&transport_properties, MULTISTREAMING, REQUIRE); // force QUIC
+
+    ct_security_parameters_t security_parameters;
+    ct_security_parameters_build(&security_parameters);
+    char* alpn_strings = "benchmark";
+    ct_sec_param_set_property_string_array(&security_parameters, ALPN, &alpn_strings, 1);
 
     ct_preconnection_t preconnection;
-    ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
+    ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, &security_parameters);
 
     ct_connection_callbacks_t connection_callbacks = {
         .ready = on_connection_ready,

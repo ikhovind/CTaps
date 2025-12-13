@@ -11,7 +11,8 @@ typedef enum {
 
 typedef enum {
     TRANSFER_MODE_TCP_NATIVE = 0,
-    TRANSFER_MODE_PICOQUIC
+    TRANSFER_MODE_PICOQUIC,
+    TRANSFER_MODE_TAPS
 } transfer_mode_t;
 
 #define REQUEST_LARGE "LARGE"

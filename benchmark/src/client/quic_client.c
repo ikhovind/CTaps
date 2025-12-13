@@ -81,8 +81,9 @@ static int client_callback(picoquic_cnx_t *cnx, uint64_t stream_id,
         /* Assign handshake time to large stream, short stream will have 0 (reused connection) */
         ctx->large_stream.stats.handshake_time = ctx->handshake_time;
 
-        start_stream(&ctx->large_stream, 0);
-        picoquic_mark_active_stream(cnx, 0, 1, NULL);
+        uint64_t large_stream_id = picoquic_get_next_local_stream_id(cnx, 0);
+        start_stream(&ctx->large_stream, large_stream_id);
+        picoquic_mark_active_stream(cnx, large_stream_id, 1, NULL);
         break;
 
     case picoquic_callback_prepare_to_send:
@@ -133,8 +134,9 @@ static int client_callback(picoquic_cnx_t *cnx, uint64_t stream_id,
                     clock_gettime(CLOCK_MONOTONIC, &ctx->short_stream.stats.handshake_time.start);
                     ctx->short_stream.stats.handshake_time.end = ctx->short_stream.stats.handshake_time.start;
                     ctx->short_stream.stats.handshake_time.valid = 1;
-                    start_stream(&ctx->short_stream, 4);
-                    picoquic_mark_active_stream(cnx, 4, 1, NULL);
+                    uint64_t short_stream_id = picoquic_get_next_local_stream_id(cnx, 0);
+                    start_stream(&ctx->short_stream, short_stream_id);
+                    picoquic_mark_active_stream(cnx, short_stream_id, 1, NULL);
                 }
 
                 if (ctx->large_stream.state == STREAM_STATE_DONE &&
