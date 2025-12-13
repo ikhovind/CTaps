@@ -438,11 +438,6 @@ int ct_connection_clone(ct_connection_t* source_connection) {
   return ct_connection_clone_full(source_connection, NULL, NULL);
 }
 
-void ct_connection_close_group(ct_connection_t* connection) {
-  log_info("Closing connection group for connection: %p", (void*)connection);
-  ct_connection_close(connection);
-}
-
 void ct_connection_abort_group(ct_connection_t* connection) {
   log_info("Aborting connection group for connection: %p", (void*)connection);
   ct_connection_abort(connection);

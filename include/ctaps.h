@@ -1510,7 +1510,7 @@ CT_EXTERN int ct_connection_clone(ct_connection_t* source_connection);
  *
  * @param[in] connection Any connection in the group
  */
-CT_EXTERN void ct_connection_close_group(ct_connection_t* connection);
+CT_EXTERN void ct_connection_group_close_all(ct_connection_group_t* connection_group);
 
 /**
  * @brief Get the connection group of a connection.
