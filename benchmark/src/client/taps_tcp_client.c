@@ -100,7 +100,7 @@ static int on_connection_ready(ct_connection_t *connection) {
     switch (ctx->state) {
         case TRANSFER_NONE_STARTED:
             // start large file transfer
-            printf("Connection established, starting LARGE file transfer\n");
+            printf("Connection established, starting LARGE file transfer: %s\n", connection->uuid);
             ct_message_build_with_content(&message, "LARGE", 6);
             ct_send_message(connection, &message);
             ct_message_free_content(&message);
@@ -117,7 +117,7 @@ static int on_connection_ready(ct_connection_t *connection) {
             break;
         case STATE_LARGE_DONE:
             // start small file transfer
-            printf("Connection established, starting SHORT file transfer\n");
+            printf("Connection established, starting SHORT file transfer: %s\n", connection->uuid);
             ct_message_build_with_content(&message, "SHORT", 6);
             ct_send_message(connection, &message);
             ct_message_free_content(&message);
@@ -187,8 +187,6 @@ int main(int argc, char *argv[]) {
     ct_preconnection_t preconnection;
     ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
 
-    ct_connection_t *connection = malloc(sizeof(ct_connection_t));
-
     ct_connection_callbacks_t connection_callbacks = {
         .ready = on_connection_ready,
         .establishment_error = on_establishment_error,
@@ -197,7 +195,8 @@ int main(int argc, char *argv[]) {
 
     timing_start(&client_ctx.conn_time_large);
 
-    int rc = ct_preconnection_initiate(&preconnection, connection, connection_callbacks);
+    // Use new v2 API - connection provided in ready() callback, no pre-allocation needed
+    int rc = ct_preconnection_initiate_v2(&preconnection, connection_callbacks);
 
     ct_start_event_loop();
 
