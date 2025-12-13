@@ -33,6 +33,20 @@ ct_connection_t* ct_connection_group_get_first(ct_connection_group_t* group) {
   return NULL;
 }
 
+void ct_connection_group_close_all(ct_connection_group_t* connection_group) {
+  log_info("Closing connection group: %s", connection_group->connection_group_id);
+  // iterate glib hash map
+  GHashTableIter iter;
+  gpointer key, value;
+  g_hash_table_iter_init(&iter, connection_group->connections);
+
+  while (g_hash_table_iter_next(&iter, &key, &value)) {
+    ct_connection_t* connection = (ct_connection_t*)value;
+    ct_connection_close(connection);
+  }
+}
+
+
 void ct_connection_group_decrement_active(ct_connection_group_t* group) {
   if (group->num_active_connections > 0) {
     group->num_active_connections--;
