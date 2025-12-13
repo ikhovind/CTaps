@@ -83,6 +83,58 @@ CT_EXTERN void ct_start_event_loop();
 CT_EXTERN int ct_close();
 
 // =============================================================================
+// Logging Configuration
+// =============================================================================
+
+/**
+ * @brief Log level enumeration for filtering log output.
+ *
+ * Log levels range from TRACE (most verbose) to FATAL (critical errors only).
+ * Setting a log level filters out all messages below that level.
+ */
+typedef enum {
+  CT_LOG_TRACE = 0,  ///< Trace-level debugging (most verbose)
+  CT_LOG_DEBUG = 1,  ///< Debug-level information
+  CT_LOG_INFO = 2,   ///< Informational messages (default)
+  CT_LOG_WARN = 3,   ///< Warning messages
+  CT_LOG_ERROR = 4,  ///< Error messages
+  CT_LOG_FATAL = 5   ///< Fatal errors (least verbose)
+} ct_log_level_t;
+
+/**
+ * @brief Set the minimum logging level for CTaps.
+ *
+ * Only log messages at or above this level will be output. By default,
+ * CTaps logs at CT_LOG_INFO level and above.
+ *
+ * @param[in] level Minimum log level (CT_LOG_TRACE through CT_LOG_FATAL)
+ *
+ * @note This can be called before ct_initialize() or at any time during execution
+ * @note Lower numeric values are more verbose (TRACE=0, FATAL=5)
+ *
+ * @see ct_log_level_t for available log levels
+ */
+CT_EXTERN void ct_set_log_level(ct_log_level_t level);
+
+/**
+ * @brief Add a file output destination for CTaps logs.
+ *
+ * Logs will be written to the specified file in addition to stderr.
+ * Multiple files can be added, each with their own minimum log level.
+ *
+ * @param[in] file_path Path to the log file (will be created/appended)
+ * @param[in] min_level Minimum log level to write to this file
+ *
+ * @return 0 on success
+ * @return Non-zero error code if file cannot be opened
+ *
+ * @note The file will be opened in append mode
+ * @note File handle remains open for the lifetime of the library
+ * @note This should be called after ct_initialize()
+ */
+CT_EXTERN int ct_add_log_file(const char* file_path, ct_log_level_t min_level);
+
+// =============================================================================
 // Selection Properties - Transport property preferences for protocol selection
 // =============================================================================
 
