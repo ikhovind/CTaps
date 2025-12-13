@@ -1,5 +1,7 @@
 #include "connection_group.h"
 #include <logging/log.h>
+#include "connection/connection.h"
+#include "ctaps.h"
 
 
 int ct_connection_group_add_connection(ct_connection_group_t* group, ct_connection_t* connection) {
@@ -42,7 +44,13 @@ void ct_connection_group_close_all(ct_connection_group_t* connection_group) {
 
   while (g_hash_table_iter_next(&iter, &key, &value)) {
     ct_connection_t* connection = (ct_connection_t*)value;
-    ct_connection_close(connection);
+    if (!ct_connection_is_closed_or_closing(connection)) {
+      log_trace("Closing member in connection group: %s", connection->uuid);
+      ct_connection_close(connection);
+    }
+    else {
+      log_trace("Member in connection group: %s was closed already", connection->uuid);
+    }
   }
 }
 

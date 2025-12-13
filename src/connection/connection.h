@@ -22,11 +22,25 @@ int ct_connection_build_with_new_connection_group(ct_connection_t* connection);
 ct_connection_t* create_empty_connection_with_uuid();
 
 /**
+ * @brief Mark a connection as established.
+ *
+ * @param[in,out] connection The connection to mark as established 
+ */
+void ct_connection_mark_as_established(ct_connection_t* connection);
+
+/**
  * @brief Mark a connection as closed.
  *
  * @param[in,out] connection The connection to mark as closed
  */
 void ct_connection_mark_as_closed(ct_connection_t* connection);
+
+/**
+ * @brief Mark a connection as closing.
+ *
+ * @param[in,out] connection The connection to mark as closing 
+ */
+void ct_connection_mark_as_closing(ct_connection_t* connection);
 
 /**
  * @brief Free the internal content of a connection without freeing the connection pointer itself.
