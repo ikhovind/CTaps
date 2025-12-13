@@ -22,6 +22,9 @@
 conan_deps/
 # Test artifacts
 Testing/
+# Benchmark artifacts
+**/large_file.dat
+**/short_file.dat
 # Log files
 *.log
 # Temporary files
@@ -29,3 +32,7 @@ Testing/
 .cache/
 .ropeproject/
 compile_commands.json
+# data files
+*.dat
+# Benchmark results
+benchmark/results/
