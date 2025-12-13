@@ -471,6 +471,12 @@ typedef struct {
   ct_message_property_t message_property[MESSAGE_PROPERTY_END];  ///< Array of message properties
 } ct_message_properties_t;
 
+static const ct_message_properties_t DEFAULT_MESSAGE_PROPERTIES = {
+  .message_property = {
+    get_message_property_list(create_sel_property_initializer)
+  }
+};
+
 // =============================================================================
 // Transport Properties - Combination of selection and connection properties
 // =============================================================================
@@ -1038,10 +1044,25 @@ CT_EXTERN void ct_connection_properties_free(ct_connection_properties_t* connect
 CT_EXTERN void ct_message_properties_build(ct_message_properties_t* message_properties);
 
 /**
+ * @brief Check if the FINAL property is set in message properties.
+ * @param[out] message_properties Structure to check 
+ *
+ * @return true if FINAL property is set, false otherwise or null
+ */
+CT_EXTERN bool ct_message_properties_is_final(const ct_message_properties_t* message_properties);
+
+/**
+ * @brief Set the final property to true in message properties.
+ * @param[out] message_properties Structure modify 
+ */
+CT_EXTERN void ct_message_properties_set_final(ct_message_properties_t* message_properties);
+
+/**
  * @brief Free resources in message properties.
  * @param[in] message_properties Structure to free
  */
 CT_EXTERN void ct_message_properties_free(ct_message_properties_t* message_properties);
+
 
 // Transport Properties
 /**
@@ -1464,6 +1485,20 @@ CT_EXTERN bool ct_connection_is_client(const ct_connection_t* connection);
  * @return true if connection is server role, false otherwise or if connection is NULL
  */
 CT_EXTERN bool ct_connection_is_server(const ct_connection_t* connection);
+
+/**
+ * @brief Check the calue of the canSend connection property.
+ * @param[in] connection The connection to check
+ * @return false if connection is NULL, closed, not established or "Final" message property has been sent.
+ */
+CT_EXTERN bool ct_connection_can_send(const ct_connection_t* connection);
+
+/**
+ * @brief Check the calue of the canReceive connection property.
+ * @param[in] connection The connection to check
+ * @return false if connection is NULL, closed, not established or one way closed from remote.
+ */
+CT_EXTERN bool ct_connection_can_receive(const ct_connection_t* connection);
 
 /**
  * @brief Free resources in a connection.
