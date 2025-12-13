@@ -1,5 +1,6 @@
 #include "candidate_racing.h"
 #include "connection/connection.h"
+#include "connection/preconnection.h"
 
 #include "ctaps.h"
 #include <logging/log.h>
@@ -164,36 +165,48 @@ int racing_on_attempt_ready(ct_connection_t* connection) {
 
   cancel_all_other_attempts(context, attempt->attempt_index);
 
-  // Copy the winning connection to the user's connection object
-  // Preserve the user connection's queues (may contain early receive_message() calls)
-  GQueue* saved_messages = context->user_connection->received_messages;
-  GQueue* saved_callbacks = context->user_connection->received_callbacks;
+  ct_connection_t* user_connection;
 
-  ct_connection_callbacks_t saved_callbacks_struct = context->user_connection->connection_callbacks;
+  if (context->user_connection != NULL) {
+    // Old API: Copy the winning connection to the user's pre-allocated connection object
+    // Preserve the user connection's queues (may contain early receive_message() calls)
+    GQueue* saved_messages = context->user_connection->received_messages;
+    GQueue* saved_callbacks = context->user_connection->received_callbacks;
 
-  memcpy(context->user_connection, connection, sizeof(ct_connection_t));
+    ct_connection_callbacks_t saved_callbacks_struct = context->user_connection->connection_callbacks;
 
-  // Restore the user connection's original callbacks, 'connection' has the wrapped ones
-  context->user_connection->connection_callbacks = saved_callbacks_struct;
+    memcpy(context->user_connection, connection, sizeof(ct_connection_t));
 
-  context->user_connection->received_messages = saved_messages;
-  context->user_connection->received_callbacks = saved_callbacks;
+    // Restore the user connection's original callbacks, 'connection' has the wrapped ones
+    context->user_connection->connection_callbacks = saved_callbacks_struct;
 
-  // Update protocol internal pointers to reference the user connection
-  // This is protocol-specific (TCP/UDP update handle->data, QUIC also updates picoquic callback context)
-  if (context->user_connection->protocol.retarget_protocol_connection) {
-    context->user_connection->protocol.retarget_protocol_connection(
-      connection,  // from_connection (whose internal_connection_state we're using)
-      context->user_connection  // to_connection (the new target for callbacks)
-    );
+    context->user_connection->received_messages = saved_messages;
+    context->user_connection->received_callbacks = saved_callbacks;
+
+    // Update protocol internal pointers to reference the user connection
+    // This is protocol-specific (TCP/UDP update handle->data, QUIC also updates picoquic callback context)
+    if (context->user_connection->protocol.retarget_protocol_connection) {
+      context->user_connection->protocol.retarget_protocol_connection(
+        connection,  // from_connection (whose internal_connection_state we're using)
+        context->user_connection  // to_connection (the new target for callbacks)
+      );
+    }
+    else {
+      log_warn("Retargeting function not implemented for protocol: %s,"
+               " this may lead to callbacks not having the correct context",
+               context->user_connection->protocol.name);
+    }
+
+    user_connection = context->user_connection;
+  } else {
+    // New v2 API: Use the winning connection directly - no memcpy, no retargeting needed!
+    log_info("Using winning connection directly (v2 API - no memcpy)");
+
+    // Restore the user's original callbacks (connection has the wrapped racing callbacks)
+    connection->connection_callbacks = context->user_callbacks;
+
+    user_connection = connection;
   }
-  else {
-    log_warn("Retargeting function not implemented for protocol: %s,"
-             " this may lead to callbacks not having the correct context",
-             context->user_connection->protocol.name);
-  }
-
-  ct_connection_t* user_connection = context->user_connection;
 
   log_debug("Freeing racing context after having found successful candidate");
   racing_context_free(context);
@@ -347,12 +360,17 @@ static void initiate_next_attempt(ct_racing_context_t* context) {
 int preconnection_initiate_with_racing(ct_preconnection_t* preconnection,
                                        ct_connection_t* user_connection,
                                        ct_connection_callbacks_t connection_callbacks) {
-  // Initialize user connection immediately so it's usable (e.g., for early receive_message() calls)
-  log_trace("About to build user connection from preconnection");
-  int rc = ct_preconnection_build_user_connection(user_connection, preconnection, connection_callbacks);
-  if (rc < 0) {
-    log_error("Failed to build user connection from preconnection: %d", rc);
-    return rc;
+  // Initialize user connection if provided (old API for backward compat)
+  // If NULL, we're using the new v2 API where connection is provided in ready() callback
+  if (user_connection != NULL) {
+    log_trace("About to build user connection from preconnection (old API)");
+    int rc = ct_preconnection_build_user_connection(user_connection, preconnection, connection_callbacks);
+    if (rc < 0) {
+      log_error("Failed to build user connection from preconnection: %d", rc);
+      return rc;
+    }
+  } else {
+    log_trace("Skipping user connection build (new v2 API)");
   }
 
   // Get ordered candidate nodes
@@ -373,20 +391,24 @@ int preconnection_initiate_with_racing(ct_preconnection_t* preconnection,
     log_debug("Only one candidate, initiating directly without racing");
     ct_candidate_node_t first_node = g_array_index(candidate_nodes, ct_candidate_node_t, 0);
 
-    // Set protocol and endpoints from the candidate
-    user_connection->protocol = *first_node.protocol;
-    user_connection->remote_endpoint = ct_remote_endpoint_copy_content(first_node.remote_endpoint);
-    user_connection->local_endpoint = ct_local_endpoint_copy_content(first_node.local_endpoint);
-    user_connection->connection_callbacks = connection_callbacks;
-    user_connection->framer_impl = preconnection->framer_impl;
+    if (user_connection != NULL) {
+      // Old API: populate the user-provided connection
+      user_connection->protocol = *first_node.protocol;
+      user_connection->remote_endpoint = ct_remote_endpoint_copy_content(first_node.remote_endpoint);
+      user_connection->local_endpoint = ct_local_endpoint_copy_content(first_node.local_endpoint);
+      user_connection->connection_callbacks = connection_callbacks;
+      user_connection->framer_impl = preconnection->framer_impl;
 
-    rc = user_connection->protocol.init(user_connection, &user_connection->connection_callbacks);
-    free_candidate_array(candidate_nodes);
-    return rc;
+      int rc = user_connection->protocol.init(user_connection, &user_connection->connection_callbacks);
+      free_candidate_array(candidate_nodes);
+      return rc;
+    } else {
+      // New v2 API: create connection internally and pass to ready() callback
+      // Just fall through to racing logic which will handle it properly
+      log_debug("Single candidate with v2 API - using racing logic for consistency");
+    }
   }
 
-  log_info("User connection ready pointer before creating context: %p",
-           user_connection->connection_callbacks.ready);
   ct_racing_context_t* context = racing_context_create(candidate_nodes, user_connection,
                                                  connection_callbacks, preconnection);
   if (context == NULL) {
