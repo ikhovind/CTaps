@@ -133,15 +133,11 @@ static int server_callback(picoquic_cnx_t *cnx, uint64_t stream_id,
                 s_ctx->is_request_complete = 1;
 
                 if (strncmp((char *)bytes, REQUEST_LARGE, strlen(REQUEST_LARGE)) == 0) {
-                    printf("[Stream %llu] Request: LARGE\n", (unsigned long long)stream_id);
-                    s_ctx->file_data = server_ctx->large_file_data;
-                    s_ctx->file_size = server_ctx->large_file_size;
-                    s_ctx->is_sending = 1;
+                    printf("[Stream %llu] Request: LARGE, num bytes: %zu\n", (unsigned long long)stream_id, server_ctx->large_file_size);
+                    picoquic_add_to_stream(cnx, stream_id, server_ctx->large_file_data, server_ctx->large_file_size, 1);
                 } else if (strncmp((char *)bytes, REQUEST_SHORT, strlen(REQUEST_SHORT)) == 0) {
-                    printf("[Stream %llu] Request: SHORT\n", (unsigned long long)stream_id);
-                    s_ctx->file_data = server_ctx->short_file_data;
-                    s_ctx->file_size = server_ctx->short_file_size;
-                    s_ctx->is_sending = 1;
+                    printf("[Stream %llu] Request: SHORT, num bytes: %zu\n", (unsigned long long)stream_id, server_ctx->short_file_size);
+                    picoquic_add_to_stream(cnx, stream_id, server_ctx->short_file_data, server_ctx->short_file_size, 1);
                 } else {
                     fprintf(stderr, "[SERVER CB] Unknown request on stream %llu\n",
                             (unsigned long long)stream_id);
@@ -153,40 +149,6 @@ static int server_callback(picoquic_cnx_t *cnx, uint64_t stream_id,
             picoquic_mark_active_stream(cnx, stream_id, 1, s_ctx);
         }
         break;
-
-    case picoquic_callback_prepare_to_send:
-        if (s_ctx && s_ctx->is_sending && s_ctx->bytes_sent < s_ctx->file_size) {
-            size_t available = s_ctx->file_size - s_ctx->bytes_sent;
-            size_t to_send = (available < length) ? available : length;
-
-            if (!bytes) {
-                printf(stderr, "[SERVER CB] ERROR: bytes is NULL!\n");
-                break;
-            }
-            if (!s_ctx->file_data) {
-                printf(stderr, "[SERVER CB] ERROR: file_data is NULL!\n");
-                break;
-            }
-            
-            int is_fin = (s_ctx->bytes_sent + to_send) >= s_ctx->file_size ? 1 : 0;
-            int is_still_active = (s_ctx->bytes_sent + to_send) < s_ctx->file_size ? 1 : 0;
-            if (is_fin) {
-                printf("[SERVER CB] Sending final chunk of file, setting FIN flag.\n");
-            }
-            uint8_t *buf_ptr = picoquic_provide_stream_data_buffer(bytes, to_send,
-                                                                   is_fin,
-                                                                   is_still_active);
-            if (!buf_ptr) {
-                printf("Error: Unable to get buffer for stream %llu\n",
-                        (unsigned long long)stream_id);
-                return -1;
-            }
-            memcpy(buf_ptr, s_ctx->file_data + s_ctx->bytes_sent, to_send);
-            s_ctx->bytes_sent += to_send;
-            ret = 0;
-        }
-        break;
-
     case picoquic_callback_stream_reset:
     case picoquic_callback_stop_sending:
         if (s_ctx) {

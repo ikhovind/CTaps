@@ -30,7 +30,7 @@ int on_msg_received(ct_connection_t *connection, ct_message_t **received_message
         case STATE_LARGE_STARTED:
             client_ctx.large_stats.bytes_received += msg->length;
             if (client_ctx.large_stats.bytes_received >= LARGE_FILE_SIZE) {
-                printf("LARGE file transfers completed.\n");
+                printf("LARGE file transfers of size %zu completed.\n", LARGE_FILE_SIZE);
                 timing_end(&client_ctx.large_stats.transfer_time);
                 client_ctx.state = STATE_LARGE_DONE;
                 initiate_short_transfer(connection);
@@ -101,14 +101,14 @@ int on_connection_ready(ct_connection_t *connection) {
             printf("Connection established, starting SHORT file transfer: %s\n", connection->uuid);
             timing_end(&ctx->short_stats.handshake_time);
             timing_start(&ctx->short_stats.transfer_time);
-            ct_message_build_with_content(&message, "SHORT", 6);
-            ct_send_message_full(connection, &message, &msg_ctx);
-            ct_message_free_content(&message);
-            ctx->state = STATE_SHORT_STARTED;
             ct_receive_message(connection, (ct_receive_callbacks_t){
                 .receive_callback = on_msg_received,
                 .user_receive_context = ctx
             });
+            ct_message_build_with_content(&message, "SHORT", 6);
+            ct_send_message_full(connection, &message, &msg_ctx);
+            ct_message_free_content(&message);
+            ctx->state = STATE_SHORT_STARTED;
             break;
         case STATE_SHORT_STARTED:
             // error - should not get new connection here

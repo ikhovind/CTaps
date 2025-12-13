@@ -30,6 +30,8 @@ int main(int argc, char *argv[]) {
 
     printf("\n--- Transferring LARGE file via TAPS ---\n");
 
+    ct_set_log_level(CT_LOG_WARN);
+
     ct_remote_endpoint_t remote_endpoint;
     ct_remote_endpoint_build(&remote_endpoint);
     ct_remote_endpoint_with_hostname(&remote_endpoint, client_ctx.host);
