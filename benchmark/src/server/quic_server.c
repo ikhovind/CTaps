@@ -209,7 +209,7 @@ int main(int argc, char *argv[]) {
     else {
         printf("Cannot access certificate file: %s\n", CERT_PATH);
     }
-    
+
 
     quic = picoquic_create(8, CERT_PATH, KEY_PATH, NULL, ALPN,
                           server_callback, default_ctx, NULL, NULL, NULL,

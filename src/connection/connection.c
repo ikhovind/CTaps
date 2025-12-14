@@ -280,7 +280,7 @@ ct_connection_t* ct_connection_create_clone(const ct_connection_t* src_clone) {
 }
 
 void ct_connection_close(ct_connection_t* connection) {
-  log_info("Closing connection: %s", (void*)connection->uuid);
+  log_info("Closing connection: %s", connection->uuid);
 
   // Always let the protocol handle the close logic
   // For protocols like QUIC, this will initiate close handshake
@@ -431,7 +431,7 @@ void ct_connection_on_protocol_receive(ct_connection_t* connection,
 }
 
 void ct_connection_abort(ct_connection_t* connection) {
-  log_info("Aborting connection: %p", (void*)connection);
+  log_info("Aborting connection: %s", connection->uuid);
   ct_connection_close(connection);
 }
 
@@ -474,7 +474,7 @@ int ct_connection_clone_full(
   new_connection->socket_type = source_connection->socket_type;
   new_connection->role = source_connection->role;
   new_connection->connection_callbacks = source_connection->connection_callbacks;
-  
+
   if (source_connection->socket_manager) {
     log_error("TODO: Figure out how to clone with socket manager");
     return -ENOSYS;
@@ -497,11 +497,6 @@ int ct_connection_clone_full(
 
 int ct_connection_clone(ct_connection_t* source_connection) {
   return ct_connection_clone_full(source_connection, NULL, NULL);
-}
-
-void ct_connection_abort_group(ct_connection_t* connection) {
-  log_info("Aborting connection group for connection: %p", (void*)connection);
-  ct_connection_abort(connection);
 }
 
 ct_connection_group_t* ct_connection_get_connection_group(const ct_connection_t* connection) {
