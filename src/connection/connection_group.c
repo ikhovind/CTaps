@@ -47,10 +47,28 @@ void ct_connection_group_close_all(ct_connection_group_t* connection_group) {
       ct_connection_close(connection);
     }
     else {
+      log_trace("Member in connection group: %s was closed or closing already", connection->uuid);
+    }
+  }
+}
+
+void ct_connection_group_abort_all(ct_connection_group_t* connection_group) {
+  log_info("Aborting connection group: %s", connection_group->connection_group_id);
+  GHashTableIter iter;
+  gpointer key, value;
+  g_hash_table_iter_init(&iter, connection_group->connections);
+  while (g_hash_table_iter_next(&iter, &key, &value)) {
+    ct_connection_t* connection = (ct_connection_t*)value;
+    if (!ct_connection_is_closed(connection)) {
+      log_trace("Aborting member in connection group: %s", connection->uuid);
+      ct_connection_abort(connection);
+    }
+    else {
       log_trace("Member in connection group: %s was closed already", connection->uuid);
     }
   }
 }
+
 
 
 void ct_connection_group_decrement_active(ct_connection_group_t* group) {

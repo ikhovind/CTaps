@@ -296,7 +296,7 @@ int udp_clone_connection(const struct ct_connection_s* source_connection, struct
   }
   // Create ephemeral local port
   uv_udp_t* new_udp_handle = create_udp_listening_on_ephemeral(alloc_buffer, on_read);
-  
+
   target_connection->internal_connection_state = (uv_handle_t*)new_udp_handle;
   new_udp_handle->data = target_connection;
 

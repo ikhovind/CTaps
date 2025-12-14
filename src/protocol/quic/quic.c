@@ -489,13 +489,6 @@ int picoquic_callback(picoquic_cnx_t* cnx,
         // Existing stream - get connection from stream context
         connection = (ct_connection_t*)v_stream_ctx;
         log_trace("Got connection %s from stream context for stream %llu", connection->uuid, (unsigned long long)stream_id);
-
-        // TODO - is this actually possible, are streams created before data is received?
-        if (!ct_connection_stream_is_initialized(connection)) {
-          log_debug("Initialized QUIC stream from received data with stream ID: %llu", (unsigned long long)stream_id);
-          ct_quic_set_connection_stream(connection, stream_id);
-        }
-
         // Use helper function to handle received data
         return handle_stream_data(connection, bytes, length);
       }
@@ -674,7 +667,7 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
     log_error("Error processing incoming QUIC packet: %d", rc);
     // TODO - error handling
   }
-  
+
   // If we haven't set the callback context, this means this cnx was just created by picoquic, need to
   // create our own ct_connection_t
   if (picoquic_get_callback_context(cnx) == picoquic_get_default_callback_context(picoquic_get_quic_ctx(cnx))) {
@@ -1063,7 +1056,7 @@ int quic_send(ct_connection_t* connection, ct_message_t* message, ct_message_con
     return -EIO;
   }
 
-  // picoquic_add_to_stream copies the data internally, so we can free the message now 
+  // picoquic_add_to_stream copies the data internally, so we can free the message now
   ct_message_free_all(message);
 
   // Reset the timer to ensure data gets processed and sent immediately

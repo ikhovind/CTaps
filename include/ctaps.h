@@ -147,7 +147,7 @@ CT_EXTERN int ct_add_log_file(const char* file_path, ct_log_level_t min_level);
  * If a candidate cannot fulfill a PROHIBIT or REQUIRE it is pruned completely.
  *
  * If a candidate cannot fulfill an AVOID or PREFER it is placed later in
- * the order of possible candidates to race. 
+ * the order of possible candidates to race.
  *
  * @note A missing PREFER is placed later than any missing avoids. even if
  * a candidate cannot fulfill 10 AVOIDs, it will be placed before a candidate
@@ -187,7 +187,7 @@ typedef enum ct_direction_of_communication_t {
 typedef enum ct_multipath_enum_t {
   MULTIPATH_DISABLED,  ///< Do not use multipath
   MULTIPATH_ACTIVE,    ///< Actively use multiple paths simultaneously
-  MULTIPATH_PASSIVE    ///< TBD 
+  MULTIPATH_PASSIVE    ///< TBD
 } ct_multipath_enum_t;
 
 /**
@@ -1057,13 +1057,13 @@ typedef struct ct_listener_s {
 // Selection Properties
 /**
  * @brief Initialize selection properties with default values.
- * @param[out] selection_properties Structure to initialize
+ * @param[out] selection_properties structure to initialize
  */
 CT_EXTERN void ct_selection_properties_build(ct_selection_properties_t* selection_properties);
 
 /**
  * @brief Set a selection property value directly.
- * @param[in,out] selection_properties Structure to modify
+ * @param[in,out] selection_properties structure to modify
  * @param[in] property Which property to set
  * @param[in] value Property value
  */
@@ -1071,33 +1071,33 @@ CT_EXTERN void ct_selection_properties_set(ct_selection_properties_t* selection_
 
 /**
  * @brief Free resources in selection properties.
- * @param[in] selection_properties Structure to free
+ * @param[in] selection_properties structure to free
  */
 CT_EXTERN void ct_selection_properties_free(ct_selection_properties_t* selection_properties);
 
 // Connection Properties
 /**
  * @brief Initialize connection properties with default values.
- * @param[out] connection_properties Structure to initialize
+ * @param[out] connection_properties structure to initialize
  */
 CT_EXTERN void ct_connection_properties_build(ct_connection_properties_t* connection_properties);
 
 /**
  * @brief Free resources in connection properties.
- * @param[in] connection_properties Structure to free
+ * @param[in] connection_properties structure to free
  */
 CT_EXTERN void ct_connection_properties_free(ct_connection_properties_t* connection_properties);
 
 // Message Properties
 /**
  * @brief Initialize message properties with default values.
- * @param[out] message_properties Structure to initialize
+ * @param[out] message_properties structure to initialize
  */
 CT_EXTERN void ct_message_properties_build(ct_message_properties_t* message_properties);
 
 /**
  * @brief Check if the FINAL property is set in message properties.
- * @param[out] message_properties Structure to check 
+ * @param[in] message_properties structure to check
  *
  * @return true if FINAL property is set, false otherwise or null
  */
@@ -1105,13 +1105,13 @@ CT_EXTERN bool ct_message_properties_is_final(const ct_message_properties_t* mes
 
 /**
  * @brief Set the final property to true in message properties.
- * @param[out] message_properties Structure modify 
+ * @param[in,out] message_properties structure modify
  */
 CT_EXTERN void ct_message_properties_set_final(ct_message_properties_t* message_properties);
 
 /**
  * @brief Free resources in message properties.
- * @param[in] message_properties Structure to free
+ * @param[in] message_properties structure to free
  */
 CT_EXTERN void ct_message_properties_free(ct_message_properties_t* message_properties);
 
@@ -1119,32 +1119,32 @@ CT_EXTERN void ct_message_properties_free(ct_message_properties_t* message_prope
 // Transport Properties
 /**
  * @brief Initialize transport properties with default values.
- * @param[out] transport_properties Structure to initialize
+ * @param[out] transport_properties structure to initialize
  */
 CT_EXTERN void ct_transport_properties_build(ct_transport_properties_t* transport_properties);
 
 /**
  * @brief Free resources in transport properties.
- * @param[in] transport_properties Structure to free
+ * @param[in] transport_properties structure to free
  */
 CT_EXTERN void ct_transport_properties_free(ct_transport_properties_t* transport_properties);
 
 // Security Parameters
 /**
  * @brief Initialize security parameters with default values.
- * @param[out] security_parameters Structure to initialize
+ * @param[out] security_parameters structure to initialize
  */
 CT_EXTERN void ct_security_parameters_build(ct_security_parameters_t* security_parameters);
 
 /**
  * @brief Free resources in security parameters.
- * @param[in] security_parameters Structure to free
+ * @param[in] security_parameters structure to free
  */
 CT_EXTERN void ct_security_parameters_free(ct_security_parameters_t* security_parameters);
 
 /**
  * @brief Set a string array security parameter (e.g., ALPN, ciphersuites).
- * @param[in,out] security_parameters Structure to modify
+ * @param[in,out] security_parameters structure to modify
  * @param[in] property Which security parameter to set
  * @param[in] strings Array of string values
  * @param[in] num_strings Number of strings in the array
@@ -1154,14 +1154,14 @@ CT_EXTERN int ct_sec_param_set_property_string_array(ct_security_parameters_t* s
 
 /**
  * @brief Free string content in security parameters without freeing the structure.
- * @param[in] security_parameters Structure whose content to free
+ * @param[in] security_parameters structure whose content to free
  */
 CT_EXTERN void ct_free_security_parameter_content(ct_security_parameters_t* security_parameters);
 
 // Local Endpoint
 /**
  * @brief Initialize a local endpoint with default values.
- * @param[out] local_endpoint Structure to initialize
+ * @param[out] local_endpoint structure to initialize
  */
 CT_EXTERN void ct_local_endpoint_build(ct_local_endpoint_t* local_endpoint);
 
@@ -1220,7 +1220,7 @@ ct_local_endpoint_t ct_local_endpoint_copy_content(const ct_local_endpoint_t* lo
  * @param[out] out_list Output array of resolved endpoints (caller must free)
  * @param[out] out_count Number of endpoints in output array
  * @return 0 on success, non-zero on error
- *  
+ *
  * TODO - this shouldn't be public?
  */
 CT_EXTERN int ct_local_endpoint_resolve(const ct_local_endpoint_t* local_endpoint, ct_local_endpoint_t** out_list, size_t* out_count);
@@ -1229,7 +1229,7 @@ CT_EXTERN int ct_local_endpoint_resolve(const ct_local_endpoint_t* local_endpoin
 // Remote Endpoint
 /**
  * @brief Initialize a remote endpoint with default values.
- * @param[out] remote_endpoint Structure to initialize
+ * @param[out] remote_endpoint structure to initialize
  */
 CT_EXTERN void ct_remote_endpoint_build(ct_remote_endpoint_t* remote_endpoint);
 
@@ -1517,14 +1517,14 @@ CT_EXTERN bool ct_connection_is_client(const ct_connection_t* connection);
 CT_EXTERN bool ct_connection_is_server(const ct_connection_t* connection);
 
 /**
- * @brief Check the calue of the canSend connection property.
+ * @brief Check the value of the canSend connection property.
  * @param[in] connection The connection to check
  * @return false if connection is NULL, closed, not established or "Final" message property has been sent.
  */
 CT_EXTERN bool ct_connection_can_send(const ct_connection_t* connection);
 
 /**
- * @brief Check the calue of the canReceive connection property.
+ * @brief Check the value of the canReceive connection property.
  * @param[in] connection The connection to check
  * @return false if connection is NULL, closed, not established or one way closed from remote.
  */
@@ -1592,12 +1592,20 @@ CT_EXTERN int ct_connection_clone(ct_connection_t* source_connection);
  * @brief Close all connections in the same connection group gracefully.
  *
  * Performs graceful shutdown of all connections in the group (the connection
- * and all its clones). For protocols without connection groups, equivalent
- * to ct_connection_close().
+ * and all its clones).
  *
- * @param[in] connection Any connection in the group
+ * @param[in] conection_group The connection group to close
  */
 CT_EXTERN void ct_connection_group_close_all(ct_connection_group_t* connection_group);
+
+/**
+ * @brief Forcefully abort all connections in the same connection group.
+ *
+ * Immediately terminates all connections in the group without graceful shutdown.
+ *
+ * @param[in] conection_group The connection group to abort
+ */
+CT_EXTERN void ct_connection_group_abort_all(ct_connection_group_t* connection_group);
 
 /**
  * @brief Get the connection group of a connection.
@@ -1618,16 +1626,6 @@ CT_EXTERN ct_connection_group_t* ct_connection_get_connection_group(const ct_con
  * @return Number of active connections in the group
  */
 CT_EXTERN uint64_t ct_connection_group_get_num_active_connections(ct_connection_group_t* group);
-
-/**
- * @brief Forcefully abort all connections in the same connection group.
- *
- * Immediately terminates all connections in the group without graceful shutdown.
- * For protocols without connection groups, equivalent to ct_connection_abort().
- *
- * @param[in] connection Any connection in the group
- */
-CT_EXTERN void ct_connection_abort_group(ct_connection_t* connection);
 
 /**
  * @brief Deliver received protocol data to the connection (for custom protocols).
