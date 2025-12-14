@@ -432,7 +432,7 @@ void ct_connection_on_protocol_receive(ct_connection_t* connection,
 
 void ct_connection_abort(ct_connection_t* connection) {
   log_info("Aborting connection: %s", connection->uuid);
-  ct_connection_close(connection);
+  connection->protocol.abort_connection(connection);
 }
 
 int ct_connection_clone_full(

@@ -90,3 +90,83 @@ TEST(ConnectionUnitTests, GeneratesUniqueUUIDs) {
     ct_connection_free_content(&connection1);
     ct_connection_free_content(&connection2);
 }
+
+TEST(ConnectionUnitTests, connectionCanSendReturnsCorrectRes) {
+    ct_connection_t connection;
+    memset(&connection, 0, sizeof(ct_connection_t));
+
+    ASSERT_FALSE(ct_connection_can_send(&connection));
+
+    connection.transport_properties.connection_properties.list[CAN_SEND].value.bool_val = true;
+    ASSERT_TRUE(ct_connection_can_send(&connection));
+}
+
+TEST(ConnectionUnitTests, connectionCanReceiveReturnsCorrectRes) {
+    ct_connection_t connection;
+    memset(&connection, 0, sizeof(ct_connection_t));
+
+    ASSERT_FALSE(ct_connection_can_receive(&connection));
+
+    connection.transport_properties.connection_properties.list[CAN_RECEIVE].value.bool_val = true;
+    ASSERT_TRUE(ct_connection_can_receive(&connection));
+}
+
+TEST(ConnectionUnitTests, SendMessageFullFailsWhenCanSendIsFalse) {
+    ct_connection_t connection;
+    ct_connection_build_with_new_connection_group(&connection);
+
+    // Set canSend to false
+    ct_connection_set_can_send(&connection, false);
+
+    // Try to send a message
+    ct_message_t message;
+    ct_message_build_with_content(&message, "test", 5);
+
+    int rc = ct_send_message_full(&connection, &message, NULL);
+
+    // Should fail with -EPIPE
+    EXPECT_EQ(rc, -EPIPE);
+
+    // Cleanup
+    ct_message_free_content(&message);
+    ct_connection_free_content(&connection);
+}
+
+DEFINE_FFF_GLOBALS;
+FAKE_VALUE_FUNC(int, fake_protocol_send, ct_connection_t*, ct_message_t*, ct_message_context_t*);
+
+TEST(ConnectionUnitTests, SendMessageWithFinalSetsCanSendToFalse) {
+    RESET_FAKE(fake_protocol_send);
+    fake_protocol_send_fake.return_val = 0;
+
+    ct_connection_t connection;
+    ct_connection_build_with_new_connection_group(&connection);
+    ct_connection_set_can_send(&connection, true);
+
+    // Set up fake protocol
+    connection.protocol.send = fake_protocol_send;
+
+    // Create message with FINAL property
+    ct_message_t message;
+    ct_message_build_with_content(&message, "final message", 14);
+
+    ct_message_context_t context;
+    ct_message_properties_build(&context.message_properties);
+    ct_message_properties_set_final(&context.message_properties);
+
+    // Send message
+    int rc = ct_send_message_full(&connection, &message, &context);
+
+    // Verify send succeeded
+    EXPECT_EQ(rc, 0);
+
+    // Verify protocol send was called exactly once
+    EXPECT_EQ(fake_protocol_send_fake.call_count, 1);
+
+    // Verify canSend is now false
+    EXPECT_FALSE(ct_connection_can_send(&connection));
+
+    // Cleanup
+    ct_message_free_content(&message);
+    ct_connection_free_content(&connection);
+}
