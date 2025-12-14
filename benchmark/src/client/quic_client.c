@@ -16,19 +16,16 @@
 #define ALPN "benchmark"
 
 typedef enum {
-    STREAM_STATE_IDLE,
-    STREAM_STATE_SENDING_REQUEST,
+    STREAM_STATE_NOT_STARTED,
     STREAM_STATE_RECEIVING,
     STREAM_STATE_DONE
 } stream_state_t;
 
 typedef struct {
-    uint64_t stream_id;
     stream_state_t state;
     const char *request;
     size_t expected_size;
     transfer_stats_t stats;  /* Transfer statistics including handshake, transfer time, and bytes */
-    int is_active;
 } stream_ctx_t;
 
 typedef struct {
@@ -36,26 +33,24 @@ typedef struct {
     stream_ctx_t large_stream;
     stream_ctx_t short_stream;
     uint64_t short_stream_start_time;
-    timing_t handshake_time;  /* QUIC connection handshake time */
-    int connection_established;
     int all_done;
 } client_ctx_t;
 
-static client_ctx_t client_ctx;
 static int json_only_mode = 0;
 
 static void init_stream(stream_ctx_t *stream, const char *request, size_t expected_size) {
     memset(stream, 0, sizeof(stream_ctx_t));
     stream->request = request;
     stream->expected_size = expected_size;
-    stream->state = STREAM_STATE_IDLE;
+    stream->state = STREAM_STATE_NOT_STARTED;
 }
 
-static void start_stream(stream_ctx_t *stream, uint64_t stream_id) {
-    stream->stream_id = stream_id;
-    stream->state = STREAM_STATE_SENDING_REQUEST;
-    stream->is_active = 1;
-    /* Transfer timing will start when request is sent */
+static void start_stream(client_ctx_t* client_ctx, stream_ctx_t *stream) {
+    timing_end(&stream->stats.handshake_time);  /* End handshake timer */
+    stream->state = STREAM_STATE_RECEIVING;
+    clock_gettime(CLOCK_MONOTONIC, &stream->stats.transfer_time.start);
+    int stream_id = picoquic_get_next_local_stream_id(client_ctx->cnx, 0);
+    picoquic_add_to_stream_with_ctx(client_ctx->cnx, stream_id, stream->request, strlen(stream->request), 1, stream);
 }
 
 static int client_callback(picoquic_cnx_t *cnx, uint64_t stream_id,
@@ -64,94 +59,38 @@ static int client_callback(picoquic_cnx_t *cnx, uint64_t stream_id,
                           void *callback_ctx, void *stream_ctx) {
     
     client_ctx_t *ctx = (client_ctx_t *)callback_ctx;
-    stream_ctx_t *s_ctx = NULL;
-    int ret = 0;
-
-    if (stream_id == ctx->large_stream.stream_id) {
-        s_ctx = &ctx->large_stream;
-    } else if (stream_id == ctx->short_stream.stream_id) {
-        s_ctx = &ctx->short_stream;
-    }
+    stream_ctx_t *s_ctx = (stream_ctx_t *)stream_ctx;
 
     switch (fin_or_event) {
     case picoquic_callback_ready:
         if (!json_only_mode) printf("Connection established\n");
-        ctx->connection_established = 1;
-        timing_end(&ctx->handshake_time);  /* End handshake timer */
-
-        /* Assign handshake time to large stream, short stream will have 0 (reused connection) */
-        ctx->large_stream.stats.handshake_time = ctx->handshake_time;
-
-        uint64_t large_stream_id = picoquic_get_next_local_stream_id(cnx, 0);
-        start_stream(&ctx->large_stream, large_stream_id);
-        picoquic_mark_active_stream(cnx, large_stream_id, 1, NULL);
-        break;
-
-    case picoquic_callback_prepare_to_send:
-        if (s_ctx && s_ctx->state == STREAM_STATE_SENDING_REQUEST) {
-            size_t request_len = strlen(s_ctx->request);
-            if (request_len <= length) {
-                uint8_t* buf_ptr = picoquic_provide_stream_data_buffer(bytes, request_len, 1, 1);
-                if (!buf_ptr) {
-                    fprintf(stderr, "Error: Unable to get buffer for stream %llu\n",
-                            (unsigned long long)stream_id);
-                    return -1;
-                }
-                if (!json_only_mode) {
-                    printf("[Stream %llu] Sending request: %s",
-                           (unsigned long long)stream_id, s_ctx->request);
-                }
-                memcpy(buf_ptr, s_ctx->request, request_len);
-                s_ctx->state = STREAM_STATE_RECEIVING;
-                timing_start(&s_ctx->stats.transfer_time);  /* Start transfer timer */
-                return 0;
-            }
-        }
+        start_stream(ctx, &ctx->large_stream);
         break;
 
     case picoquic_callback_stream_data:
     case picoquic_callback_stream_fin:
-        if (s_ctx && s_ctx->state == STREAM_STATE_RECEIVING) {
-            s_ctx->stats.bytes_received += length;
+        s_ctx->stats.bytes_received += length;
+        if (fin_or_event == picoquic_callback_stream_fin) {
+            timing_end(&s_ctx->stats.transfer_time);
+            s_ctx->state = STREAM_STATE_DONE;
 
-            if (fin_or_event == picoquic_callback_stream_fin) {
-                timing_end(&s_ctx->stats.transfer_time);
+            if (!json_only_mode) {
+                printf("[Stream %llu] Transfer complete (%zu bytes)\n",
+                       (unsigned long long)stream_id, s_ctx->stats.bytes_received);
+            }
 
-                s_ctx->state = STREAM_STATE_DONE;
-                s_ctx->is_active = 0;
-
+            if (s_ctx == &ctx->large_stream && ctx->short_stream.state == STREAM_STATE_NOT_STARTED) {
                 if (!json_only_mode) {
-                    printf("[Stream %llu] Transfer complete (%zu bytes)\n",
-                           (unsigned long long)stream_id, s_ctx->stats.bytes_received);
+                    printf("\n--- Starting SHORT transfer ---\n");
                 }
+                timing_start(&ctx->short_stream.stats.handshake_time);
+                start_stream(ctx, &ctx->short_stream);
+            }
 
-                /* If large stream just finished and we're waiting for short stream, start it now */
-                if (s_ctx == &ctx->large_stream &&
-                    ctx->short_stream.state == STREAM_STATE_IDLE &&
-                    !ctx->short_stream.is_active) {
-                    uint64_t now = timing_get_timestamp_us();
-                    double elapsed_sec = 0;
-                    if (ctx->short_stream_start_time > 0) {
-                        elapsed_sec = (now - ctx->short_stream_start_time) / 1000000.0;
-                    }
-                    if (!json_only_mode) {
-                        printf("\n--- Starting SHORT transfer (after LARGE complete, %.2fs elapsed) ---\n", elapsed_sec);
-                    }
-                    /* Set handshake time to valid zero (connection reused) */
-                    clock_gettime(CLOCK_MONOTONIC, &ctx->short_stream.stats.handshake_time.start);
-                    ctx->short_stream.stats.handshake_time.end = ctx->short_stream.stats.handshake_time.start;
-                    ctx->short_stream.stats.handshake_time.valid = 1;
-                    uint64_t short_stream_id = picoquic_get_next_local_stream_id(cnx, 0);
-                    start_stream(&ctx->short_stream, short_stream_id);
-                    picoquic_mark_active_stream(cnx, short_stream_id, 1, NULL);
-                }
-
-                if (ctx->large_stream.state == STREAM_STATE_DONE &&
-                    ctx->short_stream.state == STREAM_STATE_DONE) {
-                    if (!json_only_mode) printf("All transfers complete\n");
-                    ctx->all_done = 1;
-                    picoquic_close(cnx, 0);
-                }
+            if (ctx->large_stream.state == STREAM_STATE_DONE &&
+                ctx->short_stream.state == STREAM_STATE_DONE) {
+                if (!json_only_mode) printf("All transfers complete\n");
+                picoquic_close(cnx, 0);
             }
         }
         break;
@@ -159,44 +98,27 @@ static int client_callback(picoquic_cnx_t *cnx, uint64_t stream_id,
     case picoquic_callback_close:
     case picoquic_callback_application_close:
         if (!json_only_mode) printf("Connection closed\n");
+        // This flag is checked in the loop cb to terminate the loop
         ctx->all_done = 1;
         break;
 
     default:
         break;
     }
-    return ret;
+    return 0;
 }
 
 static int sample_client_loop_cb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode, 
-    void* callback_ctx, void * callback_arg)
-{
-    int ret = 0;
+    void* callback_ctx, void * callback_arg) {
+    if (callback_ctx == NULL) {
+        return PICOQUIC_ERROR_UNEXPECTED_ERROR;
+    }
     client_ctx_t* cb_ctx = (client_ctx_t*)callback_ctx;
 
-    if (cb_ctx == NULL) {
-        ret = PICOQUIC_ERROR_UNEXPECTED_ERROR;
+    if (cb_mode == picoquic_packet_loop_after_send && cb_ctx->all_done) {
+        return PICOQUIC_NO_ERROR_TERMINATE_PACKET_LOOP;
     }
-    else {
-        switch (cb_mode) {
-        case picoquic_packet_loop_ready:
-            if (!json_only_mode) fprintf(stdout, "Waiting for packets.\n");
-            break;
-        case picoquic_packet_loop_after_receive:
-            break;
-        case picoquic_packet_loop_after_send:
-            if (cb_ctx->all_done) {
-                ret = PICOQUIC_NO_ERROR_TERMINATE_PACKET_LOOP;
-            }
-            break;
-        case picoquic_packet_loop_port_update:
-            break;
-        default:
-            ret = PICOQUIC_ERROR_UNEXPECTED_ERROR;
-            break;
-        }
-    }
-    return ret;
+    return 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -221,6 +143,9 @@ int main(int argc, char *argv[]) {
 
     if (!json_only_mode) printf("QUIC Client connecting to %s:%d\n", host, port);
 
+
+    client_ctx_t client_ctx;
+
     memset(&client_ctx, 0, sizeof(client_ctx));
 
     init_stream(&client_ctx.large_stream, REQUEST_LARGE, LARGE_FILE_SIZE);
@@ -229,35 +154,22 @@ int main(int argc, char *argv[]) {
     picoquic_quic_t *quic = picoquic_create(1, NULL, NULL, NULL, ALPN,
                                             NULL, NULL, NULL, NULL, NULL,
                                             picoquic_current_time(), NULL, NULL, NULL, 0);
-    if (!json_only_mode) {
-        picoquic_set_textlog(quic, "client_debug.log");
-    }
     if (!quic) {
-        if (json_only_mode) {
-            printf("ERROR\n");
-        } else {
-            fprintf(stderr, "Failed to create QUIC context\n");
-        }
-        return 1;
+        fprintf(stderr, "ERROR: Failed to create QUIC context\n");
+        return -1;
     }
-
-    picoquic_set_default_congestion_algorithm(quic, picoquic_bbr_algorithm);
 
     struct sockaddr_storage server_addr;
     int is_name = 0;
     ret = picoquic_get_server_address(host, port, &server_addr, &is_name);
     if (ret != 0) {
-        if (json_only_mode) {
-            printf("ERROR\n");
-        } else {
-            fprintf(stderr, "Failed to resolve server address\n");
-        }
+        fprintf(stderr, "ERROR: Failed to resolve server address\n");
         picoquic_free(quic);
-        return 1;
+        return -1;
     }
 
     if (!json_only_mode) printf("\n--- Transferring LARGE file via QUIC ---\n");
-    timing_start(&client_ctx.handshake_time);  /* Start handshake timer */
+    timing_start(&client_ctx.large_stream.stats.handshake_time);  /* Start handshake timer */
 
     client_ctx.cnx = picoquic_create_cnx(quic, picoquic_null_connection_id,
                                         picoquic_null_connection_id,
@@ -266,26 +178,18 @@ int main(int argc, char *argv[]) {
                                         0, host, ALPN, 1);
 
     if (!client_ctx.cnx) {
-        if (json_only_mode) {
-            printf("ERROR\n");
-        } else {
-            fprintf(stderr, "Failed to create connection\n");
-        }
+        fprintf(stderr, "ERROR: Failed to create connection\n");
         picoquic_free(quic);
-        return 1;
+        return -1;
     }
 
     picoquic_set_callback(client_ctx.cnx, client_callback, &client_ctx);
 
     ret = picoquic_start_client_cnx(client_ctx.cnx);
     if (ret != 0) {
-        if (json_only_mode) {
-            printf("ERROR\n");
-        } else {
-            fprintf(stderr, "Failed to start connection\n");
-        }
+        fprintf(stderr, "ERROR: Failed to start connection\n");
         picoquic_free(quic);
-        return 1;
+        return -1;
     }
 
     ret = picoquic_packet_loop(quic, 0, server_addr.ss_family, 0, 0, 0, sample_client_loop_cb, &client_ctx);
@@ -293,19 +197,11 @@ int main(int argc, char *argv[]) {
     if (client_ctx.all_done) {
         char *json = get_json_stats(TRANSFER_MODE_PICOQUIC, &client_ctx.large_stream.stats, &client_ctx.short_stream.stats, 1);
         if (json) {
-            if (json_only_mode) {
-                printf("%s\n", json);
-            } else {
-                printf("\n%s\n", json);
-            }
+            printf("%s\n", json);
             free(json);
         }
     } else {
-        if (json_only_mode) {
-            printf("ERROR\n");
-        } else {
-            fprintf(stderr, "Transfer did not complete successfully\n");
-        }
+        fprintf(stderr, "ERROR: Transfer did not complete successfully\n");
         ret = 1;
     }
 

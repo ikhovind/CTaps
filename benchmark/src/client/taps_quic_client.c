@@ -27,18 +27,10 @@ int main(int argc, char *argv[]) {
     memset(&client_ctx, 0, sizeof(client_ctx));
     client_ctx.host = host;
     client_ctx.port = port;
-    client_ctx.state = TRANSFER_NONE_STARTED;
-    client_ctx.transfer_complete = 0;
-    memset(&client_ctx.large_stats, 0, sizeof(transfer_stats_t));
-    memset(&client_ctx.short_stats, 0, sizeof(transfer_stats_t));
 
     if (ct_initialize(RESOURCE_FOLDER "/cert.pem", RESOURCE_FOLDER "/key.pem") != 0) {
-        if (json_only_mode) {
-            printf("ERROR\n");
-        } else {
-            fprintf(stderr, "Failed to initialize CTaps\n");
-        }
-        return 1;
+        fprintf(stderr, "ERROR: Failed to initialize CTaps\n");
+        return -1;
     }
 
     if (!json_only_mode) printf("\n--- Transferring LARGE file via TAPS ---\n");
@@ -78,22 +70,14 @@ int main(int argc, char *argv[]) {
     if (client_ctx.transfer_complete == 1) {
         char *json = get_json_stats(TRANSFER_MODE_TAPS, &client_ctx.large_stats, &client_ctx.short_stats, 1);
         if (json) {
-            if (json_only_mode) {
-                printf("%s\n", json);
-            } else {
-                printf("\n%s\n", json);
-            }
+            printf("%s\n", json);
             free(json);
         }
         ct_close();
         return 0;
     } else {
-        if (json_only_mode) {
-            printf("ERROR\n");
-        } else {
-            fprintf(stderr, "Transfer failed\n");
-        }
+        fprintf(stderr, "ERROR: Transfer failed\n");
         ct_close();
-        return 1;
+        return -1;
     }
 }

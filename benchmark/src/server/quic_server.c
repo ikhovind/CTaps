@@ -189,13 +189,13 @@ int main(int argc, char *argv[]) {
 
     if (!large_file_data_global || !short_file_data_global) {
         fprintf(stderr, "Failed to load files\n");
-        return 1;
+        return -1;
     }
 
     server_context_t *default_ctx = malloc(sizeof(server_context_t));
     if (!default_ctx) {
         fprintf(stderr, "Failed to allocate default context\n");
-        return 1;
+        return -1;
     }
     memset(default_ctx, 0, sizeof(server_context_t));
     default_ctx->large_file_data = large_file_data_global;
@@ -218,7 +218,7 @@ int main(int argc, char *argv[]) {
 
     if (!quic) {
         fprintf(stderr, "Failed to create QUIC context\n");
-        return 1;
+        return -1;
     }
 
     /* Set MTU to 1500 bytes for fair comparison with TCP MSS=1460 */

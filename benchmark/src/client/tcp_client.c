@@ -36,19 +36,6 @@ static int connect_to_server(const char *host, int port) {
         close(sock_fd);
         return -1;
     }
-
-    /* Set generous timeouts for network emulation (60 seconds) */
-    struct timeval timeout;
-    timeout.tv_sec = 60;
-    timeout.tv_usec = 0;
-
-    if (setsockopt(sock_fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0) {
-        perror("[Warning] Failed to set SO_SNDTIMEO");
-    }
-    if (setsockopt(sock_fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
-        perror("[Warning] Failed to set SO_RCVTIMEO");
-    }
-
     return sock_fd;
 }
 
@@ -67,8 +54,12 @@ static int receive_file(int sock_fd, size_t expected_size, transfer_stats_t *sta
         if (received == 0) {
             break;
         }
-
         total_received += received;
+    }
+    if (total_received < expected_size) {
+        fprintf(stderr, "ERROR: Incomplete file received. Expected %zu bytes, got %zu bytes\n",
+                expected_size, total_received);
+        return -1;
     }
 
     timing_end(&stats->transfer_time);
@@ -80,8 +71,6 @@ static int receive_file(int sock_fd, size_t expected_size, transfer_stats_t *sta
 
 static int transfer_file(const char *host, int port, const char *request,
                          size_t expected_size, transfer_stats_t *stats) {
-    memset(stats, 0, sizeof(transfer_stats_t));
-
     timing_start(&stats->handshake_time);
 
     int sock_fd = connect_to_server(host, port);
@@ -108,22 +97,6 @@ static int transfer_file(const char *host, int port, const char *request,
     return 0;
 }
 
-static void print_stats(const char *file_type, const transfer_stats_t *stats) {
-    if (json_only_mode) return;
-
-    double duration_sec = timing_get_duration_ms(&stats->transfer_time) / 1000.0;
-    double throughput_mbps = 0.0;
-    if (duration_sec > 0) {
-        throughput_mbps = (stats->bytes_received * 8.0) / (duration_sec * 1000000.0);
-    }
-
-    printf("\n=== %s File Transfer Stats ===\n", file_type);
-    printf("Handshake time: %.2f ms\n", timing_get_duration_ms(&stats->handshake_time));
-    printf("Transfer time: %.2f ms\n", timing_get_duration_ms(&stats->transfer_time));
-    printf("Bytes received: %zu\n", stats->bytes_received);
-    printf("Throughput: %.2f Mbps\n", throughput_mbps);
-}
-
 int main(int argc, char *argv[]) {
     const char *host = "127.0.0.1";
     int port = DEFAULT_PORT;
@@ -146,38 +119,22 @@ int main(int argc, char *argv[]) {
     if (!json_only_mode) printf("TCP Client connecting to %s:%d\n", host, port);
 
     transfer_stats_t large_stats, short_stats;
-    uint64_t large_end_time;
 
     if (!json_only_mode) printf("\n--- Transferring LARGE file ---\n");
     if (transfer_file(host, port, REQUEST_LARGE, LARGE_FILE_SIZE, &large_stats) != 0) {
-        if (json_only_mode) {
-            printf("ERROR\n");
-        } else {
-            fprintf(stderr, "Failed to transfer large file\n");
-        }
-        return 1;
+        fprintf(stderr, "ERROR: Failed to transfer large file\n");
+        return -1;
     }
-    large_end_time = timing_get_timestamp_us();
-    print_stats("LARGE", &large_stats);
 
     if (!json_only_mode) printf("\n--- Transferring SHORT file ---\n");
     if (transfer_file(host, port, REQUEST_SHORT, SHORT_FILE_SIZE, &short_stats) != 0) {
-        if (json_only_mode) {
-            printf("ERROR\n");
-        } else {
-            fprintf(stderr, "Failed to transfer short file\n");
-        }
-        return 1;
+        fprintf(stderr, "ERROR: Failed to transfer short file\n");
+        return -1;
     }
-    print_stats("SHORT", &short_stats);
 
     char *json = get_json_stats(TRANSFER_MODE_TCP_NATIVE, &large_stats, &short_stats, 0);
     if (json) {
-        if (json_only_mode) {
-            printf("%s\n", json);
-        } else {
-            printf("\n%s\n", json);
-        }
+        printf("%s\n", json);
         free(json);
     }
 
