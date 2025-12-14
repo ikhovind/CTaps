@@ -129,7 +129,7 @@ int main(int argc, char *argv[]) {
         printf("Generating large file...\n");
         if (generate_test_file(LARGE_FILE_PATH, LARGE_FILE_SIZE) != 0) {
             fprintf(stderr, "Failed to generate large file\n");
-            return 1;
+            return -1;
         }
     }
 
@@ -137,21 +137,21 @@ int main(int argc, char *argv[]) {
         printf("Generating short file...\n");
         if (generate_test_file(SHORT_FILE_PATH, SHORT_FILE_SIZE) != 0) {
             fprintf(stderr, "Failed to generate short file\n");
-            return 1;
+            return -1;
         }
     }
 
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0) {
         perror("Failed to create socket");
-        return 1;
+        return -1;
     }
 
     int opt = 1;
     if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
         perror("Failed to set SO_REUSEADDR");
         close(server_fd);
-        return 1;
+        return -1;
     }
 
     /* Set MSS to 1460 bytes on listening socket (inherited by accepted connections) */
@@ -159,7 +159,7 @@ int main(int argc, char *argv[]) {
     if (setsockopt(server_fd, IPPROTO_TCP, TCP_MAXSEG, &mss, sizeof(mss)) < 0) {
         perror("Failed to set TCP_MAXSEG on listening socket");
         close(server_fd);
-        return 1;
+        return -1;
     }
     printf("Set TCP MSS to %d bytes on listening socket\n", mss);
 
@@ -172,13 +172,13 @@ int main(int argc, char *argv[]) {
     if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
         perror("Failed to bind");
         close(server_fd);
-        return 1;
+        return -1;
     }
 
     if (listen(server_fd, 10) < 0) {
         perror("Failed to listen");
         close(server_fd);
-        return 1;
+        return -1;
     }
 
     printf("Server listening on port %d\n", port);
