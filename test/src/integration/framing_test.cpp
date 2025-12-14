@@ -150,9 +150,7 @@ TEST_F(FramingTest, LengthPrependFramerSendsCorrectFormat) {
 
     ct_transport_properties_t transport_properties;
     ct_transport_properties_build(&transport_properties);
-    ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
-    ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, REQUIRE);
-    ct_tp_set_sel_prop_preference(&transport_properties, ACTIVE_READ_BEFORE_SEND, REQUIRE);
+    ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT); // force tcp
 
     ct_remote_endpoint_t remote_endpoint;
     ct_remote_endpoint_build(&remote_endpoint);
@@ -189,8 +187,7 @@ TEST_F(FramingTest, LengthPrependFramerSendsCorrectFormat) {
 TEST_F(FramingTest, StripFirstCharFramerReceivesStrippedMessage) {
     ct_transport_properties_t transport_properties;
     ct_transport_properties_build(&transport_properties);
-    ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, REQUIRE);
-    ct_tp_set_sel_prop_preference(&transport_properties, ACTIVE_READ_BEFORE_SEND, REQUIRE);
+    ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT); // force tcp
 
     ct_remote_endpoint_t remote_endpoint;
     ct_remote_endpoint_build(&remote_endpoint);
@@ -235,9 +232,7 @@ TEST_F(FramingTest, AsyncFramerDefersSendCallback) {
     // and the message remains valid until the callback is invoked
     ct_transport_properties_t transport_properties;
     ct_transport_properties_build(&transport_properties);
-    ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
-    ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, REQUIRE);
-    ct_tp_set_sel_prop_preference(&transport_properties, ACTIVE_READ_BEFORE_SEND, REQUIRE);
+    ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT); // force tcp
 
     ct_remote_endpoint_t remote_endpoint;
     ct_remote_endpoint_build(&remote_endpoint);
