@@ -108,6 +108,7 @@ add_gtest(connection_clone_test SOURCES src/integration/quic/connection_clone_te
 add_gtest(remote_endpoint_unit_test SOURCES src/unit/endpoint/remote.cpp ${CTAPS_SOURCES})
 add_gtest(preconnection_unit_test SOURCES src/unit/connections/preconnection.cpp ${CTAPS_SOURCES})
 add_gtest(connection_unit_test SOURCES src/unit/connections/connection_test.cpp ${CTAPS_SOURCES})
+add_gtest(connection_group_unit_test SOURCES src/unit/connections/connection_group_test.cpp ${CTAPS_SOURCES})
 add_gtest(candidate_gathering_test
         SOURCES
             src/unit/candidate_gathering/candidate_gathering_test.cpp
@@ -159,6 +160,11 @@ add_gtest(tcp_listener_test SOURCES src/integration/tcp/tcp_listen_test.cpp ${CT
 add_gtest(selection_property_test
   SOURCES
     src/unit/transport_properties/selection_properties/selection_properties_test.cpp
+    ${CTAPS_SOURCES}
+)
+add_gtest(message_properties_test
+  SOURCES
+    src/unit/transport_properties/message_properties/message_properties_test.cpp
     ${CTAPS_SOURCES}
 )
 add_gtest(candidate_racing_test

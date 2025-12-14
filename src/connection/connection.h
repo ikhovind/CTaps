@@ -62,6 +62,14 @@ void ct_connection_free_content(ct_connection_t* connection);
 ct_connection_t* ct_connection_create_clone(const ct_connection_t* src_clone);
 
 /**
+ * @brief Set the can send connection property
+ *
+ * @param[in,out] connection The connection to modify
+ * @param[in] can_send New value for the canSend property
+ */
+void ct_connection_set_can_send(ct_connection_t* connection, bool can_send);
+
+/**
  * @brief Set the can receive connection property
  *
  * @param[in,out] connection The connection to modify
