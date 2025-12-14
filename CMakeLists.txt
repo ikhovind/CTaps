@@ -13,17 +13,14 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_MESSAGE_LOG_LEVEL DEBUG)
 
+
 # ---- Build Type Configuration ----
 # Set default build type to Debug if not specified
 if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build (Debug, Release)")
+    set(CMAKE_BUILD_TYPE Debug)
 endif()
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
-
-# Define compiler flags for different build types
-set(CMAKE_C_FLAGS_DEBUG "-O0 -g -Wall -Wextra" CACHE STRING "Flags for Debug build")
-set(CMAKE_C_FLAGS_RELEASE "-O2 -DNDEBUG -Wall -Wextra" CACHE STRING "Flags for Release build")
 
 # Linker flags for Release build (strip symbols)
 set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "-s" CACHE STRING "Shared linker flags for Release build")
@@ -81,6 +78,11 @@ set_target_properties(CTaps PROPERTIES
     C_VISIBILITY_PRESET hidden
 )
 
+target_compile_options(CTaps PRIVATE 
+    $<$<CONFIG:Debug>:-O0 -g3 -Wall -Wextra -Wpedantic -Werror>
+    $<$<CONFIG:Release>:-O2 -DNDEBUG -Wall -Wextra -Werror>      # Aggressive optimization for Release builds
+)
+
 target_include_directories(CTaps
         PUBLIC
           $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -110,25 +112,3 @@ pkg_check_modules(UUID REQUIRED uuid)
 
 target_include_directories(CTaps PUBLIC ${GLIB_INCLUDE_DIRS} ${UUID_INCLUDE_DIRS})
 target_link_libraries(CTaps PUBLIC ${GLIB_LIBRARIES} ${UUID_LIBRARIES})
-
-
-# ---- library for testing etc. -----
-
-
-# ---- Declare executable ----
-
-add_executable(mocking_exe src/main.c)
-
-target_link_libraries(mocking_exe
-        PRIVATE
-        CTaps
-)
-
-set_property(TARGET mocking_exe PROPERTY OUTPUT_NAME mocking)
-
-target_compile_features(mocking_exe PRIVATE c_std_99)
-
-enable_testing()
-
-add_subdirectory (test)
-add_subdirectory (benchmark)
