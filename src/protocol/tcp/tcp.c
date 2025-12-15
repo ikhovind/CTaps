@@ -9,6 +9,7 @@
 #include <uv.h>
 
 static void alloc_cb(uv_handle_t* handle, size_t size, uv_buf_t* buf) {
+	(void)handle;
 	*buf = uv_buf_init(malloc(size), size);
 }
 
@@ -112,6 +113,7 @@ void on_write(uv_write_t* req, int status) {
 }
 
 int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks) {
+  (void)connection_callbacks;
   int rc;
   log_info("Initiating TCP connection");
   uv_tcp_t* new_tcp_handle = malloc(sizeof(uv_tcp_t));
@@ -196,6 +198,7 @@ int tcp_close(ct_connection_t* connection) {
 }
 
 int tcp_send(ct_connection_t* connection, ct_message_t* message, ct_message_context_t* ctx) {
+  (void)ctx;
   log_debug("Sending message over TCP");
 
   uv_buf_t buffer = uv_buf_init(message->content, message->length);

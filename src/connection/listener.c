@@ -3,7 +3,7 @@
 #include <logging/log.h>
 #include <stdio.h>
 
-void ct_listener_close(const ct_listener_t* listener) {
+void ct_listener_close(ct_listener_t* listener) {
   log_debug("Closing listener");
   listener->socket_manager->listener = NULL;
   socket_manager_decrement_ref(listener->socket_manager);

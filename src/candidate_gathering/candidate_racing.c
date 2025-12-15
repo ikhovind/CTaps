@@ -31,7 +31,7 @@ static void on_timer_close_free_context(uv_handle_t* handle) {
         ct_free_remote_endpoint(attempt->candidate.remote_endpoint);
 
         // Free connection if it wasn't the winner
-        if (attempt->connection != NULL && i != context->winning_attempt_index) {
+        if (attempt->connection != NULL && i != (size_t)context->winning_attempt_index) {
           ct_connection_free(attempt->connection);
         }
       }
@@ -105,7 +105,7 @@ static ct_racing_context_t* racing_context_create(GArray* candidate_nodes,
 static int start_connection_attempt(ct_racing_context_t* context, int attempt_index) {
   log_info("Starting connection attempt %d/%zu", attempt_index + 1, context->num_attempts);
 
-  if (attempt_index >= context->num_attempts) {
+  if ((size_t)attempt_index >= context->num_attempts) {
     log_error("Invalid attempt index: %d", attempt_index);
     return -EINVAL;
   }
@@ -268,7 +268,7 @@ static void cancel_all_other_attempts(ct_racing_context_t* context, int winning_
   log_info("Canceling all attempts except winner (attempt %d)", winning_index);
 
   for (size_t i = 0; i < context->num_attempts; i++) {
-    if (i == winning_index) {
+    if (i == (size_t)winning_index) {
       continue;
     }
 
@@ -341,6 +341,7 @@ static void initiate_next_attempt(ct_racing_context_t* context) {
 int preconnection_initiate_with_racing(ct_preconnection_t* preconnection,
                                        ct_connection_t* user_connection,
                                        ct_connection_callbacks_t connection_callbacks) {
+  (void)user_connection;
 
   // Get ordered candidate nodes
   GArray* candidate_nodes = get_ordered_candidate_nodes(preconnection);

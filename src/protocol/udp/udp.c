@@ -20,6 +20,7 @@
 #define MAX_FOUND_INTERFACE_ADDRS 64
 
 void alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
+  (void)handle;
   *buf = uv_buf_init(malloc(suggested_size), suggested_size);
 }
 
@@ -77,6 +78,7 @@ void on_send(uv_udp_send_t* req, int status) {
 
 void on_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
              const struct sockaddr* addr, unsigned flags) {
+  (void)flags;
   ct_connection_t* connection = (ct_connection_t*)handle->data;
   if (nread < 0) {
     log_error("Read error: %s\n", uv_strerror(nread));
@@ -121,6 +123,7 @@ int udp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
 }
 
 void closed_handle_cb(uv_handle_t* handle) {
+  (void)handle;
   log_info("Successfully closed UDP handle");
 }
 
@@ -170,6 +173,7 @@ int udp_stop_listen(struct ct_socket_manager_s* socket_manager) {
 }
 
 int udp_send(ct_connection_t* connection, ct_message_t* message, ct_message_context_t* message_context) {
+  (void)message_context;
   log_debug("Sending message over UDP");
 
   // Use the message content directly as the send buffer (it's already heap-allocated)
@@ -204,6 +208,7 @@ void socket_listen_callback(uv_udp_t* handle,
                                const uv_buf_t* buf,
                                const struct sockaddr* addr,
                                unsigned flags) {
+  (void)flags;
   if (nread == 0 && addr == NULL) {
     // No more data to read, or an empty packet.
     log_info("Socket listen callback invoked, but nothing to read from udp socket or empty packet");
@@ -245,7 +250,6 @@ void socket_listen_callback(uv_udp_t* handle,
 
 int udp_listen(ct_socket_manager_t* socket_manager) {
   log_debug("Listening via UDP");
-  int rc;
 
   ct_local_endpoint_t local_endpoint = ct_listener_get_local_endpoint(socket_manager->listener);
   uv_udp_t* udp_handle = create_udp_listening_on_local(&local_endpoint, alloc_buffer, socket_listen_callback);
@@ -253,8 +257,6 @@ int udp_listen(ct_socket_manager_t* socket_manager) {
     log_error("Failed to create UDP handle for listening");
     return -EIO;
   }
-
-  ct_listener_t* listener = socket_manager->listener;
 
   udp_handle->data = socket_manager;
   socket_manager_increment_ref(socket_manager);

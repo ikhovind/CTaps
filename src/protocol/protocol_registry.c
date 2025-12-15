@@ -4,7 +4,7 @@
 
 static int protocol_count = 0;
 // Function to add a new protocol to our list
-void ct_register_protocol(ct_protocol_impl_t* proto) {
+void ct_register_protocol(const ct_protocol_impl_t* proto) {
   if (protocol_count < MAX_PROTOCOLS) {
     ct_supported_protocols[protocol_count++] = proto;
   }
