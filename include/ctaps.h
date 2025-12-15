@@ -453,7 +453,7 @@ typedef struct {
     .value = { (uint32_t)default_value }                     \
 },
 
-static ct_connection_property_t DEFAULT_CONNECTION_PROPERTIES[] = {
+__attribute__((unused)) static ct_connection_property_t DEFAULT_CONNECTION_PROPERTIES[] = {
     get_writable_connection_property_list(create_con_property_initializer)
     get_read_only_connection_properties(create_con_property_initializer)
     get_tcp_connection_properties(create_con_property_initializer)
@@ -1657,7 +1657,7 @@ CT_EXTERN void ct_listener_stop(ct_listener_t* listener);
  * @brief Close a listener and free its socket resources.
  * @param[in] listener Listener to close
  */
-CT_EXTERN void ct_listener_close(const ct_listener_t* listener);
+CT_EXTERN void ct_listener_close(ct_listener_t* listener);
 
 /**
  * @brief Free resources in a listener.
@@ -1686,7 +1686,7 @@ CT_EXTERN void ct_protocol_registry_free();
 #define MAX_PROTOCOLS 256  ///< Maximum number of protocols that can be registered
 
 /// Global array of registered protocol implementations
-static const ct_protocol_impl_t* ct_supported_protocols[MAX_PROTOCOLS] = {0};
+__attribute__((unused)) static const ct_protocol_impl_t* ct_supported_protocols[MAX_PROTOCOLS] = {0};
 
 /**
  * @brief Register a custom protocol implementation.
@@ -1699,7 +1699,7 @@ static const ct_protocol_impl_t* ct_supported_protocols[MAX_PROTOCOLS] = {0};
  * @note The protocol implementation must remain valid for the lifetime of the library
  * @see ct_protocol_impl_t for the protocol interface
  */
-CT_EXTERN void ct_register_protocol(ct_protocol_impl_t* proto);
+CT_EXTERN void ct_register_protocol(const ct_protocol_impl_t* proto);
 
 /**
  * @brief Get the array of all registered protocols.

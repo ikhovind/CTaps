@@ -27,7 +27,7 @@ int copy_remote_endpoints(ct_preconnection_t* preconnection,
     log_error("Could not allocate memory for remote endpoints: %s");
     return errno;
   }
-  for (int i = 0; i < num_remote_endpoints; i++) {
+  for (size_t i = 0; i < num_remote_endpoints; i++) {
     memcpy(&preconnection->remote_endpoints[i], &remote_endpoints[i], sizeof(ct_remote_endpoint_t));
     if (remote_endpoints[i].hostname != NULL) {
       // We have copied the pointer, but want a deep copy of the string, so just overwrite the pointer
@@ -119,7 +119,7 @@ int ct_preconnection_initiate(ct_preconnection_t* preconnection, ct_connection_c
 
 void ct_preconnection_free(ct_preconnection_t* preconnection) {
   if (preconnection->remote_endpoints != NULL) {
-    for (int i = 0; i < preconnection->num_remote_endpoints; i++) {
+    for (size_t i = 0; i < preconnection->num_remote_endpoints; i++) {
       ct_free_remote_endpoint_strings(&preconnection->remote_endpoints[i]);
     }
     free(preconnection->remote_endpoints);

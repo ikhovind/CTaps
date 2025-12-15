@@ -24,7 +24,7 @@ void ct_set_sel_prop_direction(ct_selection_properties_t* props, ct_selection_pr
     log_error("Type mismatch for property %s", props->selection_property[prop_enum].name);
     return;
   }
-  props->selection_property[prop_enum].value.multipath_enum = val;
+  props->selection_property[prop_enum].value.direction_enum = val;
   props->selection_property[prop_enum].set_by_user = true;
 }
 

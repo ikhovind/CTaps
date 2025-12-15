@@ -40,7 +40,7 @@ typedef struct ct_quic_group_state_s {
   picoquic_cnx_t* picoquic_connection;
 } ct_quic_group_state_t;
 
-ct_quic_group_state_t* ct_create_quic_group_state() {
+ct_quic_group_state_t* ct_create_quic_group_state(void) {
   ct_quic_group_state_t* state = malloc(sizeof(ct_quic_group_state_t));
   if (state) {
     memset(state, 0, sizeof(ct_quic_group_state_t));
@@ -159,7 +159,7 @@ static ct_quic_global_state_t default_global_quic_state = {
 size_t quic_alpn_select_cb(picoquic_quic_t* quic, ptls_iovec_t* list, size_t count) {
   log_trace("QUIC server alpn select cb");
 
-  size_t ret = count;
+  (void)count;
 
   /*
    * As far as I can see there is no way of associating this callback with
@@ -378,7 +378,7 @@ int picoquic_callback(picoquic_cnx_t* cnx,
     uint64_t stream_id, uint8_t* bytes, size_t length,
     picoquic_call_back_event_t fin_or_event, void* callback_ctx, void* v_stream_ctx)
 {
-  int rc;
+  (void)cnx;
   ct_connection_group_t* connection_group = (ct_connection_group_t*)callback_ctx;
   ct_connection_t* connection = NULL;
   log_trace("ct_callback_t event with connection group: %s", connection_group->connection_group_id);
@@ -600,6 +600,7 @@ int picoquic_callback(picoquic_cnx_t* cnx,
 }
 
 static void alloc_quic_buf(uv_handle_t* handle, size_t size, uv_buf_t* buf) {
+	(void)handle;
 	*buf = uv_buf_init(malloc(size), size);
 }
 
@@ -622,6 +623,7 @@ void on_quic_udp_send(uv_udp_send_t* req, int status) {
 }
 
 void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr_from, unsigned flags) {
+  (void)flags;
   log_debug("Received QUIC message over UDP");
   if (nread < 0) {
     log_error("Read error: %s\n", uv_strerror(nread));
@@ -653,9 +655,9 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
 
   rc = picoquic_incoming_packet_ex(
     quic_ctx,
-    buf->base,
+    (uint8_t*)buf->base,
     nread,
-    addr_from,
+    (struct sockaddr*)addr_from,
     (struct sockaddr*)&addr_to_storage,
     0,
     0,
@@ -748,6 +750,7 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
 }
 
 void on_quic_timer(uv_timer_t* timer_handle) {
+  (void)timer_handle;
   log_trace("QUIC timer triggered, checking for new QUIC packets to send");
 
   picoquic_quic_t* quic_ctx = get_global_quic_ctx();
@@ -858,16 +861,14 @@ uv_timer_t* set_up_timer_handle() {
 }
 
 int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks) {
+  (void)connection_callbacks;
   log_info("Initializing standalone QUIC connection");
   picoquic_quic_t* quic_ctx = get_global_quic_ctx();
   if (!quic_ctx) {
     log_error("Failed to get global QUIC context");
     return -EIO;
   }
-  picoquic_cnx_t *cnx = NULL;
-  int client_socket = -1;
   uint64_t current_time = 0;
-  int ret = 0;
 
   /* 1. INITIALIZATION & CONTEXT SETUP */
 
@@ -996,6 +997,7 @@ int quic_close(ct_connection_t* connection) {
 }
 
 int quic_clone_connection(const struct ct_connection_s* source_connection, struct ct_connection_s* target_connection) {
+  (void)source_connection;
   log_debug("Creating clone of QUIC connection using multistreaming");
   target_connection->internal_connection_state = malloc(sizeof(ct_quic_stream_state_t));
   ct_quic_stream_state_t* target_state = (target_connection->internal_connection_state);
@@ -1045,7 +1047,7 @@ int quic_send(ct_connection_t* connection, ct_message_t* message, ct_message_con
     set_fin = 1;
   }
 
-  int rc = picoquic_add_to_stream_with_ctx(cnx, stream_id, message->content, message->length, set_fin, connection);
+  int rc = picoquic_add_to_stream_with_ctx(cnx, stream_id, (const uint8_t*)message->content, message->length, set_fin, connection);
 
   if (rc != 0) {
     log_error("Error queuing data to QUIC stream: %d", rc);
@@ -1126,6 +1128,8 @@ int quic_stop_listen(ct_socket_manager_t* socket_manager) {
 }
 
 int quic_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* resolved_peer) {
+  (void)peer;
+  (void)resolved_peer;
   return -ENOSYS;
 }
 

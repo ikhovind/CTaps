@@ -17,6 +17,7 @@ typedef struct ct_node_pruning_data_t {
 void build_candidate_tree_recursive(GNode* parent_node);
 
 gboolean free_candidate_node(GNode *node, gpointer user_data) {
+  (void)user_data;
   const ct_candidate_node_t* candidate_node = (ct_candidate_node_t*)node->data;
   if (candidate_node->local_endpoint) {
     ct_free_local_endpoint(candidate_node->local_endpoint);
@@ -353,7 +354,7 @@ GArray* get_ordered_candidate_nodes(const ct_preconnection_t* precon) {
   g_node_destroy(root_node);
 
   log_trace("Sorting candidates based in desirability");
-  g_array_sort_with_data(root_array, compare_prefer_and_avoid_preferences, &precon->transport_properties.selection_properties);
+  g_array_sort_with_data(root_array, compare_prefer_and_avoid_preferences, (gpointer)&precon->transport_properties.selection_properties);
 
   if (root_array->len > 0) {
     log_trace("Most desirable candidate protocol is: %s", (g_array_index(root_array, ct_candidate_node_t, 0)).protocol->name);
@@ -408,7 +409,7 @@ void build_candidate_tree_recursive(GNode* parent_node) {
 
     // Clean up the allocated memory for the list of local endpoints
     if (local_endpoint_list != NULL) {
-      for (int i = 0; i < num_found_local; i++) {
+      for (size_t i = 0; i < num_found_local; i++) {
         ct_free_local_endpoint_strings(&local_endpoint_list[i]);
       }
       log_trace("Freeing list of local endpoints after building path nodes");
@@ -422,11 +423,11 @@ void build_candidate_tree_recursive(GNode* parent_node) {
     size_t num_found_protocols = 0;
 
     // Get all protocols that fit the selection properties.
-    ct_protocol_impl_t **candidate_stacks = ct_get_supported_protocols();
+    const ct_protocol_impl_t **candidate_stacks = ct_get_supported_protocols();
     num_found_protocols = ct_get_num_protocols(); // Assume one protocol for demonstration purposes.
     log_trace("Found %d candidate protocols", num_found_protocols);
 
-    for (int i = 0; i < num_found_protocols; i++) {
+    for (size_t i = 0; i < num_found_protocols; i++) {
       // Create a child node for each supported protocol.
       ct_candidate_node_t* proto_node_data = candidate_node_new(
         NODE_TYPE_PROTOCOL,
@@ -472,7 +473,7 @@ void build_candidate_tree_recursive(GNode* parent_node) {
 }
 
 void free_candidate_array(GArray* candidate_array) {
-  for (int i = 0; i < candidate_array->len; i++) {
+  for (guint i = 0; i < candidate_array->len; i++) {
     const ct_candidate_node_t candidate_node = g_array_index(candidate_array, ct_candidate_node_t, i);
     ct_free_local_endpoint(candidate_node.local_endpoint);
     ct_free_remote_endpoint(candidate_node.remote_endpoint);
