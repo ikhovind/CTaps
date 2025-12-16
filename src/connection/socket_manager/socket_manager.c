@@ -1,13 +1,13 @@
 #include "socket_manager.h"
 
+#include "connection/connection.h"
+#include "ctaps.h"
+#include <errno.h>
 #include <glib.h>
 #include <logging/log.h>
 #include <netinet/in.h>
 #include <stdlib.h>
-#include "connection/connection.h"
-#include <errno.h>
-
-#include "ctaps.h"
+#include <sys/socket.h>
 
 int socket_manager_build(ct_socket_manager_t* socket_manager, ct_listener_t* listener) {
   log_debug("Building socket manager for listener");

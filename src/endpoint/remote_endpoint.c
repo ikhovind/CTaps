@@ -4,8 +4,11 @@
 #include <endpoint/util.h>
 #include <errno.h>
 #include <logging/log.h>
+#include <netinet/in.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 
 void ct_remote_endpoint_build(ct_remote_endpoint_t* remote_endpoint) {
   memset(remote_endpoint, 0, sizeof(ct_remote_endpoint_t));
@@ -71,12 +74,11 @@ int ct_remote_endpoint_with_hostname(ct_remote_endpoint_t* remote_endpoint, cons
 }
 
 int ct_remote_endpoint_with_service(ct_remote_endpoint_t* remote_endpoint, const char* service) {
-  remote_endpoint->service = malloc(strlen(service) + 1);
+  remote_endpoint->service = strdup(service);
   if (remote_endpoint->service == NULL) {
     log_error("Could not allocate memory for service\n");
-    return -errno;
+    return -ENOMEM;
   }
-  strcpy(remote_endpoint->service, service);
   return 0;
 }
 

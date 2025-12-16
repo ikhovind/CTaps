@@ -1,18 +1,15 @@
 
+#include "connection/socket_manager/socket_manager.h"
+#include "ctaps.h"
 #include <candidate_gathering/candidate_gathering.h>
 #include <candidate_gathering/candidate_racing.h>
 #include <errno.h>
 #include <glib.h>
 #include <logging/log.h>
-#include "ctaps.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-
-#include "connection/socket_manager/socket_manager.h"
-#include "connection/connection.h"
-#include "ctaps.h"
 
 #define INT_TO_STRING(x) #x
 

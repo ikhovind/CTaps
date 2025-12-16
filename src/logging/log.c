@@ -22,6 +22,11 @@
 
 #include "log.h"
 
+#include <stdarg.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <time.h>
+
 #define MAX_CALLBACKS 32
 
 typedef struct {

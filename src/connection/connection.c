@@ -1,17 +1,18 @@
 
-#include <logging/log.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <uv.h>
-
-#include "connection/socket_manager/socket_manager.h"
 #include "connection/connection.h"
+
 #include "connection/connection_group.h"
-#include "util/uuid_util.h"
-#include "message/message.h"
+#include "connection/socket_manager/socket_manager.h"
 #include "ctaps.h"
-#include "glib.h"
+#include "message/message.h"
+#include "util/uuid_util.h"
+#include <errno.h>
+#include <glib.h>
+#include <logging/log.h>
 #include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
+#include <uv.h>
 
 int ct_connection_build_with_new_connection_group(ct_connection_t* connection) {
   memset(connection, 0, sizeof(ct_connection_t));
@@ -43,7 +44,7 @@ int ct_connection_build_with_new_connection_group(ct_connection_t* connection) {
   return 0;
 }
 
-ct_connection_t* create_empty_connection_with_uuid() {
+ct_connection_t* create_empty_connection_with_uuid(void) {
   ct_connection_t* connection = malloc(sizeof(ct_connection_t));
   if (!connection) {
     log_error("Failed to allocate memory for ct_connection_t");
@@ -165,7 +166,7 @@ int ct_send_message_full(ct_connection_t* connection, ct_message_t* message, ct_
     return -ENOMEM;
   }
 
-  int rc;
+  int rc = 0;
   if (connection->framer_impl != NULL) {
     log_debug("User sending message on connection with framer");
     rc = connection->framer_impl->encode_message(connection, message_copy, message_context, ct_connection_send_to_protocol);

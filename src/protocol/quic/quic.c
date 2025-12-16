@@ -1,21 +1,23 @@
 #include "quic.h"
 
-#include "ctaps.h"
-#include <logging/log.h>
-#include <picotls.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <sys/socket.h>
-
 #include "connection/connection.h"
 #include "connection/connection_group.h"
 #include "connection/socket_manager/socket_manager.h"
+#include "ctaps.h"
 #include "protocol/common/socket_utils.h"
-#include "uv.h"
+#include <errno.h>
+#include <glib.h>
+#include <logging/log.h>
 #include <picoquic.h>
 #include <picoquic_utils.h>
+#include <picotls.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <uv.h>
 
-#define PICOQUIC_GET_REMOTE_ADDR 2
 #define MAX_QUIC_PACKET_SIZE 1500
 
 #define MICRO_TO_MILLI(us) ((us) / 1000)
@@ -40,7 +42,7 @@ typedef struct ct_quic_group_state_s {
   picoquic_cnx_t* picoquic_connection;
 } ct_quic_group_state_t;
 
-ct_quic_group_state_t* ct_create_quic_group_state(void) {
+ct_quic_group_state_t* ct_create_quic_group_state() {
   ct_quic_group_state_t* state = malloc(sizeof(ct_quic_group_state_t));
   if (state) {
     memset(state, 0, sizeof(ct_quic_group_state_t));
@@ -74,9 +76,6 @@ void ct_free_quic_stream_state(ct_quic_stream_state_t* state) {
 }
 
 // Forward declarations of helper functions
-ct_quic_group_state_t* ct_create_quic_group_state(void);
-void ct_free_quic_group_state(ct_quic_group_state_t* state);
-void ct_free_quic_stream_state(ct_quic_stream_state_t* state);
 bool ct_connection_stream_is_initialized(ct_connection_t* connection);
 void ct_quic_set_connection_stream(ct_connection_t* connection, uint64_t stream_id);
 void ct_connection_assign_next_free_stream(ct_connection_t* connection, bool is_unidirectional);
@@ -252,7 +251,6 @@ uint32_t decrement_active_socket_counter() {
 }
 
 int handle_closed_picoquic_connection(ct_connection_t* connection) {
-  int rc;
   ct_quic_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
   if (!group_state) {
     log_error("Cannot handle closed QUIC connection due to invalid parameter");
@@ -263,6 +261,7 @@ int handle_closed_picoquic_connection(ct_connection_t* connection) {
     log_error("Cannot handle closed QUIC connection, due to invalid parameter");
     return -EINVAL;
   }
+  int rc = 0;
   if (connection->socket_type == CONNECTION_SOCKET_TYPE_STANDALONE) {
     log_info("Closing standalone QUIC connection with UDP handle: %p", group_state->udp_handle);
 
@@ -451,9 +450,7 @@ int picoquic_callback(picoquic_cnx_t* cnx,
             // Set the stream ID on the cloned connection so responses go to the correct stream
             ct_quic_set_connection_stream(new_stream_connection, stream_id);
 
-            int rc;
-
-            rc = picoquic_set_app_stream_ctx(group_state->picoquic_connection, stream_id, new_stream_connection);
+            int rc = picoquic_set_app_stream_ctx(group_state->picoquic_connection, stream_id, new_stream_connection);
             if (rc < 0) {
               log_error("Failed to set stream context for new stream connection: %d", rc);
               return rc;
@@ -533,13 +530,14 @@ int picoquic_callback(picoquic_cnx_t* cnx,
       log_info("Picoquic callback closed");
       // When the QUIC connection closes, all streams are closed
       {
-        int size = g_hash_table_size(connection_group->connections);
+        uint32_t size = g_hash_table_size(connection_group->connections);
         log_info("Number of connections in group at close event: %d", size);
         log_info("Active connections before close: %u", connection_group->num_active_connections);
 
         // Mark all connections in the group as closed
         GHashTableIter iter;
-        gpointer key, value;
+        gpointer key = NULL;
+        gpointer value = NULL;
         g_hash_table_iter_init(&iter, connection_group->connections);
         while (g_hash_table_iter_next(&iter, &key, &value)) {
           ct_connection_t* conn = (ct_connection_t*)value;
@@ -844,7 +842,7 @@ void on_quic_timer(uv_timer_t* timer_handle) {
   reset_quic_timer();
 }
 
-uv_timer_t* set_up_timer_handle() {
+uv_timer_t* set_up_timer_handle(void) {
   uv_timer_t* timer_handle = malloc(sizeof(*timer_handle));
   if (timer_handle == NULL) {
       log_error("Failed to allocate memory for timer handle");

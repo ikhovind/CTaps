@@ -39,7 +39,7 @@ static size_t large_file_size_global = 0;
 static uint8_t *short_file_data_global = NULL;
 static size_t short_file_size_global = 0;
 
-static void load_files(void) {
+static void load_files() {
     FILE *fp;
 
     if (access("large_file.dat", F_OK) != 0) {

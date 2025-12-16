@@ -1,18 +1,17 @@
 #include "port_util.h"
 
-#include <sys/socket.h>
+#include "ctaps.h"
+#include <logging/log.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <logging/log.h>
-#include <errno.h>
-
-#include "ctaps.h"
+#include <sys/socket.h>
 
 int32_t get_service_port_inner(char* service, int family) {
   struct addrinfo hints;
-  struct addrinfo *result;
+  struct addrinfo *result = NULL;
 
   // Initialize hints struct
   memset(&hints, 0, sizeof(hints));

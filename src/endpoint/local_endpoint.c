@@ -1,7 +1,6 @@
 #include "ctaps.h"
 
 #include "endpoint/util.h"
-
 #include <endpoint/port_util.h>
 #include <errno.h>
 #include <logging/log.h>
@@ -10,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 
 void ct_local_endpoint_with_port(ct_local_endpoint_t* local_endpoint, int port) {
   local_endpoint->port = port;
@@ -34,11 +34,10 @@ int ct_local_endpoint_with_interface(ct_local_endpoint_t* local_endpoint, const 
 }
 
 int ct_local_endpoint_with_service(ct_local_endpoint_t* local_endpoint, char* service) {
-  local_endpoint->service = malloc(strlen(service) + 1);
+  local_endpoint->service = strdup(service);
   if (local_endpoint->service == NULL) {
-    return -errno;
+    return -ENOMEM;
   }
-  strcpy(local_endpoint->service, service);
   return 0;
 }
 

@@ -1,8 +1,9 @@
 #include "ctaps.h"
-#include "logging/log.h"
-#include <string.h>
-#include <stdlib.h>
+
 #include <errno.h>
+#include <logging/log.h>
+#include <stdlib.h>
+#include <string.h>
 
 void ct_security_parameters_build(ct_security_parameters_t* security_parameters) {
   // TODO - maybe introduce default values here instead?

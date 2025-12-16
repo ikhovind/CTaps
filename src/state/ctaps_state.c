@@ -1,11 +1,13 @@
 #include "ctaps.h"
 
+#include "protocol/tcp/tcp.h"
+#include "protocol/udp/udp.h"
 #include <logging/log.h>
 #include <protocol/quic/quic.h>
-
-#include "protocol/udp/udp.h"
-#include "protocol/tcp/tcp.h"
-#include "uv.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <uv.h>
 
 uv_loop_t* event_loop;
 
@@ -59,7 +61,7 @@ void ct_set_log_level(ct_log_level_t level) {
 }
 
 int ct_add_log_file(const char* file_path, ct_log_level_t min_level) {
-  FILE* fp = fopen(file_path, "a");
+  FILE* fp = fopen(file_path, "ae");
   if (fp == NULL) {
     return -1;
   }

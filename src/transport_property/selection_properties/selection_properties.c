@@ -1,9 +1,10 @@
 #include "ctaps.h"
 
+#include "glibconfig.h"
 #include <glib.h>
 #include <logging/log.h>
-
-#include "glibconfig.h"
+#include <stddef.h>
+#include <string.h>
 
 
 void ct_selection_properties_build(ct_selection_properties_t* selection_properties) {

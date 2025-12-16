@@ -1,16 +1,20 @@
 #include "util.h"
 
-#include <logging/log.h>
 #include "ctaps.h"
+#include <errno.h>
+#include <logging/log.h>
+#include <netdb.h>
+#include <netinet/in.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <uv.h>
 
 void get_interface_addresses(const char *interface_name, int *num_found_addresses, struct sockaddr_storage *output_interface_addrs) {
   *num_found_addresses = 0;
   if (interface_name != NULL) {
-    uv_interface_address_t* interfaces;
-    int count;
+    uv_interface_address_t* interfaces = NULL;
+    int count = 0;
     int rc = uv_interface_addresses(&interfaces, &count);
     if (rc != 0) {
       return;
@@ -59,6 +63,10 @@ int perform_dns_lookup(const char* hostname, const char* service, ct_remote_endp
   }
   log_debug("Found %d addresses for hostname %s", count, hostname);
 
+  if (count == 0) {
+    uv_freeaddrinfo(request.addrinfo);
+    return 0;
+  }
   *out_list = malloc(count * sizeof(ct_remote_endpoint_t));
   if (*out_list == NULL) {
     log_error("Could not allocate memory for ct_remote_endpoint_t output list");

@@ -27,7 +27,7 @@ typedef struct ct_racing_attempt_t {
   ct_connection_t* connection;
   ct_candidate_node_t candidate;
   ct_attempt_state_t state;
-  int attempt_index;
+  size_t attempt_index;
   ct_racing_context_t* context;  // Back-pointer to parent racing context
 } ct_racing_attempt_t;
 

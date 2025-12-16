@@ -1,11 +1,17 @@
 #include "tcp.h"
-#include "ctaps.h"
-#include "connection/socket_manager/socket_manager.h"
+
 #include "connection/connection.h"
 #include "connection/connection_group.h"
+#include "connection/socket_manager/socket_manager.h"
+#include "ctaps.h"
 #include <errno.h>
 #include <logging/log.h>
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 #include <uv.h>
 
 static void alloc_cb(uv_handle_t* handle, size_t size, uv_buf_t* buf) {
@@ -114,7 +120,6 @@ void on_write(uv_write_t* req, int status) {
 
 int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks) {
   (void)connection_callbacks;
-  int rc;
   log_info("Initiating TCP connection");
   uv_tcp_t* new_tcp_handle = malloc(sizeof(uv_tcp_t));
   if (new_tcp_handle == NULL) {
@@ -127,7 +132,7 @@ int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
   // each connection gets its own handle
   connection->internal_connection_state = (uv_handle_t*)new_tcp_handle;
 
-  rc = uv_tcp_init(event_loop, new_tcp_handle);
+  int rc = uv_tcp_init(event_loop, new_tcp_handle);
 
   if (rc < 0) {
     log_error("Error initializing udp handle: %s", uv_strerror(rc));
@@ -225,7 +230,6 @@ int tcp_send(ct_connection_t* connection, ct_message_t* message, ct_message_cont
 
 int tcp_listen(ct_socket_manager_t* socket_manager) {
   log_debug("Listening via TCP");
-  int rc;
   uv_tcp_t* new_tcp_handle = malloc(sizeof(uv_tcp_t));
   if (new_tcp_handle == NULL) {
     log_error("Failed to allocate memory for TCP handle");
@@ -234,7 +238,7 @@ int tcp_listen(ct_socket_manager_t* socket_manager) {
 
   ct_listener_t* listener = socket_manager->listener;
 
-  rc = uv_tcp_init(event_loop, new_tcp_handle);
+  int rc = uv_tcp_init(event_loop, new_tcp_handle);
   if (rc < 0) {
     log_error( "Error initializing tcp handle: %s", uv_strerror(rc));
     free(new_tcp_handle);
@@ -267,7 +271,6 @@ int tcp_listen(ct_socket_manager_t* socket_manager) {
 
 void new_stream_connection_cb(uv_stream_t *server, int status) {
   log_debug("New TCP connection received for ct_listener_t");
-  int rc;
   if (status < 0) {
     log_error("New connection error: %s", uv_strerror(status));
     return;
@@ -277,7 +280,7 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
     log_error("Failed to allocate memory for new TCP client");
     return;
   }
-  rc = uv_tcp_init(event_loop, client);
+  int rc = uv_tcp_init(event_loop, client);
   if (rc < 0) {
     log_error("Error initializing TCP client handle: %s", uv_strerror(rc));
     free(client);
@@ -328,10 +331,9 @@ int tcp_stop_listen(ct_socket_manager_t* socket_manager) {
 }
 
 int tcp_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* resolved_peer) {
-  int rc;
   struct sockaddr_storage remote_addr;
   int addr_len = sizeof(remote_addr);
-  rc = uv_tcp_getpeername((uv_tcp_t*)peer, (struct sockaddr *)&remote_addr, &addr_len);
+  int rc = uv_tcp_getpeername((uv_tcp_t*)peer, (struct sockaddr *)&remote_addr, &addr_len);
   if (rc < 0) {
     log_error("Could not get remote address from received handle: %s", uv_strerror(rc));
     return rc;
@@ -361,7 +363,6 @@ int tcp_clone_connection(const struct ct_connection_s* source_connection,
   }
 
   log_info("Cloning TCP connection");
-  int rc;
 
   // Allocate and initialize TCP handle
   uv_tcp_t* new_tcp_handle = malloc(sizeof(uv_tcp_t));
@@ -370,7 +371,7 @@ int tcp_clone_connection(const struct ct_connection_s* source_connection,
     return -ENOMEM;
   }
 
-  rc = uv_tcp_init(event_loop, new_tcp_handle);
+  int rc = uv_tcp_init(event_loop, new_tcp_handle);
   if (rc < 0) {
     log_error("Error initializing tcp handle for clone: %s", uv_strerror(rc));
     free(new_tcp_handle);
