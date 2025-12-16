@@ -1,12 +1,12 @@
 #include "candidate_gathering.h"
 
-#include <glib.h>
-#include <stdlib.h>
-#include <stdbool.h>
 #include "ctaps.h"
-#include <string.h>
-#include <stdio.h>
+#include <glib.h>
 #include <logging/log.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 
 typedef struct ct_node_pruning_data_t {

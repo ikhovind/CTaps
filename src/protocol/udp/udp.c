@@ -1,21 +1,18 @@
 #include "udp.h"
 
-#include <fcntl.h>
-#include <netinet/in.h>
-#include <stdlib.h>
-#include <sys/epoll.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <uv.h>
-#include <logging/log.h>
-#include <errno.h>
-#include <protocol/common/socket_utils.h>
-
-#include "ctaps.h"
-
 #include "connection/connection.h"
 #include "connection/connection_group.h"
 #include "connection/socket_manager/socket_manager.h"
+#include "ctaps.h"
+#include <errno.h>
+#include <glib.h>
+#include <logging/log.h>
+#include <protocol/common/socket_utils.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <uv.h>
 
 #define MAX_FOUND_INTERFACE_ADDRS 64
 
@@ -224,6 +221,7 @@ void socket_listen_callback(uv_udp_t* handle,
     return;
   }
 
+
   ct_socket_manager_t *socket_manager = (ct_socket_manager_t*)handle->data;
 
   ct_message_t* received_message = malloc(sizeof(ct_message_t));
@@ -231,7 +229,12 @@ void socket_listen_callback(uv_udp_t* handle,
     free(buf->base);
     return;
   }
-  received_message->content = malloc(nread);
+  if (nread > 0) {
+    received_message->content = malloc(nread);
+  }
+  else {
+    received_message->content = NULL;
+  }
   if (!received_message->content) {
     free(received_message);
     free(buf->base);
@@ -266,10 +269,9 @@ int udp_listen(ct_socket_manager_t* socket_manager) {
 }
 
 int udp_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* resolved_peer) {
-  int rc;
   struct sockaddr_storage remote_addr;
   int addr_len = sizeof(remote_addr);
-  rc = uv_udp_getpeername((uv_udp_t*)peer, (struct sockaddr *)&remote_addr, &addr_len);
+  int rc = uv_udp_getpeername((uv_udp_t*)peer, (struct sockaddr *)&remote_addr, &addr_len);
   if (rc < 0) {
     log_error("Could not get remote address from received handle: %s", uv_strerror(rc));
     return rc;

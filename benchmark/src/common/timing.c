@@ -35,7 +35,7 @@ double timing_get_duration_us(const timing_t *timing) {
     return end_us - start_us;
 }
 
-uint64_t timing_get_timestamp_us(void) {
+uint64_t timing_get_timestamp_us() {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (uint64_t)ts.tv_sec * 1000000 + (uint64_t)ts.tv_nsec / 1000;

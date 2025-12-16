@@ -1,7 +1,12 @@
 #include "connection_group.h"
-#include <logging/log.h>
-#include "connection/connection.h"
+
 #include "ctaps.h"
+#include <errno.h>
+#include <glib.h>
+#include <logging/log.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdlib.h>
 
 
 int ct_connection_group_add_connection(ct_connection_group_t* group, ct_connection_t* connection) {
@@ -25,7 +30,8 @@ ct_connection_t* ct_connection_group_get_first(ct_connection_group_t* group) {
   }
 
   GHashTableIter iter;
-  gpointer key, value;
+  gpointer key = NULL;
+  gpointer value = NULL;
   g_hash_table_iter_init(&iter, group->connections);
 
   if (g_hash_table_iter_next(&iter, &key, &value)) {
@@ -38,7 +44,8 @@ ct_connection_t* ct_connection_group_get_first(ct_connection_group_t* group) {
 void ct_connection_group_close_all(ct_connection_group_t* connection_group) {
   log_info("Closing connection group: %s", connection_group->connection_group_id);
   GHashTableIter iter;
-  gpointer key, value;
+  gpointer key = NULL;
+  gpointer value = NULL;
   g_hash_table_iter_init(&iter, connection_group->connections);
   while (g_hash_table_iter_next(&iter, &key, &value)) {
     ct_connection_t* connection = (ct_connection_t*)value;
@@ -55,7 +62,8 @@ void ct_connection_group_close_all(ct_connection_group_t* connection_group) {
 void ct_connection_group_abort_all(ct_connection_group_t* connection_group) {
   log_info("Aborting connection group: %s", connection_group->connection_group_id);
   GHashTableIter iter;
-  gpointer key, value;
+  gpointer key = NULL;
+  gpointer value = NULL;
   g_hash_table_iter_init(&iter, connection_group->connections);
   while (g_hash_table_iter_next(&iter, &key, &value)) {
     ct_connection_t* connection = (ct_connection_t*)value;

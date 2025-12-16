@@ -1,5 +1,7 @@
 #include "ctaps.h"
 
+#include <string.h>
+
 void ct_message_properties_build(ct_message_properties_t* message_properties) {
   memcpy(message_properties, &DEFAULT_MESSAGE_PROPERTIES, sizeof(ct_message_properties_t));
 }
