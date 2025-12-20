@@ -14,11 +14,11 @@ This project uses CMake (minimum version 3.21) with custom modules for dependenc
 
 ```bash
 # Standard CMake build
-cmake . -B out 
-cmake --build out --target all -j 6
+cmake . -B out/Debug
+cmake --build out/Debug --target all -j 6
 
 # Run all tests
-cd out/test && ctest
+cd out/Debug/test && ctest
 
 
 # Run a specific test
@@ -33,7 +33,7 @@ ctest -R <test-name> --output-on-failure
 
 ### Running Tests
 
-Build the project like normally and use ``ctest`` in the out/test forlder
+Build the project like normally and use ``ctest`` in the out/Debug/test forlder
 
 ## Architecture
 
@@ -98,7 +98,6 @@ Tests requiring external servers (TCP/UDP/QUIC ping tests) rely on Python helper
 
 - **C99** standard (`target_compile_features(... c_std_99)`)
 - **clang-tidy** is automatically run during build if available (configured via `.clang-tidy`)
-- **clang-format** for code formatting - run `cmake --build out --target format`
 
 ## Known Refactoring Needs (from REFACTOR.md)
 

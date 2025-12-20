@@ -4,6 +4,7 @@
 #include "protocol/udp/udp.h"
 #include <logging/log.h>
 #include <protocol/quic/quic.h>
+#include <protocol/tcp/tcp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

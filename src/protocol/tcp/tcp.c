@@ -170,36 +170,21 @@ int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
 int tcp_close(ct_connection_t* connection) {
   log_info("Closing TCP connection: %s", connection->uuid);
 
-  if (connection->socket_type == CONNECTION_SOCKET_TYPE_MULTIPLEXED) {
-    log_info("Closing multiplexed TCP connection");
-
-    ct_connection_group_t* connection_group = connection->connection_group;
-
-    // Decrement active connection counter and mark as closed
-    ct_connection_group_decrement_active(connection_group);
-    ct_connection_mark_as_closed(connection);
-
-    // If no more active connections in group, remove group from socket manager
-    if (ct_connection_group_get_num_active_connections(connection_group) == 0) {
-      log_info("No more active connections in group, removing from socket manager");
-      int rc = socket_manager_remove_connection_group(
-          connection->socket_manager,
-          &connection->remote_endpoint.data.resolved_address);
-      if (rc < 0) {
-        log_error("Error removing connection group from socket manager: %d", rc);
-        return rc;
-      }
-    }
-  } else {
-    log_debug("Closing standalone TCP connection");
-    // Standalone connection - close the TCP handle
-    if (connection->internal_connection_state) {
-      uv_close((uv_handle_t*)connection->internal_connection_state, on_close);
-    }
-    ct_connection_mark_as_closed(connection);
+  // TCP connections are always STANDALONE
+  if (connection->internal_connection_state) {
+    uv_close((uv_handle_t*)connection->internal_connection_state, on_close);
   }
+  ct_connection_mark_as_closed(connection);
 
   return 0;
+}
+
+void tcp_abort(ct_connection_t* connection) {
+  log_info("Aborting TCP connection: %s", connection->uuid);
+
+  // TCP connections are always STANDALONE - abort with RST flag
+  uv_tcp_close_reset((uv_tcp_t*)connection->internal_connection_state, on_close);
+  ct_connection_mark_as_closed(connection);
 }
 
 int tcp_send(ct_connection_t* connection, ct_message_t* message, ct_message_context_t* ctx) {
