@@ -34,14 +34,6 @@ typedef struct ct_quic_global_state_t {
   uint32_t num_active_sockets;
 } ct_quic_global_state_t;
 
-
-// Shared state across all streams in a QUIC connection group
-typedef struct ct_quic_group_state_s {
-  uv_udp_t* udp_handle;
-  struct sockaddr_storage* udp_sock_name;
-  picoquic_cnx_t* picoquic_connection;
-} ct_quic_group_state_t;
-
 ct_quic_group_state_t* ct_create_quic_group_state() {
   ct_quic_group_state_t* state = malloc(sizeof(ct_quic_group_state_t));
   if (state) {
@@ -52,13 +44,6 @@ ct_quic_group_state_t* ct_create_quic_group_state() {
   }
   return state;
 }
-
-
-// Per-stream state for individual connections
-typedef struct ct_quic_stream_state_t {
-  uint64_t stream_id;
-  bool stream_initialized;
-} ct_quic_stream_state_t;
 
 void ct_free_quic_group_state(ct_quic_group_state_t* state) {
   if (state) {
@@ -992,6 +977,41 @@ int quic_close(ct_connection_t* connection) {
 
   reset_quic_timer();
   return rc;
+}
+
+void quic_abort(ct_connection_t* connection) {
+  ct_quic_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
+  uint64_t stream_id = ct_connection_get_stream_id(connection);
+  ct_connection_group_t* connection_group = connection->connection_group;
+  uint64_t num_active_connections = ct_connection_group_get_num_active_connections(connection_group);
+
+  log_info("Aborting connection using QUIC, active connections in group: %u", num_active_connections);
+
+  // Check if there are multiple active connections in the group
+  if (num_active_connections > 1) {
+    // Multiple streams active - only close this stream with FIN
+    log_info("Multiple active connections in group, closing stream %llu with FIN",
+             (unsigned long long)stream_id);
+
+    if (ct_connection_stream_is_initialized(connection)) {
+      log_debug("Sending RST on stream %llu for connection: %s", (unsigned long long)stream_id, connection->uuid);
+      int rc = picoquic_reset_stream(group_state->picoquic_connection, stream_id, 0);
+      if (rc != 0) {
+        log_error("Error sending FIN on stream %llu: %d", (unsigned long long)stream_id, rc);
+      }
+    }
+
+    // Decrement active connection counter and mark as closed
+    ct_connection_group_decrement_active(connection_group);
+    ct_connection_mark_as_closed(connection);
+  } else {
+    log_info("Last active connection in group, closing entire QUIC connection");
+    picoquic_close_immediate(group_state->picoquic_connection);
+
+    ct_connection_group_decrement_active(connection_group);
+  }
+
+  reset_quic_timer();
 }
 
 int quic_clone_connection(const struct ct_connection_s* source_connection, struct ct_connection_s* target_connection) {

@@ -112,3 +112,9 @@ pkg_check_modules(UUID REQUIRED uuid)
 
 target_include_directories(CTaps PUBLIC ${GLIB_INCLUDE_DIRS} ${UUID_INCLUDE_DIRS})
 target_link_libraries(CTaps PUBLIC ${GLIB_LIBRARIES} ${UUID_LIBRARIES})
+
+enable_testing()
+
+add_subdirectory (test)
+
+add_subdirectory (benchmark)

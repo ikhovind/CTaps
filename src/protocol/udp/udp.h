@@ -8,6 +8,7 @@ struct ct_socket_manager_s;
 
 int udp_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks);
 int udp_close(ct_connection_t* connection);
+void udp_abort(ct_connection_t* connection);
 int udp_send(ct_connection_t* connection, ct_message_t* message, ct_message_context_t*);
 int udp_listen(struct ct_socket_manager_s* socket_manager);
 int udp_stop_listen(struct ct_socket_manager_s* socket_manager);
@@ -40,14 +41,15 @@ static const ct_protocol_impl_t udp_protocol_interface = {
         [ACTIVE_READ_BEFORE_SEND] = {.value = {.simple_preference = NO_PREFERENCE}},
       }
     },
-    .send = udp_send,
     .init = udp_init,
-    .close = udp_close,
+    .send = udp_send,
     .listen = udp_listen,
     .stop_listen = udp_stop_listen,
+    .close = udp_close,
+    .abort = udp_abort,
+    .clone_connection = udp_clone_connection,
     .remote_endpoint_from_peer = udp_remote_endpoint_from_peer,
-    .retarget_protocol_connection = udp_retarget_protocol_connection,
-    .clone_connection = udp_clone_connection
+    .retarget_protocol_connection = udp_retarget_protocol_connection
 };
 
 #endif  // UDP_H

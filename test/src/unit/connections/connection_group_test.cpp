@@ -98,7 +98,7 @@ TEST(ConnectionGroupUnitTests, abortAllabortsOnlyOpenOrClosingConnections) {
     memset(&conn1, 0, sizeof(ct_connection_t));
     generate_uuid_string(conn1.uuid);
     ct_connection_mark_as_established(&conn1);
-    conn1.protocol.abort_connection = fake_protocol_abort;
+    conn1.protocol.abort = fake_protocol_abort;
     ct_connection_group_add_connection(&group, &conn1);
 
     // Connection 2: Already closed (should be skipped)
@@ -106,7 +106,7 @@ TEST(ConnectionGroupUnitTests, abortAllabortsOnlyOpenOrClosingConnections) {
     memset(&conn2, 0, sizeof(ct_connection_t));
     generate_uuid_string(conn2.uuid);
     ct_connection_mark_as_closed(&conn2);
-    conn2.protocol.abort_connection = fake_protocol_abort;
+    conn2.protocol.abort = fake_protocol_abort;
     ct_connection_group_add_connection(&group, &conn2);
 
     // Connection 3: Established (should be abortd)
@@ -114,7 +114,7 @@ TEST(ConnectionGroupUnitTests, abortAllabortsOnlyOpenOrClosingConnections) {
     memset(&conn3, 0, sizeof(ct_connection_t));
     generate_uuid_string(conn3.uuid);
     ct_connection_mark_as_established(&conn3);
-    conn3.protocol.abort_connection = fake_protocol_abort;
+    conn3.protocol.abort = fake_protocol_abort;
     ct_connection_group_add_connection(&group, &conn3);
 
     // Connection 4: closing, should be aborted
@@ -122,7 +122,7 @@ TEST(ConnectionGroupUnitTests, abortAllabortsOnlyOpenOrClosingConnections) {
     memset(&conn4, 0, sizeof(ct_connection_t));
     generate_uuid_string(conn4.uuid);
     ct_connection_mark_as_closing(&conn4);
-    conn4.protocol.abort_connection = fake_protocol_abort;
+    conn4.protocol.abort = fake_protocol_abort;
     ct_connection_group_add_connection(&group, &conn4);
 
 

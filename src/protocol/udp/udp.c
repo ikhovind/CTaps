@@ -143,7 +143,7 @@ int udp_close(ct_connection_t* connection) {
           connection->socket_manager,
           &connection->remote_endpoint.data.resolved_address);
       if (rc < 0) {
-        log_error("Error removing connection group from socket manager: %d", rc);
+        log_error("Could not find connection group in socket manager: %d", rc);
         return rc;
       }
     }
@@ -157,6 +157,36 @@ int udp_close(ct_connection_t* connection) {
   }
 
   return 0;
+}
+
+void udp_abort(ct_connection_t* connection) {
+  log_info("Aborting UDP connection");
+
+  if (connection->socket_type == CONNECTION_SOCKET_TYPE_MULTIPLEXED) {
+    log_info("Aborting multiplexed UDP connection");
+
+    ct_connection_group_t* connection_group = connection->connection_group;
+
+    // Decrement active connection counter and mark as closed
+    ct_connection_group_decrement_active(connection_group);
+    ct_connection_mark_as_closed(connection);
+
+    // If no more active connections in group, remove group from socket manager
+    if (ct_connection_group_get_num_active_connections(connection_group) == 0) {
+      log_info("No more active connections in group, removing from socket manager");
+      int rc = socket_manager_remove_connection_group(
+          connection->socket_manager,
+          &connection->remote_endpoint.data.resolved_address);
+      if (rc < 0) {
+        log_error("Could not find connection group in socket manager: %d", rc);
+      }
+    }
+  } else {
+    // Standalone connection - close the UDP handle
+    uv_udp_recv_stop((uv_udp_t*)connection->internal_connection_state);
+    uv_close(connection->internal_connection_state, closed_handle_cb);
+    ct_connection_mark_as_closed(connection);
+  }
 }
 
 int udp_stop_listen(struct ct_socket_manager_s* socket_manager) {

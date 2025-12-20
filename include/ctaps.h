@@ -941,6 +941,11 @@ typedef struct ct_protocol_impl_s {
    */
   int (*close)(struct ct_connection_s*);
 
+   /** @brief Forcefully abort a connection without graceful shutdown.
+   * @param[in] connection The connection to abort
+   */
+  void (*abort)(struct ct_connection_s* connection);
+
   /** @brief Clone a connection's protocol specific state.
    *
    * @param[in] source_connection The source connection to clone from
@@ -962,11 +967,6 @@ typedef struct ct_protocol_impl_s {
    * @param[in,out] to_connection Target connection (winner)
    */
   void (*retarget_protocol_connection)(struct ct_connection_s* from_connection, struct ct_connection_s* to_connection);
-
-   /** @brief Forcefully abort a connection without graceful shutdown.
-   * @param[in] connection The connection to abort
-   */
-  void (*abort_connection)(struct ct_connection_s* connection);
 } ct_protocol_impl_t;
 
 // =============================================================================

@@ -44,7 +44,7 @@ int ct_connection_build_with_new_connection_group(ct_connection_t* connection) {
   return 0;
 }
 
-ct_connection_t* create_empty_connection_with_uuid(void) {
+ct_connection_t* create_empty_connection_with_uuid() {
   ct_connection_t* connection = malloc(sizeof(ct_connection_t));
   if (!connection) {
     log_error("Failed to allocate memory for ct_connection_t");
@@ -433,7 +433,7 @@ void ct_connection_on_protocol_receive(ct_connection_t* connection,
 
 void ct_connection_abort(ct_connection_t* connection) {
   log_info("Aborting connection: %s", connection->uuid);
-  connection->protocol.abort_connection(connection);
+  connection->protocol.abort(connection);
 }
 
 int ct_connection_clone_full(
