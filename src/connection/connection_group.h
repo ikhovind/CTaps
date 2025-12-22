@@ -63,5 +63,33 @@ bool ct_connection_group_is_empty(ct_connection_group_t* group);
  */
 void ct_connection_group_free(ct_connection_group_t* group);
 
+/**
+ * @brief Close all connections in a connection group gracefully (internal).
+ *
+ * @param[in] connection_group The connection group to close
+ *
+ * @note Internal function - public API uses ct_connection_close_group()
+ */
+void ct_connection_group_close_all(ct_connection_group_t* connection_group);
+
+/**
+ * @brief Abort all connections in a connection group (internal).
+ *
+ * @param[in] connection_group The connection group to abort
+ *
+ * @note Internal function - public API uses ct_connection_abort_group()
+ */
+void ct_connection_group_abort_all(ct_connection_group_t* connection_group);
+
+/**
+ * @brief Get the number of active connections in a connection group (internal).
+ *
+ * @param[in] group Connection group to query
+ * @return Number of active connections in the group
+ *
+ * @note Internal function - used by protocol implementations
+ */
+uint64_t ct_connection_group_get_num_active_connections(ct_connection_group_t* group);
+
 
 #endif // CT_CONNECTION_GROUP_H

@@ -95,4 +95,14 @@ ct_connection_t* ct_connection_build_from_received_handle(const struct ct_listen
  */
 int ct_connection_build_multiplexed(ct_connection_t* connection, const struct ct_listener_s* listener, const ct_remote_endpoint_t* remote_endpoint);
 
+/**
+ * @brief Get the connection group of a connection (internal).
+ *
+ * @param[in] connection The connection
+ * @return Pointer to the connection group, NULL if connection is NULL or other error
+ *
+ * @note Internal function - not exposed in public API
+ */
+ct_connection_group_t* ct_connection_get_connection_group(const ct_connection_t* connection);
+
 #endif // CONNECTION_H
