@@ -1494,6 +1494,13 @@ CT_EXTERN int ct_receive_message(ct_connection_t* connection, ct_receive_callbac
 CT_EXTERN bool ct_connection_is_closed(const ct_connection_t* connection);
 
 /**
+ * @brief Check if a connection is established.
+ * @param[in] connection The connection to check
+ * @return true if connection is established, false if open or connection is NULL
+ */
+bool ct_connection_is_established(const ct_connection_t* connection);
+
+/**
  * @brief Check if a connection is currently being closed.
  * @param[in] connection The connection to check
  * @return true if connection is closed, false if open or connection is NULL

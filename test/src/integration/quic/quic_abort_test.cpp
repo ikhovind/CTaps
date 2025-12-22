@@ -86,6 +86,10 @@ TEST_F(QuicAbortTest, singleConnectionAbortCallsCloseImmediate) {
   ASSERT_EQ(faked_picoquic_reset_stream_fake.call_count, 0)
     << "picoquic_reset_stream should NOT be called for single connection abort";
 
+  for (const auto& conn : test_context.client_connections) {
+    ASSERT_TRUE(ct_connection_is_closed(conn)) << "Connection should be closed after abort";
+  }
+
   ct_free_security_parameter_content(&security_parameters);
   ct_preconnection_free(&preconnection);
 }
@@ -133,6 +137,10 @@ TEST_F(QuicAbortTest, multiStreamAbortCallsResetStream) {
   // After resetting the first stream, the last connection will be closed as a single connection
   ASSERT_EQ(faked_picoquic_close_immediate_fake.call_count, 1)
     << "picoquic_close_immediate should be called for single connection abort";
+
+  for (const auto& conn : test_context.client_connections) {
+    ASSERT_TRUE(ct_connection_is_closed(conn)) << "Connection should be closed after abort";
+  }
 
   ct_free_security_parameter_content(&security_parameters);
   ct_preconnection_free(&preconnection);

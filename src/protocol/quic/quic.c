@@ -998,7 +998,7 @@ void quic_abort(ct_connection_t* connection) {
 
   // Check if there are multiple active connections in the group
   if (num_active_connections > 1) {
-    // Multiple streams active - only close this stream with FIN
+    // Multiple streams active - force close this stream with RST 
     log_info("Multiple active connections in group, closing stream %llu with RST",
              (unsigned long long)stream_id);
 
@@ -1006,7 +1006,7 @@ void quic_abort(ct_connection_t* connection) {
       log_debug("Sending RST on stream %llu for connection: %s", (unsigned long long)stream_id, connection->uuid);
       int rc = picoquic_reset_stream(group_state->picoquic_connection, stream_id, 0);
       if (rc != 0) {
-        log_error("Error sending FIN on stream %llu: %d", (unsigned long long)stream_id, rc);
+        log_error("Error sending RST on stream %llu: %d", (unsigned long long)stream_id, rc);
       }
     }
     else {
@@ -1018,9 +1018,8 @@ void quic_abort(ct_connection_t* connection) {
     ct_connection_mark_as_closed(connection);
   } else {
     log_info("Last active connection in group, closing entire QUIC connection");
+    // Marking as closed etc. is handled in callback
     picoquic_close_immediate(group_state->picoquic_connection);
-
-    ct_connection_group_decrement_active(connection_group);
   }
 
   reset_quic_timer();
