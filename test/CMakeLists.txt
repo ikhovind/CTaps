@@ -105,6 +105,15 @@ add_gtest(
 )
 add_gtest(quic_listener_test SOURCES src/integration/quic/quic_listen_test.cpp ${CTAPS_SOURCES})
 add_gtest(connection_clone_test SOURCES src/integration/quic/connection_clone_test.cpp ${CTAPS_SOURCES})
+add_gtest(
+        quic_abort_test
+        SOURCES
+            src/integration/quic/quic_abort_test.cpp
+            ${CTAPS_SOURCES}
+        WRAP_FUNCTIONS
+            picoquic_reset_stream
+            picoquic_close_immediate
+)
 add_gtest(remote_endpoint_unit_test SOURCES src/unit/endpoint/remote.cpp ${CTAPS_SOURCES})
 add_gtest(preconnection_unit_test SOURCES src/unit/connections/preconnection.cpp ${CTAPS_SOURCES})
 add_gtest(connection_unit_test SOURCES src/unit/connections/connection_test.cpp ${CTAPS_SOURCES})
