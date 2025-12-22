@@ -1601,43 +1601,46 @@ CT_EXTERN int ct_connection_clone_full(
 CT_EXTERN int ct_connection_clone(ct_connection_t* source_connection);
 
 /**
+ * @brief Get all connections in the same connection group.
+ *
+ * Returns an array of pointers to all active (non-closed) connections in the same
+ * connection group.
+ *
+ * @param[in] connection The connection to query
+ * @param[out] out_count Number of connections in the returned array
+ * @return Pointer to array of connection pointers (caller must free with free()), or NULL on error
+ *
+ * @note The caller must free the returned array with free(), but NOT the individual connection
+ *       pointers (they remain owned by the connection group and will be freed when closed)
+ * @note Only non-closed connections are included in the returned array
+ * @note Returns NULL if connection is NULL, or if memory allocation fails
+ * @note Returns NULL with *out_count=0 if there are no active connections in the group
+ */
+CT_EXTERN ct_connection_t** ct_connection_get_grouped_connections(
+    const ct_connection_t* connection,
+    size_t* out_count
+);
+
+/**
  * @brief Close all connections in the same connection group gracefully.
  *
  * Performs graceful shutdown of all connections in the group (the connection
- * and all its clones).
+ * and all its clones). This is equivalent to calling ct_connection_close() on
+ * each connection in the group.
  *
- * @param[in] conection_group The connection group to close
+ * @param[in] connection Any connection in the group to close
  */
-CT_EXTERN void ct_connection_group_close_all(ct_connection_group_t* connection_group);
+CT_EXTERN void ct_connection_close_group(ct_connection_t* connection);
 
 /**
  * @brief Forcefully abort all connections in the same connection group.
  *
  * Immediately terminates all connections in the group without graceful shutdown.
+ * This is equivalent to calling ct_connection_abort() on each connection in the group.
  *
- * @param[in] conection_group The connection group to abort
+ * @param[in] connection Any connection in the group to abort
  */
-CT_EXTERN void ct_connection_group_abort_all(ct_connection_group_t* connection_group);
-
-/**
- * @brief Get the connection group of a connection.
- *
- * @param[in] connection The connection
- * @return Pointer to the connection group, NULL if connection is NULL or other error
- *
- * @warning The returned pointer is only valid while at least one connection in the group
- *          still exists. The group is automatically freed when the last connection in it
- *          is freed.
- */
-CT_EXTERN ct_connection_group_t* ct_connection_get_connection_group(const ct_connection_t* connection);
-
-/**
- * @brief Get the number of active connections in a connection group.
- *
- * @param[in] group Connection group to query
- * @return Number of active connections in the group
- */
-CT_EXTERN uint64_t ct_connection_group_get_num_active_connections(ct_connection_group_t* group);
+CT_EXTERN void ct_connection_abort_group(ct_connection_t* connection);
 
 /**
  * @brief Deliver received protocol data to the connection (for custom protocols).
