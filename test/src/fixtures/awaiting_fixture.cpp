@@ -358,6 +358,7 @@ int client_ready_wait_for_server(ct_connection_t* connection) {
 // Callback: Abort connection immediately when ready
 int abort_on_ready(ct_connection_t* connection) {
     log_info("Connection ready, aborting immediately");
+    EXPECT_EQ(ct_connection_is_established(connection), true);
     auto* ctx = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
     ctx->client_connections.push_back(connection);
 
@@ -397,7 +398,7 @@ int clone_and_abort_on_ready(ct_connection_t* connection) {
         log_info("Cloned connection ready (num_active=%llu), aborting clone", (unsigned long long)num_active);
         for (ct_connection_t* conn : ctx->client_connections) {
             log_info("Client connection in context: %p", (void*)conn);
-            ct_connection_abort(connection);
+            ct_connection_abort(conn);
         }
     }
 

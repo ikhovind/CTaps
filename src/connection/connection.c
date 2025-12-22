@@ -98,6 +98,13 @@ bool ct_connection_is_closed(const ct_connection_t* connection) {
   return connection->transport_properties.connection_properties.list[STATE].value.enum_val == CONN_STATE_CLOSED;
 }
 
+bool ct_connection_is_established(const ct_connection_t* connection) {
+  if (!connection) {
+    return false;
+  }
+  return connection->transport_properties.connection_properties.list[STATE].value.enum_val == CONN_STATE_ESTABLISHED;
+}
+
 bool ct_connection_is_closed_or_closing(const ct_connection_t* connection) {
   if (!connection) {
     return false;
