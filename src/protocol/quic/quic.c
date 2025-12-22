@@ -174,6 +174,7 @@ size_t quic_alpn_select_cb(picoquic_quic_t* quic, ptls_iovec_t* list, size_t cou
 }
 
 picoquic_quic_t* get_global_quic_ctx() {
+  log_trace("Getting global QUIC context");
   if (global_quic_ctx == NULL) {
     log_debug("Initializing global QUIC context");
     if (global_config.cert_file_name == NULL) {
@@ -213,13 +214,19 @@ picoquic_quic_t* get_global_quic_ctx() {
 
 void reset_quic_timer() {
   uint64_t next_wake_delay = picoquic_get_next_wake_delay(get_global_quic_ctx(), picoquic_get_quic_time(get_global_quic_ctx()), INT64_MAX - 1);
-  log_trace("Resetting QUIC timer to fire in %llu ms", (unsigned long long)MICRO_TO_MILLI(next_wake_delay));
+  log_debug("Resetting QUIC timer to fire in %llu ms", (unsigned long long)MICRO_TO_MILLI(next_wake_delay));
   uv_timer_start(default_global_quic_state.timer_handle, on_quic_timer, MICRO_TO_MILLI(next_wake_delay), 0);
 }
 
 void quic_closed_udp_handle_cb(uv_handle_t* handle) {
   log_info("Successfully closed UDP handle for QUIC connection");
   free(handle);
+}
+
+void quic_closed_timer_handle_cb(uv_handle_t* handle) {
+  log_info("Successfully closed QUIC timer handle");
+  free(handle);
+  default_global_quic_state.timer_handle = NULL;
 }
 
 void increment_active_socket_counter() {
@@ -292,7 +299,7 @@ int close_timer_handle() {
   if (rc < 0) {
     log_error("Error stopping QUIC timer: %s", uv_strerror(rc));
   }
-  uv_close((uv_handle_t*) default_global_quic_state.timer_handle, quic_closed_udp_handle_cb);
+  uv_close((uv_handle_t*) default_global_quic_state.timer_handle, quic_closed_timer_handle_cb);
   return 0;
 }
 
@@ -862,9 +869,11 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
     log_error("Failed to create UDP handle for QUIC connection");
     return -EIO;
   }
+  log_debug("Created UDP handle %p for QUIC connection", (void*)udp_handle);
 
   if (default_global_quic_state.timer_handle == NULL) {
     default_global_quic_state.timer_handle = set_up_timer_handle();
+    log_debug("Set up QUIC timer handle: %p", (void*)default_global_quic_state.timer_handle);
   }
 
   // Allocate shared group state (UDP handle + QUIC connection)
@@ -990,7 +999,7 @@ void quic_abort(ct_connection_t* connection) {
   // Check if there are multiple active connections in the group
   if (num_active_connections > 1) {
     // Multiple streams active - only close this stream with FIN
-    log_info("Multiple active connections in group, closing stream %llu with FIN",
+    log_info("Multiple active connections in group, closing stream %llu with RST",
              (unsigned long long)stream_id);
 
     if (ct_connection_stream_is_initialized(connection)) {
@@ -999,6 +1008,9 @@ void quic_abort(ct_connection_t* connection) {
       if (rc != 0) {
         log_error("Error sending FIN on stream %llu: %d", (unsigned long long)stream_id, rc);
       }
+    }
+    else {
+      log_debug("Stream %llu not initialized, no RST sent", (unsigned long long)stream_id);
     }
 
     // Decrement active connection counter and mark as closed

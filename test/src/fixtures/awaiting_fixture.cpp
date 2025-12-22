@@ -27,6 +27,7 @@ protected:
 
     void SetUp() override {
         int rc = ct_initialize(TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
+        ct_set_log_level(CT_LOG_TRACE);
         ASSERT_EQ(rc, 0);
 
         test_context.per_connection_messages = &per_connection_messages;
@@ -349,6 +350,57 @@ int client_ready_wait_for_server(ct_connection_t* connection) {
     };
 
     ct_receive_message(connection, receive_req);
+    return 0;
+}
+
+// --- Callbacks for connection abort tests ---
+
+// Callback: Abort connection immediately when ready
+int abort_on_ready(ct_connection_t* connection) {
+    log_info("Connection ready, aborting immediately");
+    auto* ctx = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
+    ctx->client_connections.push_back(connection);
+
+    // Abort the connection
+    ct_connection_abort(connection);
+    return 0;
+}
+
+// Callback: Clone connection, then abort the clone
+int clone_and_abort_on_ready(ct_connection_t* connection) {
+    auto* ctx = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
+    ctx->client_connections.push_back(connection);
+
+    uint64_t num_active = ct_connection_group_get_num_active_connections(connection->connection_group);
+    log_info("clone_and_abort_on_ready, num_active=%llu", (unsigned long long)num_active);
+
+    // Send message just to make sure stream is initialized
+    ct_message_t message;
+    ct_message_build_with_content(&message, "hello", strlen("hello") + 1);
+    ct_send_message(connection, &message);
+    ct_message_free_content(&message);
+
+    if (num_active == 1) {
+        // Original connection - clone it
+        log_info("Original connection ready (num_active=%llu), cloning", (unsigned long long)num_active);
+
+
+        int rc = ct_connection_clone(connection);
+        if (rc < 0) {
+            log_error("Failed to clone connection: %d", rc);
+            ct_connection_abort(connection);
+            return rc;
+        }
+        log_info("Successfully cloned connection");
+    } else {
+        // Cloned connection - abort this one (simulates multi-stream abort)
+        log_info("Cloned connection ready (num_active=%llu), aborting clone", (unsigned long long)num_active);
+        for (ct_connection_t* conn : ctx->client_connections) {
+            log_info("Client connection in context: %p", (void*)conn);
+            ct_connection_abort(connection);
+        }
+    }
+
     return 0;
 }
 
