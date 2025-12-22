@@ -53,7 +53,7 @@ int on_msg_received(ct_connection_t *connection, ct_message_t **received_message
                 client_ctx.state = STATE_BOTH_DONE;
                 client_ctx.transfer_complete = 1;
                 if (!json_only_mode) printf("Both LARGE and SHORT file transfers completed successfully.\n");
-                ct_connection_group_close_all(ct_connection_get_connection_group(connection));
+                ct_connection_close_group(connection);
             }
             else {
                 ct_receive_message(connection, (ct_receive_callbacks_t){
