@@ -99,6 +99,7 @@ int ct_preconnection_listen(ct_preconnection_t* preconnection, ct_listener_t* li
     socket_manager->protocol_impl = *first_node.protocol;
 
     socket_manager_build(socket_manager, listener);
+    log_info("Starting to listen on ct_listener_t using protocol: %s on port: %d", socket_manager->protocol_impl.name, listener->local_endpoint.port);
     return socket_manager->protocol_impl.listen(socket_manager);
   }
   g_array_free(candidate_nodes, true);

@@ -22,6 +22,10 @@ Several other abstractions exists to set up the underlying connection.
 
 An example of a connection can be seen in the following code snippet, adapted from our TCP ping test:
 
+<details>
+
+<summary>Example CTaps client</summary>
+
 ```C
 #include <ctaps.h>
 #include <stdio.h>
@@ -82,6 +86,70 @@ int main() {
    return 0;
 }
 ```
+</details>
+
+<details>
+<summary>Example CTaps server</summary>
+
+```C
+#include <ctaps.h>
+#include <stdio.h>
+#include <string.h>
+
+int close_on_message_received(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
+    printf("Received message: %s\n", (*received_message)->content);
+    ct_connection_close(connection);
+    return 0;
+}
+
+int on_connection_received_receive_message(ct_listener_t* listener, ct_connection_t* new_connection) {
+    printf("Listener received new connection\n");
+    ct_receive_callbacks_t receive_message_request = {
+      .receive_callback = close_on_message_received,
+    };
+
+    ct_receive_message(new_connection, receive_message_request);
+    return 0;
+}
+
+int main() {
+    ct_initialize(NULL, NULL); // Init (currently) global state
+
+    ct_listener_t listener;
+
+    ct_local_endpoint_t listener_endpoint;
+    ct_local_endpoint_build(&listener_endpoint);
+
+    ct_local_endpoint_with_interface(&listener_endpoint, "lo");
+    ct_local_endpoint_with_port(&listener_endpoint, 1234);
+
+    ct_remote_endpoint_t listener_remote;
+    ct_remote_endpoint_build(&listener_remote);
+    ct_remote_endpoint_with_hostname(&listener_remote, "127.0.0.1");
+
+    ct_transport_properties_t listener_props;
+    ct_transport_properties_build(&listener_props);
+
+    ct_tp_set_sel_prop_preference(&listener_props, PRESERVE_MSG_BOUNDARIES, PROHIBIT); // force TCP
+
+    ct_preconnection_t listener_precon;
+    ct_preconnection_build_with_local(&listener_precon, listener_props, &listener_remote, 1, NULL, listener_endpoint);
+
+    ct_listener_callbacks_t listener_callbacks = {
+        .connection_received = on_connection_received_receive_message,
+    };
+
+    int listen_res = ct_preconnection_listen(&listener_precon, &listener, listener_callbacks);
+
+    if (listen_res < 0) {
+        perror("Error in initiating connection\n");
+        return listen_res;
+    }
+
+    ct_start_event_loop();
+}
+```
+</details>
 
 ## Project Structure
 
