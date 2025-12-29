@@ -55,14 +55,14 @@ protected:
 
 int on_connection_ready(ct_connection_t* connection) {
     printf("ct_callback_t: ct_connection_t is ready.\n");
-    auto* context = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
+    auto* context = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
     context->client_connections.push_back(connection);
     return 0;
 }
 
 int send_message_on_connection_ready(ct_connection_t* connection) {
     printf("ct_callback_t: ct_connection_t is ready, sending message.\n");
-    auto* ctx = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
+    auto* ctx = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
     ctx->client_connections.push_back(connection);
 
     // Send the message now that the client is ready
@@ -76,7 +76,7 @@ int send_message_on_connection_ready(ct_connection_t* connection) {
 
 int on_message_received(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
     printf("ct_callback_t: on_message_received.\n");
-    auto* ctx = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
+    auto* ctx = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
 
     // Store the message per connection
     (*ctx->per_connection_messages)[connection].push_back(*received_message);
@@ -95,7 +95,7 @@ int close_on_message_received(ct_connection_t* connection, ct_message_t** receiv
 
 int close_on_expected_num_messages_received(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
     log_info("ct_callback_t: close_on_expected_num_messages_received.\n");
-    auto* ctx = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
+    auto* ctx = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
 
     (*ctx->per_connection_messages)[connection].push_back(*received_message);
 
@@ -132,7 +132,7 @@ int receive_message_and_respond_on_connection_received(ct_listener_t* listener, 
 
     ct_receive_callbacks_t receive_message_request = {
       .receive_callback = respond_on_message_received_inline,
-      .user_receive_context = new_connection->connection_callbacks.user_connection_context,
+      .user_receive_context = ct_connection_get_callback_context(new_connection),
     };
 
     ct_receive_message(new_connection, receive_message_request);
@@ -158,7 +158,7 @@ int receive_message_respond_and_close_listener_on_connection_received(ct_listene
 
 int send_message_and_receive(struct ct_connection_s* connection) {
     log_trace("ct_callback_t: Ready - send_message_and_receive");
-    auto* context = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
+    auto* context = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
     context->client_connections.push_back(connection);
 
     ct_message_t message;
@@ -168,7 +168,7 @@ int send_message_and_receive(struct ct_connection_s* connection) {
 
     ct_receive_callbacks_t receive_message_request = {
       .receive_callback = close_on_message_received,
-      .user_receive_context = connection->connection_callbacks.user_connection_context,
+      .user_receive_context = ct_connection_get_callback_context(connection),
     };
 
     log_trace("Adding receive callback from ct_connection_t");
@@ -192,7 +192,7 @@ int on_message_receive_send_new_message_and_receive_inline(ct_connection_t* conn
 
     ct_receive_callbacks_t receive_message_request = {
       .receive_callback = on_message_received,
-      .user_receive_context = connection->connection_callbacks.user_connection_context,
+      .user_receive_context = ct_connection_get_callback_context(connection),
     };
 
     ct_receive_message(connection, receive_message_request);
@@ -207,7 +207,7 @@ int on_connection_received_receive_message_close_listener_and_send_new_message(c
 
     ct_receive_callbacks_t receive_message_request = {
       .receive_callback = on_message_receive_send_new_message_and_receive_inline,
-      .user_receive_context = new_connection->connection_callbacks.user_connection_context,
+      .user_receive_context = ct_connection_get_callback_context(new_connection),
     };
 
     ct_receive_message(new_connection, receive_message_request);
@@ -222,14 +222,14 @@ static int on_establishment_error(struct ct_connection_s* connection) {
         log_error("No successful connection could be created on establishment error");
         return 0;
     }
-    auto* context = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
+    auto* context = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
     context->connection_succeeded = false;
     return 0;
 }
 
 static int mark_connection_as_success_and_close(ct_connection_t* connection) {
     log_info("ct_connection_t is ready");
-    auto* context = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
+    auto* context = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
     context->connection_succeeded = true;
     ct_connection_close(connection);
     return 0;
@@ -237,7 +237,7 @@ static int mark_connection_as_success_and_close(ct_connection_t* connection) {
 
 static int send_bytes_on_ready(struct ct_connection_s* connection) {
     log_info("ct_connection_t is ready, sending arbitrary bytes");
-    auto* ctx = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
+    auto* ctx = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
     ctx->client_connections.push_back(connection);
 
     ct_message_t message;
@@ -250,7 +250,7 @@ static int send_bytes_on_ready(struct ct_connection_s* connection) {
 
     ct_receive_message(connection, {
       .receive_callback = close_on_message_received,
-      .user_receive_context = connection->connection_callbacks.user_connection_context,
+      .user_receive_context = ct_connection_get_callback_context(connection),
     });
 
     return 0;
@@ -259,7 +259,7 @@ static int send_bytes_on_ready(struct ct_connection_s* connection) {
 int send_two_messages_on_ready(struct ct_connection_s* connection) {
     log_info("ct_connection_t is ready, sending two messages");
 
-    auto* ctx = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
+    auto* ctx = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
     ctx->client_connections.push_back(connection);
 
     ct_message_t message1;
@@ -278,12 +278,12 @@ int send_two_messages_on_ready(struct ct_connection_s* connection) {
 
     ct_receive_message(connection, {
       .receive_callback = close_on_expected_num_messages_received,
-      .user_receive_context = connection->connection_callbacks.user_connection_context,
+      .user_receive_context = ct_connection_get_callback_context(connection),
     });
 
     ct_receive_message(connection, {
       .receive_callback = close_on_expected_num_messages_received,
-      .user_receive_context = connection->connection_callbacks.user_connection_context,
+      .user_receive_context = ct_connection_get_callback_context(connection),
     });
 
     return 0;
@@ -341,12 +341,12 @@ int client_waits_and_responds(ct_connection_t* connection, ct_message_t** receiv
 // Client ready callback - just set up receive callback, don't send
 int client_ready_wait_for_server(ct_connection_t* connection) {
     log_info("Client: Connection ready, waiting for server to initiate stream");
-    auto* ctx = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
+    auto* ctx = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
     ctx->client_connections.push_back(connection);
 
     ct_receive_callbacks_t receive_req = {
         .receive_callback = client_waits_and_responds,
-        .user_receive_context = connection->connection_callbacks.user_connection_context
+        .user_receive_context = ct_connection_get_callback_context(connection)
     };
 
     ct_receive_message(connection, receive_req);
@@ -359,7 +359,7 @@ int client_ready_wait_for_server(ct_connection_t* connection) {
 int abort_on_ready(ct_connection_t* connection) {
     log_info("Connection ready, aborting immediately");
     EXPECT_EQ(ct_connection_is_established(connection), true);
-    auto* ctx = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
+    auto* ctx = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
     ctx->client_connections.push_back(connection);
 
     // Abort the connection
@@ -369,10 +369,10 @@ int abort_on_ready(ct_connection_t* connection) {
 
 // Callback: Clone connection, then abort the clone
 int clone_and_abort_on_ready(ct_connection_t* connection) {
-    auto* ctx = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
+    auto* ctx = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
     ctx->client_connections.push_back(connection);
 
-    uint64_t num_active = ct_connection_group_get_num_active_connections(connection->connection_group);
+    uint64_t num_active = ct_connection_get_num_grouped_connections(connection);
     log_info("clone_and_abort_on_ready, num_active=%llu", (unsigned long long)num_active);
 
     // Send message just to make sure stream is initialized
@@ -409,11 +409,11 @@ int clone_and_abort_on_ready(ct_connection_t* connection) {
 
 // Client ready callback: Clone connection, send on both, set up receives
 int clone_send_and_setup_receive_on_both(ct_connection_t* connection) {
-    auto* ctx = static_cast<CallbackContext*>(connection->connection_callbacks.user_connection_context);
+    auto* ctx = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
     ctx->client_connections.push_back(connection);
 
     // Check connection group size to determine if this is original or cloned connection
-    uint64_t num_active = ct_connection_group_get_num_active_connections(connection->connection_group);
+    uint64_t num_active = ct_connection_get_num_grouped_connections(connection);
 
     const char* message_content;
     if (num_active == 1) {
@@ -427,7 +427,7 @@ int clone_send_and_setup_receive_on_both(ct_connection_t* connection) {
             return rc;
         }
 
-        log_info("Successfully cloned: original=%s", connection->uuid);
+        log_info("Successfully cloned: original=%s", ct_connection_get_uuid(connection));
         message_content = "ping-original";
     } else {
         // This is the cloned connection

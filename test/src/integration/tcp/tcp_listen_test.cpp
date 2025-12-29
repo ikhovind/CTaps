@@ -8,7 +8,6 @@ extern "C" {
 #include "fixtures/awaiting_fixture.cpp"
 
 TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) {
-    ct_initialize(NULL,NULL);
     ct_listener_t listener;
 
     ct_local_endpoint_t listener_endpoint;

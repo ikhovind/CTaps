@@ -4,6 +4,7 @@
 #include "connection/connection_group.h"
 #include "connection/socket_manager/socket_manager.h"
 #include "ctaps.h"
+#include "ctaps_internal.h"
 #include "message/message.h"
 #include "util/uuid_util.h"
 #include <errno.h>
@@ -505,6 +506,54 @@ int ct_connection_clone_full(
 
 int ct_connection_clone(ct_connection_t* source_connection) {
   return ct_connection_clone_full(source_connection, NULL, NULL);
+}
+
+void* ct_connection_get_callback_context(const ct_connection_t* connection) {
+  if (!connection) {
+    return NULL;
+  }
+  return connection->connection_callbacks.user_connection_context;
+}
+
+const char* ct_connection_get_uuid(const ct_connection_t* connection) {
+  return connection->uuid;
+}
+
+size_t ct_connection_get_num_grouped_connections(const ct_connection_t* connection) {
+  if (!connection) {
+    log_error("ct_connection_get_num_grouped_connections called with NULL parameter");
+    return 0;
+  }
+
+  ct_connection_group_t* group = connection->connection_group;
+  if (!group || !group->connections) {
+    log_error("Connection has no valid connection group");
+    return 0;
+  }
+
+  size_t num_active = 0;
+  GHashTableIter iter;
+  gpointer key, value;
+
+  g_hash_table_iter_init(&iter, group->connections);
+  while (g_hash_table_iter_next(&iter, &key, &value)) {
+    ct_connection_t* conn = (ct_connection_t*)value;
+    if (!ct_connection_is_closed(conn)) {
+      num_active++;
+    }
+  }
+  return num_active;
+}
+
+const char* ct_connection_get_protocol_name(const ct_connection_t* connection) {
+  if (!connection) {
+    return NULL;
+  }
+  return connection->protocol.name;
+}
+
+const ct_remote_endpoint_t* ct_connection_get_remote_endpoint(const ct_connection_t* connection) {
+  return &connection->remote_endpoint;
 }
 
 ct_connection_group_t* ct_connection_get_connection_group(const ct_connection_t* connection) {
