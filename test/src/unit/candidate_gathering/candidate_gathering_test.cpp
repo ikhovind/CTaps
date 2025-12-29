@@ -7,6 +7,7 @@ extern "C" {
   #include "fff.h"
   #include <logging/log.h>
 #include "ctaps.h"
+#include "ctaps_internal.h"
   #include "candidate_gathering/candidate_gathering.h"
 }
 
@@ -95,14 +96,14 @@ const ct_protocol_impl_t** get_supported_protocols_fake_custom() {
 }
 
 // Fake data for ct_remote_endpoint_resolve
-static ct_remote_endpoint_t* fake_remote_endpoint_list;
+static ct_remote_endpoint_t** fake_remote_endpoint_list;
 int remote_endpoint_resolve_fake_custom(const ct_remote_endpoint_t* remote_endpoint, ct_remote_endpoint_t** out_list, size_t* out_count) {
-    fake_remote_endpoint_list = (ct_remote_endpoint_t*)malloc(sizeof(ct_remote_endpoint_t) * 1);
-    ct_remote_endpoint_build(&fake_remote_endpoint_list[0]);
-    ct_remote_endpoint_with_ipv4(&fake_remote_endpoint_list[0], inet_addr("1.2.3.4"));
-    ct_remote_endpoint_with_port(&fake_remote_endpoint_list[0], 80);
+    fake_remote_endpoint_list = (ct_remote_endpoint_t**)malloc(sizeof(ct_remote_endpoint_t*) * 1);
+    ct_remote_endpoint_build(fake_remote_endpoint_list[0]);
+    ct_remote_endpoint_with_ipv4(fake_remote_endpoint_list[0], inet_addr("1.2.3.4"));
+    ct_remote_endpoint_with_port(fake_remote_endpoint_list[0], 80);
 
-    *out_list = fake_remote_endpoint_list;
+    *out_list = *fake_remote_endpoint_list;
     *out_count = 1;
     return 0;
 }

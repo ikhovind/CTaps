@@ -1,4 +1,6 @@
 #include "ctaps.h"
+#include "ctaps_internal.h"
+#include "remote_endpoint.h"
 
 #include <endpoint/port_util.h>
 #include <endpoint/util.h>
@@ -98,7 +100,7 @@ int ct_remote_endpoint_resolve(const ct_remote_endpoint_t* remote_endpoint, ct_r
   log_debug("Resolving remote endpoint");
   int32_t assigned_port = 0;
   if (remote_endpoint->service != NULL) {
-    assigned_port = get_service_port_remote(remote_endpoint);
+    assigned_port = remote_endpoint_get_service_port(remote_endpoint);
   }
   else {
     assigned_port = remote_endpoint->port;
@@ -176,4 +178,19 @@ ct_remote_endpoint_t* remote_endpoint_copy(const ct_remote_endpoint_t* remote_en
   ct_remote_endpoint_t* res = malloc(sizeof(ct_remote_endpoint_t));
   *res = ct_remote_endpoint_copy_content(remote_endpoint);
   return res;
+}
+
+int32_t remote_endpoint_get_service_port(const ct_remote_endpoint_t* remote_endpoint) {
+  return get_service_port(ct_remote_endpoint_get_service(remote_endpoint), remote_endpoint->data.resolved_address.ss_family);
+}
+
+const char* ct_remote_endpoint_get_service(const ct_remote_endpoint_t* remote_endpoint) {
+  return remote_endpoint->service;
+}
+
+const struct sockaddr_storage* remote_endpoint_get_resolved_address(const ct_remote_endpoint_t* remote_endpoint) {
+  if (!remote_endpoint) {
+    return NULL;
+  }
+  return &remote_endpoint->data.resolved_address;
 }

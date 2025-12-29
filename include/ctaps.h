@@ -23,10 +23,6 @@
 #  define CT_EXTERN
 #endif
 
-// =============================================================================
-// Library State and Configuration
-// =============================================================================
-
 /**
  * @brief Global configuration structure for CTaps library.
  */
@@ -34,6 +30,12 @@ typedef struct ct_config_s {
   char* cert_file_name;  ///< Path to TLS certificate file for secure connections
   char* key_file_name;   ///< Path to TLS private key file for secure connections
 } ct_config_t;
+
+// =============================================================================
+// Library State and Configuration
+// =============================================================================
+
+typedef struct ct_config_s ct_config_t;
 
 extern ct_config_t global_config;
 extern uv_loop_t* event_loop;
@@ -671,12 +673,12 @@ CT_EXTERN void ct_tp_set_sel_prop_interface(ct_transport_properties_t* props, ch
 /**
  * @brief Local endpoint specification for binding connections/listeners.
  */
-typedef struct {
+typedef struct ct_local_endpoint_s {
   uint16_t port;            ///< Port number (0 = any port)
   char* interface_name;     ///< Network interface name (e.g., "eth0") or NULL for any
   char* service;            ///< Service name (e.g., "http") or NULL
   union {
-    struct sockaddr_storage address;  ///< Resolved socket address
+    struct sockaddr_storage resolved_address;  ///< Resolved socket address
   } data;
 } ct_local_endpoint_t;
 
@@ -686,7 +688,7 @@ typedef struct {
  * Specifies the remote address, hostname, port, or service name to connect to.
  * Use the builder pattern: ct_remote_endpoint_build() → ct_remote_endpoint_with_*() → ct_remote_endpoint_resolve()
  */
-typedef struct ct_remote_endpoint_s{
+typedef struct ct_remote_endpoint_s {
   uint16_t port;            ///< Port number
   char* service;            ///< Service name (e.g., "https") or NULL
   char* hostname;           ///< Hostname for DNS resolution or NULL
@@ -695,6 +697,7 @@ typedef struct ct_remote_endpoint_s{
   } data;
 } ct_remote_endpoint_t;
 
+
 // =============================================================================
 // Messages - Message and message context structures
 // =============================================================================
@@ -702,7 +705,7 @@ typedef struct ct_remote_endpoint_s{
 /**
  * @brief A message containing data to send or received data.
  */
-typedef struct {
+typedef struct ct_message_s {
   char* content;         ///< Message data buffer
   unsigned int length;   ///< Length of message data in bytes
 } ct_message_t;
@@ -718,6 +721,7 @@ typedef struct ct_message_context_s {
   ct_remote_endpoint_t* remote_endpoint;       ///< Remote endpoint for this message (optional)
   void* user_receive_context;                  ///< User context from ct_receive_callbacks_t
 } ct_message_context_t;
+
 
 // =============================================================================
 // Forward Declarations
@@ -998,16 +1002,6 @@ typedef enum {
 } ct_connection_role_t;
 
 /**
- * @brief Connection group for managing related connections.
- */
-typedef struct ct_connection_group_s {
-  char connection_group_id[37];           ///< Unique identifier for this group
-  GHashTable* connections;                ///< Map of UUID string → ct_connection_t*
-  void* connection_group_state;           ///< Protocol-specific shared state
-  uint64_t num_active_connections;        ///< Number of active connections in this group
-} ct_connection_group_t;
-
-/**
  * @brief Preconnection configuration object.
  *
  * Created before establishing a connection, this object holds all configuration
@@ -1030,14 +1024,7 @@ typedef struct ct_preconnection_s {
  * Created via ct_preconnection_listen(). Accepts incoming connections and
  * invokes callbacks when new connections arrive.
  */
-typedef struct ct_listener_s {
-  ct_transport_properties_t transport_properties;     ///< Transport properties for accepted connections
-  ct_local_endpoint_t local_endpoint;                 ///< Local endpoint (listening address/port)
-  size_t num_local_endpoints;                         ///< Number of local endpoints
-  ct_listener_callbacks_t listener_callbacks;         ///< User-provided callbacks for listener events
-  const ct_security_parameters_t* security_parameters; ///< Security configuration for accepted connections
-  struct ct_socket_manager_s* socket_manager;         ///< Socket manager handling listening sockets
-} ct_listener_t;
+typedef struct ct_listener_s ct_listener_t;
 
 // =============================================================================
 // Public API Functions
@@ -1214,6 +1201,14 @@ ct_local_endpoint_t ct_local_endpoint_copy_content(const ct_local_endpoint_t* lo
  */
 CT_EXTERN int ct_local_endpoint_resolve(const ct_local_endpoint_t* local_endpoint, ct_local_endpoint_t** out_list, size_t* out_count);
 
+/**
+ * @brief Get the service for a local endpoint
+ * @param[in] remote_endpoint endpoint to get service for
+ *
+ * @return char* pointer to service name, NULL if endpoint is null, or if service is not set
+ */
+CT_EXTERN const char* ct_local_endpoint_get_service(const ct_local_endpoint_t* local_endpoint);
+
 
 // Remote Endpoint
 /**
@@ -1304,6 +1299,14 @@ CT_EXTERN int ct_remote_endpoint_with_ipv4(ct_remote_endpoint_t* remote_endpoint
  */
 CT_EXTERN int ct_remote_endpoint_with_ipv6(ct_remote_endpoint_t* remote_endpoint, struct in6_addr ipv6_addr);
 
+/**
+ * @brief Get the service for a remote endpoint
+ * @param[in] remote_endpoint endpoint to get service for
+ *
+ * @return char* pointer to service name, NULL if endpoint is null, or if service is not set
+ */
+CT_EXTERN const char* ct_remote_endpoint_get_service(const ct_remote_endpoint_t* remote_endpoint);
+
 // Message
 /**
  * @brief Initialize a message with content data.
@@ -1388,7 +1391,7 @@ CT_EXTERN int ct_preconnection_build_ex(ct_preconnection_t* preconnection,
  */
 CT_EXTERN int ct_preconnection_build_with_local(ct_preconnection_t* preconnection,
                                       ct_transport_properties_t transport_properties,
-                                      ct_remote_endpoint_t remote_endpoints[],
+                                      ct_remote_endpoint_t* remote_endpoints,
                                       size_t num_remote_endpoints,
                                       const ct_security_parameters_t* security_parameters,
                                       ct_local_endpoint_t local_endpoint);

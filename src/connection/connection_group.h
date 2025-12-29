@@ -1,6 +1,8 @@
 #ifndef CT_CONNECTION_GROUP_H
 #define CT_CONNECTION_GROUP_H
 #include "ctaps.h"
+#include "ctaps_internal.h"
+
 
 /**
   * @brief Add a connection to a connection group.

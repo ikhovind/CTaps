@@ -10,8 +10,6 @@
 #include <uv.h>
 #include "ctaps.h"
 
-int32_t get_service_port_local(const ct_local_endpoint_t* local_endpoint);
-
-int32_t get_service_port_remote(const ct_remote_endpoint_t* remote_endpoint);
+int32_t get_service_port(const char* service, int family);
 
 #endif //PORT_UTIL_H

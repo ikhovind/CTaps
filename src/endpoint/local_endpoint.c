@@ -1,4 +1,6 @@
 #include "ctaps.h"
+#include "ctaps_internal.h"
+#include "local_endpoint.h"
 
 #include "endpoint/util.h"
 #include <endpoint/port_util.h>
@@ -13,14 +15,18 @@
 
 void ct_local_endpoint_with_port(ct_local_endpoint_t* local_endpoint, int port) {
   local_endpoint->port = port;
-  if (local_endpoint->data.address.ss_family == AF_INET6) {
-    struct sockaddr_in6* addr = (struct sockaddr_in6*)&local_endpoint->data.address;
+  if (local_endpoint->data.resolved_address.ss_family == AF_INET6) {
+    struct sockaddr_in6* addr = (struct sockaddr_in6*)&local_endpoint->data.resolved_address;
     addr->sin6_port = htons(port);
   }
-  if (local_endpoint->data.address.ss_family == AF_INET) {
-    struct sockaddr_in* addr = (struct sockaddr_in*)&local_endpoint->data.address;
+  if (local_endpoint->data.resolved_address.ss_family == AF_INET) {
+    struct sockaddr_in* addr = (struct sockaddr_in*)&local_endpoint->data.resolved_address;
     addr->sin_port = htons(port);
   }
+}
+
+char* local_endpoint_get_interface_name(const ct_local_endpoint_t* local_endpoint) {
+  return local_endpoint->interface_name;
 }
 
 void ct_local_endpoint_build(ct_local_endpoint_t* local_endpoint) {
@@ -59,7 +65,7 @@ int ct_local_endpoint_resolve(const ct_local_endpoint_t* local_endpoint, ct_loca
   uint16_t assigned_port = 0;
   if (local_endpoint->service != NULL) {
     log_trace("Service was not NULL, resolving service to port");
-    assigned_port = get_service_port_local(local_endpoint);
+    assigned_port = local_endpoint_get_service_port(local_endpoint);
     log_trace("Resolved service to port: %d", assigned_port);
   }
   else {
@@ -77,13 +83,13 @@ int ct_local_endpoint_resolve(const ct_local_endpoint_t* local_endpoint, ct_loca
       (*out_list)[i].port = assigned_port;
       (*out_list)[i].interface_name = local_endpoint->interface_name ? strdup(local_endpoint->interface_name) : NULL;
       (*out_list)[i].service = local_endpoint->service ? strdup(local_endpoint->service) : NULL;
-      (*out_list)[i].data.address = *sockaddr_storage;
+      (*out_list)[i].data.resolved_address = *sockaddr_storage;
       if (sockaddr_storage->ss_family == AF_INET) {
-        struct sockaddr_in* addr = (struct sockaddr_in*)&(*out_list)[i].data.address;
+        struct sockaddr_in* addr = (struct sockaddr_in*)&(*out_list)[i].data.resolved_address;
         addr->sin_port = htons(assigned_port);
       }
       if (sockaddr_storage->ss_family == AF_INET6) {
-        struct sockaddr_in6* addr = (struct sockaddr_in6*)&(*out_list)[i].data.address;
+        struct sockaddr_in6* addr = (struct sockaddr_in6*)&(*out_list)[i].data.resolved_address;
         addr->sin6_port = htons(assigned_port);
       }
     }
@@ -128,3 +134,40 @@ ct_local_endpoint_t* local_endpoint_copy(const ct_local_endpoint_t* local_endpoi
   *res = ct_local_endpoint_copy_content(local_endpoint);
   return res;
 }
+
+int32_t local_endpoint_get_service_port(const ct_local_endpoint_t* local_endpoint) {
+  return get_service_port(ct_local_endpoint_get_service(local_endpoint), local_endpoint->data.resolved_address.ss_family);
+}
+
+const char* ct_local_endpoint_get_service(const ct_local_endpoint_t* local_endpoint) {
+  return local_endpoint->service;
+}
+
+const struct sockaddr_storage* local_endpoint_get_resolved_address(const ct_local_endpoint_t* local_endpoint) {
+  if (!local_endpoint) {
+    return NULL;
+  }
+  return &local_endpoint->data.resolved_address;
+}
+
+sa_family_t local_endpoint_get_address_family(const ct_local_endpoint_t* local_endpoint) {
+  if (!local_endpoint) {
+    return 0;
+  }
+  return local_endpoint_get_resolved_address(local_endpoint)->ss_family;
+}
+
+uint16_t local_endpoint_get_resolved_port(const ct_local_endpoint_t* local_endpoint) {
+  const struct sockaddr_storage* resolved_addr = local_endpoint_get_resolved_address(local_endpoint);
+  if (!resolved_addr) {
+    return 0;
+  }
+  if (local_endpoint_get_address_family(local_endpoint) == AF_INET6) {
+    return ((struct sockaddr_in6*)local_endpoint_get_resolved_address(local_endpoint))->sin6_port;
+  }
+  if (local_endpoint_get_address_family(local_endpoint) == AF_INET) {
+    return ((struct sockaddr_in*)local_endpoint_get_resolved_address(local_endpoint))->sin_port;
+  }
+  return 0;
+}
+

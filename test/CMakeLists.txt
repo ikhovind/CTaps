@@ -152,9 +152,11 @@ add_gtest(remote_endpoint_integration_test
         SOURCES
             src/integration/endpoint/remote_endpoint_test.cpp
             ${CMAKE_SOURCE_DIR}/src/endpoint/remote_endpoint.c
+            ${CMAKE_SOURCE_DIR}/src/endpoint/local_endpoint.c
             ${CMAKE_SOURCE_DIR}/src/logging/log.c
             ${CMAKE_SOURCE_DIR}/src/message/message.c
             ${CMAKE_SOURCE_DIR}/src/endpoint/util.c
+            ${CMAKE_SOURCE_DIR}/src/endpoint/port_util.c
             ${CMAKE_SOURCE_DIR}/src/protocol/udp/udp.c
             ${CMAKE_SOURCE_DIR}/src/protocol/tcp/tcp.c
             ${CMAKE_SOURCE_DIR}/src/protocol/quic/quic.c
@@ -203,4 +205,5 @@ add_gtest(local_endpoint_resolve_test
     src/unit/endpoint/local/local_endpoint_resolve_test.cpp
     ${CMAKE_SOURCE_DIR}/src/endpoint/local_endpoint.c
     ${CMAKE_SOURCE_DIR}/src/logging/log.c
+    ${CMAKE_SOURCE_DIR}/src/endpoint/port_util.c
 )

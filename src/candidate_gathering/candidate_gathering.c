@@ -1,5 +1,7 @@
 #include "candidate_gathering.h"
 
+#include "connection/preconnection.h"
+#include "endpoint/local_endpoint.h"
 #include "ctaps.h"
 #include <glib.h>
 #include <logging/log.h>
@@ -126,8 +128,8 @@ gboolean gather_incompatible_path_nodes(GNode *node, gpointer user_data) {
   struct ct_node_pruning_data_t* pruning_data = (struct ct_node_pruning_data_t*)user_data;
   char* interface_name = "any";
 
-  if (node_data->local_endpoint->interface_name != NULL) {
-    interface_name = node_data->local_endpoint->interface_name;
+  if (local_endpoint_get_interface_name(node_data->local_endpoint) != NULL) {
+    interface_name = local_endpoint_get_interface_name(node_data->local_endpoint);
   }
   if (!interface_is_compatible(interface_name, node_data->transport_properties)) {
     log_trace("Found incompatible path node with interface %s", interface_name);
@@ -319,13 +321,15 @@ GArray* get_ordered_candidate_nodes(const ct_preconnection_t* precon) {
     log_error("NULL preconnection provided");
     return NULL;
   }
+
+  
   // 1. Create a new ct_candidate_node_t struct for the root
   struct ct_candidate_node_t* root_data = candidate_node_new(
     NODE_TYPE_ROOT,
-    &precon->local,
-    &precon->remote_endpoints[0],
+    preconnection_get_local_endpoint(precon),
+    preconnection_get_remote_endpoints(precon, NULL)[0],
     NULL, // Protocol is selected in a later stage
-    &precon->transport_properties
+    preconnection_get_transport_properties(precon)
   );
 
   if (root_data == NULL) {
@@ -337,7 +341,7 @@ GArray* get_ordered_candidate_nodes(const ct_preconnection_t* precon) {
 
   build_candidate_tree_recursive(root_node);
 
-  prune_candidate_tree(root_node, precon->transport_properties.selection_properties);
+  prune_candidate_tree(root_node, preconnection_get_transport_properties(precon)->selection_properties);
 
   log_info("Candidate tree has been pruned, extracting leaf nodes");
 
@@ -354,7 +358,7 @@ GArray* get_ordered_candidate_nodes(const ct_preconnection_t* precon) {
   g_node_destroy(root_node);
 
   log_trace("Sorting candidates based in desirability");
-  g_array_sort_with_data(root_array, compare_prefer_and_avoid_preferences, (gpointer)&precon->transport_properties.selection_properties);
+  g_array_sort_with_data(root_array, compare_prefer_and_avoid_preferences, (gpointer)&preconnection_get_transport_properties(precon)->selection_properties);
 
   if (root_array->len > 0) {
     log_trace("Most desirable candidate protocol is: %s", (g_array_index(root_array, ct_candidate_node_t, 0)).protocol->name);
@@ -384,19 +388,19 @@ void build_candidate_tree_recursive(GNode* parent_node) {
   // Step 1: Branch by Network Paths (Local Endpoints)
   if (parent_data->type == NODE_TYPE_ROOT) {
     log_trace("Expanding node of type ROOT to PATH nodes");
-    ct_local_endpoint_t* local_endpoint_list = NULL;
+    ct_local_endpoint_t** local_endpoint_list = NULL;
     size_t num_found_local = 0;
 
     // Resolve the local endpoint. The `ct_local_endpoint_resolve` function
     // will find all available interfaces when the interface is not specified.
-    ct_local_endpoint_resolve(parent_data->local_endpoint, &local_endpoint_list, &num_found_local);
+    ct_local_endpoint_resolve(parent_data->local_endpoint, local_endpoint_list, &num_found_local);
     log_trace("Found %zu local endpoints, adding as children to ROOT node", num_found_local);
 
     for (size_t i = 0; i < num_found_local; i++) {
       // Create a child node for each local endpoint found.
       struct ct_candidate_node_t* path_node_data = candidate_node_new(
         NODE_TYPE_PATH,
-        &local_endpoint_list[i],
+        local_endpoint_list[i], // TODO is this correct?
         parent_data->remote_endpoint,
         NULL, // Protocol not yet specified
         parent_data->transport_properties
@@ -410,7 +414,7 @@ void build_candidate_tree_recursive(GNode* parent_node) {
     // Clean up the allocated memory for the list of local endpoints
     if (local_endpoint_list != NULL) {
       for (size_t i = 0; i < num_found_local; i++) {
-        ct_free_local_endpoint_strings(&local_endpoint_list[i]);
+        ct_free_local_endpoint_strings(local_endpoint_list[i]);
       }
       log_trace("Freeing list of local endpoints after building path nodes");
       free(local_endpoint_list);
@@ -446,18 +450,18 @@ void build_candidate_tree_recursive(GNode* parent_node) {
   // Step 3: Branch by Resolved Endpoints (DNS Lookup)
   else if (parent_data->type == NODE_TYPE_PROTOCOL) {
     log_trace("Expanding node of type PROTOCOL to ENDPOINT nodes");
-    ct_remote_endpoint_t* resolved_remote_endpoints = NULL;
+    ct_remote_endpoint_t** resolved_remote_endpoints = NULL;
     size_t num_found_remote = 0;
 
     // Resolve the remote endpoint (hostname to IP address).
-    ct_remote_endpoint_resolve(parent_data->remote_endpoint, &resolved_remote_endpoints, &num_found_remote);
+    ct_remote_endpoint_resolve(parent_data->remote_endpoint, resolved_remote_endpoints, &num_found_remote);
 
     for (size_t i = 0; i < num_found_remote; i++) {
       // Create a leaf node for each resolved IP address.
       ct_candidate_node_t* leaf_node_data = candidate_node_new(
         NODE_TYPE_ENDPOINT,
         parent_data->local_endpoint,
-        &resolved_remote_endpoints[i],
+        resolved_remote_endpoints[i],
         parent_data->protocol,
         parent_data->transport_properties
       );

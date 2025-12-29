@@ -64,9 +64,9 @@ TEST_F(LocalEndpointResolveTest, UsesInterfaceAddress_whenInterfaceIsSpecified) 
   ASSERT_EQ(get_interface_addresses_fake.call_count, 1);
   ASSERT_EQ(get_service_port_local_fake.call_count, 1);
   
-  ASSERT_EQ(endpoint.data.address.ss_family, AF_INET);
+  ASSERT_EQ(endpoint.data.resolved_address.ss_family, AF_INET);
 
-  struct sockaddr_in* final_addr = (struct sockaddr_in*)&endpoint.data.address;
+  struct sockaddr_in* final_addr = (struct sockaddr_in*)&endpoint.data.resolved_address;
 
   EXPECT_EQ(ntohs(final_addr->sin_port), 8080);
 
@@ -106,9 +106,9 @@ TEST_F(LocalEndpointResolveTest, DefaultsToAnyAddress_WhenNoInterfaceIsFound) {
   ASSERT_EQ(get_service_port_local_fake.call_count, 0); // Verify it was NOT called
 
   // 2. Inspect the modified ct_local_endpoint_t struct
-  ASSERT_EQ(endpoint.data.address.ss_family, AF_INET);
+  ASSERT_EQ(endpoint.data.resolved_address.ss_family, AF_INET);
 
-  struct sockaddr_in* final_addr = (struct sockaddr_in*)&endpoint.data.address;
+  struct sockaddr_in* final_addr = (struct sockaddr_in*)&endpoint.data.resolved_address;
 
   // Check that the port was correctly applied
   EXPECT_EQ(ntohs(final_addr->sin_port), 9090);

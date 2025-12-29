@@ -2,6 +2,7 @@
 #define CONNECTION_H
 
 #include "ctaps.h"
+#include "connection_group.h"
 
 /**
  * @brief Initialize a connection with zeroed memory and generate a UUID.

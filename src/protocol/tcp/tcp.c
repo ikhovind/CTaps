@@ -1,7 +1,10 @@
 #include "tcp.h"
+#include "ctaps.h"
 
 #include "connection/connection.h"
 #include "connection/connection_group.h"
+#include "endpoint/remote_endpoint.h"
+#include "endpoint/local_endpoint.h"
 #include "connection/socket_manager/socket_manager.h"
 #include "ctaps.h"
 #include "ctaps_internal.h"
@@ -154,7 +157,7 @@ int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
   uv_connect_t* connect_req = malloc(sizeof(uv_connect_t));
   rc = uv_tcp_connect(connect_req,
                  new_tcp_handle,
-                 (const struct sockaddr*)&connection->remote_endpoint.data.resolved_address,
+                 (const struct sockaddr*)remote_endpoint_get_resolved_address(ct_connection_get_remote_endpoint(connection)),
                  on_connect);
   if (rc < 0) {
     log_error("Error initiating TCP connection: %s", uv_strerror(rc));
@@ -233,7 +236,7 @@ int tcp_listen(ct_socket_manager_t* socket_manager) {
 
 
   ct_local_endpoint_t local_endpoint = ct_listener_get_local_endpoint(listener);
-  rc = uv_tcp_bind(new_tcp_handle, (const struct sockaddr*)&local_endpoint.data.address, 0);
+  rc = uv_tcp_bind(new_tcp_handle, (const struct sockaddr*)local_endpoint_get_resolved_address(&local_endpoint), 0);
   if (rc < 0) {
     log_error("Error binding TCP handle: %s", uv_strerror(rc));
     free(new_tcp_handle);
@@ -390,7 +393,7 @@ int tcp_clone_connection(const struct ct_connection_s* source_connection,
   rc = uv_tcp_connect(
       connect_req,
       new_tcp_handle,
-      (const struct sockaddr*)&target_connection->remote_endpoint.data.resolved_address,
+      (const struct sockaddr*)remote_endpoint_get_resolved_address(ct_connection_get_remote_endpoint(target_connection)),
       on_clone_connect
   );
 
