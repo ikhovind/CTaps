@@ -5,6 +5,7 @@
 #include <uv.h>
 
 #include "ctaps.h"
+#include "ctaps_internal.h"
 #include "candidate_gathering.h"
 
 // Default connection attempt delay in milliseconds (per Happy Eyeballs RFC 8305)

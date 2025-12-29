@@ -52,8 +52,8 @@ TEST_F(ConnectionCloneTest, clonesConnectionSendsOnBothAndReceivesIndividualResp
     ct_connection_t* cloned = test_context.client_connections[1];
 
     ASSERT_EQ(per_connection_messages.size(), 2);
-    ASSERT_EQ(original->transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
-    ASSERT_EQ(cloned->transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
+    ASSERT_TRUE(ct_connection_is_closed(original));
+    ASSERT_TRUE(ct_connection_is_closed(cloned));
 
 
     ASSERT_EQ(per_connection_messages[original].size(), 1);
@@ -201,8 +201,8 @@ TEST_F(ConnectionCloneTest, clonesUdpConnectionSendsOnBothAndReceivesIndividualR
 
     ct_connection_t* original = test_context.client_connections[0];
     ct_connection_t* cloned = test_context.client_connections[1];
-    ASSERT_EQ(original->transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
-    ASSERT_EQ(cloned->transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
+    ASSERT_TRUE(ct_connection_is_closed(original));
+    ASSERT_TRUE(ct_connection_is_closed(cloned));
     ASSERT_EQ(per_connection_messages.size(), 2);
 
     ASSERT_EQ(per_connection_messages[original].size(), 1);
@@ -245,8 +245,8 @@ TEST_F(ConnectionCloneTest, clonesTcpConnectionSendsOnBothAndReceivesIndividualR
     ct_connection_t* original = test_context.client_connections[0];
     ct_connection_t* cloned = test_context.client_connections[1];
 
-    ASSERT_EQ(original->transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
-    ASSERT_EQ(cloned->transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
+    ASSERT_TRUE(ct_connection_is_closed(original));
+    ASSERT_TRUE(ct_connection_is_closed(cloned));
     ASSERT_EQ(per_connection_messages.size(), 2);
 
 

@@ -49,7 +49,6 @@ TEST_F(TcpGenericTests, successfullyConnectsToTcpServer) {
 
 TEST_F(TcpGenericTests, connectionErrorCalledWhenNoServer) {
   // --- Setup ---
-  ct_initialize(NULL,NULL);
   ct_remote_endpoint_t remote_endpoint;
   ct_remote_endpoint_build(&remote_endpoint);
   ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
@@ -120,7 +119,7 @@ TEST_F(TcpGenericTests, sendsSingleTcpMessage) {
 
   ct_connection_t* saved_connection = test_context.client_connections[0];
   // assert state of connection is closed
-  ASSERT_EQ(saved_connection->transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
+  ASSERT_TRUE(ct_connection_is_closed(saved_connection));
   ASSERT_EQ(per_connection_messages.size(), 1);
   ASSERT_EQ(per_connection_messages[saved_connection].size(), 1);
   ASSERT_STREQ(per_connection_messages[saved_connection][0]->content, "Pong: ping");

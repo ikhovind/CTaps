@@ -44,7 +44,7 @@ TEST_F(UdpGenericTests, sendsSingleUdpPacket) {
   ct_start_event_loop();
 
   // assert state of connection is closed
-  ASSERT_EQ(test_context.client_connections[0]->transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
+  ASSERT_TRUE(ct_connection_is_closed(test_context.client_connections[0]));
 
   ASSERT_EQ(per_connection_messages.size(), 1);
   ASSERT_EQ(per_connection_messages[test_context.client_connections[0]].size(), 1);
@@ -85,7 +85,7 @@ TEST_F(UdpGenericTests, packetsAreReadInOrder) {
   ct_start_event_loop();
 
   // --- Assertions ---
-  ASSERT_EQ(test_context.client_connections[0]->transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
+  ASSERT_TRUE(ct_connection_is_closed(test_context.client_connections[0]));
   ASSERT_EQ(per_connection_messages.size(), 1);
   ASSERT_EQ(per_connection_messages[test_context.client_connections[0]].size(), 2);
   EXPECT_STREQ(per_connection_messages[test_context.client_connections[0]][0]->content, "Pong: hello 1");
@@ -125,7 +125,7 @@ TEST_F(UdpGenericTests, canPingArbitraryBytes) {
   ct_start_event_loop();
 
   // --- Assertions ---
-  ASSERT_EQ(test_context.client_connections[0]->transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
+  ASSERT_TRUE(ct_connection_is_closed(test_context.client_connections[0]));
 
   char expected_output[] = {'P', 'o', 'n', 'g', ':', ' ', 0, 1, 2, 3, 4, 5};
 

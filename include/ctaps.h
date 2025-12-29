@@ -39,6 +39,14 @@ extern ct_config_t global_config;
 extern uv_loop_t* event_loop;
 
 /**
+ * @brief Active connection object.
+ *
+ * Represents an established or establishing connection. Created via ct_preconnection_initiate()
+ * for client connections or via listener callbacks for server connections.
+ */
+typedef struct ct_connection_s ct_connection_t;
+
+/**
  * @brief Initialize the CTaps library
  *
  * This function must be called before any other CTaps functions. It initializes
@@ -1000,30 +1008,6 @@ typedef struct ct_connection_group_s {
 } ct_connection_group_t;
 
 /**
- * @brief Active connection object.
- *
- * Represents an established or establishing connection. Created via ct_preconnection_initiate()
- * for client connections or via listener callbacks for server connections.
- */
-typedef struct ct_connection_s {
-  char uuid[37];                                       ///< Unique identifier for this connection (UUID string)
-  ct_connection_group_t* connection_group;             ///< Connection group (never NULL)
-  ct_transport_properties_t transport_properties;      ///< Transport and connection properties
-  const ct_security_parameters_t* security_parameters; ///< Security configuration (TLS/QUIC)
-  ct_local_endpoint_t local_endpoint;                  ///< Local endpoint (bound address/port)
-  ct_remote_endpoint_t remote_endpoint;                ///< Remote endpoint (peer address/port)
-  ct_protocol_impl_t protocol;                         ///< Protocol implementation in use
-  void* internal_connection_state;                     ///< Protocol-specific per-connection state (opaque)
-  ct_framer_impl_t* framer_impl;                       ///< Optional message framer (NULL = no framing)
-  ct_connection_socket_type_t socket_type;             ///< Socket type (standalone vs multiplexed)
-  ct_connection_role_t role;                           ///< Connection role (client vs server)
-  ct_connection_callbacks_t connection_callbacks;      ///< User-provided callbacks for events
-  struct ct_socket_manager_s* socket_manager;          ///< Socket manager (for listeners/mux)
-  GQueue* received_callbacks;                          ///< Queue of pending receive callbacks
-  GQueue* received_messages;                           ///< Queue of received messages
-} ct_connection_t;
-
-/**
  * @brief Preconnection configuration object.
  *
  * Created before establishing a connection, this object holds all configuration
@@ -1494,6 +1478,37 @@ CT_EXTERN int ct_receive_message(ct_connection_t* connection, ct_receive_callbac
 CT_EXTERN bool ct_connection_is_closed(const ct_connection_t* connection);
 
 /**
+ * @brief Get the connections callback context.
+ * @param[in] connection connection to get callback context for
+ * @return Void pointer assigned to callback context
+ *         null if connection is null or it hasn't been set
+ */
+CT_EXTERN void* ct_connection_get_callback_context(const ct_connection_t* connection);
+
+/**
+ * @brief Get the UUID of a connection
+ * @param[in] connection connection to get uuid for
+ * @return Pointer to uuid string
+ */
+CT_EXTERN const char* ct_connection_get_uuid(const ct_connection_t* connection);
+
+/**
+ * @brief Get the name of the underlying protocol
+ * @param[in] connection connection to get protocol name for
+ * @return Pointer to protocol name, NULL of connection is NULL 
+ */
+CT_EXTERN const char* ct_connection_get_protocol_name(const ct_connection_t* connection);
+
+/**
+ * TODO - maybe this has to return an array?
+ *
+ * @brief Get the remote endpoint for the connection
+ * @param[in] connection connection to get remote endpoint for
+ * @return Pointer to remote endpoint, NULL of connection is NULL 
+ */
+CT_EXTERN const ct_remote_endpoint_t* ct_connection_get_remote_endpoint(const ct_connection_t* connection);
+
+/**
  * @brief Check if a connection is established.
  * @param[in] connection The connection to check
  * @return true if connection is established, false if open or connection is NULL
@@ -1620,6 +1635,14 @@ CT_EXTERN ct_connection_t** ct_connection_get_grouped_connections(
     const ct_connection_t* connection,
     size_t* out_count
 );
+
+/**
+ * @brief Count connections in the same connection group.
+ *
+ * @param[in] connection The connection to query
+ * @return The number of open connections in the connections' connection group
+ */
+CT_EXTERN size_t ct_connection_get_num_grouped_connections(const ct_connection_t* connection);
 
 /**
  * @brief Close all connections in the same connection group gracefully.

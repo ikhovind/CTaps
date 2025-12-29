@@ -4,6 +4,7 @@
 #include "fff.h"
 extern "C" {
 #include "ctaps.h"
+#include "ctaps_internal.h"
 #include <connection/socket_manager/socket_manager.h>
 #include <connection/connection.h>
 }

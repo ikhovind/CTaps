@@ -1,6 +1,7 @@
 #include "connection_group.h"
 
 #include "ctaps.h"
+#include "ctaps_internal.h"
 #include <errno.h>
 #include <glib.h>
 #include <logging/log.h>

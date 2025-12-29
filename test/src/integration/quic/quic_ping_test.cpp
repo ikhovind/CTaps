@@ -12,7 +12,7 @@ extern "C" {
 
 class QuicPingTest : public CTapsGenericFixture {};
 
-TEST_F(QuicPingTest, successfullyConnectsToQuicServer) {
+TEST_F(QuicPingTest, successfullyPingsQuicServer) {
   // --- Setup ---
   ct_remote_endpoint_t remote_endpoint;
   ct_remote_endpoint_build(&remote_endpoint);
@@ -49,7 +49,7 @@ TEST_F(QuicPingTest, successfullyConnectsToQuicServer) {
 
   ct_connection_t* connection = test_context.client_connections[0];
 
-  ASSERT_EQ(connection->transport_properties.connection_properties.list[STATE].value.enum_val, CONN_STATE_CLOSED);
+  ASSERT_TRUE(ct_connection_is_closed(connection));
   ASSERT_EQ(per_connection_messages.size(), 1);
   ASSERT_EQ(per_connection_messages[connection].size(), 1);
   ASSERT_STREQ(per_connection_messages[connection][0]->content, "Pong: ping");
