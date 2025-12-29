@@ -1,4 +1,5 @@
 #include "socket_utils.h"
+#include "endpoint/local_endpoint.h"
 
 #include "ctaps.h"
 #include <logging/log.h>
@@ -12,11 +13,11 @@ uv_udp_t* create_udp_listening_on_local(ct_local_endpoint_t* local_endpoint, uv_
   bool is_ephemeral = (local_endpoint == NULL);
   if (!is_ephemeral) {
     log_debug("Creating UDP socket for set local endpoint");
-    if (local_endpoint->data.address.ss_family == AF_INET) {
-      log_trace("Creating UDP socket listening on IPv4 on port %d", ntohs(((struct sockaddr_in*)&local_endpoint->data.address)->sin_port));
+    if (local_endpoint_get_address_family(local_endpoint) == AF_INET) {
+      log_trace("Creating UDP socket listening on IPv4 on port %d", ntohs(local_endpoint_get_resolved_port(local_endpoint)));
     }
-    else if (local_endpoint->data.address.ss_family == AF_INET6) {
-      log_trace("Creating UDP socket listening on IPv6 on port %d", ntohs(((struct sockaddr_in6*)&local_endpoint->data.address)->sin6_port));
+    else if (local_endpoint_get_address_family(local_endpoint) == AF_INET6) {
+      log_trace("Creating UDP socket listening on IPv6 on port %d", ntohs(local_endpoint_get_resolved_port(local_endpoint)));
     }
     else {
       log_error("Local endpoint is not of type IPv4 or IPv6");
@@ -45,7 +46,7 @@ uv_udp_t* create_udp_listening_on_local(ct_local_endpoint_t* local_endpoint, uv_
     rc = uv_udp_bind(new_udp_handle, (const struct sockaddr*)&ephemeral_addr, 0);
   }
   else {
-    rc = uv_udp_bind(new_udp_handle, (const struct sockaddr*)&local_endpoint->data.address, 0);
+    rc = uv_udp_bind(new_udp_handle, (const struct sockaddr*)local_endpoint_get_resolved_address(local_endpoint), 0);
   }
   if (rc < 0) {
     log_error("Problem with auto-binding: %s", uv_strerror(rc));

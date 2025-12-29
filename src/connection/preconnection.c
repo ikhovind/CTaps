@@ -1,6 +1,7 @@
 
 #include "connection/socket_manager/socket_manager.h"
 #include "ctaps.h"
+#include "ctaps_internal.h"
 #include <candidate_gathering/candidate_gathering.h>
 #include <candidate_gathering/candidate_racing.h>
 #include <errno.h>
@@ -124,4 +125,22 @@ void ct_preconnection_free(ct_preconnection_t* preconnection) {
     preconnection->remote_endpoints = NULL;
   }
   ct_free_local_endpoint_strings(&preconnection->local);
+}
+
+const ct_local_endpoint_t* preconnection_get_local_endpoint(const ct_preconnection_t* preconnection) {
+  return &preconnection->local;
+}
+
+ct_remote_endpoint_t* const * preconnection_get_remote_endpoints(const ct_preconnection_t* preconnection, size_t* out_count) {
+  if (!preconnection) {
+    return NULL;
+  }
+  if (out_count) {
+    *out_count = preconnection->num_remote_endpoints;
+  }
+  return &preconnection->remote_endpoints;
+}
+
+const ct_transport_properties_t* preconnection_get_transport_properties(const ct_preconnection_t* preconnection) {
+  return &preconnection->transport_properties;
 }

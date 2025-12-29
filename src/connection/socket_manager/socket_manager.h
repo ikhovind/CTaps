@@ -2,6 +2,7 @@
 #define SOCKET_MANAGER_H
 #include <uv.h>
 #include "ctaps.h"
+#include "ctaps_internal.h"
 #include <glib.h>
 
 struct ct_listener_s;
