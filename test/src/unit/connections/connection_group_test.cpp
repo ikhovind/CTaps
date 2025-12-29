@@ -4,6 +4,7 @@
 #include "fff.h"
 extern "C" {
 #include "ctaps.h"
+#include "ctaps_internal.h"
 #include <connection/connection.h>
 #include <connection/connection_group.h>
 #include <util/uuid_util.h>

@@ -41,14 +41,14 @@ TEST_F(RemoteEndpointDnsTests, canDnsLookupHostName) {
     ct_connection_t* saved_connection = test_context.client_connections[0];
 
     // check address port
-    if (saved_connection->remote_endpoint.data.resolved_address.ss_family == AF_INET) {
-        struct sockaddr_in* addr = (struct sockaddr_in*)&saved_connection->remote_endpoint.data.resolved_address;
+    if (ct_connection_get_remote_endpoint(saved_connection)->data.resolved_address.ss_family == AF_INET) {
+        struct sockaddr_in* addr = (struct sockaddr_in*)&ct_connection_get_remote_endpoint(saved_connection)->data.resolved_address;
         EXPECT_EQ(1234, ntohs(addr->sin_port));
     }
     else {
-        struct sockaddr_in6* addr = (struct sockaddr_in6*)&saved_connection->remote_endpoint.data.resolved_address;
+        struct sockaddr_in6* addr = (struct sockaddr_in6*)&ct_connection_get_remote_endpoint(saved_connection)->data.resolved_address;
 
         EXPECT_EQ(1234, ntohs(addr->sin6_port));
     }
-    EXPECT_EQ(1234, saved_connection->remote_endpoint.port);
+    EXPECT_EQ(1234, ct_connection_get_remote_endpoint(saved_connection)->port);
 }

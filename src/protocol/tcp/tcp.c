@@ -4,6 +4,7 @@
 #include "connection/connection_group.h"
 #include "connection/socket_manager/socket_manager.h"
 #include "ctaps.h"
+#include "ctaps_internal.h"
 #include <errno.h>
 #include <logging/log.h>
 #include <stdbool.h>

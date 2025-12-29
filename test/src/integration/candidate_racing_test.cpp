@@ -18,8 +18,8 @@ extern "C" {
 extern "C" {
   // ct_callback_t that marks connection as successful
   int racing_test_on_ready(struct ct_connection_s* connection) {
-    log_info("ct_connection_t succeeded via protocol: %s", connection->protocol.name);
-    bool* connection_succeeded = (bool*)connection->connection_callbacks.user_connection_context;
+    log_info("ct_connection_t succeeded via protocol: %s", ct_connection_get_protocol_name(connection));
+    bool* connection_succeeded = (bool*)ct_connection_get_callback_context(connection);
     *connection_succeeded = true;
     ct_connection_close(connection);
     return 0;
@@ -32,16 +32,16 @@ extern "C" {
       return 0;
     }
     log_error("ct_connection_t failed");
-    bool* connection_succeeded = (bool*)connection->connection_callbacks.user_connection_context;
+    bool* connection_succeeded = (bool*)ct_connection_get_callback_context(connection);
     *connection_succeeded = false;
     return 0;
   }
 
   // ct_callback_t that tracks which protocol succeeded
   int racing_test_on_ready_track_protocol(struct ct_connection_s* connection) {
-    log_info("ct_connection_t succeeded via protocol: %s", connection->protocol.name);
-    char** protocol_name = (char**)connection->connection_callbacks.user_connection_context;
-    *protocol_name = strdup(connection->protocol.name);
+    log_info("ct_connection_t succeeded via protocol: %s", ct_connection_get_protocol_name(connection));
+    char** protocol_name = (char**)ct_connection_get_callback_context(connection);
+    *protocol_name = strdup(ct_connection_get_protocol_name(connection));
     ct_connection_close(connection);
     return 0;
   }
