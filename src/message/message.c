@@ -1,4 +1,5 @@
 #include "ctaps.h"
+#include "ctaps_internal.h"
 #include "message/message.h"
 
 #include <logging/log.h>

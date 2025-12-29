@@ -3,6 +3,7 @@
 #include "gtest/gtest.h"
 extern "C" {
 #include "ctaps.h"
+#include "ctaps_internal.h"
 #include <logging/log.h>
 }
 

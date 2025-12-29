@@ -7,6 +7,7 @@ extern "C" {
   #include <uv.h>
   #include "fff.h"
   #include "ctaps.h"
+  #include "ctaps_internal.h"
 
 
 // --- FFF Fakes ---

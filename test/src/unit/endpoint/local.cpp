@@ -4,6 +4,7 @@
 #include "fff.h"
 extern "C" {
 #include "ctaps.h"
+#include "ctaps_internal.h"
 #include "fff.h"
 }
 
@@ -17,7 +18,7 @@ TEST(LocalEndpointUnitTests, SetsIpv4FamilyAndAddress) {
 
     ct_local_endpoint_with_port(&local_endpoint, 5005);
 
-    sockaddr_in* addr = (struct sockaddr_in*)&local_endpoint.data.address;
+    sockaddr_in* addr = (struct sockaddr_in*)&local_endpoint.data.resolved_address;
 
     EXPECT_EQ(5005, ntohs(addr->sin_port));
     EXPECT_EQ(5005, local_endpoint.port);
@@ -35,7 +36,7 @@ TEST(LocalEndpointUnitTests, SetsIpv6FamilyAndAddress) {
     in6_addr ipv6_addr = { .__in6_u = { .__u6_addr8 = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1} } };
 
     ct_local_endpoint_with_port(&local_endpoint, 5005);
-    sockaddr_in6* addr = (struct sockaddr_in6*)&local_endpoint.data.address;
+    sockaddr_in6* addr = (struct sockaddr_in6*)&local_endpoint.data.resolved_address;
 
     EXPECT_EQ(AF_INET6, addr->sin6_family);
     EXPECT_EQ(5005, ntohs(addr->sin6_port));
