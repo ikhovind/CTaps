@@ -475,6 +475,7 @@ int ct_connection_clone_full(
 
   new_connection->connection_group = connection_group;
   new_connection->transport_properties = source_connection->transport_properties;
+  new_connection->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_ESTABLISHING;
   new_connection->security_parameters = source_connection->security_parameters;
   new_connection->local_endpoint = source_connection->local_endpoint;
   new_connection->remote_endpoint = source_connection->remote_endpoint;
@@ -519,15 +520,30 @@ const char* ct_connection_get_uuid(const ct_connection_t* connection) {
   return connection->uuid;
 }
 
-size_t ct_connection_get_num_grouped_connections(const ct_connection_t* connection) {
+size_t ct_connection_get_total_num_grouped_connections(const ct_connection_t* connection) {
   if (!connection) {
-    log_error("ct_connection_get_num_grouped_connections called with NULL parameter");
+    log_error("ct_connection_get_total_num_grouped_connections called with NULL parameter");
     return 0;
   }
 
   ct_connection_group_t* group = connection->connection_group;
   if (!group || !group->connections) {
-    log_error("Connection has no valid connection group");
+    log_error("Connection %s has no valid connection group", connection->uuid);
+    return 0;
+  }
+
+  return g_hash_table_size(group->connections);
+}
+
+size_t ct_connection_get_num_open_grouped_connections(const ct_connection_t* connection) {
+  if (!connection) {
+    log_error("ct_connection_get_num_open_grouped_connections called with NULL parameter");
+    return 0;
+  }
+
+  ct_connection_group_t* group = connection->connection_group;
+  if (!group || !group->connections) {
+    log_error("Connection %s has no valid connection group", connection->uuid);
     return 0;
   }
 

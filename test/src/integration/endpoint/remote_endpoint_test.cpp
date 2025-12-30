@@ -7,13 +7,12 @@ extern "C" {
   #include <uv.h>
   #include "fff.h"
   #include "ctaps.h"
-  #include "ctaps_internal.h"
 
 
 // --- FFF Fakes ---
 DEFINE_FFF_GLOBALS;
 FAKE_VALUE_FUNC(int, faked_uv_getaddrinfo, uv_loop_t*, uv_getaddrinfo_t*, uv_getaddrinfo_cb, const char*, const char*, const struct addrinfo*);
-FAKE_VALUE_FUNC(int32_t, get_service_port_remote, ct_remote_endpoint_t*);
+FAKE_VALUE_FUNC(int32_t, get_service_port, const char*, int);
 }
 
 extern "C" int __wrap_uv_getaddrinfo(uv_loop_t* loop, uv_getaddrinfo_t* req,
@@ -25,6 +24,11 @@ extern "C" int __wrap_uv_getaddrinfo(uv_loop_t* loop, uv_getaddrinfo_t* req,
 
 extern "C" int __wrap_uv_freeaddrinfo(struct addrinfo* addrinfo) {
   return 0;
+}
+
+extern "C" int32_t __wrap_get_service_port(const char* service, int family) {
+  // Call the fff fake function, which tracks calls and uses the return value we set
+  return get_service_port(service, family);
 }
 
 // --- Test Fixture ---
@@ -73,7 +77,7 @@ TEST_F(RemoteEndpointResolveTest, ResolvesHostnameAndAppliesServicePort) {
   faked_uv_getaddrinfo_fake.custom_fake = custom_uv_getaddrinfo;
 
   // Set the fake service lookup to return port 443 (HTTPS)
-  get_service_port_remote_fake.return_val = 443;
+  get_service_port_fake.return_val = 443;
   
   // Create a remote endpoint specifying a hostname and a service
   ct_remote_endpoint_t endpoint_to_resolve;
@@ -93,7 +97,7 @@ TEST_F(RemoteEndpointResolveTest, ResolvesHostnameAndAppliesServicePort) {
   // 1. Check that the function succeeded and our fakes were called
   ASSERT_EQ(result, 0);
   ASSERT_EQ(faked_uv_getaddrinfo_fake.call_count, 1);
-  ASSERT_EQ(get_service_port_remote_fake.call_count, 1);
+  ASSERT_EQ(get_service_port_fake.call_count, 1);
   
   // 2. Verify that the output list contains the two endpoints we created
   ASSERT_EQ(resolved_count, 2);

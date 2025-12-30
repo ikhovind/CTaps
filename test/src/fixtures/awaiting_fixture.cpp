@@ -373,8 +373,8 @@ int clone_and_abort_on_ready(ct_connection_t* connection) {
     auto* ctx = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
     ctx->client_connections.push_back(connection);
 
-    uint64_t num_active = ct_connection_get_num_grouped_connections(connection);
-    log_info("clone_and_abort_on_ready, num_active=%llu", (unsigned long long)num_active);
+    uint64_t num_grouped = ct_connection_get_total_num_grouped_connections(connection);
+    log_info("clone_and_abort_on_ready, num_grouped=%llu", (unsigned long long)num_grouped);
 
     // Send message just to make sure stream is initialized
     ct_message_t message;
@@ -382,9 +382,9 @@ int clone_and_abort_on_ready(ct_connection_t* connection) {
     ct_send_message(connection, &message);
     ct_message_free_content(&message);
 
-    if (num_active == 1) {
+    if (num_grouped == 1) {
         // Original connection - clone it
-        log_info("Original connection ready (num_active=%llu), cloning", (unsigned long long)num_active);
+        log_info("Original connection ready (num_grouped=%llu), cloning", (unsigned long long)num_grouped);
 
 
         int rc = ct_connection_clone(connection);
@@ -396,7 +396,7 @@ int clone_and_abort_on_ready(ct_connection_t* connection) {
         log_info("Successfully cloned connection");
     } else {
         // Cloned connection - abort this one (simulates multi-stream abort)
-        log_info("Cloned connection ready (num_active=%llu), aborting clone", (unsigned long long)num_active);
+        log_info("Cloned connection ready (num_grouped=%llu), aborting clone", (unsigned long long)num_grouped);
         for (ct_connection_t* conn : ctx->client_connections) {
             log_info("Client connection in context: %p", (void*)conn);
             ct_connection_abort(conn);
@@ -414,10 +414,10 @@ int clone_send_and_setup_receive_on_both(ct_connection_t* connection) {
     ctx->client_connections.push_back(connection);
 
     // Check connection group size to determine if this is original or cloned connection
-    uint64_t num_active = ct_connection_get_num_grouped_connections(connection);
+    uint64_t num_grouped = ct_connection_get_total_num_grouped_connections(connection);
 
     const char* message_content;
-    if (num_active == 1) {
+    if (num_grouped == 1) {
         // This is the original connection - clone it
         log_info("Original connection %p ready, cloning", (void*)connection);
 

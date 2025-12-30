@@ -156,7 +156,6 @@ add_gtest(remote_endpoint_integration_test
             ${CMAKE_SOURCE_DIR}/src/logging/log.c
             ${CMAKE_SOURCE_DIR}/src/message/message.c
             ${CMAKE_SOURCE_DIR}/src/endpoint/util.c
-            ${CMAKE_SOURCE_DIR}/src/endpoint/port_util.c
             ${CMAKE_SOURCE_DIR}/src/protocol/udp/udp.c
             ${CMAKE_SOURCE_DIR}/src/protocol/tcp/tcp.c
             ${CMAKE_SOURCE_DIR}/src/protocol/quic/quic.c
@@ -175,6 +174,7 @@ add_gtest(remote_endpoint_integration_test
         WRAP_FUNCTIONS
             uv_getaddrinfo
             uv_freeaddrinfo
+            get_service_port
 )
 #add_gtest(udp_listener_test SOURCES src/integration/listener_test.cpp ${CTAPS_SOURCES})
 add_gtest(tcp_listener_test SOURCES src/integration/tcp/tcp_listen_test.cpp ${CTAPS_SOURCES})
@@ -205,5 +205,6 @@ add_gtest(local_endpoint_resolve_test
     src/unit/endpoint/local/local_endpoint_resolve_test.cpp
     ${CMAKE_SOURCE_DIR}/src/endpoint/local_endpoint.c
     ${CMAKE_SOURCE_DIR}/src/logging/log.c
-    ${CMAKE_SOURCE_DIR}/src/endpoint/port_util.c
+  WRAP_FUNCTIONS
+    get_service_port
 )

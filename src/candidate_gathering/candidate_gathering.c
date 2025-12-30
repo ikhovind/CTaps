@@ -388,19 +388,19 @@ void build_candidate_tree_recursive(GNode* parent_node) {
   // Step 1: Branch by Network Paths (Local Endpoints)
   if (parent_data->type == NODE_TYPE_ROOT) {
     log_trace("Expanding node of type ROOT to PATH nodes");
-    ct_local_endpoint_t** local_endpoint_list = NULL;
+    ct_local_endpoint_t* local_endpoint_list = NULL;
     size_t num_found_local = 0;
 
     // Resolve the local endpoint. The `ct_local_endpoint_resolve` function
     // will find all available interfaces when the interface is not specified.
-    ct_local_endpoint_resolve(parent_data->local_endpoint, local_endpoint_list, &num_found_local);
+    ct_local_endpoint_resolve(parent_data->local_endpoint, &local_endpoint_list, &num_found_local);
     log_trace("Found %zu local endpoints, adding as children to ROOT node", num_found_local);
 
     for (size_t i = 0; i < num_found_local; i++) {
       // Create a child node for each local endpoint found.
       struct ct_candidate_node_t* path_node_data = candidate_node_new(
         NODE_TYPE_PATH,
-        local_endpoint_list[i], // TODO is this correct?
+        &local_endpoint_list[i],
         parent_data->remote_endpoint,
         NULL, // Protocol not yet specified
         parent_data->transport_properties
@@ -414,7 +414,7 @@ void build_candidate_tree_recursive(GNode* parent_node) {
     // Clean up the allocated memory for the list of local endpoints
     if (local_endpoint_list != NULL) {
       for (size_t i = 0; i < num_found_local; i++) {
-        ct_free_local_endpoint_strings(local_endpoint_list[i]);
+        ct_free_local_endpoint_strings(&local_endpoint_list[i]);
       }
       log_trace("Freeing list of local endpoints after building path nodes");
       free(local_endpoint_list);
@@ -450,18 +450,18 @@ void build_candidate_tree_recursive(GNode* parent_node) {
   // Step 3: Branch by Resolved Endpoints (DNS Lookup)
   else if (parent_data->type == NODE_TYPE_PROTOCOL) {
     log_trace("Expanding node of type PROTOCOL to ENDPOINT nodes");
-    ct_remote_endpoint_t** resolved_remote_endpoints = NULL;
+    ct_remote_endpoint_t* resolved_remote_endpoints = NULL;
     size_t num_found_remote = 0;
 
     // Resolve the remote endpoint (hostname to IP address).
-    ct_remote_endpoint_resolve(parent_data->remote_endpoint, resolved_remote_endpoints, &num_found_remote);
+    ct_remote_endpoint_resolve(parent_data->remote_endpoint, &resolved_remote_endpoints, &num_found_remote);
 
     for (size_t i = 0; i < num_found_remote; i++) {
       // Create a leaf node for each resolved IP address.
       ct_candidate_node_t* leaf_node_data = candidate_node_new(
         NODE_TYPE_ENDPOINT,
         parent_data->local_endpoint,
-        resolved_remote_endpoints[i],
+        &resolved_remote_endpoints[i],
         parent_data->protocol,
         parent_data->transport_properties
       );
