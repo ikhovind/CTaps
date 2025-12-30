@@ -71,6 +71,73 @@ Located in `src/connections/listener/socket_manager/`, this component manages li
 
 The library uses libuv for async I/O. There is a global event loop (`ctaps_event_loop`) that must be started via `ctaps_start_event_loop()` after calling `ctaps_initialize()`.
 
+## Code Organization and Internal Structure
+
+### Public vs. Internal API Separation
+
+The codebase maintains a clear separation between public and internal APIs:
+
+- **`include/ctaps.h`** - Public API header exposed to library users
+  - Contains opaque type declarations (e.g., `typedef struct ct_connection_s ct_connection_t;`)
+  - Only exposes functions and types that external users need
+  - Changing this file is an API/ABI breaking change
+
+- **`src/ctaps_internal.h`** - Internal structure definitions
+  - Contains full struct definitions for `ct_connection_t`, `ct_listener_t`, `ct_connection_group_t`
+  - Used only within the library implementation
+  - Can be changed without breaking external users
+
+- **Module headers** (`src/connection/connection.h`, `src/connection/connection_group.h`, etc.)
+  - Contain function declarations for working with internal types
+  - Provide accessor functions (getters/setters) for internal use
+
+### Header Include Conventions
+
+To maintain encapsulation and minimize coupling:
+
+1. **In `.h` header files**:
+   - Include only `ctaps.h` (public header) when possible
+   - Declare accessor functions rather than exposing struct internals
+   - Avoid including `ctaps_internal.h` in headers unless absolutely necessary
+
+2. **In `.c` implementation files**:
+   - Include `ctaps_internal.h` to get full struct definitions
+   - Direct field access is permitted here
+   - However, prefer using accessor functions when available to reduce coupling
+
+### Accessor Function Pattern
+
+Even within the library, prefer using accessor functions over direct field access when practical:
+
+```c
+// Good - using accessor (works even without ctaps_internal.h)
+ct_connection_group_t* group = ct_connection_get_connection_group(conn);
+
+// Acceptable in .c files only - direct access
+ct_connection_group_t* group = conn->connection_group;
+```
+
+**Benefits**:
+- Reduces coupling between modules
+- Makes refactoring easier (change internal structure without updating many files)
+- Clearer separation of concerns
+- Better testability (can mock accessors)
+
+**When to add accessor functions**:
+- When a field is accessed from multiple modules
+- When you want to add validation or logging to field access
+- When the access pattern might change in the future
+
+### Guidelines for New Code
+
+When adding new functionality:
+
+1. **New public APIs** - Add to `include/ctaps.h`, use opaque types
+2. **New internal types** - Define full structs in `src/ctaps_internal.h`
+3. **New functions** - Declare in module headers, implement in `.c` files
+4. **Accessing internal state** - Prefer accessors over direct field access
+5. **Creating new modules** - Follow the pattern: `module.h` (declarations) + `module.c` (implementation)
+
 ## Dependencies
 
 Dependencies are fetched automatically via CMake FetchContent (see `cmake/dependencies.cmake`):
