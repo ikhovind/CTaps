@@ -1619,7 +1619,7 @@ CT_EXTERN int ct_connection_clone_full(
 CT_EXTERN int ct_connection_clone(ct_connection_t* source_connection);
 
 /**
- * @brief Get all connections in the same connection group.
+ * @brief Get all open connections in the same connection group.
  *
  * Returns an array of pointers to all active (non-closed) connections in the same
  * connection group.
@@ -1640,12 +1640,20 @@ CT_EXTERN ct_connection_t** ct_connection_get_grouped_connections(
 );
 
 /**
- * @brief Count connections in the same connection group.
+ * @brief Get the total number of connections in a connection group (including closed ones).
  *
  * @param[in] connection The connection to query
- * @return The number of open connections in the connections' connection group
+ * @return The total number of connections in the group
  */
-CT_EXTERN size_t ct_connection_get_num_grouped_connections(const ct_connection_t* connection);
+CT_EXTERN size_t ct_connection_get_total_num_grouped_connections(const ct_connection_t* connection);
+
+/**
+ * @brief Get the number of open connections in a connection group.
+ *
+ * @param[in] connection The connection to query
+ * @return The number of open (non-closed) connections in the group
+ */
+CT_EXTERN size_t ct_connection_get_num_open_grouped_connections(const ct_connection_t* connection);
 
 /**
  * @brief Close all connections in the same connection group gracefully.

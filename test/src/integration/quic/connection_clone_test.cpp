@@ -23,8 +23,6 @@ TEST_F(ConnectionCloneTest, clonesConnectionSendsOnBothAndReceivesIndividualResp
 
     ct_transport_properties_t transport_properties;
     ct_transport_properties_build(&transport_properties);
-    ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
-    ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_MSG_BOUNDARIES, REQUIRE);
     ct_tp_set_sel_prop_preference(&transport_properties, MULTISTREAMING, REQUIRE);
 
     ct_security_parameters_t security_parameters;
@@ -54,7 +52,6 @@ TEST_F(ConnectionCloneTest, clonesConnectionSendsOnBothAndReceivesIndividualResp
     ASSERT_EQ(per_connection_messages.size(), 2);
     ASSERT_TRUE(ct_connection_is_closed(original));
     ASSERT_TRUE(ct_connection_is_closed(cloned));
-
 
     ASSERT_EQ(per_connection_messages[original].size(), 1);
     ASSERT_EQ(per_connection_messages[cloned].size(), 1);

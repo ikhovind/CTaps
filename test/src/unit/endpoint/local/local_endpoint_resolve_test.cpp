@@ -9,7 +9,12 @@ extern "C" {
   #include "fff.h"
   DEFINE_FFF_GLOBALS;
   FAKE_VOID_FUNC(get_interface_addresses, const char*, int*, struct sockaddr_storage*);
-  FAKE_VALUE_FUNC(uint16_t, get_service_port_local, ct_local_endpoint_t*);
+  FAKE_VALUE_FUNC(int32_t, get_service_port, const char*, int);
+}
+
+// Wrapper function for get_service_port
+extern "C" int32_t __wrap_get_service_port(const char* service, int family) {
+  return get_service_port(service, family);
 }
 
 // --- Test Fixture ---
@@ -19,7 +24,7 @@ protected:
     // Reset all mock data before each test
     FFF_RESET_HISTORY();
     RESET_FAKE(get_interface_addresses);
-    RESET_FAKE(get_service_port_local);
+    RESET_FAKE(get_service_port);
   }
 };
 
@@ -45,7 +50,7 @@ void custom_get_interface_addresses_fail(const char* interface_name, int* num_fo
 TEST_F(LocalEndpointResolveTest, UsesInterfaceAddress_whenInterfaceIsSpecified) {
   // --- ARRANGE ---
   get_interface_addresses_fake.custom_fake = custom_get_interface_addresses_success;
-  get_service_port_local_fake.return_val = 8080; // Simulate resolving "http-alt" to 8080
+  get_service_port_fake.return_val = 8080; // Simulate resolving "http-alt" to 8080
 
   ct_local_endpoint_t input_endpoint;
   ct_local_endpoint_build(&input_endpoint);
@@ -62,7 +67,7 @@ TEST_F(LocalEndpointResolveTest, UsesInterfaceAddress_whenInterfaceIsSpecified) 
   ASSERT_EQ(num_found, 1);
   ASSERT_EQ(result, 0);
   ASSERT_EQ(get_interface_addresses_fake.call_count, 1);
-  ASSERT_EQ(get_service_port_local_fake.call_count, 1);
+  ASSERT_EQ(get_service_port_fake.call_count, 1);
   
   ASSERT_EQ(endpoint.data.resolved_address.ss_family, AF_INET);
 
@@ -103,7 +108,7 @@ TEST_F(LocalEndpointResolveTest, DefaultsToAnyAddress_WhenNoInterfaceIsFound) {
   ASSERT_EQ(result, 0);
   ASSERT_EQ(get_interface_addresses_fake.call_count, 1);
   ASSERT_STREQ(get_interface_addresses_fake.arg0_val, "any");
-  ASSERT_EQ(get_service_port_local_fake.call_count, 0); // Verify it was NOT called
+  ASSERT_EQ(get_service_port_fake.call_count, 0); // Verify it was NOT called
 
   // 2. Inspect the modified ct_local_endpoint_t struct
   ASSERT_EQ(endpoint.data.resolved_address.ss_family, AF_INET);
