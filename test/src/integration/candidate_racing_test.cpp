@@ -59,14 +59,15 @@ TEST(CandidateRacingTests, FirstCandidateSucceeds) {
   ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
   ct_remote_endpoint_with_port(&remote_endpoint, TCP_PING_PORT);
 
-  ct_transport_properties_t transport_properties;
-  ct_transport_properties_build(&transport_properties);
+  ct_transport_properties_t* transport_properties = ct_transport_properties_new();
+  ASSERT_NE(transport_properties, nullptr);
+  // Allocated with ct_transport_properties_new()
 
   // Don't require specific protocol - let racing choose
-  ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PREFER);
+  ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, PREFER);
 
-  ct_preconnection_t preconnection;
-  ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
+  ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, transport_properties, NULL);
+  ASSERT_NE(preconnection, nullptr);
 
   bool connection_succeeded = false;
 
@@ -77,7 +78,7 @@ TEST(CandidateRacingTests, FirstCandidateSucceeds) {
   };
 
   // Execute
-  int rc = ct_preconnection_initiate(&preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -86,7 +87,8 @@ TEST(CandidateRacingTests, FirstCandidateSucceeds) {
   // Verify
   ASSERT_TRUE(connection_succeeded);
 
-  ct_preconnection_free(&preconnection);
+  ct_preconnection_free(preconnection);
+  ct_transport_properties_free(transport_properties);
 }
 
 /**
@@ -101,13 +103,14 @@ TEST(CandidateRacingTests, AllCandidatesFail) {
   ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
   ct_remote_endpoint_with_port(&remote_endpoint, INVALID_TCP_PORT_1); // Invalid port
 
-  ct_transport_properties_t transport_properties;
-  ct_transport_properties_build(&transport_properties);
+  ct_transport_properties_t* transport_properties = ct_transport_properties_new();
+  ASSERT_NE(transport_properties, nullptr);
+  // Allocated with ct_transport_properties_new()
 
-  ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
+  ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, REQUIRE);
 
-  ct_preconnection_t preconnection;
-  ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
+  ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, transport_properties, NULL);
+  ASSERT_NE(preconnection, nullptr);
 
   bool connection_succeeded = false;
 
@@ -118,7 +121,7 @@ TEST(CandidateRacingTests, AllCandidatesFail) {
   };
 
   // Execute
-  int rc = ct_preconnection_initiate(&preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -127,7 +130,8 @@ TEST(CandidateRacingTests, AllCandidatesFail) {
   // Verify - all attempts should fail
   ASSERT_FALSE(connection_succeeded);
 
-  ct_preconnection_free(&preconnection);
+  ct_preconnection_free(preconnection);
+  ct_transport_properties_free(transport_properties);
 }
 
 /**
@@ -143,14 +147,15 @@ TEST(CandidateRacingTests, RespectsProtocolPreferences) {
   ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
   ct_remote_endpoint_with_port(&remote_endpoint, TCP_PING_PORT);
 
-  ct_transport_properties_t transport_properties;
-  ct_transport_properties_build(&transport_properties);
+  ct_transport_properties_t* transport_properties = ct_transport_properties_new();
+  ASSERT_NE(transport_properties, nullptr);
+  // Allocated with ct_transport_properties_new()
 
   // Require reliability - should prefer TCP
-  ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
+  ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, REQUIRE);
 
-  ct_preconnection_t preconnection;
-  ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
+  ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, transport_properties, NULL);
+  ASSERT_NE(preconnection, nullptr);
 
   char* winning_protocol = NULL;
 
@@ -161,7 +166,7 @@ TEST(CandidateRacingTests, RespectsProtocolPreferences) {
   };
 
   // Execute
-  int rc = ct_preconnection_initiate(&preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -172,7 +177,8 @@ TEST(CandidateRacingTests, RespectsProtocolPreferences) {
   ASSERT_STREQ(winning_protocol, "TCP");
 
   free(winning_protocol);
-  ct_preconnection_free(&preconnection);
+  ct_preconnection_free(preconnection);
+  ct_transport_properties_free(transport_properties);
 }
 
 /**
@@ -187,13 +193,14 @@ TEST(CandidateRacingTests, WorksWithHostnameResolution) {
   ct_remote_endpoint_with_hostname(&remote_endpoint, "localhost");
   ct_remote_endpoint_with_port(&remote_endpoint, TCP_PING_PORT);
 
-  ct_transport_properties_t transport_properties;
-  ct_transport_properties_build(&transport_properties);
+  ct_transport_properties_t* transport_properties = ct_transport_properties_new();
+  ASSERT_NE(transport_properties, nullptr);
+  // Allocated with ct_transport_properties_new()
 
-  ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
+  ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, REQUIRE);
 
-  ct_preconnection_t preconnection;
-  ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
+  ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, transport_properties, NULL);
+  ASSERT_NE(preconnection, nullptr);
 
   bool connection_succeeded = false;
 
@@ -204,7 +211,7 @@ TEST(CandidateRacingTests, WorksWithHostnameResolution) {
   };
 
   // Execute
-  int rc = ct_preconnection_initiate(&preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -213,7 +220,8 @@ TEST(CandidateRacingTests, WorksWithHostnameResolution) {
   // Verify
   ASSERT_TRUE(connection_succeeded);
 
-  ct_preconnection_free(&preconnection);
+  ct_preconnection_free(preconnection);
+  ct_transport_properties_free(transport_properties);
 }
 
 /**
@@ -228,16 +236,17 @@ TEST(CandidateRacingTests, SingleCandidateOptimization) {
   ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
   ct_remote_endpoint_with_port(&remote_endpoint, TCP_PING_PORT);
 
-  ct_transport_properties_t transport_properties;
-  ct_transport_properties_build(&transport_properties);
+  ct_transport_properties_t* transport_properties = ct_transport_properties_new();
+  ASSERT_NE(transport_properties, nullptr);
+  // Allocated with ct_transport_properties_new()
 
   // Select TCP specifically - stream-based, reliable, no multistreaming
-  ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
-  ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
-  ct_tp_set_sel_prop_preference(&transport_properties, MULTISTREAMING, PROHIBIT);
+  ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, REQUIRE);
+  ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
+  ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, PROHIBIT);
 
-  ct_preconnection_t preconnection;
-  ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
+  ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, transport_properties, NULL);
+  ASSERT_NE(preconnection, nullptr);
 
   bool connection_succeeded = false;
 
@@ -248,7 +257,7 @@ TEST(CandidateRacingTests, SingleCandidateOptimization) {
   };
 
   // Execute - should use single-candidate path
-  int rc = ct_preconnection_initiate(&preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -257,5 +266,6 @@ TEST(CandidateRacingTests, SingleCandidateOptimization) {
   // Verify
   ASSERT_TRUE(connection_succeeded);
 
-  ct_preconnection_free(&preconnection);
+  ct_preconnection_free(preconnection);
+  ct_transport_properties_free(transport_properties);
 }

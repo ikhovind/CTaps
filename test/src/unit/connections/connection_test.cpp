@@ -16,11 +16,12 @@ TEST(ConnectionUnitTests, TakesDeepCopyOfTransportProperties) {
     ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
     ct_remote_endpoint_with_port(&remote_endpoint, 5005);
 
-    ct_transport_properties_t transport_properties;
+    ct_transport_properties_t* transport_properties = ct_transport_properties_new();
+  ASSERT_NE(transport_properties, nullptr);
 
-    ct_transport_properties_build(&transport_properties);
-    ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PROHIBIT);
-    ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
+    // Allocated with ct_transport_properties_new()
+    ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, PROHIBIT);
+    ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_ORDER, PROHIBIT);
 
     ct_connection_t connection;
     ct_local_endpoint_t local_endpoint;
@@ -30,7 +31,7 @@ TEST(ConnectionUnitTests, TakesDeepCopyOfTransportProperties) {
     };
 
     ct_listener_t mock_listener = {
-        .transport_properties = transport_properties,
+        .transport_properties = *transport_properties,
         .local_endpoint = local_endpoint,
         .socket_manager = &socket_manager,
     };
@@ -47,6 +48,7 @@ TEST(ConnectionUnitTests, TakesDeepCopyOfTransportProperties) {
 
     // Cleanup
     ct_connection_free_content(&connection);
+    ct_transport_properties_free(transport_properties);
 }
 
 TEST(ConnectionUnitTests, GeneratesUniqueUUIDs) {

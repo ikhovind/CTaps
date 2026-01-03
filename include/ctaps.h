@@ -261,25 +261,10 @@ typedef enum { get_selection_property_list(output_enum) SELECTION_PROPERTY_END }
  *
  * This structure contains all selection properties that influence protocol selection
  * during connection establishment. Properties are indexed by ct_selection_property_enum_t.
+ *
+ * This is an opaque type. Use the setter functions to configure selection properties.
  */
-typedef struct {
-  ct_selection_property_t selection_property[SELECTION_PROPERTY_END];  ///< Array of selection properties
-} ct_selection_properties_t;
-
-// The value cast is a hack to please the c++ compiler for our tests
-#define create_sel_property_initializer(enum_name, string_name, property_type, default_value) \
-  [enum_name] = {                                                          \
-    .name = string_name,                                                   \
-    .type = property_type,                                                 \
-    .set_by_user = false,                                                  \
-    .value = { (ct_selection_preference_t)default_value }                     \
-},
-
-static const ct_selection_properties_t DEFAULT_SELECTION_PROPERTIES = {
-  .selection_property = {
-    get_selection_property_list(create_sel_property_initializer)
-  }
-};
+typedef struct ct_selection_properties_s ct_selection_properties_t;
 
 /**
  * @brief Initialize selection properties with default values.
@@ -533,12 +518,6 @@ typedef struct {
   ct_message_property_t message_property[MESSAGE_PROPERTY_END];  ///< Array of message properties
 } ct_message_properties_t;
 
-static const ct_message_properties_t DEFAULT_MESSAGE_PROPERTIES = {
-  .message_property = {
-    get_message_property_list(create_sel_property_initializer)
-  }
-};
-
 // =============================================================================
 // Transport Properties - Combination of selection and connection properties
 // =============================================================================
@@ -548,11 +527,11 @@ static const ct_message_properties_t DEFAULT_MESSAGE_PROPERTIES = {
  *
  * This structure contains both selection properties (for choosing protocols) and
  * connection properties (for configuring active connections).
+ *
+ * This is an opaque type. Use ct_transport_properties_new() to create instances
+ * and the setter functions to configure properties.
  */
-typedef struct {
-  ct_selection_properties_t selection_properties;      ///< Properties for protocol selection
-  ct_connection_properties_t connection_properties;    ///< Properties for connection configuration
-} ct_transport_properties_t;
+typedef struct ct_transport_properties_s ct_transport_properties_t;
 
 // =============================================================================
 // Security Parameters
@@ -612,13 +591,27 @@ typedef struct {
   ct_security_parameter_t security_parameters[SEC_PROPERTY_END];  ///< Array of security parameters
 } ct_security_parameters_t;
 
+
 /**
- * @brief Initialize transport properties with default values.
+ * @brief Create a new transport properties object with default values.
  *
- * @param[out] properties Pointer to transport properties structure to initialize.
- *                        Must be allocated by the caller.
+ * Allocates and initializes a new transport properties object on the heap.
+ * The returned object must be freed with ct_transport_properties_free().
+ *
+ * @return Pointer to newly allocated transport properties, or NULL on allocation failure.
  */
-CT_EXTERN void ct_transport_properties_build(ct_transport_properties_t* properties);
+CT_EXTERN ct_transport_properties_t* ct_transport_properties_new(void);
+
+/**
+ * @brief Free a transport properties object.
+ *
+ * Releases all resources associated with the transport properties object,
+ * including any dynamically allocated internal state (e.g., interface preference maps).
+ * After calling this function, the pointer is invalid and must not be used.
+ *
+ * @param[in] props Pointer to transport properties to free. Does nothing if NULL.
+ */
+CT_EXTERN void ct_transport_properties_free(ct_transport_properties_t* props);
 
 /**
  * @brief Set a selection property preference in transport properties.
@@ -915,71 +908,11 @@ struct ct_framer_impl_s {
  * This interface defines the contract that all transport protocol implementations
  * (TCP, UDP, QUIC, or custom protocols) must implement. The CTaps library uses
  * this interface to abstract over different transport protocols.
+ *
+ * This is an opaque type used only via pointers. Protocol implementations are registered
+ * using ct_register_protocol().
  */
-typedef struct ct_protocol_impl_s {
-  const char* name;                              ///< Protocol name (e.g., "TCP", "UDP", "QUIC")
-  ct_selection_properties_t selection_properties; ///< Properties supported by this protocol
-
-  /** @brief Initialize a new connection using this protocol.
-   * @param[in,out] connection The connection to initialize
-   * @param[in] connection_callbacks Callbacks for connection events
-   * @return 0 on success, non-zero on error
-   */
-  int (*init)(struct ct_connection_s* connection, const ct_connection_callbacks_t* connection_callbacks);
-
-  /** @brief Send a message over the protocol.
-   * @param[in] connection The connection
-   * @param[in] message The message to send
-   * @param[in] context Message context
-   * @return 0 on success, non-zero on error
-   */
-  int (*send)(struct ct_connection_s*, ct_message_t*, ct_message_context_t*);
-
-  /** @brief Start listening for incoming connections.
-   * @param[in] socket_manager The socket manager handling the listener
-   * @return 0 on success, non-zero on error
-   */
-  int (*listen)(struct ct_socket_manager_s* socket_manager);
-
-  /** @brief Stop listening for incoming connections.
-   * @param[in] socket_manager The socket manager
-   * @return 0 on success, non-zero on error
-   */
-  int (*stop_listen)(struct ct_socket_manager_s*);
-
-  /** @brief Close a connection.
-   * @param[in] connection The connection to close
-   * @return 0 on success, non-zero on error
-   */
-  int (*close)(struct ct_connection_s*);
-
-   /** @brief Forcefully abort a connection without graceful shutdown.
-   * @param[in] connection The connection to abort
-   */
-  void (*abort)(struct ct_connection_s* connection);
-
-  /** @brief Clone a connection's protocol specific state.
-   *
-   * @param[in] source_connection The source connection to clone from
-   * @param[out] target_connection The target connection to clone into
-   * @return 0 on success, non-zero on error
-   */
-  int (*clone_connection)(const struct ct_connection_s* source_connection,
-                          struct ct_connection_s* target_connection);
-
-  /** @brief Extract remote endpoint information from a connected peer handle.
-   * @param[in] peer The libuv handle for the peer
-   * @param[out] resolved_peer Output endpoint structure
-   * @return 0 on success, non-zero on error
-   */
-  int (*remote_endpoint_from_peer)(uv_handle_t* peer, ct_remote_endpoint_t* resolved_peer);
-
-  /** @brief Retarget protocol-specific connection state during racing.
-   * @param[in,out] from_connection Source connection (racing candidate)
-   * @param[in,out] to_connection Target connection (winner)
-   */
-  void (*retarget_protocol_connection)(struct ct_connection_s* from_connection, struct ct_connection_s* to_connection);
-} ct_protocol_impl_t;
+typedef struct ct_protocol_impl_s ct_protocol_impl_t;
 
 // =============================================================================
 // Connections - Main connection structures
@@ -1007,16 +940,10 @@ typedef enum {
  * Created before establishing a connection, this object holds all configuration
  * (endpoints, properties, security) needed to initiate a connection or start a listener.
  * This is the RFC 9622 "Preconnection" abstraction.
+ *
+ * This is an opaque type. Use ct_preconnection_new() to create instances.
  */
-typedef struct ct_preconnection_s {
-  ct_transport_properties_t transport_properties;     ///< Transport property preferences
-  const ct_security_parameters_t* security_parameters; ///< Security configuration
-  ct_local_endpoint_t local;                          ///< Local endpoint specification
-  size_t num_local_endpoints;                         ///< Number of local endpoints
-  ct_remote_endpoint_t* remote_endpoints;             ///< Array of remote endpoints
-  size_t num_remote_endpoints;                        ///< Number of remote endpoints
-  ct_framer_impl_t* framer_impl;                      ///< Optional message framer
-} ct_preconnection_t;
+typedef struct ct_preconnection_s ct_preconnection_t;
 
 /**
  * @brief Listener object for accepting incoming connections.
@@ -1347,54 +1274,38 @@ CT_EXTERN void ct_message_context_build(ct_message_context_t* message_context);
  */
 CT_EXTERN void ct_message_context_free(ct_message_context_t* message_context);
 
-/**
- * @brief Initialize a preconnection with transport properties and endpoints.
- * @param[out] preconnection Preconnection structure to initialize
- * @param[in] transport_properties Transport property preferences
- * @param[in] remote_endpoints Array of remote endpoints to connect to
- * @param[in] num_remote_endpoints Number of remote endpoints
- * @param[in] security_parameters Security configuration (TLS/QUIC), or NULL
- * @return 0 on success, non-zero on error
- */
-CT_EXTERN int ct_preconnection_build(ct_preconnection_t* preconnection,
-                           const ct_transport_properties_t transport_properties,
-                           const ct_remote_endpoint_t* remote_endpoints,
-                           const size_t num_remote_endpoints,
-                           const ct_security_parameters_t* security_parameters);
+
+
 
 /**
- * @brief Initialize a preconnection with message framer support.
- * @param[out] preconnection Preconnection structure to initialize
- * @param[in] transport_properties Transport property preferences
- * @param[in] remote_endpoints Array of remote endpoints to connect to
- * @param[in] num_remote_endpoints Number of remote endpoints
+ * @brief Create a new preconnection with transport properties and endpoints.
+ *
+ * Allocates and initializes a new preconnection object on the heap.
+ * The returned object must be freed with ct_preconnection_free().
+ * This follows the RFC 9622 pattern: Preconnection := NewPreconnection(...)
+ *
+ * @param[in] remote_endpoints Array of remote endpoints to connect to, or NULL
+ * @param[in] num_remote_endpoints Number of remote endpoints (0 if remote_endpoints is NULL)
+ * @param[in] transport_properties Transport property preferences, or NULL for defaults
  * @param[in] security_parameters Security configuration (TLS/QUIC), or NULL
- * @param[in] framer_impl Optional message framer implementation, or NULL
- * @return 0 on success, non-zero on error
+ * @return Pointer to newly allocated preconnection, or NULL on allocation failure
  */
-CT_EXTERN int ct_preconnection_build_ex(ct_preconnection_t* preconnection,
-                           const ct_transport_properties_t transport_properties,
-                           const ct_remote_endpoint_t* remote_endpoints,
-                           const size_t num_remote_endpoints,
-                           const ct_security_parameters_t* security_parameters,
-                           ct_framer_impl_t* framer_impl);
+CT_EXTERN ct_preconnection_t* ct_preconnection_new(
+    const ct_remote_endpoint_t* remote_endpoints,
+    const size_t num_remote_endpoints,
+    const ct_transport_properties_t* transport_properties,
+    const ct_security_parameters_t* security_parameters);
 
 /**
- * @brief Initialize a preconnection with both local and remote endpoints.
- * @param[out] preconnection Preconnection structure to initialize
- * @param[in] transport_properties Transport property preferences
- * @param[in] remote_endpoints Array of remote endpoints to connect to
- * @param[in] num_remote_endpoints Number of remote endpoints
- * @param[in] security_parameters Security configuration (TLS/QUIC), or NULL
- * @param[in] local_endpoint Local endpoint to bind to
- * @return 0 on success, non-zero on error
+ * @brief Free a preconnection object.
+ *
+ * Releases all resources associated with the preconnection object,
+ * including any dynamically allocated remote endpoints and internal state.
+ * After calling this function, the pointer is invalid and must not be used.
+ *
+ * @param[in] preconnection Pointer to preconnection to free. Does nothing if NULL.
  */
-CT_EXTERN int ct_preconnection_build_with_local(ct_preconnection_t* preconnection,
-                                      ct_transport_properties_t transport_properties,
-                                      ct_remote_endpoint_t* remote_endpoints,
-                                      size_t num_remote_endpoints,
-                                      const ct_security_parameters_t* security_parameters,
-                                      ct_local_endpoint_t local_endpoint);
+CT_EXTERN void ct_preconnection_free(ct_preconnection_t* preconnection);
 
 /**
  * @brief Add an additional remote endpoint to a preconnection.
@@ -1409,6 +1320,13 @@ CT_EXTERN void ct_preconnection_add_remote_endpoint(ct_preconnection_t* preconne
  * @param[in] local_endpoint Local endpoint to set
  */
 CT_EXTERN void ct_preconnection_set_local_endpoint(ct_preconnection_t* preconnection, const ct_local_endpoint_t* local_endpoint);
+
+/**
+ * @brief Set a message framer for the preconnection.
+ * @param[in,out] preconnection Preconnection to modify
+ * @param[in] framer_impl Framer implementation to use, or NULL for no framing
+ */
+CT_EXTERN void ct_preconnection_set_framer(ct_preconnection_t* preconnection, ct_framer_impl_t* framer_impl);
 
 /**
  * @brief Free resources in a preconnection.

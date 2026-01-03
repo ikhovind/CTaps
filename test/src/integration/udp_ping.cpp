@@ -20,16 +20,15 @@ TEST_F(UdpGenericTests, sendsSingleUdpPacket) {
   ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
   ct_remote_endpoint_with_port(&remote_endpoint, UDP_PING_PORT);
 
-  ct_transport_properties_t transport_properties;
+  ct_transport_properties_t* transport_properties = ct_transport_properties_new();
+  ASSERT_NE(transport_properties, nullptr);
 
-  ct_transport_properties_build(&transport_properties);
+  ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, PROHIBIT);
+  ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_ORDER, PROHIBIT);
+  ct_tp_set_sel_prop_preference(transport_properties, CONGESTION_CONTROL, PROHIBIT);
 
-  ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PROHIBIT);
-  ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
-  ct_tp_set_sel_prop_preference(&transport_properties, CONGESTION_CONTROL, PROHIBIT);
-
-  ct_preconnection_t preconnection;
-  ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
+  ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, transport_properties, NULL);
+  ASSERT_NE(preconnection, nullptr);
 
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
@@ -37,7 +36,7 @@ TEST_F(UdpGenericTests, sendsSingleUdpPacket) {
     .user_connection_context = &test_context,
   };
 
-  int rc = ct_preconnection_initiate(&preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -49,6 +48,9 @@ TEST_F(UdpGenericTests, sendsSingleUdpPacket) {
   ASSERT_EQ(per_connection_messages.size(), 1);
   ASSERT_EQ(per_connection_messages[test_context.client_connections[0]].size(), 1);
   ASSERT_STREQ(per_connection_messages[test_context.client_connections[0]][0]->content, "Pong: ping");
+
+  ct_preconnection_free(preconnection);
+  ct_transport_properties_free(transport_properties);
 }
 
 TEST_F(UdpGenericTests, packetsAreReadInOrder) {
@@ -59,16 +61,15 @@ TEST_F(UdpGenericTests, packetsAreReadInOrder) {
   ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
   ct_remote_endpoint_with_port(&remote_endpoint, UDP_PING_PORT);
 
-  ct_transport_properties_t transport_properties;
+  ct_transport_properties_t* transport_properties = ct_transport_properties_new();
+  ASSERT_NE(transport_properties, nullptr);
 
-  ct_transport_properties_build(&transport_properties);
+  ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, PROHIBIT);
+  ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_ORDER, PROHIBIT);
+  ct_tp_set_sel_prop_preference(transport_properties, CONGESTION_CONTROL, PROHIBIT);
 
-  ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PROHIBIT);
-  ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
-  ct_tp_set_sel_prop_preference(&transport_properties, CONGESTION_CONTROL, PROHIBIT);
-
-  ct_preconnection_t preconnection;
-  ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
+  ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, transport_properties, NULL);
+  ASSERT_NE(preconnection, nullptr);
 
   test_context.total_expected_messages = 2;
 
@@ -78,7 +79,7 @@ TEST_F(UdpGenericTests, packetsAreReadInOrder) {
     .user_connection_context = &test_context,
   };
 
-  int rc = ct_preconnection_initiate(&preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -90,6 +91,9 @@ TEST_F(UdpGenericTests, packetsAreReadInOrder) {
   ASSERT_EQ(per_connection_messages[test_context.client_connections[0]].size(), 2);
   EXPECT_STREQ(per_connection_messages[test_context.client_connections[0]][0]->content, "Pong: hello 1");
   EXPECT_STREQ(per_connection_messages[test_context.client_connections[0]][1]->content, "Pong: hello 2");
+
+  ct_preconnection_free(preconnection);
+  ct_transport_properties_free(transport_properties);
 }
 
 TEST_F(UdpGenericTests, canPingArbitraryBytes) {
@@ -101,16 +105,15 @@ TEST_F(UdpGenericTests, canPingArbitraryBytes) {
   ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
   ct_remote_endpoint_with_port(&remote_endpoint, UDP_PING_PORT);
 
-  ct_transport_properties_t transport_properties;
+  ct_transport_properties_t* transport_properties = ct_transport_properties_new();
+  ASSERT_NE(transport_properties, nullptr);
 
-  ct_transport_properties_build(&transport_properties);
+  ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, PROHIBIT);
+  ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_ORDER, PROHIBIT);
+  ct_tp_set_sel_prop_preference(transport_properties, CONGESTION_CONTROL, PROHIBIT);
 
-  ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PROHIBIT);
-  ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
-  ct_tp_set_sel_prop_preference(&transport_properties, CONGESTION_CONTROL, PROHIBIT);
-
-  ct_preconnection_t preconnection;
-  ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
+  ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, transport_properties, NULL);
+  ASSERT_NE(preconnection, nullptr);
 
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
@@ -118,7 +121,7 @@ TEST_F(UdpGenericTests, canPingArbitraryBytes) {
     .user_connection_context = &test_context,
   };
 
-  int rc = ct_preconnection_initiate(&preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -133,4 +136,7 @@ TEST_F(UdpGenericTests, canPingArbitraryBytes) {
   ASSERT_EQ(per_connection_messages[test_context.client_connections[0]].size(), 1);
   EXPECT_EQ(memcmp(per_connection_messages[test_context.client_connections[0]][0]->content, expected_output, sizeof(expected_output)), 0);
   EXPECT_EQ(per_connection_messages[test_context.client_connections[0]][0]->length, sizeof(expected_output));
+
+  ct_preconnection_free(preconnection);
+  ct_transport_properties_free(transport_properties);
 }

@@ -77,6 +77,46 @@ int ct_preconnection_build_with_local(ct_preconnection_t* preconnection,
   return copy_remote_endpoints(preconnection, remote_endpoints, num_remote_endpoints);
 }
 
+// Forward declarations from transport_properties.c
+extern void ct_selection_properties_cleanup(ct_selection_properties_t* selection_properties);
+extern void ct_transport_properties_deep_copy(ct_transport_properties_t* dest, const ct_transport_properties_t* src);
+
+ct_preconnection_t* ct_preconnection_new(
+    const ct_remote_endpoint_t* remote_endpoints,
+    const size_t num_remote_endpoints,
+    const ct_transport_properties_t* transport_properties,
+    const ct_security_parameters_t* security_parameters) {
+
+  ct_preconnection_t* precon = malloc(sizeof(ct_preconnection_t));
+  if (!precon) {
+    log_error("Failed to allocate memory for preconnection");
+    return NULL;
+  }
+
+  memset(precon, 0, sizeof(ct_preconnection_t));
+
+  // Deep copy transport properties or use defaults
+  if (transport_properties) {
+    ct_transport_properties_deep_copy(&precon->transport_properties, transport_properties);
+  } else {
+    ct_transport_properties_build(&precon->transport_properties);
+  }
+
+  precon->security_parameters = security_parameters;
+  ct_local_endpoint_build(&precon->local);
+
+  // Copy remote endpoints if provided
+  if (remote_endpoints && num_remote_endpoints > 0) {
+    int ret = copy_remote_endpoints(precon, remote_endpoints, num_remote_endpoints);
+    if (ret != 0) {
+      free(precon);
+      return NULL;
+    }
+  }
+
+  return precon;
+}
+
 
 int ct_preconnection_listen(ct_preconnection_t* preconnection, ct_listener_t* listener, ct_listener_callbacks_t listener_callbacks) {
   log_info("Listening from preconnection");
@@ -117,6 +157,11 @@ int ct_preconnection_initiate(ct_preconnection_t* preconnection, ct_connection_c
 }
 
 void ct_preconnection_free(ct_preconnection_t* preconnection) {
+  if (!preconnection) {
+    return;
+  }
+
+  // Free remote endpoint strings and array
   if (preconnection->remote_endpoints != NULL) {
     for (size_t i = 0; i < preconnection->num_remote_endpoints; i++) {
       ct_free_remote_endpoint_strings(&preconnection->remote_endpoints[i]);
@@ -124,7 +169,30 @@ void ct_preconnection_free(ct_preconnection_t* preconnection) {
     free(preconnection->remote_endpoints);
     preconnection->remote_endpoints = NULL;
   }
+
+  // Free local endpoint strings
   ct_free_local_endpoint_strings(&preconnection->local);
+
+  // Clean up embedded transport properties (frees GHashTable if created)
+  ct_selection_properties_cleanup(&preconnection->transport_properties.selection_properties);
+
+  // Free the preconnection struct itself
+  free(preconnection);
+}
+
+void ct_preconnection_set_local_endpoint(ct_preconnection_t* preconnection, const ct_local_endpoint_t* local_endpoint) {
+  if (!preconnection || !local_endpoint) {
+    return;
+  }
+  preconnection->local = *local_endpoint;
+  preconnection->num_local_endpoints = 1;
+}
+
+void ct_preconnection_set_framer(ct_preconnection_t* preconnection, ct_framer_impl_t* framer_impl) {
+  if (!preconnection) {
+    return;
+  }
+  preconnection->framer_impl = framer_impl;
 }
 
 const ct_local_endpoint_t* preconnection_get_local_endpoint(const ct_preconnection_t* preconnection) {

@@ -20,40 +20,43 @@ TEST_F(CTapsGenericFixture, ClosingListenerDoesNotAffectExistingConnections) {
     ct_remote_endpoint_build(&remote_endpoint);
     ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
 
-    ct_transport_properties_t listener_props;
-    ct_transport_properties_build(&listener_props);
+    ct_transport_properties_t* listener_props = ct_transport_properties_new();
+  ASSERT_NE(listener_props, nullptr);
+    // Allocated with ct_transport_properties_new()
 
-    ct_tp_set_sel_prop_preference(&listener_props, RELIABILITY, PROHIBIT);
+    ct_tp_set_sel_prop_preference(listener_props, RELIABILITY, PROHIBIT);
 
-    ct_preconnection_t listener_precon;
-    ct_preconnection_build_with_local(&listener_precon, listener_props, &remote_endpoint, 1, NULL, listener_endpoint);
+    ct_preconnection_t* listener_precon = ct_preconnection_new(&remote_endpoint, 1, listener_props, NULL);
+    ASSERT_NE(listener_precon, nullptr);
+    ct_preconnection_set_local_endpoint(listener_precon, &listener_endpoint);
 
     ct_listener_callbacks_t listener_callbacks = {
         .connection_received = on_connection_received_receive_message_close_listener_and_send_new_message,
         .user_listener_context = &test_context
     };
 
-    ct_preconnection_listen(&listener_precon, &listener, listener_callbacks);
+    ct_preconnection_listen(listener_precon, &listener, listener_callbacks);
 
     // --- SETUP CLIENT ---
     ct_remote_endpoint_t client_remote;
     ct_remote_endpoint_with_ipv4(&client_remote, inet_addr("127.0.0.1"));
     ct_remote_endpoint_with_port(&client_remote, 6234); // Point to the listener
 
-    ct_transport_properties_t client_props;
-    ct_transport_properties_build(&client_props);
+    ct_transport_properties_t* client_props = ct_transport_properties_new();
+  ASSERT_NE(client_props, nullptr);
+    // Allocated with ct_transport_properties_new()
 
-    ct_tp_set_sel_prop_preference(&client_props, RELIABILITY, PROHIBIT);
+    ct_tp_set_sel_prop_preference(client_props, RELIABILITY, PROHIBIT);
 
-    ct_preconnection_t client_precon;
-    ct_preconnection_build(&client_precon, client_props, &client_remote, 1, NULL);
+    ct_preconnection_t* client_precon = ct_preconnection_new(&client_remote, 1, client_props, NULL);
+    ASSERT_NE(client_precon, nullptr);
 
     ct_connection_callbacks_t client_callbacks = {
         .ready = send_message_on_connection_ready,
         .user_connection_context = &test_context
     };
 
-    ct_preconnection_initiate(&client_precon, client_callbacks);
+    ct_preconnection_initiate(client_precon, client_callbacks);
 
     // --- RUN EVENT LOOP ---
     // This will block until the callbacks close the handles
@@ -69,6 +72,11 @@ TEST_F(CTapsGenericFixture, ClosingListenerDoesNotAffectExistingConnections) {
     ASSERT_EQ(test_context.per_connection_messages[test_context.server_connections[1]]->size(), 1);
     ASSERT_EQ(test_context.per_connection_messages[test_context.server_connections[1]][0]->length, 6);
     ASSERT_EQ(test_context.per_connection_messages[test_context.server_connections[1]][0]->content, "ping2");
+
+    ct_preconnection_free(client_precon);
+    ct_transport_properties_free(client_props);
+    ct_preconnection_free(listener_precon);
+    ct_transport_properties_free(listener_props);
 }
 
 TEST_F(CTapsGenericFixture, ClosingListenerWithNoConnectionsClosesSocketManager) {
@@ -87,18 +95,23 @@ TEST_F(CTapsGenericFixture, ClosingListenerWithNoConnectionsClosesSocketManager)
     ct_remote_endpoint_build(&remote_endpoint);
     ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
 
-    ct_transport_properties_t listener_props;
-    ct_transport_properties_build(&listener_props);
+    ct_transport_properties_t* listener_props = ct_transport_properties_new();
+  ASSERT_NE(listener_props, nullptr);
+    // Allocated with ct_transport_properties_new()
 
-    ct_tp_set_sel_prop_preference(&listener_props, RELIABILITY, PROHIBIT);
+    ct_tp_set_sel_prop_preference(listener_props, RELIABILITY, PROHIBIT);
 
-    ct_preconnection_t listener_precon;
-    ct_preconnection_build_with_local(&listener_precon, listener_props, &remote_endpoint, 1, NULL, listener_endpoint);
+    ct_preconnection_t* listener_precon = ct_preconnection_new(&remote_endpoint, 1, listener_props, NULL);
+    ASSERT_NE(listener_precon, nullptr);
+    ct_preconnection_set_local_endpoint(listener_precon, &listener_endpoint);
 
-    ct_preconnection_listen(&listener_precon, &listener, on_connection_received_receive_message_close_listener_and_send_new_message);
+    ct_preconnection_listen(listener_precon, &listener, on_connection_received_receive_message_close_listener_and_send_new_message);
 
     ct_listener_close(&listener);
     // --- RUN EVENT LOOP ---
     // This will block until the callbacks close the handles
     ct_start_event_loop();
+
+    ct_preconnection_free(listener_precon);
+    ct_transport_properties_free(listener_props);
 }

@@ -104,14 +104,16 @@ TEST_F(LocalEndpointInitTest, UsesInterfaceAddress_whenInterfaceIsSpecified) {
     ct_remote_endpoint_build(&remote_endpoint);
     ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
 
-    ct_transport_properties_t transport_properties;
-    ct_transport_properties_build(&transport_properties);
-    ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PROHIBIT);
-    ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
-    ct_tp_set_sel_prop_preference(&transport_properties, CONGESTION_CONTROL, PROHIBIT);
+    ct_transport_properties_t* transport_properties = ct_transport_properties_new();
+  ASSERT_NE(transport_properties, nullptr);
+    // Allocated with ct_transport_properties_new()
+    ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, PROHIBIT);
+    ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_ORDER, PROHIBIT);
+    ct_tp_set_sel_prop_preference(transport_properties, CONGESTION_CONTROL, PROHIBIT);
 
-    ct_preconnection_t preconnection;
-    ct_preconnection_build_with_local(&preconnection, transport_properties, &remote_endpoint, 1, NULL, local_endpoint);
+    ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, transport_properties, NULL);
+    ASSERT_NE(preconnection, nullptr);
+    ct_preconnection_set_local_endpoint(preconnection, &local_endpoint);
 
     ct_connection_callbacks_t connection_callbacks = {
         .ready = on_connection_ready,
@@ -121,7 +123,7 @@ TEST_F(LocalEndpointInitTest, UsesInterfaceAddress_whenInterfaceIsSpecified) {
 
     // --- ACT ---
 
-    ct_preconnection_initiate(&preconnection, connection_callbacks);
+    ct_preconnection_initiate(preconnection, connection_callbacks);
 
     // --- ASSERT ---
     // 1. Verify that our mocked functions were called as expected
@@ -142,6 +144,9 @@ TEST_F(LocalEndpointInitTest, UsesInterfaceAddress_whenInterfaceIsSpecified) {
 
     // Verify the port was set correctly
     EXPECT_EQ(ntohs(bound_addr_in->sin_port), 8080);
+
+    ct_preconnection_free(preconnection);
+    ct_transport_properties_free(transport_properties);
 }
 
 TEST(LocalEndpointUnitTests, TakesDeepCopyOfService) {
