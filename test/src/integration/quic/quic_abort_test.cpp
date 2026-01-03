@@ -53,19 +53,20 @@ TEST_F(QuicAbortTest, singleConnectionAbortCallsCloseImmediate) {
   ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
   ct_remote_endpoint_with_port(&remote_endpoint, QUIC_ABORT_PORT);
 
-  ct_transport_properties_t transport_properties;
-  ct_transport_properties_build(&transport_properties);
-  ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
-  ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_MSG_BOUNDARIES, REQUIRE);
-  ct_tp_set_sel_prop_preference(&transport_properties, MULTISTREAMING, REQUIRE); // Force QUIC
+  ct_transport_properties_t* transport_properties = ct_transport_properties_new();
+  ASSERT_NE(transport_properties, nullptr);
+  // Allocated with ct_transport_properties_new()
+  ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, REQUIRE);
+  ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, REQUIRE);
+  ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, REQUIRE); // Force QUIC
 
   ct_security_parameters_t security_parameters;
   ct_security_parameters_build(&security_parameters);
   char* alpn_strings = "simple-ping";
   ct_sec_param_set_property_string_array(&security_parameters, ALPN, &alpn_strings, 1);
 
-  ct_preconnection_t preconnection;
-  ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, &security_parameters);
+  ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, transport_properties, &security_parameters);
+  ASSERT_NE(preconnection, nullptr);
 
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
@@ -73,7 +74,7 @@ TEST_F(QuicAbortTest, singleConnectionAbortCallsCloseImmediate) {
     .user_connection_context = &test_context,
   };
 
-  int rc = ct_preconnection_initiate(&preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
   ASSERT_EQ(rc, 0);
 
   ct_start_event_loop();
@@ -91,7 +92,8 @@ TEST_F(QuicAbortTest, singleConnectionAbortCallsCloseImmediate) {
   }
 
   ct_free_security_parameter_content(&security_parameters);
-  ct_preconnection_free(&preconnection);
+  ct_preconnection_free(preconnection);
+  ct_transport_properties_free(transport_properties);
 }
 
 // Test Case 2: Multi-stream abort - should call picoquic_reset_stream
@@ -102,19 +104,20 @@ TEST_F(QuicAbortTest, multiStreamAbortCallsResetStream) {
   ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
   ct_remote_endpoint_with_port(&remote_endpoint, QUIC_ABORT_PORT);
 
-  ct_transport_properties_t transport_properties;
-  ct_transport_properties_build(&transport_properties);
-  ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
-  ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_MSG_BOUNDARIES, REQUIRE);
-  ct_tp_set_sel_prop_preference(&transport_properties, MULTISTREAMING, REQUIRE); // Force QUIC
+  ct_transport_properties_t* transport_properties = ct_transport_properties_new();
+  ASSERT_NE(transport_properties, nullptr);
+  // Allocated with ct_transport_properties_new()
+  ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, REQUIRE);
+  ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, REQUIRE);
+  ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, REQUIRE); // Force QUIC
 
   ct_security_parameters_t security_parameters;
   ct_security_parameters_build(&security_parameters);
   char* alpn_strings = "simple-ping";
   ct_sec_param_set_property_string_array(&security_parameters, ALPN, &alpn_strings, 1);
 
-  ct_preconnection_t preconnection;
-  ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, &security_parameters);
+  ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, transport_properties, &security_parameters);
+  ASSERT_NE(preconnection, nullptr);
 
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
@@ -122,7 +125,7 @@ TEST_F(QuicAbortTest, multiStreamAbortCallsResetStream) {
     .user_connection_context = &test_context,
   };
 
-  int rc = ct_preconnection_initiate(&preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
   ASSERT_EQ(rc, 0);
 
   ct_start_event_loop();
@@ -143,5 +146,6 @@ TEST_F(QuicAbortTest, multiStreamAbortCallsResetStream) {
   }
 
   ct_free_security_parameter_content(&security_parameters);
-  ct_preconnection_free(&preconnection);
+  ct_preconnection_free(preconnection);
+  ct_transport_properties_free(transport_properties);
 }

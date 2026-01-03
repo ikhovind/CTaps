@@ -148,27 +148,26 @@ TEST_F(FramingTest, LengthPrependFramerSendsCorrectFormat) {
     // Framer should send "4ping" (5 bytes) - length byte + original message
     // TCP echo server should respond with "Pong: 4ping"
 
-    ct_transport_properties_t transport_properties;
-    ct_transport_properties_build(&transport_properties);
-    ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT); // force tcp
+    ct_transport_properties_t* transport_properties = ct_transport_properties_new();
+  ASSERT_NE(transport_properties, nullptr);
+    // Allocated with ct_transport_properties_new()
+    ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT); // force tcp
 
     ct_remote_endpoint_t remote_endpoint;
     ct_remote_endpoint_build(&remote_endpoint);
     ct_remote_endpoint_with_hostname(&remote_endpoint, "127.0.0.1");
     ct_remote_endpoint_with_port(&remote_endpoint, 5006);
 
-    ct_preconnection_t preconnection;
-    // Use the extended build function to set the framer
-    ct_preconnection_build_ex(&preconnection, transport_properties,
-                              &remote_endpoint, 1, nullptr,
-                              &length_prepend_framer);
+    ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, transport_properties, nullptr);
+    ASSERT_NE(preconnection, nullptr);
+    ct_preconnection_set_framer(preconnection, &length_prepend_framer);
 
     ct_connection_callbacks_t connection_callbacks = {
       .ready = send_message_and_receive,
       .user_connection_context = &test_context,
     };
 
-    int rc = ct_preconnection_initiate(&preconnection, connection_callbacks);
+    int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
     ASSERT_EQ(rc, 0);
     ct_start_event_loop();
 
@@ -181,33 +180,31 @@ TEST_F(FramingTest, LengthPrependFramerSendsCorrectFormat) {
     std::string response_str((char*)response->content, response->length);
 
     ASSERT_STREQ(response_str.c_str(), "Pong: 5ping");
-    ct_preconnection_free(&preconnection);
+    ct_preconnection_free(preconnection);
+    ct_transport_properties_free(transport_properties);
 }
 
 TEST_F(FramingTest, StripFirstCharFramerReceivesStrippedMessage) {
-    ct_transport_properties_t transport_properties;
-    ct_transport_properties_build(&transport_properties);
-    ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT); // force tcp
+    ct_transport_properties_t* transport_properties = ct_transport_properties_new();
+  ASSERT_NE(transport_properties, nullptr);
+    // Allocated with ct_transport_properties_new()
+    ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT); // force tcp
 
     ct_remote_endpoint_t remote_endpoint;
     ct_remote_endpoint_build(&remote_endpoint);
     ct_remote_endpoint_with_hostname(&remote_endpoint, "127.0.0.1");
     ct_remote_endpoint_with_port(&remote_endpoint, 5006);
 
-    ct_preconnection_t preconnection;
-    // Use the extended build function to set the framer
-    ct_preconnection_build_ex(&preconnection, transport_properties,
-                              &remote_endpoint, 1, nullptr,
-                              &strip_first_char_framer);
-
-
+    ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, transport_properties, nullptr);
+    ASSERT_NE(preconnection, nullptr);
+    ct_preconnection_set_framer(preconnection, &strip_first_char_framer);
 
     ct_connection_callbacks_t connection_callbacks = {
       .ready = send_message_and_receive,
       .user_connection_context = &test_context,
     };
 
-    int rc = ct_preconnection_initiate(&preconnection, connection_callbacks);
+    int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
     ASSERT_EQ(rc, 0);
     ct_start_event_loop();
 
@@ -223,34 +220,34 @@ TEST_F(FramingTest, StripFirstCharFramerReceivesStrippedMessage) {
     std::string response_str((char*)response->content, response->length);
 
     ASSERT_STREQ(response_str.c_str(), "ong: ping");
-    ct_preconnection_free(&preconnection);
+    ct_preconnection_free(preconnection);
+    ct_transport_properties_free(transport_properties);
 }
 
 TEST_F(FramingTest, AsyncFramerDefersSendCallback) {
     // Test that async framer properly defers the callback invocation
     // This verifies that encode_message can return before calling the callback
     // and the message remains valid until the callback is invoked
-    ct_transport_properties_t transport_properties;
-    ct_transport_properties_build(&transport_properties);
-    ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT); // force tcp
+    ct_transport_properties_t* transport_properties = ct_transport_properties_new();
+  ASSERT_NE(transport_properties, nullptr);
+    // Allocated with ct_transport_properties_new()
+    ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT); // force tcp
 
     ct_remote_endpoint_t remote_endpoint;
     ct_remote_endpoint_build(&remote_endpoint);
     ct_remote_endpoint_with_hostname(&remote_endpoint, "127.0.0.1");
     ct_remote_endpoint_with_port(&remote_endpoint, 5006);
 
-    ct_preconnection_t preconnection;
-    // Use the async framer which defers the callback by 10ms
-    ct_preconnection_build_ex(&preconnection, transport_properties,
-                              &remote_endpoint, 1, nullptr,
-                              &async_framer);
+    ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, transport_properties, nullptr);
+    ASSERT_NE(preconnection, nullptr);
+    ct_preconnection_set_framer(preconnection, &async_framer);
 
     ct_connection_callbacks_t connection_callbacks = {
       .ready = send_message_and_receive,
       .user_connection_context = &test_context,
     };
 
-    int rc = ct_preconnection_initiate(&preconnection, connection_callbacks);
+    int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
     ASSERT_EQ(rc, 0);
     ct_start_event_loop();
 
@@ -264,5 +261,6 @@ TEST_F(FramingTest, AsyncFramerDefersSendCallback) {
 
     // Should get normal response since async_framer doesn't modify the message
     ASSERT_STREQ(response_str.c_str(), "Pong: ping");
-    ct_preconnection_free(&preconnection);
+    ct_preconnection_free(preconnection);
+    ct_transport_properties_free(transport_properties);
 }

@@ -3,6 +3,7 @@
 #include "connection/preconnection.h"
 #include "endpoint/local_endpoint.h"
 #include "ctaps.h"
+#include "ctaps_internal.h"
 #include <glib.h>
 #include <logging/log.h>
 #include <stdbool.h>

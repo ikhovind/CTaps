@@ -134,17 +134,19 @@ protected:
 TEST_F(CandidateTreeTest, CreatesAndResolvesFullTree) {
     // --- ARRANGE ---
     // 1. Create a minimal preconnection object
-    ct_preconnection_t preconnection;
-    ct_transport_properties_t props;
-    ct_transport_properties_build(&props);
+    ct_transport_properties_t* props = ct_transport_properties_new();
+    ASSERT_NE(props, nullptr);
+    // Allocated with ct_transport_properties_new()
     // need to overwrite the default to allow both protocols
-    ct_tp_set_sel_prop_preference(&props, RELIABILITY, NO_PREFERENCE);
-    ct_tp_set_sel_prop_preference(&props, PRESERVE_ORDER, NO_PREFERENCE);
+    ct_tp_set_sel_prop_preference(props, RELIABILITY, NO_PREFERENCE);
+    ct_tp_set_sel_prop_preference(props, PRESERVE_ORDER, NO_PREFERENCE);
 
     ct_remote_endpoint_t remote_endpoint;
     ct_remote_endpoint_build(&remote_endpoint);
     ct_remote_endpoint_with_hostname(&remote_endpoint, "test.com");
-    ct_preconnection_build(&preconnection, props, &remote_endpoint, 1, NULL);
+
+    ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, props, NULL);
+    ASSERT_NE(preconnection, nullptr);
     
     // 2. Mock behavior of internal functions
     faked_ct_local_endpoint_resolve_fake.return_val = 0;
@@ -152,7 +154,7 @@ TEST_F(CandidateTreeTest, CreatesAndResolvesFullTree) {
     faked_ct_get_supported_protocols_fake.return_val = fake_protocol_list;
 
     // --- ACT ---
-    GArray* root = get_ordered_candidate_nodes(&preconnection);
+    GArray* root = get_ordered_candidate_nodes(preconnection);
 
     printf("Root length is %d\n", root->len);
 
@@ -177,26 +179,28 @@ TEST_F(CandidateTreeTest, CreatesAndResolvesFullTree) {
 
     // --- CLEANUP ---
     free_candidate_array(root);
-    ct_preconnection_free(&preconnection);
+    ct_preconnection_free(preconnection);
+    ct_transport_properties_free(props);
     ct_free_remote_endpoint_strings(&remote_endpoint);
 }
 
 TEST_F(CandidateTreeTest, PrunesPathAndProtocol) {
     // --- ARRANGE ---
     // 1. Create a minimal preconnection object
-    ct_preconnection_t preconnection;
-
-    ct_transport_properties_t props;
-    ct_transport_properties_build(&props);
-    ct_tp_set_sel_prop_preference(&props, RELIABILITY, REQUIRE);
-    ct_tp_set_sel_prop_preference(&props, PRESERVE_ORDER, NO_PREFERENCE);
-    ct_tp_set_sel_prop_interface(&props, "Ethernet", REQUIRE);
+    ct_transport_properties_t* props = ct_transport_properties_new();
+    ASSERT_NE(props, nullptr);
+    // Allocated with ct_transport_properties_new()
+    ct_tp_set_sel_prop_preference(props, RELIABILITY, REQUIRE);
+    ct_tp_set_sel_prop_preference(props, PRESERVE_ORDER, NO_PREFERENCE);
+    ct_tp_set_sel_prop_interface(props, "Ethernet", REQUIRE);
 
 
     ct_remote_endpoint_t remote_endpoint;
     ct_remote_endpoint_build(&remote_endpoint);
     ct_remote_endpoint_with_hostname(&remote_endpoint, "test.com");
-    ct_preconnection_build(&preconnection, props, &remote_endpoint, 1, NULL);
+
+    ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, props, NULL);
+    ASSERT_NE(preconnection, nullptr);
 
     // 2. Mock behavior of internal functions
     faked_ct_local_endpoint_resolve_fake.return_val = 0;
@@ -204,7 +208,7 @@ TEST_F(CandidateTreeTest, PrunesPathAndProtocol) {
     faked_ct_get_supported_protocols_fake.return_val = fake_protocol_list;
 
     // --- ACT ---
-    GArray* candidates = get_ordered_candidate_nodes(&preconnection);
+    GArray* candidates = get_ordered_candidate_nodes(preconnection);
 
     // --- ASSERT ---
     // 1. Verify the root node
@@ -231,31 +235,34 @@ TEST_F(CandidateTreeTest, PrunesPathAndProtocol) {
 
     // --- CLEANUP ---
     free_candidate_array(candidates);
-    ct_preconnection_free(&preconnection);
+    ct_preconnection_free(preconnection);
+    ct_transport_properties_free(props);
     ct_free_remote_endpoint_strings(&remote_endpoint);
 }
 
 TEST_F(CandidateTreeTest, SortsOnPreferOverAvoid) {
     // --- ARRANGE ---
     // 1. Create a minimal preconnection object
-    ct_preconnection_t preconnection;
-    ct_transport_properties_t props;
-    ct_transport_properties_build(&props);
+    ct_transport_properties_t* props = ct_transport_properties_new();
+    ASSERT_NE(props, nullptr);
+    // Allocated with ct_transport_properties_new()
 
     // This selects p2 and p3
-    ct_tp_set_sel_prop_preference(&props, RELIABILITY, REQUIRE);
+    ct_tp_set_sel_prop_preference(props, RELIABILITY, REQUIRE);
 
     // this prefers p2
-    ct_tp_set_sel_prop_preference(&props, PRESERVE_MSG_BOUNDARIES, PREFER);
+    ct_tp_set_sel_prop_preference(props, PRESERVE_MSG_BOUNDARIES, PREFER);
 
     // These favor p3, but the one preference should still win
-    ct_tp_set_sel_prop_preference(&props, PER_MSG_RELIABILITY, AVOID);
-    ct_tp_set_sel_prop_preference(&props, PRESERVE_ORDER, AVOID);
+    ct_tp_set_sel_prop_preference(props, PER_MSG_RELIABILITY, AVOID);
+    ct_tp_set_sel_prop_preference(props, PRESERVE_ORDER, AVOID);
 
     ct_remote_endpoint_t remote_endpoint;
     ct_remote_endpoint_build(&remote_endpoint);
     ct_remote_endpoint_with_hostname(&remote_endpoint, "test.com");
-    ct_preconnection_build(&preconnection, props, &remote_endpoint, 1, NULL);
+
+    ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, props, NULL);
+    ASSERT_NE(preconnection, nullptr);
 
     // 2. Mock behavior of internal functions
     faked_ct_local_endpoint_resolve_fake.return_val = 0;
@@ -263,7 +270,7 @@ TEST_F(CandidateTreeTest, SortsOnPreferOverAvoid) {
     faked_ct_get_supported_protocols_fake.return_val = fake_protocol_list;
 
     // --- ACT ---
-    GArray* root = get_ordered_candidate_nodes(&preconnection);
+    GArray* root = get_ordered_candidate_nodes(preconnection);
 
     // --- ASSERT ---
     // 1. Verify the root node
@@ -297,30 +304,33 @@ TEST_F(CandidateTreeTest, SortsOnPreferOverAvoid) {
 
     // --- CLEANUP ---
     free_candidate_array(root);
-    ct_preconnection_free(&preconnection);
+    ct_preconnection_free(preconnection);
+    ct_transport_properties_free(props);
     ct_free_remote_endpoint_strings(&remote_endpoint);
 }
 
 TEST_F(CandidateTreeTest, UsesAvoidAsTieBreaker) {
     // --- ARRANGE ---
     // 1. Create a minimal preconnection object
-    ct_preconnection_t preconnection;
-    ct_transport_properties_t props;
-    ct_transport_properties_build(&props);
+    ct_transport_properties_t* props = ct_transport_properties_new();
+    ASSERT_NE(props, nullptr);
+    // Allocated with ct_transport_properties_new()
 
     // Override default to get all protocols
-    ct_tp_set_sel_prop_preference(&props, RELIABILITY, NO_PREFERENCE);
-    ct_tp_set_sel_prop_preference(&props, PRESERVE_ORDER, NO_PREFERENCE);
+    ct_tp_set_sel_prop_preference(props, RELIABILITY, NO_PREFERENCE);
+    ct_tp_set_sel_prop_preference(props, PRESERVE_ORDER, NO_PREFERENCE);
 
     // protocol 2 and 3 are preferred
-    ct_tp_set_sel_prop_preference(&props, RELIABILITY, PREFER);
+    ct_tp_set_sel_prop_preference(props, RELIABILITY, PREFER);
     // But 3 should win tiebreaker with avoid
-    ct_tp_set_sel_prop_preference(&props, PRESERVE_MSG_BOUNDARIES, AVOID);
+    ct_tp_set_sel_prop_preference(props, PRESERVE_MSG_BOUNDARIES, AVOID);
 
     ct_remote_endpoint_t remote_endpoint;
     ct_remote_endpoint_build(&remote_endpoint);
     ct_remote_endpoint_with_hostname(&remote_endpoint, "test.com");
-    ct_preconnection_build(&preconnection, props, &remote_endpoint, 1, NULL);
+
+    ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, props, NULL);
+    ASSERT_NE(preconnection, nullptr);
 
     // 2. Mock behavior of internal functions
     faked_ct_local_endpoint_resolve_fake.return_val = 0;
@@ -328,7 +338,7 @@ TEST_F(CandidateTreeTest, UsesAvoidAsTieBreaker) {
     faked_ct_get_supported_protocols_fake.return_val = fake_protocol_list;
 
     // --- ACT ---
-    GArray* root = get_ordered_candidate_nodes(&preconnection);
+    GArray* root = get_ordered_candidate_nodes(preconnection);
 
     // --- ASSERT ---
     // 1. Verify the root node
@@ -362,24 +372,27 @@ TEST_F(CandidateTreeTest, UsesAvoidAsTieBreaker) {
 
     // --- CLEANUP ---
     free_candidate_array(root);
-    ct_preconnection_free(&preconnection);
+    ct_preconnection_free(preconnection);
+    ct_transport_properties_free(props);
     ct_free_remote_endpoint_strings(&remote_endpoint);
 }
 
 TEST_F(CandidateTreeTest, GivesNoCandidateNodesWhenAllProtocolsProhibited) {
     // --- ARRANGE ---
     // 1. Create a minimal preconnection object
-    ct_preconnection_t preconnection;
-    ct_transport_properties_t props;
-    ct_transport_properties_build(&props);
+    ct_transport_properties_t* props = ct_transport_properties_new();
+    ASSERT_NE(props, nullptr);
+    // Allocated with ct_transport_properties_new()
     // need to overwrite the default to allow both protocols
-    ct_tp_set_sel_prop_preference(&props, RELIABILITY, PROHIBIT);
-    ct_tp_set_sel_prop_preference(&props, PRESERVE_MSG_BOUNDARIES, REQUIRE);
+    ct_tp_set_sel_prop_preference(props, RELIABILITY, PROHIBIT);
+    ct_tp_set_sel_prop_preference(props, PRESERVE_MSG_BOUNDARIES, REQUIRE);
 
     ct_remote_endpoint_t remote_endpoint;
     ct_remote_endpoint_build(&remote_endpoint);
     ct_remote_endpoint_with_hostname(&remote_endpoint, "test.com");
-    ct_preconnection_build(&preconnection, props, &remote_endpoint, 1, NULL);
+
+    ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, props, NULL);
+    ASSERT_NE(preconnection, nullptr);
 
     // 2. Mock behavior of internal functions
     faked_ct_local_endpoint_resolve_fake.return_val = 0;
@@ -387,7 +400,7 @@ TEST_F(CandidateTreeTest, GivesNoCandidateNodesWhenAllProtocolsProhibited) {
     faked_ct_get_supported_protocols_fake.return_val = fake_protocol_list;
 
     // --- ACT ---
-    GArray* candidates = get_ordered_candidate_nodes(&preconnection);
+    GArray* candidates = get_ordered_candidate_nodes(preconnection);
 
     // --- ASSERT ---
     // 1. Verify the root node
@@ -402,6 +415,7 @@ TEST_F(CandidateTreeTest, GivesNoCandidateNodesWhenAllProtocolsProhibited) {
 
     // --- CLEANUP ---
     free_candidate_array(candidates);
-    ct_preconnection_free(&preconnection);
+    ct_preconnection_free(preconnection);
+    ct_transport_properties_free(props);
     ct_free_remote_endpoint_strings(&remote_endpoint);
 }

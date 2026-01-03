@@ -1,4 +1,5 @@
 #include "ctaps.h"
+#include "ctaps_internal.h"
 
 #include "glibconfig.h"
 #include <glib.h>
@@ -9,6 +10,46 @@
 
 void ct_selection_properties_build(ct_selection_properties_t* selection_properties) {
   memcpy(selection_properties, &DEFAULT_SELECTION_PROPERTIES, sizeof(ct_selection_properties_t));
+}
+
+void ct_selection_properties_cleanup(ct_selection_properties_t* selection_properties) {
+  if (!selection_properties) {
+    return;
+  }
+
+  // Free the interface preference map if it was created
+  if (selection_properties->selection_property[INTERFACE].value.preference_map != NULL) {
+    g_hash_table_destroy((GHashTable*)selection_properties->selection_property[INTERFACE].value.preference_map);
+    selection_properties->selection_property[INTERFACE].value.preference_map = NULL;
+  }
+}
+
+// Helper function for deep copying GHashTable entries
+static void copy_hash_table_entry(gpointer key, gpointer value, gpointer user_data) {
+  GHashTable* dest_table = (GHashTable*)user_data;
+  // Key is a string, value is an integer stored as pointer
+  g_hash_table_insert(dest_table, g_strdup((const char*)key), value);
+}
+
+void ct_selection_properties_deep_copy(ct_selection_properties_t* dest, const ct_selection_properties_t* src) {
+  if (!dest || !src) {
+    return;
+  }
+
+  // First do a shallow copy of the entire structure
+  memcpy(dest, src, sizeof(ct_selection_properties_t));
+
+  // Now deep copy the interface preference map if it exists
+  if (src->selection_property[INTERFACE].value.preference_map != NULL) {
+    GHashTable* src_map = (GHashTable*)src->selection_property[INTERFACE].value.preference_map;
+    GHashTable* dest_map = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+
+    // Copy all entries from source to destination
+    g_hash_table_foreach(src_map, copy_hash_table_entry, dest_map);
+
+    // Update the destination's pointer to the new hash table
+    dest->selection_property[INTERFACE].value.preference_map = dest_map;
+  }
 }
 
 void ct_set_sel_prop_preference(ct_selection_properties_t* props, ct_selection_property_enum_t prop_enum, ct_selection_preference_t val) {

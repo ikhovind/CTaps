@@ -20,23 +20,23 @@ TEST_F(RemoteEndpointDnsTests, canDnsLookupHostName) {
     ct_remote_endpoint_with_hostname(&remote_endpoint, "google.com");
     ct_remote_endpoint_with_port(&remote_endpoint, 1234);
 
-    ct_transport_properties_t transport_properties;
+    ct_transport_properties_t* transport_properties = ct_transport_properties_new();
+  ASSERT_NE(transport_properties, nullptr);
 
-    ct_transport_properties_build(&transport_properties);
-    ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, PROHIBIT);
-    ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_ORDER, PROHIBIT);
-    ct_tp_set_sel_prop_preference(&transport_properties, CONGESTION_CONTROL, PROHIBIT);
+    // Allocated with ct_transport_properties_new()
+    ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, PROHIBIT);
+    ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_ORDER, PROHIBIT);
+    ct_tp_set_sel_prop_preference(transport_properties, CONGESTION_CONTROL, PROHIBIT);
 
-    ct_preconnection_t preconnection;
-    ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
-
+    ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, transport_properties, NULL);
+    ASSERT_NE(preconnection, nullptr);
 
     ct_connection_callbacks_t connection_callbacks = {
         .ready = on_connection_ready,
         .user_connection_context = &test_context
     };
 
-    ct_preconnection_initiate(&preconnection, connection_callbacks);
+    ct_preconnection_initiate(preconnection, connection_callbacks);
 
     ct_connection_t* saved_connection = test_context.client_connections[0];
 
@@ -51,4 +51,7 @@ TEST_F(RemoteEndpointDnsTests, canDnsLookupHostName) {
         EXPECT_EQ(1234, ntohs(addr->sin6_port));
     }
     EXPECT_EQ(1234, ct_connection_get_remote_endpoint(saved_connection)->port);
+
+    ct_preconnection_free(preconnection);
+    ct_transport_properties_free(transport_properties);
 }

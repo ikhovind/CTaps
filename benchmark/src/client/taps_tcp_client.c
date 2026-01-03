@@ -46,15 +46,22 @@ int main(int argc, char *argv[]) {
     ct_remote_endpoint_with_hostname(&remote_endpoint, client_ctx.host);
     ct_remote_endpoint_with_port(&remote_endpoint, client_ctx.port);
 
-    ct_transport_properties_t transport_properties;
-    ct_transport_properties_build(&transport_properties);
+    ct_transport_properties_t* transport_properties = ct_transport_properties_new();
+    if (!transport_properties) {
+        fprintf(stderr, "Failed to allocate transport properties\n");
+        return 1;
+    }
 
-    ct_tp_set_sel_prop_preference(&transport_properties, RELIABILITY, REQUIRE);
-    ct_tp_set_sel_prop_preference(&transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
-    ct_tp_set_sel_prop_preference(&transport_properties, MULTISTREAMING, PROHIBIT);
+    ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, REQUIRE);
+    ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
+    ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, PROHIBIT);
 
-    ct_preconnection_t preconnection;
-    ct_preconnection_build(&preconnection, transport_properties, &remote_endpoint, 1, NULL);
+    ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, transport_properties, NULL);
+    if (!preconnection) {
+        fprintf(stderr, "Failed to allocate preconnection\n");
+        ct_transport_properties_free(transport_properties);
+        return 1;
+    }
 
     ct_connection_callbacks_t connection_callbacks = {
         .ready = on_connection_ready,
@@ -64,7 +71,7 @@ int main(int argc, char *argv[]) {
 
     timing_start(&client_ctx.large_stats.handshake_time);
 
-    int rc = ct_preconnection_initiate(&preconnection, connection_callbacks);
+    int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
 
     ct_start_event_loop();
 
@@ -75,10 +82,14 @@ int main(int argc, char *argv[]) {
             free(json);
         }
         ct_close();
+        ct_preconnection_free(preconnection);
+        ct_transport_properties_free(transport_properties);
         return 0;
     } else {
         fprintf(stderr, "ERROR: Transfer failed\n");
         ct_close();
+        ct_preconnection_free(preconnection);
+        ct_transport_properties_free(transport_properties);
         return -1;
     }
 }
