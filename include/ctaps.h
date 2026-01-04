@@ -889,26 +889,6 @@ struct ct_framer_impl_s {
 typedef struct ct_protocol_impl_s ct_protocol_impl_t;
 
 // =============================================================================
-// Connections - Main connection structures
-// =============================================================================
-
-/**
- * @brief Connection socket type classification.
- */
-typedef enum {
-  CONNECTION_SOCKET_TYPE_STANDALONE = 0,    ///< Independent connection
-  CONNECTION_SOCKET_TYPE_MULTIPLEXED,       ///< Multiplexed connection (e.g., QUIC stream)
-} ct_connection_socket_type_t;
-
-/**
- * @brief Connection role classification.
- */
-typedef enum {
-  CONNECTION_ROLE_CLIENT = 0,           ///< Connection initiated by local endpoint
-  CONNECTION_ROLE_SERVER,               ///< Connection accepted from remote endpoint
-} ct_connection_role_t;
-
-// =============================================================================
 // Public API Functions
 // =============================================================================
 
@@ -1070,7 +1050,7 @@ CT_EXTERN void ct_free_security_parameter_content(ct_security_parameters_t* secu
 /**
  * @brief Create a new heap-allocated local endpoint.
  *
- * The caller owns the returned endpoint and must free it with ct_free_local_endpoint()
+ * The caller owns the returned endpoint and must free it with ct_local_endpoint_free()
  * when done. The endpoint can be safely freed after passing to ct_preconnection_new()
  * or ct_preconnection_set_local_endpoint(), as CTaps makes internal copies.
  *
@@ -1253,16 +1233,10 @@ CT_EXTERN const char* ct_remote_endpoint_get_service(const ct_remote_endpoint_t*
 
 // Message
 /**
- * @brief Free the content buffer of a message.
- * @param[in] message Message whose content to free
- */
-CT_EXTERN void ct_message_free_content(const ct_message_t* message);
-
-/**
  * @brief Free all resources in a message including the structure.
  * @param[in] message Message to free
  */
-CT_EXTERN void ct_message_free_all(ct_message_t* message);
+CT_EXTERN void ct_message_free(ct_message_t* message);
 
 /**
  * @brief Allocate a new message on the heap.

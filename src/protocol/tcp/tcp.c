@@ -151,7 +151,7 @@ void on_write(uv_write_t* req, int status) {
   // Free the message after sending (or error)
   if (message) {
     log_debug("Freeing sent message");
-    ct_message_free_all(message);
+    ct_message_free(message);
     log_debug("Sent message freed");
   }
   log_debug("Freeing write request");
@@ -247,7 +247,7 @@ int tcp_send(ct_connection_t* connection, ct_message_t* message, ct_message_cont
   if (rc < 0) {
     log_error("Error sending message over TCP: %s", uv_strerror(rc));
     free(req);
-    ct_message_free_all(message);
+    ct_message_free(message);
     return rc;
   }
   return 0;
