@@ -2,8 +2,12 @@
 #include "connection/socket_manager/socket_manager.h"
 #include "ctaps.h"
 #include "ctaps_internal.h"
+#include "transport_property/transport_properties.h"
 #include <candidate_gathering/candidate_gathering.h>
 #include <candidate_gathering/candidate_racing.h>
+#include <endpoint/local_endpoint.h>
+#include <endpoint/remote_endpoint.h>
+#include <security_parameter/security_parameters.h>
 #include <errno.h>
 #include <glib.h>
 #include <logging/log.h>
@@ -25,12 +29,9 @@ int copy_remote_endpoints(ct_preconnection_t* preconnection,
     log_error("Could not allocate memory for remote endpoints: %s");
     return errno;
   }
+  // Deep copy each remote endpoint (copies all strings)
   for (size_t i = 0; i < num_remote_endpoints; i++) {
-    memcpy(&preconnection->remote_endpoints[i], &remote_endpoints[i], sizeof(ct_remote_endpoint_t));
-    if (remote_endpoints[i].hostname != NULL) {
-      // We have copied the pointer, but want a deep copy of the string, so just overwrite the pointer
-      preconnection->remote_endpoints[i].hostname = strdup(remote_endpoints[i].hostname);
-    }
+    preconnection->remote_endpoints[i] = ct_remote_endpoint_copy_content(&remote_endpoints[i]);
   }
   return 0;
 }
@@ -44,7 +45,7 @@ int ct_preconnection_build_ex(ct_preconnection_t* preconnection,
                          ) {
   memset(preconnection, 0, sizeof(ct_preconnection_t));
   preconnection->transport_properties = transport_properties;
-  preconnection->security_parameters = security_parameters;
+  preconnection->security_parameters = ct_security_parameters_deep_copy(security_parameters);
   preconnection->framer_impl = framer_impl;
   ct_local_endpoint_build(&preconnection->local);
   return copy_remote_endpoints(preconnection, remote_endpoints, num_remote_endpoints);
@@ -72,14 +73,14 @@ int ct_preconnection_build_with_local(ct_preconnection_t* preconnection,
   preconnection->transport_properties = transport_properties;
   preconnection->num_local_endpoints = 1;
   preconnection->local = local_endpoint;
-  preconnection->security_parameters = security_parameters;
+  preconnection->security_parameters = ct_security_parameters_deep_copy(security_parameters);
 
   return copy_remote_endpoints(preconnection, remote_endpoints, num_remote_endpoints);
 }
 
-// Forward declarations from transport_properties.c
+// Forward declarations from selection_properties.c
 extern void ct_selection_properties_cleanup(ct_selection_properties_t* selection_properties);
-extern void ct_transport_properties_deep_copy(ct_transport_properties_t* dest, const ct_transport_properties_t* src);
+extern void ct_selection_properties_deep_copy(ct_selection_properties_t* dest, const ct_selection_properties_t* src);
 
 ct_preconnection_t* ct_preconnection_new(
     const ct_remote_endpoint_t* remote_endpoints,
@@ -96,13 +97,21 @@ ct_preconnection_t* ct_preconnection_new(
   memset(precon, 0, sizeof(ct_preconnection_t));
 
   // Deep copy transport properties or use defaults
+  // Note: We can't use ct_transport_properties_deep_copy() here because transport_properties
+  // is embedded in the preconnection struct, not a pointer. We manually copy using the
+  // underlying helper functions.
   if (transport_properties) {
-    ct_transport_properties_deep_copy(&precon->transport_properties, transport_properties);
+    ct_selection_properties_deep_copy(&precon->transport_properties.selection_properties,
+                                     &transport_properties->selection_properties);
+    precon->transport_properties.connection_properties = transport_properties->connection_properties;
   } else {
-    ct_transport_properties_build(&precon->transport_properties);
+    // Initialize with default values
+    memcpy(&precon->transport_properties.selection_properties, &DEFAULT_SELECTION_PROPERTIES, sizeof(ct_selection_properties_t));
+    memcpy(&precon->transport_properties.connection_properties, &DEFAULT_CONNECTION_PROPERTIES, sizeof(ct_connection_properties_t));
   }
 
-  precon->security_parameters = security_parameters;
+  // Deep copy security parameters so preconnection owns its own copy
+  precon->security_parameters = ct_security_parameters_deep_copy(security_parameters);
   ct_local_endpoint_build(&precon->local);
 
   // Copy remote endpoints if provided
@@ -164,17 +173,22 @@ void ct_preconnection_free(ct_preconnection_t* preconnection) {
   // Free remote endpoint strings and array
   if (preconnection->remote_endpoints != NULL) {
     for (size_t i = 0; i < preconnection->num_remote_endpoints; i++) {
-      ct_free_remote_endpoint_strings(&preconnection->remote_endpoints[i]);
+      ct_remote_endpoint_free_strings(&preconnection->remote_endpoints[i]);
     }
     free(preconnection->remote_endpoints);
     preconnection->remote_endpoints = NULL;
   }
 
   // Free local endpoint strings
-  ct_free_local_endpoint_strings(&preconnection->local);
+  ct_local_endpoint_free_strings(&preconnection->local);
 
   // Clean up embedded transport properties (frees GHashTable if created)
   ct_selection_properties_cleanup(&preconnection->transport_properties.selection_properties);
+
+  // Free security parameters (owns a deep copy)
+  if (preconnection->security_parameters) {
+    ct_security_parameters_free(preconnection->security_parameters);
+  }
 
   // Free the preconnection struct itself
   free(preconnection);
@@ -184,7 +198,11 @@ void ct_preconnection_set_local_endpoint(ct_preconnection_t* preconnection, cons
   if (!preconnection || !local_endpoint) {
     return;
   }
-  preconnection->local = *local_endpoint;
+  // Deep copy the local endpoint so preconnection owns its own copy
+  // First free any existing strings in preconnection->local
+  ct_local_endpoint_free_strings(&preconnection->local);
+  // Then do a deep copy
+  preconnection->local = ct_local_endpoint_copy_content(local_endpoint);
   preconnection->num_local_endpoints = 1;
 }
 

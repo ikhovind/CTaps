@@ -33,6 +33,15 @@ void ct_local_endpoint_build(ct_local_endpoint_t* local_endpoint) {
   memset(local_endpoint, 0, sizeof(ct_local_endpoint_t));
 }
 
+ct_local_endpoint_t* ct_local_endpoint_new(void) {
+  ct_local_endpoint_t* endpoint = malloc(sizeof(ct_local_endpoint_t));
+  if (!endpoint) {
+    return NULL;
+  }
+  ct_local_endpoint_build(endpoint);
+  return endpoint;
+}
+
 int ct_local_endpoint_with_interface(ct_local_endpoint_t* local_endpoint, const char* interface_name) {
   log_trace("Allocating %zu bytes of memory for interface name", strlen(interface_name) + 1);
   local_endpoint->interface_name = strdup(interface_name);
@@ -97,7 +106,7 @@ int ct_local_endpoint_resolve(const ct_local_endpoint_t* local_endpoint, ct_loca
   return 0;
 }
 
-void ct_free_local_endpoint_strings(ct_local_endpoint_t* local_endpoint) {
+void ct_local_endpoint_free_strings(ct_local_endpoint_t* local_endpoint) {
   if (local_endpoint->interface_name) {
     log_trace("Freeing local endpoint interface name");
     free(local_endpoint->interface_name);
@@ -111,8 +120,8 @@ void ct_free_local_endpoint_strings(ct_local_endpoint_t* local_endpoint) {
   }
 }
 
-void ct_free_local_endpoint(ct_local_endpoint_t* local_endpoint) {
-  ct_free_local_endpoint_strings(local_endpoint);
+void ct_local_endpoint_free(ct_local_endpoint_t* local_endpoint) {
+  ct_local_endpoint_free_strings(local_endpoint);
   free(local_endpoint);
 }
 

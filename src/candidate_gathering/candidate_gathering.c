@@ -23,10 +23,10 @@ gboolean free_candidate_node(GNode *node, gpointer user_data) {
   (void)user_data;
   const ct_candidate_node_t* candidate_node = (ct_candidate_node_t*)node->data;
   if (candidate_node->local_endpoint) {
-    ct_free_local_endpoint(candidate_node->local_endpoint);
+    ct_local_endpoint_free(candidate_node->local_endpoint);
   }
   if (candidate_node->remote_endpoint) {
-    ct_free_remote_endpoint(candidate_node->remote_endpoint);
+    ct_remote_endpoint_free(candidate_node->remote_endpoint);
   }
   free(node->data);
   return false;
@@ -282,7 +282,7 @@ struct ct_candidate_node_t* candidate_node_new(ct_node_type_t type,
   node->remote_endpoint = remote_endpoint_copy(remote_ep);
   if (node->remote_endpoint == NULL) {
     log_error("Could not allocate memory for remote_endpoint");
-    ct_free_local_endpoint(node->local_endpoint);
+    ct_local_endpoint_free(node->local_endpoint);
     free(node);
     return NULL;
   }
@@ -415,7 +415,7 @@ void build_candidate_tree_recursive(GNode* parent_node) {
     // Clean up the allocated memory for the list of local endpoints
     if (local_endpoint_list != NULL) {
       for (size_t i = 0; i < num_found_local; i++) {
-        ct_free_local_endpoint_strings(&local_endpoint_list[i]);
+        ct_local_endpoint_free_strings(&local_endpoint_list[i]);
       }
       log_trace("Freeing list of local endpoints after building path nodes");
       free(local_endpoint_list);
@@ -480,8 +480,8 @@ void build_candidate_tree_recursive(GNode* parent_node) {
 void free_candidate_array(GArray* candidate_array) {
   for (guint i = 0; i < candidate_array->len; i++) {
     const ct_candidate_node_t candidate_node = g_array_index(candidate_array, ct_candidate_node_t, i);
-    ct_free_local_endpoint(candidate_node.local_endpoint);
-    ct_free_remote_endpoint(candidate_node.remote_endpoint);
+    ct_local_endpoint_free(candidate_node.local_endpoint);
+    ct_remote_endpoint_free(candidate_node.remote_endpoint);
   }
   g_array_free(candidate_array, true);
 }

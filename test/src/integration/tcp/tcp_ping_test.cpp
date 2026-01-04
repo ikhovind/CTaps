@@ -16,10 +16,10 @@ class TcpGenericTests : public CTapsGenericFixture {};
 TEST_F(TcpGenericTests, successfullyConnectsToTcpServer) {
   log_info("Starting test: successfullyConnectsToTcpServer");
   // --- Setup ---
-  ct_remote_endpoint_t remote_endpoint;
-  ct_remote_endpoint_build(&remote_endpoint);
-  ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
-  ct_remote_endpoint_with_port(&remote_endpoint, TCP_PING_PORT);
+  ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
+  ASSERT_NE(remote_endpoint, nullptr);
+  ct_remote_endpoint_with_ipv4(remote_endpoint, inet_addr("127.0.0.1"));
+  ct_remote_endpoint_with_port(remote_endpoint, TCP_PING_PORT);
 
   ct_transport_properties_t* transport_properties = ct_transport_properties_new();
   ASSERT_NE(transport_properties, nullptr);
@@ -28,7 +28,7 @@ TEST_F(TcpGenericTests, successfullyConnectsToTcpServer) {
   ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
   ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, PROHIBIT);
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, transport_properties, NULL);
+  ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
   ASSERT_NE(preconnection, nullptr);
 
   ct_connection_callbacks_t connection_callbacks = {
@@ -45,16 +45,17 @@ TEST_F(TcpGenericTests, successfullyConnectsToTcpServer) {
 
   ASSERT_TRUE(test_context.connection_succeeded);
 
+  ct_remote_endpoint_free(remote_endpoint);
   ct_preconnection_free(preconnection);
   ct_transport_properties_free(transport_properties);
 }
 
 TEST_F(TcpGenericTests, connectionErrorCalledWhenNoServer) {
   // --- Setup ---
-  ct_remote_endpoint_t remote_endpoint;
-  ct_remote_endpoint_build(&remote_endpoint);
-  ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
-  ct_remote_endpoint_with_port(&remote_endpoint, INVALID_TCP_PORT);
+  ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
+  ASSERT_NE(remote_endpoint, nullptr);
+  ct_remote_endpoint_with_ipv4(remote_endpoint, inet_addr("127.0.0.1"));
+  ct_remote_endpoint_with_port(remote_endpoint, INVALID_TCP_PORT);
 
   ct_transport_properties_t* transport_properties = ct_transport_properties_new();
   ASSERT_NE(transport_properties, nullptr);
@@ -63,7 +64,7 @@ TEST_F(TcpGenericTests, connectionErrorCalledWhenNoServer) {
   ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
   ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, PROHIBIT);
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, transport_properties, NULL);
+  ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
   ASSERT_NE(preconnection, nullptr);
 
   // Set to true, since only on_connection_error will set it to false
@@ -81,6 +82,7 @@ TEST_F(TcpGenericTests, connectionErrorCalledWhenNoServer) {
 
   ASSERT_FALSE(test_context.connection_succeeded);
 
+  ct_remote_endpoint_free(remote_endpoint);
   ct_preconnection_free(preconnection);
   ct_transport_properties_free(transport_properties);
 }
@@ -88,10 +90,10 @@ TEST_F(TcpGenericTests, connectionErrorCalledWhenNoServer) {
 TEST_F(TcpGenericTests, sendsSingleTcpMessage) {
   int rc;
   // --- Setup ---
-  ct_remote_endpoint_t remote_endpoint;
-  ct_remote_endpoint_build(&remote_endpoint);
-  ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
-  ct_remote_endpoint_with_port(&remote_endpoint, TCP_PING_PORT);
+  ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
+  ASSERT_NE(remote_endpoint, nullptr);
+  ct_remote_endpoint_with_ipv4(remote_endpoint, inet_addr("127.0.0.1"));
+  ct_remote_endpoint_with_port(remote_endpoint, TCP_PING_PORT);
 
   ct_transport_properties_t* transport_properties = ct_transport_properties_new();
   ASSERT_NE(transport_properties, nullptr);
@@ -100,7 +102,7 @@ TEST_F(TcpGenericTests, sendsSingleTcpMessage) {
   ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
   ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, PROHIBIT);
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, transport_properties, NULL);
+  ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
   ASSERT_NE(preconnection, nullptr);
 
   ct_message_t* msg_received = nullptr;
@@ -127,6 +129,7 @@ TEST_F(TcpGenericTests, sendsSingleTcpMessage) {
   ASSERT_EQ(per_connection_messages[saved_connection].size(), 1);
   ASSERT_STREQ(per_connection_messages[saved_connection][0]->content, "Pong: ping");
 
+  ct_remote_endpoint_free(remote_endpoint);
   ct_preconnection_free(preconnection);
   ct_transport_properties_free(transport_properties);
 }

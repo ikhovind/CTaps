@@ -2,6 +2,7 @@
 
 #include "ctaps.h"
 #include "ctaps_internal.h"
+#include <endpoint/remote_endpoint.h>
 #include <errno.h>
 #include <logging/log.h>
 #include <netdb.h>

@@ -1,5 +1,6 @@
 #include "ctaps.h"
 #include "ctaps_internal.h"
+#include "selection_properties.h"
 
 #include "glibconfig.h"
 #include <glib.h>

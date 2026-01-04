@@ -7,6 +7,7 @@
 #include "ctaps_internal.h"
 #include "message/message.h"
 #include "util/uuid_util.h"
+#include <security_parameter/security_parameters.h>
 #include <errno.h>
 #include <glib.h>
 #include <logging/log.h>
@@ -234,7 +235,7 @@ int ct_connection_build_multiplexed(ct_connection_t* connection, const ct_listen
   connection->internal_connection_state = listener->socket_manager->internal_socket_manager_state;
   connection->protocol = listener->socket_manager->protocol_impl;
   connection->socket_manager = listener->socket_manager;
-  connection->security_parameters = listener->security_parameters;
+  connection->security_parameters = ct_security_parameters_deep_copy(listener->security_parameters);
   connection->socket_type = CONNECTION_SOCKET_TYPE_MULTIPLEXED;
   connection->role = CONNECTION_ROLE_SERVER;
   return 0;
@@ -255,7 +256,7 @@ ct_connection_t* ct_connection_create_clone(const ct_connection_t* src_clone) {
   dest_clone->local_endpoint = src_clone->local_endpoint;
   dest_clone->remote_endpoint = src_clone->remote_endpoint;
   dest_clone->transport_properties = src_clone->transport_properties;
-  dest_clone->security_parameters = src_clone->security_parameters;
+  dest_clone->security_parameters = ct_security_parameters_deep_copy(src_clone->security_parameters);
   dest_clone->protocol = src_clone->protocol;
   dest_clone->framer_impl = src_clone->framer_impl;
   dest_clone->socket_manager = src_clone->socket_manager;
@@ -361,6 +362,16 @@ void ct_connection_free_content(ct_connection_t* connection) {
     }
     g_queue_free(connection->received_messages);
     connection->received_messages = NULL;
+  }
+
+  // Free endpoint strings (endpoints are embedded in connection struct, not heap-allocated)
+  ct_local_endpoint_free_strings(&connection->local_endpoint);
+  ct_remote_endpoint_free_strings(&connection->remote_endpoint);
+
+  // Free security parameters (connection owns a deep copy)
+  if (connection->security_parameters) {
+    ct_security_parameters_free(connection->security_parameters);
+    connection->security_parameters = NULL;
   }
 
   // Remove connection from its group and free the group if this was the last connection
@@ -476,7 +487,7 @@ int ct_connection_clone_full(
   new_connection->connection_group = connection_group;
   new_connection->transport_properties = source_connection->transport_properties;
   new_connection->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_ESTABLISHING;
-  new_connection->security_parameters = source_connection->security_parameters;
+  new_connection->security_parameters = ct_security_parameters_deep_copy(source_connection->security_parameters);
   new_connection->local_endpoint = source_connection->local_endpoint;
   new_connection->remote_endpoint = source_connection->remote_endpoint;
   new_connection->protocol = source_connection->protocol;

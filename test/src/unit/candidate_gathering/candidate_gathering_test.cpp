@@ -9,6 +9,8 @@ extern "C" {
 #include "ctaps.h"
 #include "ctaps_internal.h"
   #include "candidate_gathering/candidate_gathering.h"
+  #include "endpoint/local_endpoint.h"
+  #include "endpoint/remote_endpoint.h"
 }
 
 DEFINE_FFF_GLOBALS;
@@ -141,11 +143,11 @@ TEST_F(CandidateTreeTest, CreatesAndResolvesFullTree) {
     ct_tp_set_sel_prop_preference(props, RELIABILITY, NO_PREFERENCE);
     ct_tp_set_sel_prop_preference(props, PRESERVE_ORDER, NO_PREFERENCE);
 
-    ct_remote_endpoint_t remote_endpoint;
-    ct_remote_endpoint_build(&remote_endpoint);
-    ct_remote_endpoint_with_hostname(&remote_endpoint, "test.com");
+    ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
+    ASSERT_NE(remote_endpoint, nullptr);
+    ct_remote_endpoint_with_hostname(remote_endpoint, "test.com");
 
-    ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, props, NULL);
+    ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, props, NULL);
     ASSERT_NE(preconnection, nullptr);
     
     // 2. Mock behavior of internal functions
@@ -181,7 +183,7 @@ TEST_F(CandidateTreeTest, CreatesAndResolvesFullTree) {
     free_candidate_array(root);
     ct_preconnection_free(preconnection);
     ct_transport_properties_free(props);
-    ct_free_remote_endpoint_strings(&remote_endpoint);
+    ct_remote_endpoint_free(remote_endpoint);
 }
 
 TEST_F(CandidateTreeTest, PrunesPathAndProtocol) {
@@ -195,11 +197,11 @@ TEST_F(CandidateTreeTest, PrunesPathAndProtocol) {
     ct_tp_set_sel_prop_interface(props, "Ethernet", REQUIRE);
 
 
-    ct_remote_endpoint_t remote_endpoint;
-    ct_remote_endpoint_build(&remote_endpoint);
-    ct_remote_endpoint_with_hostname(&remote_endpoint, "test.com");
+    ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
+    ASSERT_NE(remote_endpoint, nullptr);
+    ct_remote_endpoint_with_hostname(remote_endpoint, "test.com");
 
-    ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, props, NULL);
+    ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, props, NULL);
     ASSERT_NE(preconnection, nullptr);
 
     // 2. Mock behavior of internal functions
@@ -237,7 +239,7 @@ TEST_F(CandidateTreeTest, PrunesPathAndProtocol) {
     free_candidate_array(candidates);
     ct_preconnection_free(preconnection);
     ct_transport_properties_free(props);
-    ct_free_remote_endpoint_strings(&remote_endpoint);
+    ct_remote_endpoint_free(remote_endpoint);
 }
 
 TEST_F(CandidateTreeTest, SortsOnPreferOverAvoid) {
@@ -257,11 +259,11 @@ TEST_F(CandidateTreeTest, SortsOnPreferOverAvoid) {
     ct_tp_set_sel_prop_preference(props, PER_MSG_RELIABILITY, AVOID);
     ct_tp_set_sel_prop_preference(props, PRESERVE_ORDER, AVOID);
 
-    ct_remote_endpoint_t remote_endpoint;
-    ct_remote_endpoint_build(&remote_endpoint);
-    ct_remote_endpoint_with_hostname(&remote_endpoint, "test.com");
+    ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
+    ASSERT_NE(remote_endpoint, nullptr);
+    ct_remote_endpoint_with_hostname(remote_endpoint, "test.com");
 
-    ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, props, NULL);
+    ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, props, NULL);
     ASSERT_NE(preconnection, nullptr);
 
     // 2. Mock behavior of internal functions
@@ -306,7 +308,7 @@ TEST_F(CandidateTreeTest, SortsOnPreferOverAvoid) {
     free_candidate_array(root);
     ct_preconnection_free(preconnection);
     ct_transport_properties_free(props);
-    ct_free_remote_endpoint_strings(&remote_endpoint);
+    ct_remote_endpoint_free(remote_endpoint);
 }
 
 TEST_F(CandidateTreeTest, UsesAvoidAsTieBreaker) {
@@ -325,11 +327,11 @@ TEST_F(CandidateTreeTest, UsesAvoidAsTieBreaker) {
     // But 3 should win tiebreaker with avoid
     ct_tp_set_sel_prop_preference(props, PRESERVE_MSG_BOUNDARIES, AVOID);
 
-    ct_remote_endpoint_t remote_endpoint;
-    ct_remote_endpoint_build(&remote_endpoint);
-    ct_remote_endpoint_with_hostname(&remote_endpoint, "test.com");
+    ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
+    ASSERT_NE(remote_endpoint, nullptr);
+    ct_remote_endpoint_with_hostname(remote_endpoint, "test.com");
 
-    ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, props, NULL);
+    ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, props, NULL);
     ASSERT_NE(preconnection, nullptr);
 
     // 2. Mock behavior of internal functions
@@ -374,7 +376,7 @@ TEST_F(CandidateTreeTest, UsesAvoidAsTieBreaker) {
     free_candidate_array(root);
     ct_preconnection_free(preconnection);
     ct_transport_properties_free(props);
-    ct_free_remote_endpoint_strings(&remote_endpoint);
+    ct_remote_endpoint_free(remote_endpoint);
 }
 
 TEST_F(CandidateTreeTest, GivesNoCandidateNodesWhenAllProtocolsProhibited) {
@@ -387,11 +389,11 @@ TEST_F(CandidateTreeTest, GivesNoCandidateNodesWhenAllProtocolsProhibited) {
     ct_tp_set_sel_prop_preference(props, RELIABILITY, PROHIBIT);
     ct_tp_set_sel_prop_preference(props, PRESERVE_MSG_BOUNDARIES, REQUIRE);
 
-    ct_remote_endpoint_t remote_endpoint;
-    ct_remote_endpoint_build(&remote_endpoint);
-    ct_remote_endpoint_with_hostname(&remote_endpoint, "test.com");
+    ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
+    ASSERT_NE(remote_endpoint, nullptr);
+    ct_remote_endpoint_with_hostname(remote_endpoint, "test.com");
 
-    ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, props, NULL);
+    ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, props, NULL);
     ASSERT_NE(preconnection, nullptr);
 
     // 2. Mock behavior of internal functions
@@ -417,5 +419,5 @@ TEST_F(CandidateTreeTest, GivesNoCandidateNodesWhenAllProtocolsProhibited) {
     free_candidate_array(candidates);
     ct_preconnection_free(preconnection);
     ct_transport_properties_free(props);
-    ct_free_remote_endpoint_strings(&remote_endpoint);
+    ct_remote_endpoint_free(remote_endpoint);
 }

@@ -3,6 +3,9 @@
 #include "candidate_gathering/candidate_gathering.h"
 #include "connection/connection.h"
 #include "ctaps.h"
+#include <endpoint/local_endpoint.h>
+#include <endpoint/remote_endpoint.h>
+#include <security_parameter/security_parameters.h>
 #include <errno.h>
 #include <glib.h>
 #include <logging/log.h>
@@ -31,8 +34,8 @@ static void on_timer_close_free_context(uv_handle_t* handle) {
         ct_racing_attempt_t* attempt = &context->attempts[i];
 
         // Free candidate endpoints (they were copied)
-        ct_free_local_endpoint(attempt->candidate.local_endpoint);
-        ct_free_remote_endpoint(attempt->candidate.remote_endpoint);
+        ct_local_endpoint_free(attempt->candidate.local_endpoint);
+        ct_remote_endpoint_free(attempt->candidate.remote_endpoint);
 
         // Free connection if it wasn't the winner
         if (attempt->connection != NULL && i != (size_t)context->winning_attempt_index) {
@@ -137,11 +140,13 @@ static int start_connection_attempt(ct_racing_context_t* context, size_t attempt
 
   // Setup connection with candidate parameters
   attempt->connection->protocol = *candidate->protocol;
-  attempt->connection->remote_endpoint = *candidate->remote_endpoint;
-  attempt->connection->local_endpoint = *candidate->local_endpoint;
+  // Deep copy endpoints so connection owns its own copies
+  attempt->connection->remote_endpoint = ct_remote_endpoint_copy_content(candidate->remote_endpoint);
+  attempt->connection->local_endpoint = ct_local_endpoint_copy_content(candidate->local_endpoint);
   attempt->connection->socket_type = CONNECTION_SOCKET_TYPE_STANDALONE;
   attempt->connection->role = CONNECTION_ROLE_CLIENT;
-  attempt->connection->security_parameters = context->preconnection->security_parameters;
+  // Deep copy security parameters so connection owns its own copy
+  attempt->connection->security_parameters = ct_security_parameters_deep_copy(context->preconnection->security_parameters);
   attempt->connection->framer_impl = context->preconnection->framer_impl;
 
   // Setup wrapped callbacks that point back to this attempt

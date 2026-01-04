@@ -10,11 +10,11 @@ extern "C" {
 }
 
 TEST(ConnectionUnitTests, TakesDeepCopyOfTransportProperties) {
-    ct_remote_endpoint_t remote_endpoint;
-    ct_remote_endpoint_build(&remote_endpoint);
+    ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
+    ASSERT_NE(remote_endpoint, nullptr);
 
-    ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
-    ct_remote_endpoint_with_port(&remote_endpoint, 5005);
+    ct_remote_endpoint_with_ipv4(remote_endpoint, inet_addr("127.0.0.1"));
+    ct_remote_endpoint_with_port(remote_endpoint, 5005);
 
     ct_transport_properties_t* transport_properties = ct_transport_properties_new();
   ASSERT_NE(transport_properties, nullptr);
@@ -36,7 +36,7 @@ TEST(ConnectionUnitTests, TakesDeepCopyOfTransportProperties) {
         .socket_manager = &socket_manager,
     };
 
-    ct_connection_build_multiplexed(&connection, &mock_listener,  &remote_endpoint);
+    ct_connection_build_multiplexed(&connection, &mock_listener,  remote_endpoint);
 
     ASSERT_EQ(connection.transport_properties.selection_properties.selection_property[RELIABILITY].value.simple_preference, PROHIBIT);
     ASSERT_EQ(mock_listener.transport_properties.selection_properties.selection_property[RELIABILITY].value.simple_preference, PROHIBIT);
@@ -47,6 +47,7 @@ TEST(ConnectionUnitTests, TakesDeepCopyOfTransportProperties) {
     ASSERT_EQ(mock_listener.transport_properties.selection_properties.selection_property[RELIABILITY].value.simple_preference, PROHIBIT);
 
     // Cleanup
+    ct_remote_endpoint_free(remote_endpoint);
     ct_connection_free_content(&connection);
     ct_transport_properties_free(transport_properties);
 }
@@ -122,16 +123,16 @@ TEST(ConnectionUnitTests, SendMessageFullFailsWhenCanSendIsFalse) {
     ct_connection_set_can_send(&connection, false);
 
     // Try to send a message
-    ct_message_t message;
-    ct_message_build_with_content(&message, "test", 5);
+    ct_message_t* message = ct_message_new_with_content("test", 5);
+    ASSERT_NE(message, nullptr);
 
-    int rc = ct_send_message_full(&connection, &message, NULL);
+    int rc = ct_send_message_full(&connection, message, NULL);
 
     // Should fail with -EPIPE
     EXPECT_EQ(rc, -EPIPE);
 
     // Cleanup
-    ct_message_free_content(&message);
+    ct_message_free_all(message);
     ct_connection_free_content(&connection);
 }
 
@@ -150,15 +151,16 @@ TEST(ConnectionUnitTests, SendMessageWithFinalSetsCanSendToFalse) {
     connection.protocol.send = fake_protocol_send;
 
     // Create message with FINAL property
-    ct_message_t message;
-    ct_message_build_with_content(&message, "final message", 14);
+    ct_message_t* message = ct_message_new_with_content("final message", 14);
+    ASSERT_NE(message, nullptr);
 
-    ct_message_context_t context;
-    ct_message_properties_build(&context.message_properties);
-    ct_message_properties_set_final(&context.message_properties);
+    ct_message_context_t* context = ct_message_context_new();
+    ASSERT_NE(context, nullptr);
+    ct_message_properties_t* props = ct_message_context_get_message_properties(context);
+    ct_message_properties_set_final(props);
 
     // Send message
-    int rc = ct_send_message_full(&connection, &message, &context);
+    int rc = ct_send_message_full(&connection, message, context);
 
     // Verify send succeeded
     EXPECT_EQ(rc, 0);
@@ -170,6 +172,7 @@ TEST(ConnectionUnitTests, SendMessageWithFinalSetsCanSendToFalse) {
     EXPECT_FALSE(ct_connection_can_send(&connection));
 
     // Cleanup
-    ct_message_free_content(&message);
+    ct_message_free_all(message);
+    ct_message_context_free(context);
     ct_connection_free_content(&connection);
 }

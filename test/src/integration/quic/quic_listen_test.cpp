@@ -13,15 +13,15 @@ class QuicListenTests : public CTapsGenericFixture {};
 TEST_F(QuicListenTests, QuicReceivesConnectionFromListenerAndExchangesMessages) {
     ct_listener_t listener;
 
-    ct_local_endpoint_t listener_endpoint;
-    ct_local_endpoint_build(&listener_endpoint);
+    ct_local_endpoint_t* listener_endpoint = ct_local_endpoint_new();
+    ASSERT_NE(listener_endpoint, nullptr);
 
-    ct_local_endpoint_with_interface(&listener_endpoint, "lo");
-    ct_local_endpoint_with_port(&listener_endpoint, 1239);
+    ct_local_endpoint_with_interface(listener_endpoint, "lo");
+    ct_local_endpoint_with_port(listener_endpoint, 1239);
 
-    ct_remote_endpoint_t listener_remote;
-    ct_remote_endpoint_build(&listener_remote);
-    ct_remote_endpoint_with_hostname(&listener_remote, "127.0.0.1");
+    ct_remote_endpoint_t* listener_remote = ct_remote_endpoint_new();
+    ASSERT_NE(listener_remote, nullptr);
+    ct_remote_endpoint_with_hostname(listener_remote, "127.0.0.1");
 
     ct_transport_properties_t* listener_props = ct_transport_properties_new();
     ASSERT_NE(listener_props, nullptr);
@@ -29,14 +29,15 @@ TEST_F(QuicListenTests, QuicReceivesConnectionFromListenerAndExchangesMessages) 
     ct_tp_set_sel_prop_preference(listener_props, PRESERVE_MSG_BOUNDARIES, REQUIRE);
     ct_tp_set_sel_prop_preference(listener_props, MULTISTREAMING, REQUIRE); // force QUIC
 
-    ct_security_parameters_t server_security_parameters;
-    ct_security_parameters_build(&server_security_parameters);
+    ct_security_parameters_t* server_security_parameters = ct_security_parameters_new();
+    ASSERT_NE(server_security_parameters, nullptr);
     char* alpn_strings = "simple-ping";
-    ct_sec_param_set_property_string_array(&server_security_parameters, ALPN, &alpn_strings, 1);
+    ct_sec_param_set_property_string_array(server_security_parameters, ALPN, &alpn_strings, 1);
 
-    ct_preconnection_t* listener_precon = ct_preconnection_new(&listener_remote, 1, listener_props, &server_security_parameters);
+    ct_preconnection_t* listener_precon = ct_preconnection_new(listener_remote, 1, listener_props, server_security_parameters);
     ASSERT_NE(listener_precon, nullptr);
-    ct_preconnection_set_local_endpoint(listener_precon, &listener_endpoint);
+    ct_security_parameters_free(server_security_parameters);
+    ct_preconnection_set_local_endpoint(listener_precon, listener_endpoint);
 
     ct_listener_callbacks_t listener_callbacks = {
         .connection_received = receive_message_respond_and_close_listener_on_connection_received,
@@ -48,10 +49,10 @@ TEST_F(QuicListenTests, QuicReceivesConnectionFromListenerAndExchangesMessages) 
     ASSERT_EQ(listen_res, 0);
 
     // --- SETUP CLIENT ---
-    ct_remote_endpoint_t client_remote;
-    ct_remote_endpoint_build(&client_remote);
-    ct_remote_endpoint_with_hostname(&client_remote, "127.0.0.1");
-    ct_remote_endpoint_with_port(&client_remote, 1239);
+    ct_remote_endpoint_t* client_remote = ct_remote_endpoint_new();
+    ASSERT_NE(client_remote, nullptr);
+    ct_remote_endpoint_with_hostname(client_remote, "127.0.0.1");
+    ct_remote_endpoint_with_port(client_remote, 1239);
 
     ct_transport_properties_t* client_props = ct_transport_properties_new();
     ASSERT_NE(client_props, nullptr);
@@ -60,13 +61,14 @@ TEST_F(QuicListenTests, QuicReceivesConnectionFromListenerAndExchangesMessages) 
     ct_tp_set_sel_prop_preference(client_props, PRESERVE_MSG_BOUNDARIES, REQUIRE);
     ct_tp_set_sel_prop_preference(client_props, MULTISTREAMING, REQUIRE);
 
-    ct_security_parameters_t client_security_parameters;
-    ct_security_parameters_build(&client_security_parameters);
-    ct_sec_param_set_property_string_array(&client_security_parameters, ALPN, &alpn_strings, 1);
+    ct_security_parameters_t* client_security_parameters = ct_security_parameters_new();
+    ASSERT_NE(client_security_parameters, nullptr);
+    ct_sec_param_set_property_string_array(client_security_parameters, ALPN, &alpn_strings, 1);
 
 
-    ct_preconnection_t* client_precon = ct_preconnection_new(&client_remote, 1, client_props, &client_security_parameters);
+    ct_preconnection_t* client_precon = ct_preconnection_new(client_remote, 1, client_props, client_security_parameters);
     ASSERT_NE(client_precon, nullptr);
+    ct_security_parameters_free(client_security_parameters);
 
 
     ct_connection_callbacks_t client_callbacks {
@@ -99,14 +101,13 @@ TEST_F(QuicListenTests, QuicReceivesConnectionFromListenerAndExchangesMessages) 
     ASSERT_EQ(per_connection_messages[server_connection][0]->length, 5);
     ASSERT_STREQ(per_connection_messages[server_connection][0]->content, "ping");
 
-    ct_free_security_parameter_content(&server_security_parameters);
-    ct_free_security_parameter_content(&client_security_parameters);
+    ct_local_endpoint_free(listener_endpoint);
+    ct_remote_endpoint_free(listener_remote);
+    ct_remote_endpoint_free(client_remote);
     ct_preconnection_free(client_precon);
     ct_transport_properties_free(client_props);
     ct_preconnection_free(listener_precon);
     ct_transport_properties_free(listener_props);
-    ct_free_remote_endpoint_strings(&client_remote);
-    ct_free_remote_endpoint_strings(&listener_remote);
     ct_close();
 }
 
@@ -116,14 +117,14 @@ TEST_F(QuicListenTests, ServerInitiatesStreamByWritingFirst) {
     test_context.listener = &listener;
 
     // --- SETUP SERVER/LISTENER ---
-    ct_local_endpoint_t listener_endpoint;
-    ct_local_endpoint_build(&listener_endpoint);
-    ct_local_endpoint_with_interface(&listener_endpoint, "lo");
-    ct_local_endpoint_with_port(&listener_endpoint, 1240);
+    ct_local_endpoint_t* listener_endpoint = ct_local_endpoint_new();
+    ASSERT_NE(listener_endpoint, nullptr);
+    ct_local_endpoint_with_interface(listener_endpoint, "lo");
+    ct_local_endpoint_with_port(listener_endpoint, 1240);
 
-    ct_remote_endpoint_t listener_remote;
-    ct_remote_endpoint_build(&listener_remote);
-    ct_remote_endpoint_with_hostname(&listener_remote, "127.0.0.1");
+    ct_remote_endpoint_t* listener_remote = ct_remote_endpoint_new();
+    ASSERT_NE(listener_remote, nullptr);
+    ct_remote_endpoint_with_hostname(listener_remote, "127.0.0.1");
 
     ct_transport_properties_t* listener_props = ct_transport_properties_new();
     ASSERT_NE(listener_props, nullptr);
@@ -131,14 +132,15 @@ TEST_F(QuicListenTests, ServerInitiatesStreamByWritingFirst) {
     ct_tp_set_sel_prop_preference(listener_props, PRESERVE_MSG_BOUNDARIES, REQUIRE);
     ct_tp_set_sel_prop_preference(listener_props, MULTISTREAMING, REQUIRE); // force QUIC
 
-    ct_security_parameters_t server_security_parameters;
-    ct_security_parameters_build(&server_security_parameters);
+    ct_security_parameters_t* server_security_parameters = ct_security_parameters_new();
+    ASSERT_NE(server_security_parameters, nullptr);
     char* alpn_strings = "simple-ping";
-    ct_sec_param_set_property_string_array(&server_security_parameters, ALPN, &alpn_strings, 1);
+    ct_sec_param_set_property_string_array(server_security_parameters, ALPN, &alpn_strings, 1);
 
-    ct_preconnection_t* listener_precon = ct_preconnection_new(&listener_remote, 1, listener_props, &server_security_parameters);
+    ct_preconnection_t* listener_precon = ct_preconnection_new(listener_remote, 1, listener_props, server_security_parameters);
     ASSERT_NE(listener_precon, nullptr);
-    ct_preconnection_set_local_endpoint(listener_precon, &listener_endpoint);
+    ct_security_parameters_free(server_security_parameters);
+    ct_preconnection_set_local_endpoint(listener_precon, listener_endpoint);
 
     ct_listener_callbacks_t listener_callbacks = {
         .connection_received = server_sends_first_and_waits_for_response,
@@ -149,10 +151,10 @@ TEST_F(QuicListenTests, ServerInitiatesStreamByWritingFirst) {
     ASSERT_EQ(listen_res, 0);
 
     // --- SETUP CLIENT ---
-    ct_remote_endpoint_t client_remote;
-    ct_remote_endpoint_build(&client_remote);
-    ct_remote_endpoint_with_hostname(&client_remote, "127.0.0.1");
-    ct_remote_endpoint_with_port(&client_remote, 1240);
+    ct_remote_endpoint_t* client_remote = ct_remote_endpoint_new();
+    ASSERT_NE(client_remote, nullptr);
+    ct_remote_endpoint_with_hostname(client_remote, "127.0.0.1");
+    ct_remote_endpoint_with_port(client_remote, 1240);
 
     ct_transport_properties_t* client_props = ct_transport_properties_new();
     ASSERT_NE(client_props, nullptr);
@@ -160,12 +162,13 @@ TEST_F(QuicListenTests, ServerInitiatesStreamByWritingFirst) {
     ct_tp_set_sel_prop_preference(client_props, PRESERVE_MSG_BOUNDARIES, REQUIRE);
     ct_tp_set_sel_prop_preference(client_props, MULTISTREAMING, REQUIRE);
 
-    ct_security_parameters_t client_security_parameters;
-    ct_security_parameters_build(&client_security_parameters);
-    ct_sec_param_set_property_string_array(&client_security_parameters, ALPN, &alpn_strings, 1);
+    ct_security_parameters_t* client_security_parameters = ct_security_parameters_new();
+    ASSERT_NE(client_security_parameters, nullptr);
+    ct_sec_param_set_property_string_array(client_security_parameters, ALPN, &alpn_strings, 1);
 
-    ct_preconnection_t* client_precon = ct_preconnection_new(&client_remote, 1, client_props, &client_security_parameters);
+    ct_preconnection_t* client_precon = ct_preconnection_new(client_remote, 1, client_props, client_security_parameters);
     ASSERT_NE(client_precon, nullptr);
+    ct_security_parameters_free(client_security_parameters);
 
 
     ct_connection_callbacks_t client_callbacks {
@@ -195,13 +198,12 @@ TEST_F(QuicListenTests, ServerInitiatesStreamByWritingFirst) {
     ASSERT_EQ(per_connection_messages[server_connection][0]->length, strlen("client-ack") + 1);
     ASSERT_STREQ(per_connection_messages[server_connection][0]->content, "client-ack");
 
-    ct_free_security_parameter_content(&server_security_parameters);
-    ct_free_security_parameter_content(&client_security_parameters);
+    ct_local_endpoint_free(listener_endpoint);
+    ct_remote_endpoint_free(listener_remote);
+    ct_remote_endpoint_free(client_remote);
     ct_preconnection_free(client_precon);
     ct_transport_properties_free(client_props);
     ct_preconnection_free(listener_precon);
     ct_transport_properties_free(listener_props);
-    ct_free_remote_endpoint_strings(&client_remote);
-    ct_free_remote_endpoint_strings(&listener_remote);
     ct_close();
 }

@@ -6,17 +6,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-void ct_message_build_with_content(ct_message_t* message, const char* content, size_t length) {
-  message->content = malloc(length);
-  message->length = length;
-  memcpy(message->content, content, length);
-}
-
-void ct_message_build_without_content(ct_message_t* message) {
-  message->content = 0;
-}
-
-
 void ct_message_free_content(const ct_message_t* message) {
   free(message->content);
 }
@@ -47,4 +36,32 @@ ct_message_t* ct_message_deep_copy(const ct_message_t* message) {
 
   memcpy(copy->content, message->content, message->length);
   return copy;
+}
+
+ct_message_t* ct_message_new(void) {
+  ct_message_t* message = malloc(sizeof(ct_message_t));
+  if (!message) {
+    return NULL;
+  }
+  memset(message, 0, sizeof(ct_message_t));
+  return message;
+}
+
+ct_message_t* ct_message_new_with_content(const char* content, size_t length) {
+  ct_message_t* message = ct_message_new();
+  if (!message) {
+    return NULL;
+  }
+  message->content = malloc(length);
+  message->length = length;
+  memcpy(message->content, content, length);
+  return message;
+}
+
+unsigned int ct_message_get_length(const ct_message_t* message) {
+  return message ? message->length : 0;
+}
+
+const char* ct_message_get_content(const ct_message_t* message) {
+  return message ? message->content : NULL;
 }

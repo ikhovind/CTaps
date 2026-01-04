@@ -14,10 +14,10 @@ class QuicPingTest : public CTapsGenericFixture {};
 
 TEST_F(QuicPingTest, successfullyPingsQuicServer) {
   // --- Setup ---
-  ct_remote_endpoint_t remote_endpoint;
-  ct_remote_endpoint_build(&remote_endpoint);
-  ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
-  ct_remote_endpoint_with_port(&remote_endpoint, QUIC_PING_PORT);
+  ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
+  ASSERT_NE(remote_endpoint, nullptr);
+  ct_remote_endpoint_with_ipv4(remote_endpoint, inet_addr("127.0.0.1"));
+  ct_remote_endpoint_with_port(remote_endpoint, QUIC_PING_PORT);
 
   ct_transport_properties_t* transport_properties = ct_transport_properties_new();
   ASSERT_NE(transport_properties, nullptr);
@@ -26,13 +26,14 @@ TEST_F(QuicPingTest, successfullyPingsQuicServer) {
   ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, REQUIRE);
   ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, REQUIRE); // force QUIC
 
-  ct_security_parameters_t security_parameters;
-  ct_security_parameters_build(&security_parameters);
+  ct_security_parameters_t* security_parameters = ct_security_parameters_new();
+  ASSERT_NE(security_parameters, nullptr);
   char* alpn_strings = "simple-ping";
-  ct_sec_param_set_property_string_array(&security_parameters, ALPN, &alpn_strings, 1);
+  ct_sec_param_set_property_string_array(security_parameters, ALPN, &alpn_strings, 1);
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, transport_properties, &security_parameters);
+  ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, security_parameters);
   ASSERT_NE(preconnection, nullptr);
+  ct_security_parameters_free(security_parameters);
 
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
@@ -53,7 +54,7 @@ TEST_F(QuicPingTest, successfullyPingsQuicServer) {
   ASSERT_EQ(per_connection_messages[connection].size(), 1);
   ASSERT_STREQ(per_connection_messages[connection][0]->content, "Pong: ping");
 
-  ct_free_security_parameter_content(&security_parameters);
+  ct_remote_endpoint_free(remote_endpoint);
   ct_preconnection_free(preconnection);
   ct_transport_properties_free(transport_properties);
 }

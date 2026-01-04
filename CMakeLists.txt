@@ -51,6 +51,7 @@ set(CTAPS_SOURCES
     src/endpoint/port_util.c
     # Messages
     src/message/message.c
+    src/message/message_context.c
     # Protocols
     src/protocol/protocol_registry.c
     src/protocol/udp/udp.c

@@ -1,5 +1,5 @@
-#ifndef MESSAGE_H
-#define MESSAGE_H
+#ifndef CT_MESSAGE_H
+#define CT_MESSAGE_H
 
 #include "ctaps.h"
 
@@ -7,4 +7,4 @@
 // Returns NULL on allocation failure
 ct_message_t* ct_message_deep_copy(const ct_message_t* message);
 
-#endif // MESSAGE_H
+#endif // CT_MESSAGE_H

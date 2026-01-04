@@ -153,12 +153,12 @@ TEST_F(FramingTest, LengthPrependFramerSendsCorrectFormat) {
     // Allocated with ct_transport_properties_new()
     ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT); // force tcp
 
-    ct_remote_endpoint_t remote_endpoint;
-    ct_remote_endpoint_build(&remote_endpoint);
-    ct_remote_endpoint_with_hostname(&remote_endpoint, "127.0.0.1");
-    ct_remote_endpoint_with_port(&remote_endpoint, 5006);
+    ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
+    ASSERT_NE(remote_endpoint, nullptr);
+    ct_remote_endpoint_with_hostname(remote_endpoint, "127.0.0.1");
+    ct_remote_endpoint_with_port(remote_endpoint, 5006);
 
-    ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, transport_properties, nullptr);
+    ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, nullptr);
     ASSERT_NE(preconnection, nullptr);
     ct_preconnection_set_framer(preconnection, &length_prepend_framer);
 
@@ -180,6 +180,7 @@ TEST_F(FramingTest, LengthPrependFramerSendsCorrectFormat) {
     std::string response_str((char*)response->content, response->length);
 
     ASSERT_STREQ(response_str.c_str(), "Pong: 5ping");
+    ct_remote_endpoint_free(remote_endpoint);
     ct_preconnection_free(preconnection);
     ct_transport_properties_free(transport_properties);
 }
@@ -190,12 +191,12 @@ TEST_F(FramingTest, StripFirstCharFramerReceivesStrippedMessage) {
     // Allocated with ct_transport_properties_new()
     ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT); // force tcp
 
-    ct_remote_endpoint_t remote_endpoint;
-    ct_remote_endpoint_build(&remote_endpoint);
-    ct_remote_endpoint_with_hostname(&remote_endpoint, "127.0.0.1");
-    ct_remote_endpoint_with_port(&remote_endpoint, 5006);
+    ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
+    ASSERT_NE(remote_endpoint, nullptr);
+    ct_remote_endpoint_with_hostname(remote_endpoint, "127.0.0.1");
+    ct_remote_endpoint_with_port(remote_endpoint, 5006);
 
-    ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, transport_properties, nullptr);
+    ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, nullptr);
     ASSERT_NE(preconnection, nullptr);
     ct_preconnection_set_framer(preconnection, &strip_first_char_framer);
 
@@ -220,6 +221,7 @@ TEST_F(FramingTest, StripFirstCharFramerReceivesStrippedMessage) {
     std::string response_str((char*)response->content, response->length);
 
     ASSERT_STREQ(response_str.c_str(), "ong: ping");
+    ct_remote_endpoint_free(remote_endpoint);
     ct_preconnection_free(preconnection);
     ct_transport_properties_free(transport_properties);
 }
@@ -233,12 +235,12 @@ TEST_F(FramingTest, AsyncFramerDefersSendCallback) {
     // Allocated with ct_transport_properties_new()
     ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT); // force tcp
 
-    ct_remote_endpoint_t remote_endpoint;
-    ct_remote_endpoint_build(&remote_endpoint);
-    ct_remote_endpoint_with_hostname(&remote_endpoint, "127.0.0.1");
-    ct_remote_endpoint_with_port(&remote_endpoint, 5006);
+    ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
+    ASSERT_NE(remote_endpoint, nullptr);
+    ct_remote_endpoint_with_hostname(remote_endpoint, "127.0.0.1");
+    ct_remote_endpoint_with_port(remote_endpoint, 5006);
 
-    ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, transport_properties, nullptr);
+    ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, nullptr);
     ASSERT_NE(preconnection, nullptr);
     ct_preconnection_set_framer(preconnection, &async_framer);
 
@@ -261,6 +263,7 @@ TEST_F(FramingTest, AsyncFramerDefersSendCallback) {
 
     // Should get normal response since async_framer doesn't modify the message
     ASSERT_STREQ(response_str.c_str(), "Pong: ping");
+    ct_remote_endpoint_free(remote_endpoint);
     ct_preconnection_free(preconnection);
     ct_transport_properties_free(transport_properties);
 }

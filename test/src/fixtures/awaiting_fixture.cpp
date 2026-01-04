@@ -67,10 +67,9 @@ int send_message_on_connection_ready(ct_connection_t* connection) {
     ctx->client_connections.push_back(connection);
 
     // Send the message now that the client is ready
-    ct_message_t message;
-    ct_message_build_with_content(&message, "ping", strlen("ping") + 1);
-    ct_send_message(connection, &message);
-    ct_message_free_content(&message);
+    ct_message_t* message = ct_message_new_with_content("ping", strlen("ping") + 1);
+    ct_send_message(connection, message);
+    ct_message_free_all(message);
 
     return 0;
 }
@@ -119,10 +118,9 @@ int respond_on_message_received_inline(ct_connection_t* connection, ct_message_t
     auto* ctx = static_cast<CallbackContext*>(message_context->user_receive_context);
     (*ctx->per_connection_messages)[connection].push_back(*received_message);
 
-    ct_message_t message;
-    ct_message_build_with_content(&message, "pong", strlen("pong") + 1);
-    ct_send_message(connection, &message);
-    ct_message_free_content(&message);
+    ct_message_t* message = ct_message_new_with_content("pong", strlen("pong") + 1);
+    ct_send_message(connection, message);
+    ct_message_free_all(message);
     return 0;
 }
 
@@ -162,10 +160,9 @@ int send_message_and_receive(struct ct_connection_s* connection) {
     auto* context = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
     context->client_connections.push_back(connection);
 
-    ct_message_t message;
-    ct_message_build_with_content(&message, "ping", strlen("ping") + 1);
-    ct_send_message(connection, &message);
-    ct_message_free_content(&message);
+    ct_message_t* message = ct_message_new_with_content("ping", strlen("ping") + 1);
+    ct_send_message(connection, message);
+    ct_message_free_all(message);
 
     ct_receive_callbacks_t receive_message_request = {
       .receive_callback = close_on_message_received,
@@ -184,10 +181,9 @@ int on_message_receive_send_new_message_and_receive_inline(ct_connection_t* conn
 
     ct_connection_t* sending_connection = ctx->client_connections.at(0);
 
-    ct_message_t message;
-    ct_message_build_with_content(&message, "ping2", strlen("ping2") + 1);
-    ct_send_message(sending_connection, &message);
-    ct_message_free_content(&message);
+    ct_message_t* message = ct_message_new_with_content("ping2", strlen("ping2") + 1);
+    ct_send_message(sending_connection, message);
+    ct_message_free_all(message);
 
     (*ctx->per_connection_messages)[connection].push_back(*received_message);
 
@@ -241,13 +237,12 @@ static int send_bytes_on_ready(struct ct_connection_s* connection) {
     auto* ctx = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
     ctx->client_connections.push_back(connection);
 
-    ct_message_t message;
     char bytes_to_send[] = {0, 1, 2, 3, 4, 5};
-    ct_message_build_with_content(&message, bytes_to_send, sizeof(bytes_to_send));
+    ct_message_t* message = ct_message_new_with_content(bytes_to_send, sizeof(bytes_to_send));
 
-    int rc = ct_send_message(connection, &message);
+    int rc = ct_send_message(connection, message);
     EXPECT_EQ(rc, 0);
-    ct_message_free_content(&message);
+    ct_message_free_all(message);
 
     ct_receive_message(connection, {
       .receive_callback = close_on_message_received,
@@ -263,19 +258,17 @@ int send_two_messages_on_ready(struct ct_connection_s* connection) {
     auto* ctx = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
     ctx->client_connections.push_back(connection);
 
-    ct_message_t message1;
     char* hello1 = "hello 1";
-    ct_message_build_with_content(&message1, hello1, strlen(hello1) + 1);
-    int rc = ct_send_message(connection, &message1);
+    ct_message_t* message1 = ct_message_new_with_content(hello1, strlen(hello1) + 1);
+    int rc = ct_send_message(connection, message1);
     EXPECT_EQ(rc, 0);
-    ct_message_free_content(&message1);
+    ct_message_free_all(message1);
 
-    ct_message_t message2;
     char* hello2 = "hello 2";
-    ct_message_build_with_content(&message2, hello2, strlen(hello2) + 1);
-    rc = ct_send_message(connection, &message2);
+    ct_message_t* message2 = ct_message_new_with_content(hello2, strlen(hello2) + 1);
+    rc = ct_send_message(connection, message2);
     EXPECT_EQ(rc, 0);
-    ct_message_free_content(&message2);
+    ct_message_free_all(message2);
 
     ct_receive_message(connection, {
       .receive_callback = close_on_expected_num_messages_received,
@@ -300,10 +293,9 @@ int server_sends_first_and_waits_for_response(ct_listener_t* listener, ct_connec
     context->server_connections.push_back(new_connection);
 
     // Server sends first message
-    ct_message_t message;
-    ct_message_build_with_content(&message, "server-hello", strlen("server-hello") + 1);
-    int rc = ct_send_message(new_connection, &message);
-    ct_message_free_content(&message);
+    ct_message_t* message = ct_message_new_with_content("server-hello", strlen("server-hello") + 1);
+    int rc = ct_send_message(new_connection, message);
+    ct_message_free_all(message);
     EXPECT_EQ(rc, 0);
     if (rc != 0) {
         log_error("Server failed to send initial message: %d", rc);
@@ -331,10 +323,9 @@ int client_waits_and_responds(ct_connection_t* connection, ct_message_t** receiv
     (*ctx->per_connection_messages)[connection].push_back(*received_message);
 
     // Client responds to server's message
-    ct_message_t response;
-    ct_message_build_with_content(&response, "client-ack", strlen("client-ack") + 1);
-    ct_send_message(connection, &response);
-    ct_message_free_content(&response);
+    ct_message_t* response = ct_message_new_with_content("client-ack", strlen("client-ack") + 1);
+    ct_send_message(connection, response);
+    ct_message_free_all(response);
 
     return 0;
 }
@@ -377,10 +368,9 @@ int clone_and_abort_on_ready(ct_connection_t* connection) {
     log_info("clone_and_abort_on_ready, num_grouped=%llu", (unsigned long long)num_grouped);
 
     // Send message just to make sure stream is initialized
-    ct_message_t message;
-    ct_message_build_with_content(&message, "hello", strlen("hello") + 1);
-    ct_send_message(connection, &message);
-    ct_message_free_content(&message);
+    ct_message_t* message = ct_message_new_with_content("hello", strlen("hello") + 1);
+    ct_send_message(connection, message);
+    ct_message_free_all(message);
 
     if (num_grouped == 1) {
         // Original connection - clone it
@@ -437,10 +427,9 @@ int clone_send_and_setup_receive_on_both(ct_connection_t* connection) {
     }
 
     // Send and set up receive (same for both original and clone)
-    ct_message_t message;
-    ct_message_build_with_content(&message, message_content, strlen(message_content) + 1);
-    ct_send_message(connection, &message);
-    ct_message_free_content(&message);
+    ct_message_t* message = ct_message_new_with_content(message_content, strlen(message_content) + 1);
+    ct_send_message(connection, message);
+    ct_message_free_all(message);
 
     ct_receive_callbacks_t receive_req = {
         .receive_callback = close_on_message_received,
@@ -462,10 +451,9 @@ int server_receive_and_respond_with_prefix(ct_connection_t* connection, ct_messa
 
     // Send response with "Response: " prefix
     std::string response = std::string("Response: ") + std::string((char*)(*received_message)->content);
-    ct_message_t response_msg;
-    ct_message_build_with_content(&response_msg, response.c_str(), response.length() + 1);
-    ct_send_message(connection, &response_msg);
-    ct_message_free_content(&response_msg);
+    ct_message_t* response_msg = ct_message_new_with_content(response.c_str(), response.length() + 1);
+    ct_send_message(connection, response_msg);
+    ct_message_free_all(response_msg);
 
     log_info("Server: Sent response: %s", response.c_str());
 
