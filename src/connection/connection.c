@@ -364,7 +364,6 @@ void ct_connection_free_content(ct_connection_t* connection) {
     connection->received_messages = NULL;
   }
 
-  // Free endpoint strings (endpoints are embedded in connection struct, not heap-allocated)
   ct_local_endpoint_free_strings(&connection->local_endpoint);
   ct_remote_endpoint_free_strings(&connection->remote_endpoint);
 

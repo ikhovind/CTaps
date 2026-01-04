@@ -286,6 +286,27 @@ typedef struct ct_preconnection_s {
   ct_framer_impl_t* framer_impl;                      ///< Optional message framer
 } ct_preconnection_t;
 
+
+// =============================================================================
+// Connections
+// =============================================================================
+
+/**
+ * @brief Connection socket type classification.
+ */
+typedef enum {
+  CONNECTION_SOCKET_TYPE_STANDALONE = 0,    ///< Independent connection
+  CONNECTION_SOCKET_TYPE_MULTIPLEXED,       ///< Multiplexed connection (e.g., QUIC stream)
+} ct_connection_socket_type_t;
+
+/**
+ * @brief Connection role classification.
+ */
+typedef enum {
+  CONNECTION_ROLE_CLIENT = 0,           ///< Connection initiated by local endpoint
+  CONNECTION_ROLE_SERVER,               ///< Connection accepted from remote endpoint
+} ct_connection_role_t;
+
 typedef struct ct_connection_s {
   char uuid[37];                                       ///< Unique identifier for this connection (UUID string)
   ct_connection_group_t* connection_group;             ///< Connection group (never NULL)

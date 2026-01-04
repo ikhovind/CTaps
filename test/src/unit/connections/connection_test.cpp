@@ -132,7 +132,7 @@ TEST(ConnectionUnitTests, SendMessageFullFailsWhenCanSendIsFalse) {
     EXPECT_EQ(rc, -EPIPE);
 
     // Cleanup
-    ct_message_free_all(message);
+    ct_message_free(message);
     ct_connection_free_content(&connection);
 }
 
@@ -172,7 +172,7 @@ TEST(ConnectionUnitTests, SendMessageWithFinalSetsCanSendToFalse) {
     EXPECT_FALSE(ct_connection_can_send(&connection));
 
     // Cleanup
-    ct_message_free_all(message);
+    ct_message_free(message);
     ct_message_context_free(context);
     ct_connection_free_content(&connection);
 }

@@ -4,13 +4,6 @@
 #include <stdlib.h>
 #include "transport_property/selection_properties/selection_properties.h"
 #include "transport_property/transport_properties.h"
-#include "transport_property/connection_properties/connection_properties.h"
-
-// Internal cleanup function declaration (from selection_properties.c)
-void ct_selection_properties_cleanup(ct_selection_properties_t* selection_properties);
-
-// Internal deep copy function declaration (from selection_properties.c)
-void ct_selection_properties_deep_copy(ct_selection_properties_t* dest, const ct_selection_properties_t* src);
 
 ct_transport_properties_t* ct_transport_properties_new(void) {
   ct_transport_properties_t* props = malloc(sizeof(ct_transport_properties_t));

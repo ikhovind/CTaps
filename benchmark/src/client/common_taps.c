@@ -88,7 +88,7 @@ int on_connection_ready(ct_connection_t *connection) {
             timing_start(&ctx->large_stats.transfer_time);
             message = ct_message_new_with_content("LARGE", 6);
             ct_send_message_full(connection, message, msg_ctx);
-            ct_message_free_all(message);
+            ct_message_free(message);
             ctx->state = STATE_LARGE_STARTED;
             ct_receive_message(connection, (ct_receive_callbacks_t){
                 .receive_callback = on_msg_received,
@@ -112,7 +112,7 @@ int on_connection_ready(ct_connection_t *connection) {
             });
             message = ct_message_new_with_content("SHORT", 6);
             ct_send_message_full(connection, message, msg_ctx);
-            ct_message_free_all(message);
+            ct_message_free(message);
             ctx->state = STATE_SHORT_STARTED;
             break;
         case STATE_SHORT_STARTED:

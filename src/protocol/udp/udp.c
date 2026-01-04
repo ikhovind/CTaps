@@ -67,7 +67,7 @@ void udp_multiplex_received_message(ct_socket_manager_t* socket_manager, ct_mess
 
   if (connection_group == NULL) {
     log_error("Failed to get or create connection group for UDP message");
-    ct_message_free_all(message);
+    ct_message_free(message);
     return;
   }
 
@@ -75,7 +75,7 @@ void udp_multiplex_received_message(ct_socket_manager_t* socket_manager, ct_mess
   ct_connection_t* connection = ct_connection_group_get_first(connection_group);
   if (connection == NULL) {
     log_error("Connection group exists but has no connections");
-    ct_message_free_all(message);
+    ct_message_free(message);
     return;
   }
 
@@ -105,7 +105,7 @@ void on_send(uv_udp_send_t* req, int status) {
   }
   if (req && req->data) {
     ct_message_t* message = (ct_message_t*)req->data;
-    ct_message_free_all(message);
+    ct_message_free(message);
   }
   free(req);
 }
@@ -246,7 +246,7 @@ int udp_send(ct_connection_t* connection, ct_message_t* message, ct_message_cont
   uv_udp_send_t* send_req = malloc(sizeof(uv_udp_send_t));
   if (!send_req) {
     log_error("Failed to allocate send request\n");
-    ct_message_free_all(message);
+    ct_message_free(message);
     return -ENOMEM;
   }
 
@@ -260,7 +260,7 @@ int udp_send(ct_connection_t* connection, ct_message_t* message, ct_message_cont
 
   if (rc < 0) {
     log_error("Error sending UDP message: %s", uv_strerror(rc));
-    ct_message_free_all(message);
+    ct_message_free(message);
     free(send_req);
   }
 

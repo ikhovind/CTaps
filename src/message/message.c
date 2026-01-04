@@ -6,13 +6,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-void ct_message_free_content(const ct_message_t* message) {
-  free(message->content);
-}
-
-void ct_message_free_all(ct_message_t* message) {
+void ct_message_free(ct_message_t* message) {
   log_trace("Freeing message of size %zu", message->length);
-  ct_message_free_content(message);
+  free(message->content);
   free(message);
 }
 
