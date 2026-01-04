@@ -41,10 +41,13 @@ int main(int argc, char *argv[]) {
 
     ct_set_log_level(CT_LOG_WARN);
 
-    ct_remote_endpoint_t remote_endpoint;
-    ct_remote_endpoint_build(&remote_endpoint);
-    ct_remote_endpoint_with_hostname(&remote_endpoint, client_ctx.host);
-    ct_remote_endpoint_with_port(&remote_endpoint, client_ctx.port);
+    ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
+    if (!remote_endpoint) {
+        fprintf(stderr, "Failed to allocate remote endpoint\n");
+        return 1;
+    }
+    ct_remote_endpoint_with_hostname(remote_endpoint, client_ctx.host);
+    ct_remote_endpoint_with_port(remote_endpoint, client_ctx.port);
 
     ct_transport_properties_t* transport_properties = ct_transport_properties_new();
     if (!transport_properties) {
@@ -56,10 +59,11 @@ int main(int argc, char *argv[]) {
     ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
     ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, PROHIBIT);
 
-    ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, transport_properties, NULL);
+    ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
     if (!preconnection) {
         fprintf(stderr, "Failed to allocate preconnection\n");
         ct_transport_properties_free(transport_properties);
+        ct_remote_endpoint_free(remote_endpoint);
         return 1;
     }
 
@@ -84,12 +88,14 @@ int main(int argc, char *argv[]) {
         ct_close();
         ct_preconnection_free(preconnection);
         ct_transport_properties_free(transport_properties);
+        ct_remote_endpoint_free(remote_endpoint);
         return 0;
     } else {
         fprintf(stderr, "ERROR: Transfer failed\n");
         ct_close();
         ct_preconnection_free(preconnection);
         ct_transport_properties_free(transport_properties);
+        ct_remote_endpoint_free(remote_endpoint);
         return -1;
     }
 }

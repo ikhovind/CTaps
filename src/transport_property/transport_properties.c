@@ -2,6 +2,9 @@
 #include "ctaps_internal.h"
 #include <stdbool.h>
 #include <stdlib.h>
+#include "transport_property/selection_properties/selection_properties.h"
+#include "transport_property/transport_properties.h"
+#include "transport_property/connection_properties/connection_properties.h"
 
 // Internal cleanup function declaration (from selection_properties.c)
 void ct_selection_properties_cleanup(ct_selection_properties_t* selection_properties);
@@ -9,17 +12,16 @@ void ct_selection_properties_cleanup(ct_selection_properties_t* selection_proper
 // Internal deep copy function declaration (from selection_properties.c)
 void ct_selection_properties_deep_copy(ct_selection_properties_t* dest, const ct_selection_properties_t* src);
 
-void ct_transport_properties_build(ct_transport_properties_t* properties) {
-  ct_selection_properties_build(&properties->selection_properties);
-  ct_connection_properties_build(&properties->connection_properties);
-}
-
 ct_transport_properties_t* ct_transport_properties_new(void) {
   ct_transport_properties_t* props = malloc(sizeof(ct_transport_properties_t));
   if (!props) {
     return NULL;
   }
-  ct_transport_properties_build(props);
+
+  // Initialize with default values (inlined from removed _build function)
+  memcpy(&props->selection_properties, &DEFAULT_SELECTION_PROPERTIES, sizeof(ct_selection_properties_t));
+  memcpy(&props->connection_properties, &DEFAULT_CONNECTION_PROPERTIES, sizeof(ct_connection_properties_t));
+
   return props;
 }
 
@@ -36,9 +38,14 @@ void ct_transport_properties_free(ct_transport_properties_t* props) {
   free(props);
 }
 
-void ct_transport_properties_deep_copy(ct_transport_properties_t* dest, const ct_transport_properties_t* src) {
-  if (!dest || !src) {
-    return;
+ct_transport_properties_t* ct_transport_properties_deep_copy(const ct_transport_properties_t* src) {
+  if (!src) {
+    return NULL;
+  }
+
+  ct_transport_properties_t* dest = ct_transport_properties_new();
+  if (!dest) {
+    return NULL;
   }
 
   // Deep copy selection properties (handles GHashTable properly)
@@ -46,6 +53,8 @@ void ct_transport_properties_deep_copy(ct_transport_properties_t* dest, const ct
 
   // Shallow copy connection properties (no dynamic allocations)
   dest->connection_properties = src->connection_properties;
+
+  return dest;
 }
 
 void ct_tp_set_sel_prop_preference(ct_transport_properties_t* props, ct_selection_property_enum_t prop_enum, ct_selection_preference_t val) {

@@ -7,6 +7,7 @@ extern "C" {
   #include <uv.h>
   #include "fff.h"
   #include "ctaps.h"
+  #include "ctaps_internal.h"
 
 
 // --- FFF Fakes ---
@@ -78,12 +79,12 @@ TEST_F(RemoteEndpointResolveTest, ResolvesHostnameAndAppliesServicePort) {
 
   // Set the fake service lookup to return port 443 (HTTPS)
   get_service_port_fake.return_val = 443;
-  
+
   // Create a remote endpoint specifying a hostname and a service
-  ct_remote_endpoint_t endpoint_to_resolve;
-  ct_remote_endpoint_build(&endpoint_to_resolve);
-  ct_remote_endpoint_with_hostname(&endpoint_to_resolve, "example.com");
-  ct_remote_endpoint_with_service(&endpoint_to_resolve, "https");
+  ct_remote_endpoint_t* endpoint_to_resolve = ct_remote_endpoint_new();
+  ASSERT_NE(endpoint_to_resolve, nullptr);
+  ct_remote_endpoint_with_hostname(endpoint_to_resolve, "example.com");
+  ct_remote_endpoint_with_service(endpoint_to_resolve, "https");
 
   // Output variables
   ct_remote_endpoint_t* resolved_list = nullptr;
@@ -91,7 +92,7 @@ TEST_F(RemoteEndpointResolveTest, ResolvesHostnameAndAppliesServicePort) {
 
   // --- ACT ---
   // Call the function we want to test
-  int result = ct_remote_endpoint_resolve(&endpoint_to_resolve, &resolved_list, &resolved_count);
+  int result = ct_remote_endpoint_resolve(endpoint_to_resolve, &resolved_list, &resolved_count);
 
   // --- ASSERT ---
   // 1. Check that the function succeeded and our fakes were called
@@ -118,5 +119,6 @@ TEST_F(RemoteEndpointResolveTest, ResolvesHostnameAndAppliesServicePort) {
   EXPECT_EQ(ntohs(ipv6_addr->sin6_port), 443);
 
   // Clean up the allocated memory
+  ct_remote_endpoint_free(endpoint_to_resolve);
   free(resolved_list);
 }

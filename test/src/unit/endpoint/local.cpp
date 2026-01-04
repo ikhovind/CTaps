@@ -6,6 +6,8 @@ extern "C" {
 #include "ctaps.h"
 #include "ctaps_internal.h"
 #include "fff.h"
+#include "endpoint/local_endpoint.h"
+#include "endpoint/remote_endpoint.h"
 }
 
 #include "fixtures/awaiting_fixture.cpp"
@@ -100,9 +102,9 @@ TEST_F(LocalEndpointInitTest, UsesInterfaceAddress_whenInterfaceIsSpecified) {
     ct_local_endpoint_with_port(&local_endpoint, 8080);
     ct_local_endpoint_with_interface(&local_endpoint, "test_if0");
 
-    ct_remote_endpoint_t remote_endpoint;
-    ct_remote_endpoint_build(&remote_endpoint);
-    ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
+    ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
+    ASSERT_NE(remote_endpoint, nullptr);
+    ct_remote_endpoint_with_ipv4(remote_endpoint, inet_addr("127.0.0.1"));
 
     ct_transport_properties_t* transport_properties = ct_transport_properties_new();
   ASSERT_NE(transport_properties, nullptr);
@@ -111,7 +113,7 @@ TEST_F(LocalEndpointInitTest, UsesInterfaceAddress_whenInterfaceIsSpecified) {
     ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_ORDER, PROHIBIT);
     ct_tp_set_sel_prop_preference(transport_properties, CONGESTION_CONTROL, PROHIBIT);
 
-    ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, transport_properties, NULL);
+    ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
     ASSERT_NE(preconnection, nullptr);
     ct_preconnection_set_local_endpoint(preconnection, &local_endpoint);
 
@@ -145,6 +147,7 @@ TEST_F(LocalEndpointInitTest, UsesInterfaceAddress_whenInterfaceIsSpecified) {
     // Verify the port was set correctly
     EXPECT_EQ(ntohs(bound_addr_in->sin_port), 8080);
 
+    ct_remote_endpoint_free(remote_endpoint);
     ct_preconnection_free(preconnection);
     ct_transport_properties_free(transport_properties);
 }

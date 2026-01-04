@@ -36,3 +36,5 @@ compile_commands.json
 *.dat
 # Benchmark results
 benchmark/results/
+
+CLAUDE.md

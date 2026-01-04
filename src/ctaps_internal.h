@@ -2,6 +2,87 @@
 #define CT_CTAPS_INTERNAL_H
 #include <ctaps.h>
 
+struct ct_socket_manager_s;
+// =============================================================================
+// Endpoint Internal Definitions
+// =============================================================================
+/**
+ * @brief Local endpoint specification for binding connections/listeners.
+ */
+typedef struct ct_local_endpoint_s {
+  uint16_t port;            ///< Port number (0 = any port)
+  char* interface_name;     ///< Network interface name (e.g., "eth0") or NULL for any
+  char* service;            ///< Service name (e.g., "http") or NULL
+  union {
+    struct sockaddr_storage resolved_address;  ///< Resolved socket address
+  } data;
+} ct_local_endpoint_t;
+
+/**
+ * @brief Remote endpoint specification for connection targets.
+ *
+ * Specifies the remote address, hostname, port, or service name to connect to.
+ */
+typedef struct ct_remote_endpoint_s {
+  uint16_t port;            ///< Port number
+  char* service;            ///< Service name (e.g., "https") or NULL
+  char* hostname;           ///< Hostname for DNS resolution or NULL
+  union {
+    struct sockaddr_storage resolved_address;  ///< Resolved socket address
+  } data;
+} ct_remote_endpoint_t;
+
+// =============================================================================
+// Message Internal Definitions
+// =============================================================================
+/**
+ * @brief A message containing data to send or received data.
+ */
+typedef struct ct_message_s {
+  char* content;         ///< Message data buffer
+  unsigned int length;   ///< Length of message data in bytes
+} ct_message_t;
+
+// =============================================================================
+// Security Parameters Internal Definitions
+// =============================================================================
+
+/**
+ * @brief String array value for security parameters.
+ */
+typedef struct {
+  char** strings;       ///< Array of string pointers
+  size_t num_strings;   ///< Number of strings in the array
+} ct_string_array_value_t;
+
+
+/**
+ * @brief Union holding security parameter values.
+ */
+typedef union ct_sec_property_value_u {
+  ct_string_array_value_t array_of_strings;  ///< For TYPE_STRING_ARRAY properties
+} ct_sec_property_value_t;
+
+/**
+ * @brief A single security parameter.
+ */
+typedef struct ct_sec_property_s {
+  char* name;                        ///< Parameter name string
+  ct_sec_property_type_t type;       ///< Type of value stored
+  bool set_by_user;                  ///< True if user explicitly set this parameter
+  ct_sec_property_value_t value;     ///< Parameter value
+} ct_security_parameter_t;
+
+/**
+ * @brief Collection of all security parameters.
+ */
+typedef struct ct_security_parameters_s {
+  ct_security_parameter_t security_parameters[SEC_PROPERTY_END];  ///< Array of security parameters
+} ct_security_parameters_t;
+
+// =============================================================================
+// Transport Properties Internal Definitions
+// =============================================================================
 /**
  * @brief Collection of all transport selection properties.
  *
@@ -27,10 +108,86 @@ static const ct_selection_properties_t DEFAULT_SELECTION_PROPERTIES = {
   }
 };
 
+// =============================================================================
+// Message Properties - Properties for individual messages
+// =============================================================================
+
+/**
+ * @brief Type of value stored in a message property.
+ */
+typedef enum ct_message_property_type_t {
+  TYPE_INTEGER_MSG,
+  TYPE_BOOLEAN_MSG,
+  TYPE_UINT64_MSG,
+  TYPE_ENUM_MSG
+} ct_message_property_type_t;
+
+/**
+ * @brief Union holding message property values.
+ */
+typedef union {
+  uint32_t integer_value;
+  bool boolean_value;
+  uint64_t uint64_value;
+  ct_capacity_profile_enum_t enum_value;
+} ct_message_property_value_t;
+
+/**
+ * @brief A single message property.
+ */
+typedef struct ct_message_property_s {
+  char* name;                              ///< Property name string
+  ct_message_property_type_t type;         ///< Type of value stored
+  bool set_by_user;                        ///< True if user explicitly set this property
+  ct_message_property_value_t value;       ///< Property value
+} ct_message_property_t;
+
+/**
+ * @brief Collection of all message properties.
+ *
+ * Contains properties that can be set on a per-message basis to control transmission
+ * characteristics. Properties are indexed by ct_message_property_enum_t.
+ */
+typedef struct ct_message_properties_s {
+  ct_message_property_t message_property[MESSAGE_PROPERTY_END];  ///< Array of message properties
+} ct_message_properties_t;
+
 static const ct_message_properties_t DEFAULT_MESSAGE_PROPERTIES = {
   .message_property = {
     get_message_property_list(create_sel_property_initializer)
   }
+};
+
+
+
+/**
+ * @brief Union holding connection property values.
+ */
+typedef union {
+  uint32_t uint32_val;
+  uint64_t uint64_val;
+  bool bool_val;
+  int enum_val;
+} ct_connection_property_value_t;
+
+/**
+ * @brief A single connection property.
+ */
+typedef struct ct_connection_property_s {
+  char* name;                              ///< Property name string
+  bool read_only;                          ///< True if property cannot be modified by user
+  ct_connection_property_value_t value;    ///< Property value
+} ct_connection_property_t;
+
+
+typedef struct ct_connection_properties_s {
+  ct_connection_property_t list[CONNECTION_PROPERTY_END];  ///< Array of connection properties
+} ct_connection_properties_t;
+
+static const ct_connection_property_t DEFAULT_CONNECTION_PROPERTIES[] = {
+    get_writable_connection_property_list(create_con_property_initializer)
+    get_read_only_connection_properties(create_con_property_initializer)
+    get_tcp_connection_properties(create_con_property_initializer)
 };
 
 /**
@@ -44,6 +201,14 @@ typedef struct ct_transport_properties_s {
   ct_connection_properties_t connection_properties;    ///< Properties for connection configuration
 } ct_transport_properties_t;
 
+typedef struct ct_message_context_s {
+  ct_message_properties_t message_properties;  ///< Per-message transmission properties
+  ct_local_endpoint_t* local_endpoint;         ///< Local endpoint for this message (optional)
+  ct_remote_endpoint_t* remote_endpoint;       ///< Remote endpoint for this message (optional)
+  void* user_receive_context;                  ///< User context from ct_receive_callbacks_t
+} ct_message_context_t;
+
+
 /**
  * @brief Protocol implementation interface.
  *
@@ -55,10 +220,10 @@ typedef struct ct_protocol_impl_s {
   ct_selection_properties_t selection_properties; ///< Properties supported by this protocol
 
   /** @brief Initialize a new connection using this protocol. */
-  int (*init)(struct ct_connection_s* connection, const ct_connection_callbacks_t* connection_callbacks);
+  int (*init)(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks);
 
   /** @brief Send a message over the protocol. */
-  int (*send)(struct ct_connection_s*, ct_message_t*, ct_message_context_t*);
+  int (*send)(ct_connection_t*, ct_message_t*, ct_message_context_t*);
 
   /** @brief Start listening for incoming connections. */
   int (*listen)(struct ct_socket_manager_s* socket_manager);
@@ -67,20 +232,20 @@ typedef struct ct_protocol_impl_s {
   int (*stop_listen)(struct ct_socket_manager_s*);
 
   /** @brief Close a connection. */
-  int (*close)(struct ct_connection_s*);
+  int (*close)(ct_connection_t*);
 
   /** @brief Forcefully abort a connection without graceful shutdown. */
-  void (*abort)(struct ct_connection_s* connection);
+  void (*abort)(ct_connection_t* connection);
 
   /** @brief Clone a connection's protocol specific state. */
-  int (*clone_connection)(const struct ct_connection_s* source_connection,
-                          struct ct_connection_s* target_connection);
+  int (*clone_connection)(const ct_connection_t* source_connection,
+                          ct_connection_t* target_connection);
 
   /** @brief Extract remote endpoint information from a connected peer handle. */
   int (*remote_endpoint_from_peer)(uv_handle_t* peer, ct_remote_endpoint_t* resolved_peer);
 
   /** @brief Retarget protocol-specific connection state during racing. */
-  void (*retarget_protocol_connection)(struct ct_connection_s* from_connection, struct ct_connection_s* to_connection);
+  void (*retarget_protocol_connection)(ct_connection_t* from_connection, ct_connection_t* to_connection);
 } ct_protocol_impl_t;
 
 typedef struct ct_listener_s {
@@ -88,7 +253,7 @@ typedef struct ct_listener_s {
   ct_local_endpoint_t local_endpoint;                 ///< Local endpoint (listening address/port)
   size_t num_local_endpoints;                         ///< Number of local endpoints
   ct_listener_callbacks_t listener_callbacks;         ///< User-provided callbacks for listener events
-  const ct_security_parameters_t* security_parameters; ///< Security configuration for accepted connections
+  ct_security_parameters_t* security_parameters;       ///< Security configuration for accepted connections (owned copy)
   struct ct_socket_manager_s* socket_manager;         ///< Socket manager handling listening sockets
 } ct_listener_t;
 
@@ -113,7 +278,7 @@ typedef struct ct_connection_group_s {
  */
 typedef struct ct_preconnection_s {
   ct_transport_properties_t transport_properties;     ///< Transport property preferences
-  const ct_security_parameters_t* security_parameters; ///< Security configuration
+  ct_security_parameters_t* security_parameters;       ///< Security configuration (owned copy)
   ct_local_endpoint_t local;                          ///< Local endpoint specification
   size_t num_local_endpoints;                         ///< Number of local endpoints
   ct_remote_endpoint_t* remote_endpoints;             ///< Array of remote endpoints
@@ -125,7 +290,7 @@ typedef struct ct_connection_s {
   char uuid[37];                                       ///< Unique identifier for this connection (UUID string)
   ct_connection_group_t* connection_group;             ///< Connection group (never NULL)
   ct_transport_properties_t transport_properties;      ///< Transport and connection properties
-  const ct_security_parameters_t* security_parameters; ///< Security configuration (TLS/QUIC)
+  ct_security_parameters_t* security_parameters;       ///< Security configuration (TLS/QUIC, owned copy)
   ct_local_endpoint_t local_endpoint;                  ///< Local endpoint (bound address/port)
   ct_remote_endpoint_t remote_endpoint;                ///< Remote endpoint (peer address/port)
   ct_protocol_impl_t protocol;                         ///< Protocol implementation in use

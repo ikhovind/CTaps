@@ -49,6 +49,25 @@ extern uv_loop_t* event_loop;
 typedef struct ct_connection_s ct_connection_t;
 
 /**
+ * @brief Preconnection configuration object.
+ *
+ * Created before establishing a connection, this object holds all configuration
+ * (endpoints, properties, security) needed to initiate a connection or start a listener.
+ * This is the RFC 9622 "Preconnection" abstraction.
+ *
+ * This is an opaque type. Use ct_preconnection_new() to create instances.
+ */
+typedef struct ct_preconnection_s ct_preconnection_t;
+
+/**
+ * @brief Listener object for accepting incoming connections.
+ *
+ * Created via ct_preconnection_listen(). Accepts incoming connections and
+ * invokes callbacks when new connections arrive.
+ */
+typedef struct ct_listener_s ct_listener_t;
+
+/**
  * @brief Initialize the CTaps library
  *
  * This function must be called before any other CTaps functions. It initializes
@@ -267,16 +286,6 @@ typedef enum { get_selection_property_list(output_enum) SELECTION_PROPERTY_END }
 typedef struct ct_selection_properties_s ct_selection_properties_t;
 
 /**
- * @brief Initialize selection properties with default values.
- *
- * @param[out] selection_properties Pointer to selection properties structure to initialize.
- *                                  Must be allocated by the caller.
- *
- * @see DEFAULT_SELECTION_PROPERTIES for default values
- */
-CT_EXTERN void ct_selection_properties_build(ct_selection_properties_t* selection_properties);
-
-/**
  * @brief Set a selection property preference value.
  *
  * @param[in,out] props Pointer to selection properties structure
@@ -370,25 +379,6 @@ typedef enum {
   MULTIPATH_POLICY_AGGREGATE      ///< Use all paths for maximum throughput
 } ct_multipath_policy_enum_t;
 
-/**
- * @brief Union holding connection property values.
- */
-typedef union {
-  uint32_t uint32_val;
-  uint64_t uint64_val;
-  bool bool_val;
-  int enum_val;
-} ct_connection_property_value_t;
-
-/**
- * @brief A single connection property.
- */
-typedef struct ct_connection_property_s {
-  char* name;                              ///< Property name string
-  bool read_only;                          ///< True if property cannot be modified by user
-  ct_connection_property_value_t value;    ///< Property value
-} ct_connection_property_t;
-
 // clang-format off
 #define get_writable_connection_property_list(f)                                                                    \
 f(RECV_CHECKSUM_LEN,          "recvChecksumLen",          uint32_t,                       CONN_CHECKSUM_FULL_COVERAGE)        \
@@ -438,56 +428,13 @@ typedef enum {
  * Contains both configurable and read-only properties for an active connection.
  * Properties are indexed by ct_connection_property_enum_t.
  */
-typedef struct {
-  ct_connection_property_t list[CONNECTION_PROPERTY_END];  ///< Array of connection properties
-} ct_connection_properties_t;
+typedef struct ct_connection_properties_s ct_connection_properties_t;
 
 #define create_con_property_initializer(enum_name, string_name, property_type, default_value) \
   [enum_name] = {                                                          \
     .name = string_name,                                                   \
     .value = { (uint32_t)default_value }                     \
 },
-
-__attribute__((unused)) static ct_connection_property_t DEFAULT_CONNECTION_PROPERTIES[] = {
-    get_writable_connection_property_list(create_con_property_initializer)
-    get_read_only_connection_properties(create_con_property_initializer)
-    get_tcp_connection_properties(create_con_property_initializer)
-};
-
-
-// =============================================================================
-// Message Properties - Properties for individual messages
-// =============================================================================
-
-/**
- * @brief Type of value stored in a message property.
- */
-typedef enum ct_message_property_type_t {
-  TYPE_INTEGER_MSG,
-  TYPE_BOOLEAN_MSG,
-  TYPE_UINT64_MSG,
-  TYPE_ENUM_MSG
-} ct_message_property_type_t;
-
-/**
- * @brief Union holding message property values.
- */
-typedef union {
-  uint32_t integer_value;
-  bool boolean_value;
-  uint64_t uint64_value;
-  ct_capacity_profile_enum_t enum_value;
-} ct_message_property_value_t;
-
-/**
- * @brief A single message property.
- */
-typedef struct ct_message_property_s {
-  char* name;                              ///< Property name string
-  ct_message_property_type_t type;         ///< Type of value stored
-  bool set_by_user;                        ///< True if user explicitly set this property
-  ct_message_property_value_t value;       ///< Property value
-} ct_message_property_t;
 
 // clang-format off
 #define get_message_property_list(f)                                                                    \
@@ -507,16 +454,6 @@ typedef struct ct_message_property_s {
  * @brief Enumeration of all available message properties.
  */
 typedef enum { get_message_property_list(output_enum) MESSAGE_PROPERTY_END } ct_message_property_enum_t;
-
-/**
- * @brief Collection of all message properties.
- *
- * Contains properties that can be set on a per-message basis to control transmission
- * characteristics. Properties are indexed by ct_message_property_enum_t.
- */
-typedef struct {
-  ct_message_property_t message_property[MESSAGE_PROPERTY_END];  ///< Array of message properties
-} ct_message_properties_t;
 
 // =============================================================================
 // Transport Properties - Combination of selection and connection properties
@@ -545,29 +482,16 @@ typedef enum ct_sec_property_type_t {
 } ct_sec_property_type_t;
 
 /**
- * @brief String array value for security parameters.
- */
-typedef struct {
-  char** strings;       ///< Array of string pointers
-  size_t num_strings;   ///< Number of strings in the array
-} ct_string_array_value_t;
-
-/**
  * @brief Union holding security parameter values.
+ * Opaque type - full definition is in ctaps_internal.h.
  */
-typedef union {
-  ct_string_array_value_t array_of_strings;  ///< For TYPE_STRING_ARRAY properties
-} ct_sec_property_value_t;
+typedef union ct_sec_property_value_u ct_sec_property_value_t;
 
 /**
  * @brief A single security parameter.
+ * Opaque type - full definition is in ctaps_internal.h.
  */
-typedef struct ct_sec_property_s {
-  char* name;                        ///< Parameter name string
-  ct_sec_property_type_t type;       ///< Type of value stored
-  bool set_by_user;                  ///< True if user explicitly set this parameter
-  ct_sec_property_value_t value;     ///< Parameter value
-} ct_security_parameter_t;
+typedef struct ct_sec_property_s ct_security_parameter_t;
 
 // clang-format off
 #define get_security_parameter_list(f)                                                                    \
@@ -586,10 +510,27 @@ typedef enum { get_security_parameter_list(output_sec_enum) SEC_PROPERTY_END } c
 
 /**
  * @brief Collection of all security parameters.
+ *
+ * Opaque type - use security parameter functions to work with this structure.
+ * Full definition is in ctaps_internal.h.
+ *
+ * ## Security Parameters Ownership Model
+ *
+ * ### Passing to Preconnections and Connections
+ * When you pass security parameters to ct_preconnection_new() or similar functions:
+ * - **You retain ownership** of your original security_parameters
+ * - CTaps makes a **deep copy** internally
+ * - **You can free your security_parameters** after the function returns
+ * - Multiple preconnections can share the same source security_parameters safely
+ *
+ * ### Lifecycle
+ * - Create with ct_security_parameters_new()
+ * - Configure with ct_sec_param_set_property_string_array()
+ * - Pass to preconnection/connection functions (CTaps deep copies internally)
+ * - Free your copy with ct_security_parameters_free() when done
+ * - CTaps-owned copies are freed automatically when preconnections/connections are freed
  */
-typedef struct {
-  ct_security_parameter_t security_parameters[SEC_PROPERTY_END];  ///< Array of security parameters
-} ct_security_parameters_t;
+typedef struct ct_security_parameters_s ct_security_parameters_t;
 
 
 /**
@@ -660,35 +601,24 @@ CT_EXTERN void ct_tp_set_sel_prop_interface(ct_transport_properties_t* props, ch
 
 
 // =============================================================================
-// Endpoints - Local and Remote endpoint definitions
+// Endpoints - Opaque types for local and remote endpoints
 // =============================================================================
 
 /**
  * @brief Local endpoint specification for binding connections/listeners.
+ *
+ * This is an opaque type - the internal structure is hidden from users.
+ * Use ct_local_endpoint_new() to create and ct_local_endpoint_with_*() to configure.
  */
-typedef struct ct_local_endpoint_s {
-  uint16_t port;            ///< Port number (0 = any port)
-  char* interface_name;     ///< Network interface name (e.g., "eth0") or NULL for any
-  char* service;            ///< Service name (e.g., "http") or NULL
-  union {
-    struct sockaddr_storage resolved_address;  ///< Resolved socket address
-  } data;
-} ct_local_endpoint_t;
+typedef struct ct_local_endpoint_s ct_local_endpoint_t;
 
 /**
  * @brief Remote endpoint specification for connection targets.
  *
- * Specifies the remote address, hostname, port, or service name to connect to.
- * Use the builder pattern: ct_remote_endpoint_build() → ct_remote_endpoint_with_*() → ct_remote_endpoint_resolve()
+ * This is an opaque type - the internal structure is hidden from users.
+ * Use ct_remote_endpoint_new() to create and ct_remote_endpoint_with_*() to configure.
  */
-typedef struct ct_remote_endpoint_s {
-  uint16_t port;            ///< Port number
-  char* service;            ///< Service name (e.g., "https") or NULL
-  char* hostname;           ///< Hostname for DNS resolution or NULL
-  union {
-    struct sockaddr_storage resolved_address;  ///< Resolved socket address
-  } data;
-} ct_remote_endpoint_t;
+typedef struct ct_remote_endpoint_s ct_remote_endpoint_t;
 
 
 // =============================================================================
@@ -697,32 +627,76 @@ typedef struct ct_remote_endpoint_s {
 
 /**
  * @brief A message containing data to send or received data.
+ *
+ * Opaque type - use message accessor functions to work with messages.
+ * Full definition is in ctaps_internal.h.
+ *
+ * ## Message Ownership Model
+ *
+ * CTaps uses a clear ownership model for messages:
+ *
+ * ### Sending Messages
+ *
+ * When you send a message using ct_send_message() or ct_send_message_full():
+ * - **You retain ownership** of your original message
+ * - CTaps makes a **deep copy** internally for transmission
+ * - **You can free your message immediately** after the send function returns
+ * - CTaps manages the lifecycle of its internal copy
+ *
+ * Example:
+ * ```c
+ * ct_message_t* msg = ct_message_new_with_content("Hello", 5);
+ * ct_send_message(connection, msg);
+ * ct_message_free_all(msg);  // Safe to free immediately after send
+ * ```
+ *
+ * ### Receiving Messages
+ *
+ * When you receive a message in a receive callback:
+ * - The client takes ownership of the received message and must free it when appropriate.
+ *
+ * Example:
+ * ```c
+ * int on_receive(ct_connection_t* conn, ct_message_t** msg, ct_message_context_t* ctx) {
+ *     const char* content = ct_message_get_content(*msg);
+ *     printf("Received message: %s\n", content);
+ *     ct_message_free_all(*msg);  // Free when done
+ *     return 0;
+ * }
+ * ```
  */
-typedef struct ct_message_s {
-  char* content;         ///< Message data buffer
-  unsigned int length;   ///< Length of message data in bytes
-} ct_message_t;
+typedef struct ct_message_s ct_message_t;
 
 /**
  * @brief Context information associated with a message.
  *
- * Contains message properties, endpoint information, and user context.
+ * Opaque type containing message properties, endpoint information, and user context.
+ * Full definition is in ctaps_internal.h.
+ *
+ * ## Message Context Ownership Model
+ *
+ * ### Passing to Sending Functions
+ * When you pass a message context to ct_send_message_full() or similar functions:
+ * - **You retain ownership** of your original message_context
+ * - CTaps makes a **deep copy** internally if it needs to store the context
+ * - **You can free your message_context** after the function returns
+ * - It is safe to reuse or modify your message_context for subsequent sends
+ *
+ * ### Receiving in Callbacks
+ * When a message context is passed to your receive callback:
+ * - **CTaps owns the message_context**
+ * - The context is valid only during the callback execution
+ * - **Do not free** the context - CTaps will free it after the callback returns
+ * - If you need the context data after the callback, make a deep copy
+ *
+ * ### Lifecycle
+ * - Create with ct_message_context_new()
+ * - Access properties with ct_message_context_get_message_properties()
+ * - Optionally set local/remote endpoints
+ * - Pass to send functions (CTaps deep copies internally)
+ * - Free your copy with ct_message_context_free() when done
  */
-typedef struct ct_message_context_s {
-  ct_message_properties_t message_properties;  ///< Per-message transmission properties
-  ct_local_endpoint_t* local_endpoint;         ///< Local endpoint for this message (optional)
-  ct_remote_endpoint_t* remote_endpoint;       ///< Remote endpoint for this message (optional)
-  void* user_receive_context;                  ///< User context from ct_receive_callbacks_t
-} ct_message_context_t;
-
-
-// =============================================================================
-// Forward Declarations
-// =============================================================================
-
-struct ct_connection_s;
-struct ct_listener_s;
-struct ct_socket_manager_s;
+typedef struct ct_message_context_s ct_message_context_t;
 
 // =============================================================================
 // Callbacks - Connection and Listener callback structures
@@ -741,7 +715,7 @@ typedef struct ct_receive_callbacks_s {
    * @param[in] ctx Message context with properties and endpoints
    * @return 0 on success, non-zero on error
    */
-  int (*receive_callback)(struct ct_connection_s* connection, ct_message_t** received_message, ct_message_context_t* ctx);
+  int (*receive_callback)(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* ctx);
 
   /** @brief Called when a receive error occurs.
    * @param[in] connection The connection that experienced the error
@@ -749,7 +723,7 @@ typedef struct ct_receive_callbacks_s {
    * @param[in] reason Error description string
    * @return 0 on success, non-zero on error
    */
-  int (*receive_error)(struct ct_connection_s* connection, ct_message_context_t* ctx, const char* reason);
+  int (*receive_error)(ct_connection_t* connection, ct_message_context_t* ctx, const char* reason);
 
   /** @brief Called when a partial message is received (for streaming).
    * @param[in] connection The connection that received the partial message
@@ -758,7 +732,7 @@ typedef struct ct_receive_callbacks_s {
    * @param[in] end_of_message True if this is the final fragment
    * @return 0 on success, non-zero on error
    */
-  int (*receive_partial)(struct ct_connection_s* connection, ct_message_t** received_message, ct_message_context_t* ctx, bool end_of_message);
+  int (*receive_partial)(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* ctx, bool end_of_message);
 
   void* user_receive_context;  ///< User-provided context passed to receive callbacks
 } ct_receive_callbacks_t;
@@ -771,28 +745,28 @@ typedef struct ct_receive_callbacks_s {
  */
 typedef struct ct_connection_callbacks_s {
   /** @brief Called when a connection error occurs after establishment. */
-  int (*connection_error)(struct ct_connection_s* connection);
+  int (*connection_error)(ct_connection_t* connection);
 
   /** @brief Called when connection establishment fails. */
-  int (*establishment_error)(struct ct_connection_s* connection);
+  int (*establishment_error)(ct_connection_t* connection);
 
   /** @brief Called when a connection expires (e.g., idle timeout). */
-  int (*expired)(struct ct_connection_s* connection);
+  int (*expired)(ct_connection_t* connection);
 
   /** @brief Called when the connection's network path changes (multipath). */
-  int (*path_change)(struct ct_connection_s* connection);
+  int (*path_change)(ct_connection_t* connection);
 
   /** @brief Called when connection is established and ready for data transfer. */
-  int (*ready)(struct ct_connection_s* connection);
+  int (*ready)(ct_connection_t* connection);
 
   /** @brief Called when a message send operation fails. */
-  int (*send_error)(struct ct_connection_s* connection);
+  int (*send_error)(ct_connection_t* connection);
 
   /** @brief Called when a sent message is acknowledged by the transport. */
-  int (*sent)(struct ct_connection_s* connection);
+  int (*sent)(ct_connection_t* connection);
 
   /** @brief Called when a non-fatal error occurs (e.g., congestion). */
-  int (*soft_error)(struct ct_connection_s* connection);
+  int (*soft_error)(ct_connection_t* connection);
 
   void* user_connection_context;  ///< User-provided context for the connection lifetime
 } ct_connection_callbacks_t;
@@ -809,17 +783,17 @@ typedef struct ct_listener_callbacks_s {
    * @param[in] new_conn The new connection object (caller must handle)
    * @return 0 to accept connection, non-zero to reject
    */
-  int (*connection_received)(struct ct_listener_s* listener, struct ct_connection_s* new_conn);
+  int (*connection_received)(ct_listener_t* listener, ct_connection_t* new_conn);
 
   /** @brief Called when connection establishment fails for an incoming connection.
    * @param[in] listener The listener
    * @param[in] reason Error description string
    * @return 0 on success, non-zero on error
    */
-  int (*establishment_error)(struct ct_listener_s* listener, const char* reason);
+  int (*establishment_error)(ct_listener_t* listener, const char* reason);
 
   /** @brief Called when the listener has stopped and will accept no more connections. */
-  int (*stopped)(struct ct_listener_s* listener);
+  int (*stopped)(ct_listener_t* listener);
 
   void* user_listener_context;  ///< User-provided context for the listener lifetime
 } ct_listener_callbacks_t;
@@ -845,7 +819,7 @@ typedef struct ct_framer_impl_s ct_framer_impl_t;
  * @param[in] context Message context
  * @return 0 on success, negative error code on failure
  */
-typedef int (*ct_framer_done_encoding_callback)(struct ct_connection_s* connection,
+typedef int (*ct_framer_done_encoding_callback)(ct_connection_t* connection,
                                                  ct_message_t* encoded_message,
                                                  ct_message_context_t* context);
 
@@ -856,7 +830,7 @@ typedef int (*ct_framer_done_encoding_callback)(struct ct_connection_s* connecti
  * @param[in] encoded_message The decoded message
  * @param[in] context Message context
  */
-typedef void (*ct_framer_done_decoding_callback)(struct ct_connection_s* connection,
+typedef void (*ct_framer_done_decoding_callback)(ct_connection_t* connection,
                                                   ct_message_t* encoded_message,
                                                   ct_message_context_t* context);
 
@@ -877,7 +851,7 @@ struct ct_framer_impl_s {
    * @param[in] callback Callback to invoke when encoding is complete
    * @return 0 on success, negative error code on failure
    */
-  int (*encode_message)(struct ct_connection_s* connection,
+  int (*encode_message)(ct_connection_t* connection,
                         ct_message_t* message,
                         ct_message_context_t* context,
                         ct_framer_done_encoding_callback callback);
@@ -892,7 +866,7 @@ struct ct_framer_impl_s {
    *
    * TODO - Change this to take a message object instead of raw data?
    */
-  void (*decode_data)(struct ct_connection_s* connection,
+  void (*decode_data)(ct_connection_t* connection,
                      const void* data,
                      size_t len,
                      ct_framer_done_decoding_callback callback);
@@ -934,35 +908,9 @@ typedef enum {
   CONNECTION_ROLE_SERVER,               ///< Connection accepted from remote endpoint
 } ct_connection_role_t;
 
-/**
- * @brief Preconnection configuration object.
- *
- * Created before establishing a connection, this object holds all configuration
- * (endpoints, properties, security) needed to initiate a connection or start a listener.
- * This is the RFC 9622 "Preconnection" abstraction.
- *
- * This is an opaque type. Use ct_preconnection_new() to create instances.
- */
-typedef struct ct_preconnection_s ct_preconnection_t;
-
-/**
- * @brief Listener object for accepting incoming connections.
- *
- * Created via ct_preconnection_listen(). Accepts incoming connections and
- * invokes callbacks when new connections arrive.
- */
-typedef struct ct_listener_s ct_listener_t;
-
 // =============================================================================
 // Public API Functions
 // =============================================================================
-
-// Selection Properties
-/**
- * @brief Initialize selection properties with default values.
- * @param[out] selection_properties structure to initialize
- */
-CT_EXTERN void ct_selection_properties_build(ct_selection_properties_t* selection_properties);
 
 /**
  * @brief Set a selection property value directly.
@@ -978,25 +926,43 @@ CT_EXTERN void ct_selection_properties_set(ct_selection_properties_t* selection_
  */
 CT_EXTERN void ct_selection_properties_free(ct_selection_properties_t* selection_properties);
 
-// Connection Properties
-/**
- * @brief Initialize connection properties with default values.
- * @param[out] connection_properties structure to initialize
- */
-CT_EXTERN void ct_connection_properties_build(ct_connection_properties_t* connection_properties);
-
-/**
- * @brief Free resources in connection properties.
- * @param[in] connection_properties structure to free
- */
-CT_EXTERN void ct_connection_properties_free(ct_connection_properties_t* connection_properties);
-
+// =============================================================================
 // Message Properties
+// =============================================================================
+
 /**
- * @brief Initialize message properties with default values.
- * @param[out] message_properties structure to initialize
+ * @brief Collection of message properties for per-message transmission control.
+ *
+ * Opaque type - use message property functions to work with this structure.
+ * Full definition is in ctaps_internal.h.
+ *
+ * ## Message Properties Ownership Model
+ *
+ * ### Passing to Functions
+ * Message properties are typically embedded within a ct_message_context_t.
+ * When you pass a message context to sending functions:
+ * - **You retain ownership** of your original message_context
+ * - CTaps makes a **deep copy** internally when needed
+ * - **You can free your message_context** after the function returns
+ *
+ * ### Lifecycle
+ * - Create with ct_message_properties_new()
+ * - Configure with ct_message_properties_set_final() and similar setters
+ * - Embed in a message context with ct_message_context_new()
+ * - Free your copy with ct_message_properties_free() when done
+ * - CTaps-owned copies are freed automatically
  */
-CT_EXTERN void ct_message_properties_build(ct_message_properties_t* message_properties);
+typedef struct ct_message_properties_s ct_message_properties_t;
+
+/**
+ * @brief Create a new message properties object with default values.
+ *
+ * Allocates and initializes a new message properties object on the heap.
+ * The returned object must be freed with ct_message_properties_free().
+ *
+ * @return Pointer to newly allocated message properties, or NULL on allocation failure.
+ */
+CT_EXTERN ct_message_properties_t* ct_message_properties_new(void);
 
 /**
  * @brief Check if the FINAL property is set in message properties.
@@ -1018,14 +984,6 @@ CT_EXTERN void ct_message_properties_set_final(ct_message_properties_t* message_
  */
 CT_EXTERN void ct_message_properties_free(ct_message_properties_t* message_properties);
 
-
-// Transport Properties
-/**
- * @brief Initialize transport properties with default values.
- * @param[out] transport_properties structure to initialize
- */
-CT_EXTERN void ct_transport_properties_build(ct_transport_properties_t* transport_properties);
-
 /**
  * @brief Free resources in transport properties.
  * @param[in] transport_properties structure to free
@@ -1034,13 +992,13 @@ CT_EXTERN void ct_transport_properties_free(ct_transport_properties_t* transport
 
 // Security Parameters
 /**
- * @brief Initialize security parameters with default values.
- * @param[out] security_parameters structure to initialize
+ * @brief Allocate a new security parameters object on the heap.
+ * @return Pointer to newly allocated security parameters, or NULL on failure
  */
-CT_EXTERN void ct_security_parameters_build(ct_security_parameters_t* security_parameters);
+CT_EXTERN ct_security_parameters_t* ct_security_parameters_new(void);
 
 /**
- * @brief Free resources in security parameters.
+ * @brief Free resources in security parameters including the structure itself.
  * @param[in] security_parameters structure to free
  */
 CT_EXTERN void ct_security_parameters_free(ct_security_parameters_t* security_parameters);
@@ -1061,12 +1019,65 @@ CT_EXTERN int ct_sec_param_set_property_string_array(ct_security_parameters_t* s
  */
 CT_EXTERN void ct_free_security_parameter_content(ct_security_parameters_t* security_parameters);
 
+// ==============================================================================
+// ENDPOINT OWNERSHIP MODEL
+// ==============================================================================
+/**
+ * @section endpoint_ownership Endpoint Ownership and Memory Management
+ *
+ * CTaps uses a clear ownership model for endpoints:
+ *
+ * **User Ownership:**
+ * - Users create endpoints with ct_local_endpoint_new() / ct_remote_endpoint_new()
+ * - Users OWN these endpoints and are responsible for freeing them
+ * - Endpoints can be reused with multiple preconnections
+ * - Endpoints can be freed immediately after passing to ct_preconnection_new()
+ *
+ * **CTaps Ownership:**
+ * - ct_preconnection_new() makes deep copies of all endpoints passed to it
+ * - Each preconnection owns its own independent copies
+ * - ct_preconnection_free() automatically frees the preconnection's endpoint copies
+ * - When a connection is initiated, it gets its own deep copies of endpoints
+ * - Connection cleanup automatically frees its endpoint copies
+ *
+ * **Example Usage:**
+ * @code
+ *   // Create endpoint (user owns this)
+ *   ct_remote_endpoint_t* endpoint = ct_remote_endpoint_new();
+ *   ct_remote_endpoint_with_hostname(endpoint, "example.com");
+ *   ct_remote_endpoint_with_port(endpoint, 443);
+ *
+ *   // Use endpoint with multiple preconnections (each gets a deep copy)
+ *   ct_preconnection_t* precon1 = ct_preconnection_new(endpoint, 1, props1, NULL);
+ *   ct_preconnection_t* precon2 = ct_preconnection_new(endpoint, 1, props2, NULL);
+ *
+ *   // User can free endpoint after last use (preconnections have their own copies)
+ *   ct_remote_endpoint_free(endpoint);
+ *
+ *   // Preconnections free their own endpoint copies when freed
+ *   ct_preconnection_free(precon1);  // Frees precon1's endpoint copy
+ *   ct_preconnection_free(precon2);  // Frees precon2's endpoint copy
+ * @endcode
+ *
+ * This model ensures:
+ * - Clear ownership boundaries (user owns originals, CTaps owns copies)
+ * - No use-after-free bugs (each object owns its own endpoint data)
+ * - Easy resource management (free endpoints when you're done with them)
+ * - Endpoint reusability (use same endpoint for multiple preconnections)
+ */
+
 // Local Endpoint
 /**
- * @brief Initialize a local endpoint with default values.
- * @param[out] local_endpoint structure to initialize
+ * @brief Create a new heap-allocated local endpoint.
+ *
+ * The caller owns the returned endpoint and must free it with ct_free_local_endpoint()
+ * when done. The endpoint can be safely freed after passing to ct_preconnection_new()
+ * or ct_preconnection_set_local_endpoint(), as CTaps makes internal copies.
+ *
+ * @return Pointer to newly allocated endpoint, or NULL on error
+ * @see endpoint_ownership
  */
-CT_EXTERN void ct_local_endpoint_build(ct_local_endpoint_t* local_endpoint);
+CT_EXTERN ct_local_endpoint_t* ct_local_endpoint_new(void);
 
 /**
  * @brief Set the network interface for a local endpoint.
@@ -1095,13 +1106,13 @@ CT_EXTERN int ct_local_endpoint_with_service(ct_local_endpoint_t* local_endpoint
  * @brief Free all resources in a local endpoint.
  * @param[in] local_endpoint Endpoint to free
  */
-CT_EXTERN void ct_free_local_endpoint(ct_local_endpoint_t* local_endpoint);
+CT_EXTERN void ct_local_endpoint_free(ct_local_endpoint_t* local_endpoint);
 
 /**
  * @brief Free string fields in a local endpoint without freeing the structure.
  * @param[in] local_endpoint Endpoint whose strings to free
  */
-CT_EXTERN void ct_free_local_endpoint_strings(ct_local_endpoint_t* local_endpoint);
+CT_EXTERN void ct_local_endpoint_free_strings(ct_local_endpoint_t* local_endpoint);
 
 /**
  * @brief Create a heap-allocated copy of a local endpoint.
@@ -1139,10 +1150,16 @@ CT_EXTERN const char* ct_local_endpoint_get_service(const ct_local_endpoint_t* l
 
 // Remote Endpoint
 /**
- * @brief Initialize a remote endpoint with default values.
- * @param[out] remote_endpoint structure to initialize
+ * @brief Create a new heap-allocated remote endpoint.
+ *
+ * The caller owns the returned endpoint and must free it with ct_remote_endpoint_free()
+ * when done. The endpoint can be safely freed after passing to ct_preconnection_new(),
+ * as CTaps makes internal copies.
+ *
+ * @return Pointer to newly allocated endpoint, or NULL on error
+ * @see endpoint_ownership
  */
-CT_EXTERN void ct_remote_endpoint_build(ct_remote_endpoint_t* remote_endpoint);
+CT_EXTERN ct_remote_endpoint_t* ct_remote_endpoint_new(void);
 
 /**
  * @brief Set the hostname for a remote endpoint.
@@ -1171,13 +1188,13 @@ CT_EXTERN int ct_remote_endpoint_with_service(ct_remote_endpoint_t* remote_endpo
  * @brief Free string fields in a remote endpoint without freeing the structure.
  * @param[in] remote_endpoint Endpoint whose strings to free
  */
-CT_EXTERN void ct_free_remote_endpoint_strings(ct_remote_endpoint_t* remote_endpoint);
+CT_EXTERN void ct_remote_endpoint_free_strings(ct_remote_endpoint_t* remote_endpoint);
 
 /**
  * @brief Free all resources in a remote endpoint.
  * @param[in] remote_endpoint Endpoint to free
  */
-CT_EXTERN void ct_free_remote_endpoint(ct_remote_endpoint_t* remote_endpoint);
+CT_EXTERN void ct_remote_endpoint_free(ct_remote_endpoint_t* remote_endpoint);
 
 /**
  * @brief Initialize a remote endpoint from a sockaddr structure.
@@ -1236,14 +1253,6 @@ CT_EXTERN const char* ct_remote_endpoint_get_service(const ct_remote_endpoint_t*
 
 // Message
 /**
- * @brief Initialize a message with content data.
- * @param[out] message Message structure to initialize
- * @param[in] content Data buffer for the message
- * @param[in] length Length of data in bytes
- */
-CT_EXTERN void ct_message_build_with_content(ct_message_t* message, const char* content, size_t length);
-
-/**
  * @brief Free the content buffer of a message.
  * @param[in] message Message whose content to free
  */
@@ -1256,23 +1265,56 @@ CT_EXTERN void ct_message_free_content(const ct_message_t* message);
 CT_EXTERN void ct_message_free_all(ct_message_t* message);
 
 /**
- * @brief Initialize an empty message without content.
- * @param[out] message Message structure to initialize
+ * @brief Allocate a new message on the heap.
+ * @return Pointer to newly allocated message, or NULL on failure
  */
-CT_EXTERN void ct_message_build_without_content(ct_message_t* message);
+CT_EXTERN ct_message_t* ct_message_new(void);
+
+/**
+ * @brief Allocate a new message with content.
+ * @param[in] content Data buffer for the message
+ * @param[in] length Length of data in bytes
+ * @return Pointer to newly allocated message with content, or NULL on failure
+ */
+CT_EXTERN ct_message_t* ct_message_new_with_content(const char* content, size_t length);
+
+/**
+ * @brief Get the length of a message.
+ * @param[in] message Message to query
+ * @return Length of message in bytes, or 0 if message is NULL
+ */
+CT_EXTERN unsigned int ct_message_get_length(const ct_message_t* message);
+
+/**
+ * @brief Get the content buffer of a message.
+ * @param[in] message Message to query
+ * @return Pointer to message content, or NULL if message is NULL
+ */
+CT_EXTERN const char* ct_message_get_content(const ct_message_t* message);
 
 // Message Context
 /**
  * @brief Initialize a message context with default values.
  * @param[out] message_context Context structure to initialize
  */
-CT_EXTERN void ct_message_context_build(ct_message_context_t* message_context);
+CT_EXTERN ct_message_context_t* ct_message_context_new();
 
 /**
  * @brief Free resources in a message context.
  * @param[in] message_context Context to free
  */
 CT_EXTERN void ct_message_context_free(ct_message_context_t* message_context);
+
+/**
+ * @brief Get message properties from a message context.
+ *
+ * Returns a pointer to the message properties contained in the message context.
+ * The returned pointer is owned by the message context and should not be freed.
+ *
+ * @param[in] message_context Context to get properties from
+ * @return Pointer to message properties, or NULL if message_context is NULL
+ */
+CT_EXTERN ct_message_properties_t* ct_message_context_get_message_properties(ct_message_context_t* message_context);
 
 
 
@@ -1360,7 +1402,6 @@ CT_EXTERN int ct_preconnection_initiate(ct_preconnection_t* preconnection, ct_co
  * @return 0 on success, non-zero on error
  *
  * @note The event loop must be running for the listener to accept connections
- * @see ct_preconnection_build() for creating a preconnection
  * @see ct_listener_stop() for stopping the listener
  */
 CT_EXTERN int ct_preconnection_listen(ct_preconnection_t* preconnection, ct_listener_t* listener, ct_listener_callbacks_t listener_callbacks);
@@ -1633,17 +1674,6 @@ CT_EXTERN void ct_listener_free(ct_listener_t* listener);
  * @return Local endpoint structure (copy)
  */
 ct_local_endpoint_t ct_listener_get_local_endpoint(const ct_listener_t* listener);
-
-// Protocol Registry
-/**
- * @brief Initialize the protocol registry with built-in protocols.
- */
-CT_EXTERN void ct_protocol_registry_build();
-
-/**
- * @brief Free the protocol registry.
- */
-CT_EXTERN void ct_protocol_registry_free();
 
 #define MAX_PROTOCOLS 256  ///< Maximum number of protocols that can be registered
 

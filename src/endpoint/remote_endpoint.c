@@ -16,6 +16,15 @@ void ct_remote_endpoint_build(ct_remote_endpoint_t* remote_endpoint) {
   memset(remote_endpoint, 0, sizeof(ct_remote_endpoint_t));
 }
 
+ct_remote_endpoint_t* ct_remote_endpoint_new(void) {
+  ct_remote_endpoint_t* endpoint = malloc(sizeof(ct_remote_endpoint_t));
+  if (!endpoint) {
+    return NULL;
+  }
+  ct_remote_endpoint_build(endpoint);
+  return endpoint;
+}
+
 int ct_remote_endpoint_with_ipv4(ct_remote_endpoint_t* remote_endpoint, in_addr_t ipv4_addr) {
   if (remote_endpoint->hostname != NULL) {
     log_error("Cannot specify both hostname and IP address on single remote endpoint");
@@ -146,7 +155,7 @@ int ct_remote_endpoint_resolve(const ct_remote_endpoint_t* remote_endpoint, ct_r
   return 0;
 }
 
-void ct_free_remote_endpoint_strings(ct_remote_endpoint_t* remote_endpoint) {
+void ct_remote_endpoint_free_strings(ct_remote_endpoint_t* remote_endpoint) {
   if (remote_endpoint->hostname) {
     free(remote_endpoint->hostname);
     remote_endpoint->hostname = NULL;
@@ -157,8 +166,8 @@ void ct_free_remote_endpoint_strings(ct_remote_endpoint_t* remote_endpoint) {
   }
 }
 
-void ct_free_remote_endpoint(ct_remote_endpoint_t* remote_endpoint) {
-  ct_free_remote_endpoint_strings(remote_endpoint);
+void ct_remote_endpoint_free(ct_remote_endpoint_t* remote_endpoint) {
+  ct_remote_endpoint_free_strings(remote_endpoint);
   free(remote_endpoint);
 }
 

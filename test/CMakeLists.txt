@@ -155,6 +155,7 @@ add_gtest(remote_endpoint_integration_test
             ${CMAKE_SOURCE_DIR}/src/endpoint/local_endpoint.c
             ${CMAKE_SOURCE_DIR}/src/logging/log.c
             ${CMAKE_SOURCE_DIR}/src/message/message.c
+            ${CMAKE_SOURCE_DIR}/src/message/message_context.c
             ${CMAKE_SOURCE_DIR}/src/endpoint/util.c
             ${CMAKE_SOURCE_DIR}/src/protocol/udp/udp.c
             ${CMAKE_SOURCE_DIR}/src/protocol/tcp/tcp.c
@@ -166,6 +167,7 @@ add_gtest(remote_endpoint_integration_test
             ${CMAKE_SOURCE_DIR}/src/transport_property/selection_properties/selection_properties.c
             ${CMAKE_SOURCE_DIR}/src/transport_property/message_properties/message_properties.c
             ${CMAKE_SOURCE_DIR}/src/transport_property/connection_properties/connection_properties.c
+            ${CMAKE_SOURCE_DIR}/src/security_parameter/security_parameters.c
             ${CMAKE_SOURCE_DIR}/src/connection/connection.c
             ${CMAKE_SOURCE_DIR}/src/connection/connection_group.c
             ${CMAKE_SOURCE_DIR}/src/protocol/protocol_registry.c

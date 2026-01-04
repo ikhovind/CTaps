@@ -16,23 +16,24 @@ extern "C" {
 class ConnectionCloneTest : public CTapsGenericFixture {};
 
 TEST_F(ConnectionCloneTest, clonesConnectionSendsOnBothAndReceivesIndividualResponses) {
-    ct_remote_endpoint_t remote_endpoint;
-    ct_remote_endpoint_build(&remote_endpoint);
-    ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
-    ct_remote_endpoint_with_port(&remote_endpoint, QUIC_PING_PORT);
+    ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
+    ASSERT_NE(remote_endpoint, nullptr);
+    ct_remote_endpoint_with_ipv4(remote_endpoint, inet_addr("127.0.0.1"));
+    ct_remote_endpoint_with_port(remote_endpoint, QUIC_PING_PORT);
 
     ct_transport_properties_t* transport_properties = ct_transport_properties_new();
   ASSERT_NE(transport_properties, nullptr);
     // Allocated with ct_transport_properties_new()
     ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, REQUIRE);
 
-    ct_security_parameters_t security_parameters;
-    ct_security_parameters_build(&security_parameters);
+    ct_security_parameters_t* security_parameters = ct_security_parameters_new();
+    ASSERT_NE(security_parameters, nullptr);
     char* alpn_strings = "simple-ping";
-    ct_sec_param_set_property_string_array(&security_parameters, ALPN, &alpn_strings, 1);
+    ct_sec_param_set_property_string_array(security_parameters, ALPN, &alpn_strings, 1);
 
-    ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, transport_properties, &security_parameters);
+    ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, security_parameters);
     ASSERT_NE(preconnection, nullptr);
+    ct_security_parameters_free(security_parameters);
 
     ct_connection_callbacks_t connection_callbacks = {
         .establishment_error = on_establishment_error,
@@ -59,7 +60,7 @@ TEST_F(ConnectionCloneTest, clonesConnectionSendsOnBothAndReceivesIndividualResp
     ASSERT_STREQ(per_connection_messages[original][0]->content, "Pong: ping-original");
     ASSERT_STREQ(per_connection_messages[cloned][0]->content, "Pong: ping-cloned");
 
-    ct_free_security_parameter_content(&security_parameters);
+    ct_remote_endpoint_free(remote_endpoint);
     ct_preconnection_free(preconnection);
     ct_transport_properties_free(transport_properties);
 }
@@ -69,14 +70,14 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     ct_listener_t listener;
     test_context.listener = &listener;
 
-    ct_local_endpoint_t listener_endpoint;
-    ct_local_endpoint_build(&listener_endpoint);
-    ct_local_endpoint_with_interface(&listener_endpoint, "lo");
-    ct_local_endpoint_with_port(&listener_endpoint, QUIC_CLONE_LISTENER_PORT);
+    ct_local_endpoint_t* listener_endpoint = ct_local_endpoint_new();
+    ASSERT_NE(listener_endpoint, nullptr);
+    ct_local_endpoint_with_interface(listener_endpoint, "lo");
+    ct_local_endpoint_with_port(listener_endpoint, QUIC_CLONE_LISTENER_PORT);
 
-    ct_remote_endpoint_t listener_remote;
-    ct_remote_endpoint_build(&listener_remote);
-    ct_remote_endpoint_with_hostname(&listener_remote, "127.0.0.1");
+    ct_remote_endpoint_t* listener_remote = ct_remote_endpoint_new();
+    ASSERT_NE(listener_remote, nullptr);
+    ct_remote_endpoint_with_hostname(listener_remote, "127.0.0.1");
 
     ct_transport_properties_t* listener_props = ct_transport_properties_new();
   ASSERT_NE(listener_props, nullptr);
@@ -85,14 +86,15 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     ct_tp_set_sel_prop_preference(listener_props, PRESERVE_MSG_BOUNDARIES, REQUIRE);
     ct_tp_set_sel_prop_preference(listener_props, MULTISTREAMING, REQUIRE); // Force QUIC
 
-    ct_security_parameters_t server_security_parameters;
-    ct_security_parameters_build(&server_security_parameters);
+    ct_security_parameters_t* server_security_parameters = ct_security_parameters_new();
+    ASSERT_NE(server_security_parameters, nullptr);
     char* alpn_strings = "simple-ping";
-    ct_sec_param_set_property_string_array(&server_security_parameters, ALPN, &alpn_strings, 1);
+    ct_sec_param_set_property_string_array(server_security_parameters, ALPN, &alpn_strings, 1);
 
-    ct_preconnection_t* listener_precon = ct_preconnection_new(&listener_remote, 1, listener_props, &server_security_parameters);
+    ct_preconnection_t* listener_precon = ct_preconnection_new(listener_remote, 1, listener_props, server_security_parameters);
     ASSERT_NE(listener_precon, nullptr);
-    ct_preconnection_set_local_endpoint(listener_precon, &listener_endpoint);
+    ct_security_parameters_free(server_security_parameters);
+    ct_preconnection_set_local_endpoint(listener_precon, listener_endpoint);
 
     ct_listener_callbacks_t listener_callbacks = {
         .connection_received = server_on_connection_received_for_cloning,
@@ -104,10 +106,10 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     log_info("Listener created on port %d", QUIC_CLONE_LISTENER_PORT);
 
     // --- SETUP CLIENT ---
-    ct_remote_endpoint_t client_remote;
-    ct_remote_endpoint_build(&client_remote);
-    ct_remote_endpoint_with_hostname(&client_remote, "127.0.0.1");
-    ct_remote_endpoint_with_port(&client_remote, QUIC_CLONE_LISTENER_PORT);
+    ct_remote_endpoint_t* client_remote = ct_remote_endpoint_new();
+    ASSERT_NE(client_remote, nullptr);
+    ct_remote_endpoint_with_hostname(client_remote, "127.0.0.1");
+    ct_remote_endpoint_with_port(client_remote, QUIC_CLONE_LISTENER_PORT);
 
     ct_transport_properties_t* client_props = ct_transport_properties_new();
   ASSERT_NE(client_props, nullptr);
@@ -116,12 +118,13 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     ct_tp_set_sel_prop_preference(client_props, PRESERVE_MSG_BOUNDARIES, REQUIRE);
     ct_tp_set_sel_prop_preference(client_props, MULTISTREAMING, REQUIRE);
 
-    ct_security_parameters_t client_security_parameters;
-    ct_security_parameters_build(&client_security_parameters);
-    ct_sec_param_set_property_string_array(&client_security_parameters, ALPN, &alpn_strings, 1);
+    ct_security_parameters_t* client_security_parameters = ct_security_parameters_new();
+    ASSERT_NE(client_security_parameters, nullptr);
+    ct_sec_param_set_property_string_array(client_security_parameters, ALPN, &alpn_strings, 1);
 
-    ct_preconnection_t* client_precon = ct_preconnection_new(&client_remote, 1, client_props, &client_security_parameters);
+    ct_preconnection_t* client_precon = ct_preconnection_new(client_remote, 1, client_props, client_security_parameters);
     ASSERT_NE(client_precon, nullptr);
+    ct_security_parameters_free(client_security_parameters);
 
     ct_connection_callbacks_t client_callbacks = {
         .establishment_error = on_establishment_error,
@@ -162,22 +165,21 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     log_info("Test completed successfully");
 
     // --- CLEANUP ---
-    ct_free_security_parameter_content(&server_security_parameters);
-    ct_free_security_parameter_content(&client_security_parameters);
+    ct_local_endpoint_free(listener_endpoint);
+    ct_remote_endpoint_free(listener_remote);
+    ct_remote_endpoint_free(client_remote);
     ct_preconnection_free(client_precon);
     ct_transport_properties_free(client_props);
     ct_preconnection_free(listener_precon);
     ct_transport_properties_free(listener_props);
-    ct_free_remote_endpoint_strings(&client_remote);
-    ct_free_remote_endpoint_strings(&listener_remote);
     ct_close();
 }
 
 TEST_F(ConnectionCloneTest, clonesUdpConnectionSendsOnBothAndReceivesIndividualResponses) {
-    ct_remote_endpoint_t remote_endpoint;
-    ct_remote_endpoint_build(&remote_endpoint);
-    ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
-    ct_remote_endpoint_with_port(&remote_endpoint, UDP_PING_PORT);
+    ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
+    ASSERT_NE(remote_endpoint, nullptr);
+    ct_remote_endpoint_with_ipv4(remote_endpoint, inet_addr("127.0.0.1"));
+    ct_remote_endpoint_with_port(remote_endpoint, UDP_PING_PORT);
 
     ct_transport_properties_t* transport_properties = ct_transport_properties_new();
   ASSERT_NE(transport_properties, nullptr);
@@ -186,7 +188,7 @@ TEST_F(ConnectionCloneTest, clonesUdpConnectionSendsOnBothAndReceivesIndividualR
     ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_ORDER, PROHIBIT);
     ct_tp_set_sel_prop_preference(transport_properties, CONGESTION_CONTROL, PROHIBIT);
 
-    ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, transport_properties, NULL);
+    ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
     ASSERT_NE(preconnection, nullptr);
 
     ct_connection_callbacks_t connection_callbacks = {
@@ -214,15 +216,16 @@ TEST_F(ConnectionCloneTest, clonesUdpConnectionSendsOnBothAndReceivesIndividualR
     ASSERT_STREQ(per_connection_messages[original][0]->content, "Pong: ping-original");
     ASSERT_STREQ(per_connection_messages[cloned][0]->content, "Pong: ping-cloned");
 
+    ct_remote_endpoint_free(remote_endpoint);
     ct_preconnection_free(preconnection);
     ct_transport_properties_free(transport_properties);
 }
 
 TEST_F(ConnectionCloneTest, clonesTcpConnectionSendsOnBothAndReceivesIndividualResponses) {
-    ct_remote_endpoint_t remote_endpoint;
-    ct_remote_endpoint_build(&remote_endpoint);
-    ct_remote_endpoint_with_ipv4(&remote_endpoint, inet_addr("127.0.0.1"));
-    ct_remote_endpoint_with_port(&remote_endpoint, TCP_PING_PORT);
+    ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
+    ASSERT_NE(remote_endpoint, nullptr);
+    ct_remote_endpoint_with_ipv4(remote_endpoint, inet_addr("127.0.0.1"));
+    ct_remote_endpoint_with_port(remote_endpoint, TCP_PING_PORT);
 
     ct_transport_properties_t* transport_properties = ct_transport_properties_new();
   ASSERT_NE(transport_properties, nullptr);
@@ -232,7 +235,7 @@ TEST_F(ConnectionCloneTest, clonesTcpConnectionSendsOnBothAndReceivesIndividualR
     ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
     ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, PROHIBIT);
 
-    ct_preconnection_t* preconnection = ct_preconnection_new(&remote_endpoint, 1, transport_properties, NULL);
+    ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
     ASSERT_NE(preconnection, nullptr);
 
     ct_connection_callbacks_t connection_callbacks = {
@@ -261,6 +264,7 @@ TEST_F(ConnectionCloneTest, clonesTcpConnectionSendsOnBothAndReceivesIndividualR
     ASSERT_STREQ(per_connection_messages[original][0]->content, "Pong: ping-original");
     ASSERT_STREQ(per_connection_messages[cloned][0]->content, "Pong: ping-cloned");
 
+    ct_remote_endpoint_free(remote_endpoint);
     ct_preconnection_free(preconnection);
     ct_transport_properties_free(transport_properties);
 }
