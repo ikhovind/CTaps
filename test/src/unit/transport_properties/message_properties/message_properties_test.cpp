@@ -19,7 +19,7 @@ TEST(MessagePropertiesUnitTests, NewInitializesWithDefaultValues) {
 
     // Verify default integer properties
     EXPECT_EQ(message_properties->message_property[MSG_PRIORITY].value.uint32_value, 100);
-    EXPECT_EQ(message_properties->message_property[MSG_CHECKSUM_LEN].value.uint32_value, 0);
+    EXPECT_EQ(message_properties->message_property[MSG_CHECKSUM_LEN].value.uint32_value, MESSAGE_CHECKSUM_FULL_COVERAGE);
 
     // Verify default uint64 properties
     EXPECT_EQ(message_properties->message_property[MSG_LIFETIME].value.uint64_value, 0);
@@ -104,4 +104,180 @@ TEST(MessagePropertiesUnitTests, SetFinalHandlesNullPointer) {
     ct_message_properties_set_boolean(nullptr, FINAL, true);
 
     SUCCEED();
+}
+
+// Tests for ct_message_properties_set_uint64
+TEST(MessagePropertiesUnitTests, SetUint64SetsLifetime) {
+    ct_message_properties_t* message_properties = ct_message_properties_new();
+    ASSERT_NE(message_properties, nullptr);
+
+    ct_message_properties_set_uint64(message_properties, MSG_LIFETIME, 5000);
+
+    EXPECT_EQ(message_properties->message_property[MSG_LIFETIME].value.uint64_value, 5000);
+
+    ct_message_properties_free(message_properties);
+}
+
+TEST(MessagePropertiesUnitTests, SetUint64HandlesNullPointer) {
+    ct_message_properties_set_uint64(nullptr, MSG_LIFETIME, 5000);
+
+    SUCCEED();
+}
+
+// Tests for ct_message_properties_set_uint32
+TEST(MessagePropertiesUnitTests, SetUint32SetsPriority) {
+    ct_message_properties_t* message_properties = ct_message_properties_new();
+    ASSERT_NE(message_properties, nullptr);
+
+    ct_message_properties_set_uint32(message_properties, MSG_PRIORITY, 50);
+
+    EXPECT_EQ(message_properties->message_property[MSG_PRIORITY].value.uint32_value, 50);
+
+    ct_message_properties_free(message_properties);
+}
+
+TEST(MessagePropertiesUnitTests, SetUint32SetsChecksumLen) {
+    ct_message_properties_t* message_properties = ct_message_properties_new();
+    ASSERT_NE(message_properties, nullptr);
+
+    ct_message_properties_set_uint32(message_properties, MSG_CHECKSUM_LEN, 128);
+
+    EXPECT_EQ(message_properties->message_property[MSG_CHECKSUM_LEN].value.uint32_value, 128);
+
+    ct_message_properties_free(message_properties);
+}
+
+TEST(MessagePropertiesUnitTests, SetUint32HandlesNullPointer) {
+    ct_message_properties_set_uint32(nullptr, MSG_PRIORITY, 50);
+
+    SUCCEED();
+}
+
+// Tests for ct_message_properties_set_boolean
+TEST(MessagePropertiesUnitTests, SetBooleanSetsOrdered) {
+    ct_message_properties_t* message_properties = ct_message_properties_new();
+    ASSERT_NE(message_properties, nullptr);
+
+    ct_message_properties_set_boolean(message_properties, MSG_ORDERED, false);
+
+    EXPECT_FALSE(message_properties->message_property[MSG_ORDERED].value.boolean_value);
+
+    ct_message_properties_free(message_properties);
+}
+
+TEST(MessagePropertiesUnitTests, SetBooleanSetsSafelyReplayable) {
+    ct_message_properties_t* message_properties = ct_message_properties_new();
+    ASSERT_NE(message_properties, nullptr);
+
+    ct_message_properties_set_boolean(message_properties, MSG_SAFELY_REPLAYABLE, true);
+
+    EXPECT_TRUE(message_properties->message_property[MSG_SAFELY_REPLAYABLE].value.boolean_value);
+
+    ct_message_properties_free(message_properties);
+}
+
+TEST(MessagePropertiesUnitTests, SetBooleanSetsReliable) {
+    ct_message_properties_t* message_properties = ct_message_properties_new();
+    ASSERT_NE(message_properties, nullptr);
+
+    ct_message_properties_set_boolean(message_properties, MSG_RELIABLE, false);
+
+    EXPECT_FALSE(message_properties->message_property[MSG_RELIABLE].value.boolean_value);
+
+    ct_message_properties_free(message_properties);
+}
+
+TEST(MessagePropertiesUnitTests, SetBooleanSetsNoFragmentation) {
+    ct_message_properties_t* message_properties = ct_message_properties_new();
+    ASSERT_NE(message_properties, nullptr);
+
+    ct_message_properties_set_boolean(message_properties, NO_FRAGMENTATION, true);
+
+    EXPECT_TRUE(message_properties->message_property[NO_FRAGMENTATION].value.boolean_value);
+
+    ct_message_properties_free(message_properties);
+}
+
+TEST(MessagePropertiesUnitTests, SetBooleanSetsNoSegmentation) {
+    ct_message_properties_t* message_properties = ct_message_properties_new();
+    ASSERT_NE(message_properties, nullptr);
+
+    ct_message_properties_set_boolean(message_properties, NO_SEGMENTATION, true);
+
+    EXPECT_TRUE(message_properties->message_property[NO_SEGMENTATION].value.boolean_value);
+
+    ct_message_properties_free(message_properties);
+}
+
+TEST(MessagePropertiesUnitTests, SetBooleanHandlesNullPointer) {
+    ct_message_properties_set_boolean(nullptr, MSG_ORDERED, false);
+
+    SUCCEED();
+}
+
+// Tests for ct_message_properties_set_capacity_profile
+TEST(MessagePropertiesUnitTests, SetCapacityProfileSetsValue) {
+    ct_message_properties_t* message_properties = ct_message_properties_new();
+    ASSERT_NE(message_properties, nullptr);
+
+    ct_message_properties_set_capacity_profile(message_properties, MSG_CAPACITY_PROFILE, CAPACITY_PROFILE_LOW_LATENCY_INTERACTIVE);
+
+    EXPECT_EQ(message_properties->message_property[MSG_CAPACITY_PROFILE].value.enum_value, CAPACITY_PROFILE_LOW_LATENCY_INTERACTIVE);
+
+    ct_message_properties_free(message_properties);
+}
+
+TEST(MessagePropertiesUnitTests, SetCapacityProfileHandlesNullPointer) {
+    ct_message_properties_set_capacity_profile(nullptr, MSG_CAPACITY_PROFILE, CAPACITY_PROFILE_LOW_LATENCY_INTERACTIVE);
+
+    SUCCEED();
+}
+
+// Negative tests - type mismatch should not modify the value
+TEST(MessagePropertiesUnitTests, SetUint64OnBooleanPropertyDoesNotModify) {
+    ct_message_properties_t* message_properties = ct_message_properties_new();
+    ASSERT_NE(message_properties, nullptr);
+
+    bool original_value = message_properties->message_property[MSG_ORDERED].value.boolean_value;
+    ct_message_properties_set_uint64(message_properties, MSG_ORDERED, 12345);
+
+    EXPECT_EQ(message_properties->message_property[MSG_ORDERED].value.boolean_value, original_value);
+
+    ct_message_properties_free(message_properties);
+}
+
+TEST(MessagePropertiesUnitTests, SetUint32OnBooleanPropertyDoesNotModify) {
+    ct_message_properties_t* message_properties = ct_message_properties_new();
+    ASSERT_NE(message_properties, nullptr);
+
+    bool original_value = message_properties->message_property[MSG_RELIABLE].value.boolean_value;
+    ct_message_properties_set_uint32(message_properties, MSG_RELIABLE, 999);
+
+    EXPECT_EQ(message_properties->message_property[MSG_RELIABLE].value.boolean_value, original_value);
+
+    ct_message_properties_free(message_properties);
+}
+
+TEST(MessagePropertiesUnitTests, SetBooleanOnUint32PropertyDoesNotModify) {
+    ct_message_properties_t* message_properties = ct_message_properties_new();
+    ASSERT_NE(message_properties, nullptr);
+
+    uint32_t original_value = message_properties->message_property[MSG_PRIORITY].value.uint32_value;
+    ct_message_properties_set_boolean(message_properties, MSG_PRIORITY, true);
+
+    EXPECT_EQ(message_properties->message_property[MSG_PRIORITY].value.uint32_value, original_value);
+
+    ct_message_properties_free(message_properties);
+}
+
+TEST(MessagePropertiesUnitTests, SetCapacityProfileOnBooleanPropertyDoesNotModify) {
+    ct_message_properties_t* message_properties = ct_message_properties_new();
+    ASSERT_NE(message_properties, nullptr);
+
+    bool original_value = message_properties->message_property[MSG_ORDERED].value.boolean_value;
+    ct_message_properties_set_capacity_profile(message_properties, MSG_ORDERED, CAPACITY_PROFILE_LOW_LATENCY_INTERACTIVE);
+
+    EXPECT_EQ(message_properties->message_property[MSG_ORDERED].value.boolean_value, original_value);
+
+    ct_message_properties_free(message_properties);
 }
