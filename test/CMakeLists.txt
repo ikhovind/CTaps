@@ -210,3 +210,9 @@ add_gtest(local_endpoint_resolve_test
   WRAP_FUNCTIONS
     get_service_port
 )
+
+add_gtest(message_context_test
+  SOURCES
+    src/unit/message/message_context_test.cpp
+    ${CTAPS_SOURCES}
+)

@@ -92,3 +92,17 @@ ct_message_properties_t* ct_message_context_get_message_properties(ct_message_co
   }
   return &message_context->message_properties;
 }
+
+const ct_remote_endpoint_t* ct_message_context_get_remote_endpoint(const ct_message_context_t* message_context) {
+  if (!message_context) {
+    return NULL;
+  }
+  return message_context->remote_endpoint;
+}
+
+const ct_local_endpoint_t* ct_message_context_get_local_endpoint(const ct_message_context_t* message_context) {
+  if (!message_context) {
+    return NULL;
+  }
+  return message_context->local_endpoint;
+}

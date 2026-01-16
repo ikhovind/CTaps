@@ -1290,6 +1290,23 @@ CT_EXTERN void ct_message_context_free(ct_message_context_t* message_context);
  */
 CT_EXTERN ct_message_properties_t* ct_message_context_get_message_properties(ct_message_context_t* message_context);
 
+/**
+ * @brief Get the remote endpoint from a message context.
+ *
+ * @param[in] message_context Context to get remote endpoint from
+ * @return Pointer to remote endpoint, or NULL if message_context is NULL
+ */
+CT_EXTERN const ct_remote_endpoint_t* ct_message_context_get_remote_endpoint(const ct_message_context_t* message_context);
+
+
+/**
+ * @brief Get the local endpoint from a message context.
+ *
+ * @param[in] message_context Context to get local endpoint from
+ * @return Pointer to local endpoint, or NULL if message_context is NULL
+ */
+CT_EXTERN const ct_local_endpoint_t* ct_message_context_get_local_endpoint(const ct_message_context_t* message_context);
+
 
 
 
