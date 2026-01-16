@@ -1385,6 +1385,26 @@ CT_EXTERN void ct_preconnection_free(ct_preconnection_t* preconnection);
 CT_EXTERN int ct_preconnection_initiate(ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks);
 
 /**
+ * @brief Initiate a connection and send a message immediately upon establishment.
+ *
+ * Initiates a connection using the configured Preconnection. The connection is allocated
+ * internally and provided to the user via the ready() callback. If the underlying protocol
+ * supports 0-RTT or early data, the message may be sent during the handshake.
+ * Otherwise the data will be sent immediately after establishment.
+ *
+ * @param[in] preconnection Pointer to the Preconnection object containing the connection
+ *                          configuration.
+ * @param[in] connection_callbacks Struct containing callback functions for connection events:
+ *
+ * @return 0 on no synchronous errors
+ * @return Non-zero error code on synchronous error
+ *
+ * @note Asynchronous errors are reported via the establishment_error callback
+ * @note the message context must have the MSG_SAFELY_REPLAYABLE property set to make use of 0-RTT
+ */
+CT_EXTERN int ct_preconnection_initiate_with_send(ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks, const ct_message_t* message, const ct_message_context_t* message_context);
+
+/**
  * @brief Start listening for incoming connections using the configured Preconnection.
  *
  * @param[in] preconnection Pointer to preconnection with listener configuration

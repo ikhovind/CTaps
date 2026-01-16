@@ -119,6 +119,10 @@ int ct_preconnection_initiate(ct_preconnection_t* preconnection, ct_connection_c
   return preconnection_initiate_with_racing(preconnection, NULL, connection_callbacks);
 }
 
+int ct_preconnection_initiate_with_send(ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks, const ct_message_t* message, const ct_message_context_t* message_context) {
+  return -ENOSYS;
+}
+
 void ct_preconnection_free(ct_preconnection_t* preconnection) {
   if (!preconnection) {
     return;
