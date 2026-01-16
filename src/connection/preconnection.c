@@ -120,6 +120,11 @@ int ct_preconnection_initiate(ct_preconnection_t* preconnection, ct_connection_c
 }
 
 int ct_preconnection_initiate_with_send(ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks, const ct_message_t* message, const ct_message_context_t* message_context) {
+  (void)preconnection;
+  (void)connection_callbacks;
+  (void)message;
+  (void)message_context;
+
   return -ENOSYS;
 }
 

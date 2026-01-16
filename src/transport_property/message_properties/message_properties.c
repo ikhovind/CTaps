@@ -39,17 +39,57 @@ void ct_message_properties_free(ct_message_properties_t* message_properties) {
   free(message_properties);
 }
 
+
+void ct_message_properties_set_uint64(ct_message_properties_t* message_properties, ct_message_properties_enum_t property, uint64_t value) {
+  if (!message_properties) {
+    return;
+  }
+
+  if (message_properties->message_property[property].type != TYPE_UINT64_MSG) {
+    log_error("Type mismatch when setting message property %s", message_properties->message_property[property].name);
+    return;
+  }
+  message_properties->message_property[property].value.uint64_value = value;
+}
+
+void ct_message_properties_set_uint32(ct_message_properties_t* message_properties, ct_message_properties_enum_t property, uint32_t value) {
+  if (!message_properties) {
+    return;
+  }
+  if (message_properties->message_property[property].type != TYPE_UINT32_MSG) {
+    log_error("Type mismatch when setting message property %s", message_properties->message_property[property].name);
+    return;
+  }
+  message_properties->message_property[property].value.uint32_value = value;
+}
+
+void ct_message_properties_set_boolean(ct_message_properties_t* message_properties, ct_message_properties_enum_t property, bool value) {
+  if (!message_properties) {
+    return;
+  }
+  if (message_properties->message_property[property].type != TYPE_BOOLEAN_MSG) {
+    log_error("Type mismatch when setting message property %s", message_properties->message_property[property].name);
+    return;
+  }
+
+  message_properties->message_property[property].value.boolean_value = value;
+}
+
+void ct_message_properties_set_capacity_profile(ct_message_properties_t* message_properties, ct_message_properties_enum_t property, ct_capacity_profile_enum_t value) {
+  if (!message_properties) {
+    return;
+  }
+
+  if (message_properties->message_property[property].type != TYPE_ENUM_MSG) {
+    log_error("Type mismatch when setting message property %s", message_properties->message_property[property].name);
+    return;
+  }
+  message_properties->message_property[property].value.enum_value = value;
+}
+
 bool ct_message_properties_is_final(const ct_message_properties_t* message_properties) {
   if (!message_properties) {
     return false;
   }
   return message_properties->message_property[FINAL].value.boolean_value;
-}
-
-void ct_message_properties_set_final(ct_message_properties_t* message_properties) {
-  if (!message_properties) {
-    return;
-  }
-  message_properties->message_property[FINAL].value.boolean_value = true;
-  message_properties->message_property[FINAL].set_by_user = true;
 }

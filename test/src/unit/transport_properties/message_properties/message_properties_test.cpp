@@ -18,8 +18,8 @@ TEST(MessagePropertiesUnitTests, NewInitializesWithDefaultValues) {
     EXPECT_EQ(message_properties->message_property[NO_SEGMENTATION].value.boolean_value, false);
 
     // Verify default integer properties
-    EXPECT_EQ(message_properties->message_property[MSG_PRIORITY].value.integer_value, 100);
-    EXPECT_EQ(message_properties->message_property[MSG_CHECKSUM_LEN].value.integer_value, 0);
+    EXPECT_EQ(message_properties->message_property[MSG_PRIORITY].value.uint32_value, 100);
+    EXPECT_EQ(message_properties->message_property[MSG_CHECKSUM_LEN].value.uint32_value, 0);
 
     // Verify default uint64 properties
     EXPECT_EQ(message_properties->message_property[MSG_LIFETIME].value.uint64_value, 0);
@@ -55,11 +55,11 @@ TEST(MessagePropertiesUnitTests, NewSetsPropertyTypes) {
     ASSERT_NE(message_properties, nullptr);
 
     EXPECT_EQ(message_properties->message_property[MSG_LIFETIME].type, TYPE_UINT64_MSG);
-    EXPECT_EQ(message_properties->message_property[MSG_PRIORITY].type, TYPE_INTEGER_MSG);
+    EXPECT_EQ(message_properties->message_property[MSG_PRIORITY].type, TYPE_UINT32_MSG);
     EXPECT_EQ(message_properties->message_property[MSG_ORDERED].type, TYPE_BOOLEAN_MSG);
     EXPECT_EQ(message_properties->message_property[MSG_SAFELY_REPLAYABLE].type, TYPE_BOOLEAN_MSG);
     EXPECT_EQ(message_properties->message_property[FINAL].type, TYPE_BOOLEAN_MSG);
-    EXPECT_EQ(message_properties->message_property[MSG_CHECKSUM_LEN].type, TYPE_INTEGER_MSG);
+    EXPECT_EQ(message_properties->message_property[MSG_CHECKSUM_LEN].type, TYPE_UINT32_MSG);
     EXPECT_EQ(message_properties->message_property[MSG_RELIABLE].type, TYPE_BOOLEAN_MSG);
     EXPECT_EQ(message_properties->message_property[MSG_CAPACITY_PROFILE].type, TYPE_ENUM_MSG);
     EXPECT_EQ(message_properties->message_property[NO_FRAGMENTATION].type, TYPE_BOOLEAN_MSG);
@@ -85,7 +85,7 @@ TEST(MessagePropertiesUnitTests, IsFinalReturnsTrueAfterSet) {
     ct_message_properties_t* message_properties = ct_message_properties_new();
     ASSERT_NE(message_properties, nullptr);
 
-    ct_message_properties_set_final(message_properties);
+    ct_message_properties_set_boolean(message_properties, FINAL, true);
     bool is_final = ct_message_properties_is_final(message_properties);
 
     EXPECT_TRUE(is_final);
@@ -101,7 +101,7 @@ TEST(MessagePropertiesUnitTests, IsFinalReturnsFalseForNullPointer) {
 }
 
 TEST(MessagePropertiesUnitTests, SetFinalHandlesNullPointer) {
-    ct_message_properties_set_final(nullptr);
+    ct_message_properties_set_boolean(nullptr, FINAL, true);
 
     SUCCEED();
 }

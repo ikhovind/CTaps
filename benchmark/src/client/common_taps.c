@@ -79,7 +79,7 @@ int on_connection_ready(ct_connection_t *connection) {
         return -1;
     }
     ct_message_properties_t* props = ct_message_context_get_message_properties(msg_ctx);
-    ct_message_properties_set_final(props);
+    ct_message_properties_set_boolean(props, FINAL, true);
     switch (ctx->state) {
         case TRANSFER_NONE_STARTED:
             // start large file transfer

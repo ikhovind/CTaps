@@ -436,14 +436,16 @@ typedef struct ct_connection_properties_s ct_connection_properties_t;
     .value = { (uint32_t)default_value }                     \
 },
 
+#define MESSAGE_CHECKSUM_FULL_COVERAGE UINT32_MAX  ///< Special value: checksum entire message
+
 // clang-format off
 #define get_message_property_list(f)                                                                    \
   f(MSG_LIFETIME,           "msgLifetime",          TYPE_UINT64_MSG,   0)                  \
-  f(MSG_PRIORITY,           "msgPriority",          TYPE_INTEGER_MSG,  100)                \
+  f(MSG_PRIORITY,           "msgPriority",          TYPE_UINT32_MSG,   100)                \
   f(MSG_ORDERED,            "msgOrdered",           TYPE_BOOLEAN_MSG,  true)               \
   f(MSG_SAFELY_REPLAYABLE,  "msgSafelyReplayable",  TYPE_BOOLEAN_MSG,  false)              \
   f(FINAL,                  "final",                TYPE_BOOLEAN_MSG,  false)              \
-  f(MSG_CHECKSUM_LEN,       "msgChecksumLen",       TYPE_INTEGER_MSG,  0)                  \
+  f(MSG_CHECKSUM_LEN,       "msgChecksumLen",       TYPE_UINT32_MSG,   MESSAGE_CHECKSUM_FULL_COVERAGE)                  \
   f(MSG_RELIABLE,           "msgReliable",          TYPE_BOOLEAN_MSG,  true)               \
   f(MSG_CAPACITY_PROFILE,   "msgCapacityProfile",   TYPE_ENUM_MSG,     CAPACITY_PROFILE_BEST_EFFORT)    \
   f(NO_FRAGMENTATION,       "noFragmentation",      TYPE_BOOLEAN_MSG,  false)              \
@@ -453,7 +455,7 @@ typedef struct ct_connection_properties_s ct_connection_properties_t;
 /**
  * @brief Enumeration of all available message properties.
  */
-typedef enum { get_message_property_list(output_enum) MESSAGE_PROPERTY_END } ct_message_property_enum_t;
+typedef enum { get_message_property_list(output_enum) MESSAGE_PROPERTY_END } ct_message_properties_enum_t;
 
 // =============================================================================
 // Transport Properties - Combination of selection and connection properties
@@ -952,11 +954,30 @@ CT_EXTERN ct_message_properties_t* ct_message_properties_new(void);
  */
 CT_EXTERN bool ct_message_properties_is_final(const ct_message_properties_t* message_properties);
 
-/**
- * @brief Set the final property to true in message properties.
- * @param[in,out] message_properties structure modify
+CT_EXTERN void ct_message_properties_set_uint64(ct_message_properties_t* message_properties, ct_message_properties_enum_t property, uint64_t value);
+
+CT_EXTERN void ct_message_properties_set_uint32(ct_message_properties_t* message_properties, ct_message_properties_enum_t property, uint32_t value);
+
+CT_EXTERN void ct_message_properties_set_boolean(ct_message_properties_t* message_properties, ct_message_properties_enum_t property, bool value);
+
+CT_EXTERN void ct_message_properties_set_capacity_profile(ct_message_properties_t* message_properties, ct_message_properties_enum_t property, ct_capacity_profile_enum_t value);
+
+/*
+
+  f(MSG_LIFETIME,           "msgLifetime",          TYPE_UINT64_MSG,   0)                  \
+  f(MSG_PRIORITY,           "msgPriority",          TYPE_INTEGER_MSG,  100)                \
+  f(MSG_ORDERED,            "msgOrdered",           TYPE_BOOLEAN_MSG,  true)               \
+  f(MSG_SAFELY_REPLAYABLE,  "msgSafelyReplayable",  TYPE_BOOLEAN_MSG,  false)              \
+  f(FINAL,                  "final",                TYPE_BOOLEAN_MSG,  false)              \
+  f(MSG_CHECKSUM_LEN,       "msgChecksumLen",       TYPE_INTEGER_MSG,  0)                  \
+  f(MSG_RELIABLE,           "msgReliable",          TYPE_BOOLEAN_MSG,  true)               \
+  f(MSG_CAPACITY_PROFILE,   "msgCapacityProfile",   TYPE_ENUM_MSG,     CAPACITY_PROFILE_BEST_EFFORT)    \
+  f(NO_FRAGMENTATION,       "noFragmentation",      TYPE_BOOLEAN_MSG,  false)              \
+  f(NO_SEGMENTATION,        "noSegmentation",       TYPE_BOOLEAN_MSG,  false)
+
  */
-CT_EXTERN void ct_message_properties_set_final(ct_message_properties_t* message_properties);
+
+
 
 /**
  * @brief Free resources in message properties.

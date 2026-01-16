@@ -115,8 +115,8 @@ static const ct_selection_properties_t DEFAULT_SELECTION_PROPERTIES = {
 /**
  * @brief Type of value stored in a message property.
  */
-typedef enum ct_message_property_type_t {
-  TYPE_INTEGER_MSG,
+typedef enum ct_message_property_type_e {
+  TYPE_UINT32_MSG,
   TYPE_BOOLEAN_MSG,
   TYPE_UINT64_MSG,
   TYPE_ENUM_MSG
@@ -126,7 +126,7 @@ typedef enum ct_message_property_type_t {
  * @brief Union holding message property values.
  */
 typedef union {
-  uint32_t integer_value;
+  uint32_t uint32_value;
   bool boolean_value;
   uint64_t uint64_value;
   ct_capacity_profile_enum_t enum_value;
@@ -152,9 +152,18 @@ typedef struct ct_message_properties_s {
   ct_message_property_t message_property[MESSAGE_PROPERTY_END];  ///< Array of message properties
 } ct_message_properties_t;
 
+// The value cast is a hack to please the c++ compiler for our tests
+#define create_message_property_initializer(enum_name, string_name, property_type, default_value) \
+  [enum_name] = {                                                          \
+    .name = string_name,                                                   \
+    .type = property_type,                                                 \
+    .set_by_user = false,                                                  \
+    .value = { (uint32_t)default_value }                     \
+},
+
 static const ct_message_properties_t DEFAULT_MESSAGE_PROPERTIES = {
   .message_property = {
-    get_message_property_list(create_sel_property_initializer)
+    get_message_property_list(create_message_property_initializer)
   }
 };
 
