@@ -129,7 +129,7 @@ typedef union {
   uint32_t uint32_value;
   bool boolean_value;
   uint64_t uint64_value;
-  ct_capacity_profile_enum_t enum_value;
+  ct_capacity_profile_enum_t capacity_profile_enum_value;
 } ct_message_property_value_t;
 
 /**

@@ -47,3 +47,85 @@ TEST(MessageContextUnitTests, GetsRemoteEndpoint) {
 
     ct_message_context_free(msg_ctx);
 }
+
+// Message context property wrapper tests
+TEST(MessageContextUnitTests, SetAndGetUint64) {
+    ct_message_context_t* msg_ctx = ct_message_context_new();
+    ASSERT_NE(msg_ctx, nullptr);
+
+    ct_message_context_set_uint64(msg_ctx, MSG_LIFETIME, 5000);
+
+    EXPECT_EQ(ct_message_context_get_uint64(msg_ctx, MSG_LIFETIME), 5000);
+
+    ct_message_context_free(msg_ctx);
+}
+
+TEST(MessageContextUnitTests, SetAndGetUint32) {
+    ct_message_context_t* msg_ctx = ct_message_context_new();
+    ASSERT_NE(msg_ctx, nullptr);
+
+    ct_message_context_set_uint32(msg_ctx, MSG_PRIORITY, 50);
+
+    EXPECT_EQ(ct_message_context_get_uint32(msg_ctx, MSG_PRIORITY), 50);
+
+    ct_message_context_free(msg_ctx);
+}
+
+TEST(MessageContextUnitTests, SetAndGetBoolean) {
+    ct_message_context_t* msg_ctx = ct_message_context_new();
+    ASSERT_NE(msg_ctx, nullptr);
+
+    ct_message_context_set_boolean(msg_ctx, MSG_ORDERED, false);
+
+    EXPECT_FALSE(ct_message_context_get_boolean(msg_ctx, MSG_ORDERED));
+
+    ct_message_context_free(msg_ctx);
+}
+
+TEST(MessageContextUnitTests, SetAndGetCapacityProfile) {
+    ct_message_context_t* msg_ctx = ct_message_context_new();
+    ASSERT_NE(msg_ctx, nullptr);
+
+    ct_message_context_set_capacity_profile(msg_ctx, MSG_CAPACITY_PROFILE, CAPACITY_PROFILE_LOW_LATENCY_INTERACTIVE);
+
+    EXPECT_EQ(ct_message_context_get_capacity_profile(msg_ctx, MSG_CAPACITY_PROFILE), CAPACITY_PROFILE_LOW_LATENCY_INTERACTIVE);
+
+    ct_message_context_free(msg_ctx);
+}
+
+// Null pointer tests for message context wrappers
+TEST(MessageContextUnitTests, SetUint64HandlesNullContext) {
+    ct_message_context_set_uint64(nullptr, MSG_LIFETIME, 5000);
+    SUCCEED();
+}
+
+TEST(MessageContextUnitTests, GetUint64ReturnsZeroForNullContext) {
+    EXPECT_EQ(ct_message_context_get_uint64(nullptr, MSG_LIFETIME), 0);
+}
+
+TEST(MessageContextUnitTests, SetUint32HandlesNullContext) {
+    ct_message_context_set_uint32(nullptr, MSG_PRIORITY, 50);
+    SUCCEED();
+}
+
+TEST(MessageContextUnitTests, GetUint32ReturnsZeroForNullContext) {
+    EXPECT_EQ(ct_message_context_get_uint32(nullptr, MSG_PRIORITY), 0);
+}
+
+TEST(MessageContextUnitTests, SetBooleanHandlesNullContext) {
+    ct_message_context_set_boolean(nullptr, MSG_ORDERED, true);
+    SUCCEED();
+}
+
+TEST(MessageContextUnitTests, GetBooleanReturnsFalseForNullContext) {
+    EXPECT_FALSE(ct_message_context_get_boolean(nullptr, MSG_ORDERED));
+}
+
+TEST(MessageContextUnitTests, SetCapacityProfileHandlesNullContext) {
+    ct_message_context_set_capacity_profile(nullptr, MSG_CAPACITY_PROFILE, CAPACITY_PROFILE_LOW_LATENCY_INTERACTIVE);
+    SUCCEED();
+}
+
+TEST(MessageContextUnitTests, GetCapacityProfileReturnsDefaultForNullContext) {
+    EXPECT_EQ(ct_message_context_get_capacity_profile(nullptr, MSG_CAPACITY_PROFILE), CAPACITY_PROFILE_BEST_EFFORT);
+}

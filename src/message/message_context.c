@@ -106,3 +106,59 @@ const ct_local_endpoint_t* ct_message_context_get_local_endpoint(const ct_messag
   }
   return message_context->local_endpoint;
 }
+
+void ct_message_context_set_uint64(ct_message_context_t* message_context, ct_message_properties_enum_t property, uint64_t value) {
+  if (!message_context) {
+    return;
+  }
+  ct_message_properties_set_uint64(&message_context->message_properties, property, value);
+}
+
+void ct_message_context_set_uint32(ct_message_context_t* message_context, ct_message_properties_enum_t property, uint32_t value) {
+  if (!message_context) {
+    return;
+  }
+  ct_message_properties_set_uint32(&message_context->message_properties, property, value);
+}
+
+void ct_message_context_set_boolean(ct_message_context_t* message_context, ct_message_properties_enum_t property, bool value) {
+  if (!message_context) {
+    return;
+  }
+  ct_message_properties_set_boolean(&message_context->message_properties, property, value);
+}
+
+void ct_message_context_set_capacity_profile(ct_message_context_t* message_context, ct_message_properties_enum_t property, ct_capacity_profile_enum_t value) {
+  if (!message_context) {
+    return;
+  }
+  ct_message_properties_set_capacity_profile(&message_context->message_properties, property, value);
+}
+
+uint64_t ct_message_context_get_uint64(const ct_message_context_t* message_context, ct_message_properties_enum_t property) {
+  if (!message_context) {
+    return 0;
+  }
+  return ct_message_properties_get_uint64(&message_context->message_properties, property);
+}
+
+uint32_t ct_message_context_get_uint32(const ct_message_context_t* message_context, ct_message_properties_enum_t property) {
+  if (!message_context) {
+    return 0;
+  }
+  return ct_message_properties_get_uint32(&message_context->message_properties, property);
+}
+
+bool ct_message_context_get_boolean(const ct_message_context_t* message_context, ct_message_properties_enum_t property) {
+  if (!message_context) {
+    return false;
+  }
+  return ct_message_properties_get_boolean(&message_context->message_properties, property);
+}
+
+ct_capacity_profile_enum_t ct_message_context_get_capacity_profile(const ct_message_context_t* message_context, ct_message_properties_enum_t property) {
+  if (!message_context) {
+    return CAPACITY_PROFILE_BEST_EFFORT;
+  }
+  return ct_message_properties_get_capacity_profile(&message_context->message_properties, property);
+}

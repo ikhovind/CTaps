@@ -929,7 +929,6 @@ CT_EXTERN void ct_selection_properties_free(ct_selection_properties_t* selection
  *
  * ### Lifecycle
  * - Create with ct_message_properties_new()
- * - Configure with ct_message_properties_set_final() and similar setters
  * - Embed in a message context with ct_message_context_new()
  * - Free your copy with ct_message_properties_free() when done
  * - CTaps-owned copies are freed automatically
@@ -961,6 +960,14 @@ CT_EXTERN void ct_message_properties_set_uint32(ct_message_properties_t* message
 CT_EXTERN void ct_message_properties_set_boolean(ct_message_properties_t* message_properties, ct_message_properties_enum_t property, bool value);
 
 CT_EXTERN void ct_message_properties_set_capacity_profile(ct_message_properties_t* message_properties, ct_message_properties_enum_t property, ct_capacity_profile_enum_t value);
+
+CT_EXTERN uint64_t ct_message_properties_get_uint64(const ct_message_properties_t* message_properties,  ct_message_properties_enum_t property);
+
+CT_EXTERN uint32_t ct_message_properties_get_uint32(const ct_message_properties_t* message_properties,  ct_message_properties_enum_t property);
+
+CT_EXTERN bool ct_message_properties_get_boolean(const ct_message_properties_t* message_properties,  ct_message_properties_enum_t property);
+
+CT_EXTERN ct_capacity_profile_enum_t ct_message_properties_get_capacity_profile(const ct_message_properties_t* message_properties,  ct_message_properties_enum_t property);
 
 /*
 
@@ -1328,8 +1335,23 @@ CT_EXTERN const ct_remote_endpoint_t* ct_message_context_get_remote_endpoint(con
  */
 CT_EXTERN const ct_local_endpoint_t* ct_message_context_get_local_endpoint(const ct_message_context_t* message_context);
 
+// Message context property setters
+CT_EXTERN void ct_message_context_set_uint64(ct_message_context_t* message_context, ct_message_properties_enum_t property, uint64_t value);
 
+CT_EXTERN void ct_message_context_set_uint32(ct_message_context_t* message_context, ct_message_properties_enum_t property, uint32_t value);
 
+CT_EXTERN void ct_message_context_set_boolean(ct_message_context_t* message_context, ct_message_properties_enum_t property, bool value);
+
+CT_EXTERN void ct_message_context_set_capacity_profile(ct_message_context_t* message_context, ct_message_properties_enum_t property, ct_capacity_profile_enum_t value);
+
+// Message context property getters
+CT_EXTERN uint64_t ct_message_context_get_uint64(const ct_message_context_t* message_context, ct_message_properties_enum_t property);
+
+CT_EXTERN uint32_t ct_message_context_get_uint32(const ct_message_context_t* message_context, ct_message_properties_enum_t property);
+
+CT_EXTERN bool ct_message_context_get_boolean(const ct_message_context_t* message_context, ct_message_properties_enum_t property);
+
+CT_EXTERN ct_capacity_profile_enum_t ct_message_context_get_capacity_profile(const ct_message_context_t* message_context, ct_message_properties_enum_t property);
 
 /**
  * @brief Create a new preconnection with transport properties and endpoints.
