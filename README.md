@@ -50,7 +50,7 @@ int send_message_and_receive(struct ct_connection_s* connection) {
 }
 
 int main() {
-   ct_initialize(NULL, NULL); // Init (currently) global state
+   ct_initialize(); // Init (currently) global state
 
    // Create remote endpoint (where we will try to connect to)
    ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
@@ -118,7 +118,7 @@ int on_connection_received_receive_message(ct_listener_t* listener, ct_connectio
 }
 
 int main() {
-    ct_initialize(NULL, NULL); // Init (currently) global state
+    ct_initialize(); // Init (currently) global state
 
     ct_listener_t* listener = ct_listener_new();
 

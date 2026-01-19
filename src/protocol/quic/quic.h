@@ -8,9 +8,21 @@
 #include <stdbool.h>
 
 struct ct_socket_manager_s;
+struct ct_listener_s;
 
 // Passed as a parameter to picoquic_create()
 #define MAX_CONCURRENT_QUIC_CONNECTIONS 256
+
+// Per-context QUIC state (one per listener or client connection group)
+// Holds a picoquic_quic_t context with its own timer and certificates
+typedef struct ct_quic_context_s {
+  picoquic_quic_t* quic_ctx;
+  uv_timer_t* timer_handle;
+  struct ct_listener_s* listener;      // NULL for client connections
+  uint32_t num_active_connections;
+  char* cert_file_name;
+  char* key_file_name;
+} ct_quic_context_t;
 
 // Per-stream state for individual connections
 typedef struct ct_quic_stream_state_t {
@@ -23,7 +35,12 @@ typedef struct ct_quic_group_state_s {
   uv_udp_t* udp_handle;
   struct sockaddr_storage* udp_sock_name;
   picoquic_cnx_t* picoquic_connection;
+  ct_quic_context_t* quic_context;     // Reference to per-listener/client context
 } ct_quic_group_state_t;
+
+// QUIC context management
+ct_quic_context_t* ct_create_quic_context(const char* cert_file, const char* key_file, struct ct_listener_s* listener);
+void ct_close_quic_context(ct_quic_context_t* ctx);
 
 int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks);
 int quic_close(ct_connection_t* connection);

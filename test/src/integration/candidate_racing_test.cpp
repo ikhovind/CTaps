@@ -52,7 +52,7 @@ extern "C" {
  */
 TEST(CandidateRacingTests, FirstCandidateSucceeds) {
   // Setup
-  ct_initialize(NULL, NULL);
+  ct_initialize();
 
   ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
   ASSERT_NE(remote_endpoint, nullptr);
@@ -97,7 +97,7 @@ TEST(CandidateRacingTests, FirstCandidateSucceeds) {
  */
 TEST(CandidateRacingTests, AllCandidatesFail) {
   // Setup
-  ct_initialize(NULL, NULL);
+  ct_initialize();
 
   ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
   ASSERT_NE(remote_endpoint, nullptr);
@@ -142,7 +142,7 @@ TEST(CandidateRacingTests, AllCandidatesFail) {
  */
 TEST(CandidateRacingTests, RespectsProtocolPreferences) {
   // Setup
-  ct_initialize(NULL, NULL);
+  ct_initialize();
 
   ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
   ASSERT_NE(remote_endpoint, nullptr);
@@ -189,7 +189,7 @@ TEST(CandidateRacingTests, RespectsProtocolPreferences) {
  */
 TEST(CandidateRacingTests, WorksWithHostnameResolution) {
   // Setup
-  ct_initialize(NULL, NULL);
+  ct_initialize();
 
   ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
   ASSERT_NE(remote_endpoint, nullptr);
@@ -233,7 +233,7 @@ TEST(CandidateRacingTests, WorksWithHostnameResolution) {
  */
 TEST(CandidateRacingTests, SingleCandidateOptimization) {
   // Setup
-  ct_initialize(NULL, NULL);
+  ct_initialize();
 
   ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
   ASSERT_NE(remote_endpoint, nullptr);

@@ -168,6 +168,7 @@ add_gtest(remote_endpoint_integration_test
             ${CMAKE_SOURCE_DIR}/src/transport_property/message_properties/message_properties.c
             ${CMAKE_SOURCE_DIR}/src/transport_property/connection_properties/connection_properties.c
             ${CMAKE_SOURCE_DIR}/src/security_parameter/security_parameters.c
+            ${CMAKE_SOURCE_DIR}/src/security_parameter/certificate_bundles/certificate_bundles.c
             ${CMAKE_SOURCE_DIR}/src/connection/connection.c
             ${CMAKE_SOURCE_DIR}/src/connection/connection_group.c
             ${CMAKE_SOURCE_DIR}/src/protocol/protocol_registry.c

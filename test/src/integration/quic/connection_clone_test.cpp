@@ -31,9 +31,14 @@ TEST_F(ConnectionCloneTest, clonesConnectionSendsOnBothAndReceivesIndividualResp
     char* alpn_strings = "simple-ping";
     ct_sec_param_set_property_string_array(security_parameters, ALPN, &alpn_strings, 1);
 
+    ct_certificate_bundles_t* client_bundles = ct_certificate_bundles_new();
+    ct_certificate_bundles_add_cert(client_bundles, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
+    ct_sec_param_set_property_certificate_bundles(security_parameters, CLIENT_CERTIFICATE, client_bundles);
+    ct_certificate_bundles_free(client_bundles);
+
     ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, security_parameters);
     ASSERT_NE(preconnection, nullptr);
-    ct_security_parameters_free(security_parameters);
+    ct_sec_param_free(security_parameters);
 
     ct_connection_callbacks_t connection_callbacks = {
         .establishment_error = on_establishment_error,
@@ -91,9 +96,14 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     char* alpn_strings = "simple-ping";
     ct_sec_param_set_property_string_array(server_security_parameters, ALPN, &alpn_strings, 1);
 
+    ct_certificate_bundles_t* server_bundles = ct_certificate_bundles_new();
+    ct_certificate_bundles_add_cert(server_bundles, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
+    ct_sec_param_set_property_certificate_bundles(server_security_parameters, SERVER_CERTIFICATE, server_bundles);
+    ct_certificate_bundles_free(server_bundles);
+
     ct_preconnection_t* listener_precon = ct_preconnection_new(listener_remote, 1, listener_props, server_security_parameters);
     ASSERT_NE(listener_precon, nullptr);
-    ct_security_parameters_free(server_security_parameters);
+    ct_sec_param_free(server_security_parameters);
     ct_preconnection_set_local_endpoint(listener_precon, listener_endpoint);
 
     ct_listener_callbacks_t listener_callbacks = {
@@ -122,9 +132,14 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     ASSERT_NE(client_security_parameters, nullptr);
     ct_sec_param_set_property_string_array(client_security_parameters, ALPN, &alpn_strings, 1);
 
+    ct_certificate_bundles_t* client_bundles = ct_certificate_bundles_new();
+    ct_certificate_bundles_add_cert(client_bundles, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
+    ct_sec_param_set_property_certificate_bundles(client_security_parameters, CLIENT_CERTIFICATE, client_bundles);
+    ct_certificate_bundles_free(client_bundles);
+
     ct_preconnection_t* client_precon = ct_preconnection_new(client_remote, 1, client_props, client_security_parameters);
     ASSERT_NE(client_precon, nullptr);
-    ct_security_parameters_free(client_security_parameters);
+    ct_sec_param_free(client_security_parameters);
 
     ct_connection_callbacks_t client_callbacks = {
         .establishment_error = on_establishment_error,

@@ -369,7 +369,7 @@ void ct_connection_free_content(ct_connection_t* connection) {
 
   // Free security parameters (connection owns a deep copy)
   if (connection->security_parameters) {
-    ct_security_parameters_free(connection->security_parameters);
+    ct_sec_param_free(connection->security_parameters);
     connection->security_parameters = NULL;
   }
 

@@ -56,7 +56,7 @@ TEST_F(UdpGenericTests, sendsSingleUdpPacket) {
 
 TEST_F(UdpGenericTests, packetsAreReadInOrder) {
   // --- Setup ---
-  ct_initialize(NULL,NULL);
+  ct_initialize();
   ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
   ASSERT_NE(remote_endpoint, nullptr);
   ct_remote_endpoint_with_ipv4(remote_endpoint, inet_addr("127.0.0.1"));
@@ -101,7 +101,7 @@ TEST_F(UdpGenericTests, packetsAreReadInOrder) {
 TEST_F(UdpGenericTests, canPingArbitraryBytes) {
   log_info("Starting test: canPingArbitraryBytes");
   // --- Setup ---
-  ct_initialize(NULL,NULL);
+  ct_initialize();
   ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
   ASSERT_NE(remote_endpoint, nullptr);
   ct_remote_endpoint_with_ipv4(remote_endpoint, inet_addr("127.0.0.1"));
