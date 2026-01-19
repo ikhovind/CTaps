@@ -925,15 +925,15 @@ struct ct_framer_impl_s {
    * @brief Decode inbound data into application messages.
    *
    * @param[in] connection The connection
-   * @param[in] data Raw data buffer received from transport
-   * @param[in] len Length of data buffer
+   * @param[in] message received from transport layer
+   * @param[in] context Message context containing endpoint info
    * @param[in] callback Callback to invoke when decoding is complete
    *
    * TODO - Change this to take a message object instead of raw data?
    */
   void (*decode_data)(ct_connection_t* connection,
-                     const void* data,
-                     size_t len,
+                     ct_message_t* message,
+                     ct_message_context_t* context,
                      ct_framer_done_decoding_callback callback);
 };
 
@@ -1337,7 +1337,7 @@ CT_EXTERN ct_message_t* ct_message_new_with_content(const char* content, size_t 
  * @param[in] message Message to query
  * @return Length of message in bytes, or 0 if message is NULL
  */
-CT_EXTERN unsigned int ct_message_get_length(const ct_message_t* message);
+CT_EXTERN size_t ct_message_get_length(const ct_message_t* message);
 
 /**
  * @brief Get the content buffer of a message.
@@ -1345,6 +1345,9 @@ CT_EXTERN unsigned int ct_message_get_length(const ct_message_t* message);
  * @return Pointer to message content, or NULL if message is NULL
  */
 CT_EXTERN const char* ct_message_get_content(const ct_message_t* message);
+
+CT_EXTERN void ct_message_set_content(ct_message_t* message, const char* content, size_t length);
+
 
 // Message Context
 /**
@@ -1743,20 +1746,6 @@ CT_EXTERN void ct_connection_close_group(ct_connection_t* connection);
  * @param[in] connection Any connection in the group to abort
  */
 CT_EXTERN void ct_connection_abort_group(ct_connection_t* connection);
-
-/**
- * @brief Deliver received protocol data to the connection (for custom protocols).
- *
- * This function is exposed for custom protocol implementations to deliver
- * received data to the connection's framer and application callbacks.
- *
- * @param[in] connection The connection
- * @param[in] data Received data buffer
- * @param[in] len Length of received data
- */
-CT_EXTERN void ct_connection_on_protocol_receive(ct_connection_t* connection,
-                                       const void* data,
-                                       size_t len);
 
 // Listener
 /**

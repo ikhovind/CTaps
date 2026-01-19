@@ -3,6 +3,7 @@
 
 #include "connection/connection_group.h"
 #include "connection/socket_manager/socket_manager.h"
+#include "message/message_context.h"
 #include "ctaps.h"
 #include "ctaps_internal.h"
 #include "message/message.h"
@@ -415,37 +416,35 @@ void ct_connection_deliver_to_app(ct_connection_t* connection,
     log_debug("Receive callback ready, calling it");
     ct_receive_callbacks_t* receive_callback = g_queue_pop_head(connection->received_callbacks);
 
-    ct_message_context_t ctx = context ? *context : (ct_message_context_t){0};
-    ctx.user_receive_context = receive_callback->user_receive_context;
+    context->user_receive_context = receive_callback->user_receive_context;
 
-    receive_callback->receive_callback(connection, &message, &ctx);
+    receive_callback->receive_callback(connection, &message, context);
     free(receive_callback);
+    ct_message_context_free(context);
   }
 }
 
 void ct_connection_on_protocol_receive(ct_connection_t* connection,
                                        const void* data,
                                        size_t len) {
+  ct_message_t* received_message = ct_message_new_with_content(data, len);
+  if (!received_message) {
+    log_error("Failed to allocate memory for received message");
+    return;
+  }
+  ct_message_context_t* context = ct_message_context_new_from_connection(connection);
+  if (!context) {
+    log_error("Failed to allocate memory for message context");
+    ct_message_free(received_message);
+    return;
+  }
+
   if (connection->framer_impl != NULL) {
     // Framer present - let it decode, it will call ct_connection_deliver_to_app()
-    connection->framer_impl->decode_data(connection, data, len, ct_connection_deliver_to_app);
+    connection->framer_impl->decode_data(connection, received_message, context, ct_connection_deliver_to_app);
   } else {
     // No framer - deliver directly to application
-    ct_message_t* received_message = malloc(sizeof(ct_message_t));
-    if (!received_message) {
-      log_error("Failed to allocate memory for received message");
-      return;
-    }
-    received_message->content = malloc(len);
-    if (!received_message->content) {
-      log_error("Failed to allocate memory for received message content");
-      free(received_message);
-      return;
-    }
-    received_message->length = len;
-    memcpy(received_message->content, data, len);
-
-    ct_connection_deliver_to_app(connection, received_message, NULL);
+    ct_connection_deliver_to_app(connection, received_message, context);
   }
 }
 

@@ -8,11 +8,6 @@ extern "C" {
 #include <logging/log.h>
 }
 
-#define QUIC_PING_PORT 4433
-#define UDP_PING_PORT 5005
-#define TCP_PING_PORT 5006
-#define QUIC_CLONE_LISTENER_PORT 4434
-
 class ConnectionCloneTest : public CTapsGenericFixture {};
 
 TEST_F(ConnectionCloneTest, clonesConnectionSendsOnBothAndReceivesIndividualResponses) {

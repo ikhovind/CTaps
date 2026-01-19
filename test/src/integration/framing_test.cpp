@@ -27,16 +27,11 @@ static int length_prepend_encode(ct_connection_t* connection,
 }
 
 static void passthrough_decode(struct ct_connection_s* connection,
-                     const void* data,
-                     size_t len,
+                     ct_message_t* message,
+                     ct_message_context_t* context,
                      ct_framer_done_decoding_callback callback) {
     // Just pass through - deliver as-is
-    ct_message_t* msg = (ct_message_t*)malloc(sizeof(ct_message_t));
-    msg->content = (char*)malloc(len);
-    msg->length = len;
-    memcpy(msg->content, data, len);
-
-    callback(connection, msg, NULL);
+    callback(connection, message, context);
 }
 
 static ct_framer_impl_t length_prepend_framer = {
@@ -57,27 +52,24 @@ static int passthrough_encode(ct_connection_t* connection,
 }
 
 static void strip_first_char_decode(ct_connection_t* connection,
-                                     const void* data,
-                                     size_t len,
+                                     ct_message_t* message,
+                                     ct_message_context_t* context,
                                      ct_framer_done_decoding_callback callback
                                     ) {
-    // Remove first character
-    if (len <= 1) {
-        // If message is 1 byte or empty, deliver empty message
-        ct_message_t* msg = (ct_message_t*)malloc(sizeof(ct_message_t));
-        msg->content = nullptr;
-        msg->length = 0;
-        callback(connection, msg, NULL);
+    size_t len = ct_message_get_length(message);
+    if (len == 0) {
+        // Nothing to strip, deliver empty message
+        callback(connection, message, context);
         return;
     }
 
-    ct_message_t* msg = (ct_message_t*)malloc(sizeof(ct_message_t));
-    msg->content = (char*)malloc(len - 1);
-    msg->length = len - 1;
-    // Copy everything except first character
-    memcpy(msg->content, (const char*)data + 1, len - 1);
+    char* new_content = (char*)malloc(len - 1);
 
-    callback(connection, msg, NULL);
+    memcpy(new_content, ct_message_get_content(message) + 1, len - 1);
+
+    ct_message_set_content(message, new_content, len - 1);
+
+    callback(connection, message, NULL);
 }
 
 static ct_framer_impl_t strip_first_char_framer = {

@@ -40,8 +40,10 @@ typedef struct ct_remote_endpoint_s {
  */
 typedef struct ct_message_s {
   char* content;         ///< Message data buffer
-  unsigned int length;   ///< Length of message data in bytes
+  size_t length;   ///< Length of message data in bytes
 } ct_message_t;
+
+
 
 // =============================================================================
 // Security Parameters Internal Definitions
@@ -245,11 +247,22 @@ typedef struct ct_transport_properties_s {
 
 typedef struct ct_message_context_s {
   ct_message_properties_t message_properties;  ///< Per-message transmission properties
-  ct_local_endpoint_t* local_endpoint;         ///< Local endpoint for this message (optional)
-  ct_remote_endpoint_t* remote_endpoint;       ///< Remote endpoint for this message (optional)
+  const ct_local_endpoint_t* local_endpoint;         ///< Local endpoint for this message (optional)
+  const ct_remote_endpoint_t* remote_endpoint;       ///< Remote endpoint for this message (optional)
   void* user_receive_context;                  ///< User context from ct_receive_callbacks_t
 } ct_message_context_t;
 
+/**
+ * @brief Wrapper for queued messages with their context.
+ *
+ * Used to store messages along with their context when no receive callback
+ * is ready. The context contains endpoint pointers that remain valid as
+ * long as the connection exists.
+ */
+typedef struct ct_queued_message_s {
+  ct_message_t* message;           ///< The queued message
+  ct_message_context_t* context;   ///< Message context with endpoint info
+} ct_queued_message_t;
 
 /**
  * @brief Protocol implementation interface.

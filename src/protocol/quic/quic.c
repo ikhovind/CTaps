@@ -987,9 +987,11 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
     ct_close_quic_context(quic_context);
     return -EIO;
   }
+
   // Store quic_context in udp_handle->data for access in on_quic_udp_read
   udp_handle->data = quic_context;
   log_debug("Created UDP handle %p for QUIC connection", (void*)udp_handle);
+
 
   // Allocate shared group state (UDP handle + QUIC connection)
   ct_quic_group_state_t* group_state = ct_create_quic_group_state();
@@ -1030,6 +1032,8 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
     ct_close_quic_context(quic_context);
     return rc;
   }
+
+  memcpy(&connection->local_endpoint.data.resolved_address, group_state->udp_sock_name, sizeof(struct sockaddr_storage));
 
   log_debug("Creating picoquic cnx to remote endpoint");
   group_state->picoquic_connection = picoquic_create_cnx(
