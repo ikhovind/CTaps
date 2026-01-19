@@ -32,7 +32,12 @@ void ct_sec_param_free(ct_security_parameters_t* security_parameters) {
       free((void*)sec_param->value.array_of_strings.strings);
     }
     if (sec_param->type == TYPE_CERTIFICATE_BUNDLES) {
-      ct_certificate_bundles_free(&sec_param->value.certificate_bundles);
+      ct_certificate_bundles_t* bundles = &sec_param->value.certificate_bundles;
+      for (size_t i = 0; i < bundles->num_bundles; i++) {
+        free(bundles->certificate_bundles[i].certificate_file_name);
+        free(bundles->certificate_bundles[i].private_key_file_name);
+      }
+      free(bundles->certificate_bundles);
     }
   }
   free(security_parameters);
@@ -147,6 +152,10 @@ int ct_sec_param_set_property_certificate_bundles(ct_security_parameters_t* secu
     log_error("Attempted to set a non-certificate-bundle-array security parameter as certificate bundle array");
     return -EINVAL;
   }
+  if (!bundles) {
+    log_error("Passed NULL certificate bundles to set operation");
+    return -EINVAL;
+  }
 
   for (size_t i = 0; i < bundles->num_bundles; i++) {
     if (!bundles->certificate_bundles[i].certificate_file_name || !bundles->certificate_bundles[i].private_key_file_name) {
@@ -161,13 +170,7 @@ int ct_sec_param_set_property_certificate_bundles(ct_security_parameters_t* secu
     return -ENOMEM;
   }
 
-  // Deep copy each bundle with strdup for strings
-  for (size_t i = 0; i < bundles->num_bundles; i++) {
-    security_parameters->security_parameters[property].value.certificate_bundles.certificate_bundles[i].certificate_file_name =
-        strdup(bundles->certificate_bundles[i].certificate_file_name);
-    security_parameters->security_parameters[property].value.certificate_bundles.certificate_bundles[i].private_key_file_name =
-        strdup(bundles->certificate_bundles[i].private_key_file_name);
-  }
+  security_parameters->security_parameters[property].value.certificate_bundles = ct_certificate_bundles_copy_content(bundles);
 
   security_parameters->security_parameters[property].value.certificate_bundles.num_bundles = bundles->num_bundles;
   security_parameters->security_parameters[property].set_by_user = true;
