@@ -39,6 +39,9 @@ struct ct_racing_context_t {
   size_t num_attempts;
   size_t next_attempt_index;  // Index of next attempt to initiate
 
+  ct_message_t* initial_message; // not null if this racing was initiated with a send
+  ct_message_context_t* initial_message_context;
+
   // User's original callbacks and the connection they provided
   ct_connection_callbacks_t user_callbacks;
 
@@ -71,7 +74,10 @@ struct ct_racing_context_t {
  */
 int preconnection_initiate_with_racing(ct_preconnection_t* preconnection,
                                        ct_connection_t* connection,
-                                       ct_connection_callbacks_t connection_callbacks);
+                                       ct_connection_callbacks_t connection_callbacks,
+                                       ct_message_t* initial_message,
+                                       ct_message_context_t* initial_message_context
+                                       );
 
 /**
  * @brief Frees a racing context and all associated resources.

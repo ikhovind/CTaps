@@ -45,6 +45,13 @@ static void on_timer_close_free_context(uv_handle_t* handle) {
       free(context->attempts);
     }
 
+    if (context->initial_message) {
+      ct_message_free(context->initial_message);
+    }
+    if (context->initial_message_context) {
+      ct_message_context_free(context->initial_message_context);
+    }
+
     free(context);
   }
 }
@@ -54,7 +61,10 @@ static void on_timer_close_free_context(uv_handle_t* handle) {
  */
 static ct_racing_context_t* racing_context_create(GArray* candidate_nodes,
                                             ct_connection_callbacks_t user_callbacks,
-                                            const ct_preconnection_t* preconnection) {
+                                            const ct_preconnection_t* preconnection,
+                                            ct_message_t* initial_message,
+                                            ct_message_context_t* initial_message_context
+                                            ) {
   log_info("Creating racing context with %d candidates", candidate_nodes->len);
 
   ct_racing_context_t* context = malloc(sizeof(ct_racing_context_t));
@@ -71,6 +81,9 @@ static ct_racing_context_t* racing_context_create(GArray* candidate_nodes,
   context->winning_attempt_index = -1;
   context->next_attempt_index = 0;
   context->connection_attempt_delay_ms = DEFAULT_CONNECTION_ATTEMPT_DELAY_MS;
+  context->initial_message = initial_message;
+  context->initial_message_context = initial_message_context;
+
 
   // Allocate attempts array
   context->attempts = calloc(context->num_attempts, sizeof(ct_racing_attempt_t));
@@ -198,6 +211,18 @@ int racing_on_attempt_ready(ct_connection_t* connection) {
 
   // Restore the user's original callbacks (connection has the wrapped racing callbacks)
   connection->connection_callbacks = context->user_callbacks;
+
+  if (context->initial_message) {
+    log_debug("Sending initial message on winning connection");
+    // This takes deep copy of message and context, so freeing our copies is fine in racing_context_free
+    int rc = ct_send_message_full(connection, context->initial_message, context->initial_message_context);
+    if (rc != 0) {
+      log_error("Failed to send initial message on winning connection: %d", rc);
+      if (connection->connection_callbacks.send_error) {
+        connection->connection_callbacks.send_error(connection);
+      }
+    }
+  }
 
   log_debug("Freeing racing context after having found successful candidate");
   racing_context_free(context);
@@ -347,7 +372,10 @@ static void initiate_next_attempt(ct_racing_context_t* context) {
  */
 int preconnection_initiate_with_racing(ct_preconnection_t* preconnection,
                                        ct_connection_t* user_connection,
-                                       ct_connection_callbacks_t connection_callbacks) {
+                                       ct_connection_callbacks_t connection_callbacks,
+                                       ct_message_t* initial_message,
+                                       ct_message_context_t* initial_message_context
+                                       ) {
   (void)user_connection;
 
   // Get ordered candidate nodes
@@ -364,7 +392,12 @@ int preconnection_initiate_with_racing(ct_preconnection_t* preconnection,
   log_info("Racing with %d candidates", candidate_nodes->len);
 
   ct_racing_context_t* context = racing_context_create(candidate_nodes,
-                                                 connection_callbacks, preconnection);
+                                                       connection_callbacks,
+                                                       preconnection,
+                                                       initial_message,
+                                                       initial_message_context
+                                                       );
+
   if (context == NULL) {
     log_error("Failed to create racing context");
     free_candidate_array(candidate_nodes);

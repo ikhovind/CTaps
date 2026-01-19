@@ -1396,6 +1396,7 @@ CT_EXTERN void ct_preconnection_free(ct_preconnection_t* preconnection);
  */
 CT_EXTERN int ct_preconnection_initiate(ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks);
 
+
 /**
  * @brief Initiate a connection and send a message immediately upon establishment.
  *
