@@ -23,8 +23,7 @@ TEST(ConnectionUnitTests, TakesDeepCopyOfTransportProperties) {
     ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, PROHIBIT);
     ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_ORDER, PROHIBIT);
 
-    ct_connection_t connection;
-    ct_local_endpoint_t local_endpoint;
+    ct_connection_t* connection = create_empty_connection_with_uuid();
     ct_socket_manager_t socket_manager = {
         .internal_socket_manager_state = nullptr,
         .protocol_impl = nullptr
@@ -32,23 +31,22 @@ TEST(ConnectionUnitTests, TakesDeepCopyOfTransportProperties) {
 
     ct_listener_t mock_listener = {
         .transport_properties = *transport_properties,
-        .local_endpoint = local_endpoint,
+        .local_endpoint = 0,
         .socket_manager = &socket_manager,
     };
 
-    ct_connection_build_multiplexed(&connection, &mock_listener,  remote_endpoint);
+    ct_connection_build_multiplexed(connection, &mock_listener,  remote_endpoint);
 
-    ASSERT_EQ(connection.transport_properties.selection_properties.selection_property[RELIABILITY].value.simple_preference, PROHIBIT);
+    ASSERT_EQ(connection->transport_properties.selection_properties.selection_property[RELIABILITY].value.simple_preference, PROHIBIT);
     ASSERT_EQ(mock_listener.transport_properties.selection_properties.selection_property[RELIABILITY].value.simple_preference, PROHIBIT);
 
-    ct_tp_set_sel_prop_preference(&connection.transport_properties, RELIABILITY, REQUIRE);
+    ct_tp_set_sel_prop_preference(&connection->transport_properties, RELIABILITY, REQUIRE);
 
-    ASSERT_EQ(connection.transport_properties.selection_properties.selection_property[RELIABILITY].value.simple_preference, REQUIRE);
+    ASSERT_EQ(connection->transport_properties.selection_properties.selection_property[RELIABILITY].value.simple_preference, REQUIRE);
     ASSERT_EQ(mock_listener.transport_properties.selection_properties.selection_property[RELIABILITY].value.simple_preference, PROHIBIT);
 
-    // Cleanup
-    ct_remote_endpoint_free(remote_endpoint);
-    ct_connection_free_content(&connection);
+    // // Cleanup
+    ct_connection_free(connection);
     ct_transport_properties_free(transport_properties);
 }
 
@@ -175,4 +173,25 @@ TEST(ConnectionUnitTests, SendMessageWithFinalSetsCanSendToFalse) {
     ct_message_free(message);
     ct_message_context_free(context);
     ct_connection_free_content(&connection);
+}
+
+TEST(ConnectionUnitTests, connectionPropertyGetterGetsConnectionProperty) {
+    ct_connection_t* connection = create_empty_connection_with_uuid();
+    ct_transport_properties_t* transport_properties = ct_transport_properties_new();
+
+    transport_properties->connection_properties.list[CAN_SEND].value.bool_val = true;
+
+    connection->transport_properties = *transport_properties;
+
+    const ct_connection_properties_t* gotten_props = ct_connection_get_connection_properties(connection);
+
+    ASSERT_NE(gotten_props, nullptr);
+    ASSERT_EQ(gotten_props->list[CAN_SEND].value.bool_val, true);
+    ASSERT_EQ((void*)gotten_props, (void*)&connection->transport_properties.connection_properties);
+}
+
+TEST(ConnectionUnitTests, connectionPropertyGetterHandlesNullParam) {
+    const ct_connection_properties_t* gotten_props = ct_connection_get_connection_properties(nullptr);
+
+    ASSERT_EQ((void*)gotten_props, nullptr);
 }

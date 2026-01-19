@@ -593,3 +593,11 @@ ct_connection_group_t* ct_connection_get_connection_group(const ct_connection_t*
   }
   return connection->connection_group;
 }
+
+const ct_connection_properties_t* ct_connection_get_connection_properties(const ct_connection_t* connection) {
+  if (!connection) {
+    log_error("ct_get_connection_properties called with NULL connection");
+    return NULL;
+  }
+  return &connection->transport_properties.connection_properties;
+}

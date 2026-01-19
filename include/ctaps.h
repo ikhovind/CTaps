@@ -1729,6 +1729,11 @@ const ct_protocol_impl_t** ct_get_supported_protocols();
  */
 size_t ct_get_num_protocols();
 
+// =============================================================================
+// Connection functions
+// =============================================================================
+
+CT_EXTERN const ct_connection_properties_t* ct_connection_get_connection_properties(const ct_connection_t* connection);
 
 
 #endif  // CTAPS_H
