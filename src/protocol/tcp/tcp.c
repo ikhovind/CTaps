@@ -5,6 +5,7 @@
 #include "connection/connection_group.h"
 #include "endpoint/remote_endpoint.h"
 #include "endpoint/local_endpoint.h"
+#include "protocol/common/socket_utils.h"
 #include "connection/socket_manager/socket_manager.h"
 #include "ctaps.h"
 #include "ctaps_internal.h"
@@ -204,8 +205,7 @@ int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
     }
     return rc;
   }
-  int namelen = sizeof(connection->local_endpoint.data.resolved_address);
-  rc = uv_tcp_getsockname(new_tcp_handle, (struct sockaddr*)&connection->local_endpoint.data.resolved_address, &namelen);
+  rc = resolve_local_endpoint_from_handle((uv_handle_t*)new_tcp_handle, connection);
   if (rc < 0) {
     log_error("Failed to get UDP socket name: %s", uv_strerror(rc));
     ct_connection_close(connection);
@@ -349,6 +349,11 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
     ct_connection_close(connection);
     free(connection);
     return;
+  }
+
+  rc = resolve_local_endpoint_from_handle((uv_handle_t*)client, connection);
+  if (rc < 0) {
+    log_error("Failed to get UDP socket name: %s", uv_strerror(rc));
   }
 
   log_trace("TCP invoking new connection callback");

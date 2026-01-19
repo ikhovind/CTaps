@@ -416,6 +416,17 @@ void ct_connection_deliver_to_app(ct_connection_t* connection,
     log_debug("Receive callback ready, calling it");
     ct_receive_callbacks_t* receive_callback = g_queue_pop_head(connection->received_callbacks);
 
+    log_info("Context pointer is %p", (void*)context);
+    log_info("User receive context pointer is %p", (void*)receive_callback->user_receive_context);
+    if (!context) {
+      log_warn("Message context is NULL, allocating new context");
+      context = ct_message_context_new_from_connection(connection);
+      if (!context) {
+        log_error("Failed to allocate memory for message context");
+        free(receive_callback);
+        return;
+      }
+    }
     context->user_receive_context = receive_callback->user_receive_context;
 
     receive_callback->receive_callback(connection, &message, context);
@@ -599,4 +610,8 @@ const ct_connection_properties_t* ct_connection_get_connection_properties(const 
     return NULL;
   }
   return &connection->transport_properties.connection_properties;
+}
+
+void connection_set_resolved_local_address(ct_connection_t* connection, const struct sockaddr_storage* addr) {
+  memcpy(&connection->local_endpoint.data.resolved_address, addr, sizeof(struct sockaddr_storage));
 }

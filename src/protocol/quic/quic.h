@@ -33,7 +33,6 @@ typedef struct ct_quic_stream_state_t {
 // Shared state across all streams in a QUIC connection group
 typedef struct ct_quic_group_state_s {
   uv_udp_t* udp_handle;
-  struct sockaddr_storage* udp_sock_name;
   picoquic_cnx_t* picoquic_connection;
   ct_quic_context_t* quic_context;     // Reference to per-listener/client context
 } ct_quic_group_state_t;

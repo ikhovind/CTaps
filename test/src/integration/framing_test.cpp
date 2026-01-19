@@ -69,7 +69,7 @@ static void strip_first_char_decode(ct_connection_t* connection,
 
     ct_message_set_content(message, new_content, len - 1);
 
-    callback(connection, message, NULL);
+    callback(connection, message, context);
 }
 
 static ct_framer_impl_t strip_first_char_framer = {

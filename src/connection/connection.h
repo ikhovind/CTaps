@@ -120,4 +120,6 @@ int ct_connection_build_multiplexed(ct_connection_t* connection, const struct ct
  */
 ct_connection_group_t* ct_connection_get_connection_group(const ct_connection_t* connection);
 
+void connection_set_resolved_local_address(ct_connection_t* connection, const struct sockaddr_storage* addr);
+
 #endif // CONNECTION_H

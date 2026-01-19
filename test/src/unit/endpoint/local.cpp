@@ -51,6 +51,14 @@ DEFINE_FFF_GLOBALS;
 FAKE_VALUE_FUNC(int, uv_udp_bind, uv_udp_t*, const struct sockaddr*, unsigned int);
 FAKE_VALUE_FUNC(int, uv_interface_addresses, uv_interface_address_t**, int*);
 FAKE_VOID_FUNC(uv_free_interface_addresses, uv_interface_address_t*, int);
+FAKE_VALUE_FUNC(int, faked_resolve_local_endpoint_from_handle, uv_handle_t*, ct_connection_t*);
+}
+
+// Fake this function, otherwise it will overwrite the address passed to out uv_udp_bind, meaning that the argument
+// list will be overwritten
+extern "C" int __wrap_resolve_local_endpoint_from_handle(uv_handle_t* handle, ct_connection_t* connection) {
+  // Call the fff fake, which allows us to track calls and set return values.
+  return faked_resolve_local_endpoint_from_handle(handle, connection);
 }
 
 static uv_interface_address_t fake_interfaces[] = {
@@ -87,6 +95,7 @@ class LocalEndpointInitTest : public CTapsGenericFixture {};
 TEST_F(LocalEndpointInitTest, UsesInterfaceAddress_whenInterfaceIsSpecified) {
     FFF_RESET_HISTORY();
     RESET_FAKE(uv_udp_bind)
+    RESET_FAKE(faked_resolve_local_endpoint_from_handle)
     RESET_FAKE(uv_interface_addresses)
     RESET_FAKE(uv_free_interface_addresses)
     // --- ARRANGE ---
@@ -95,6 +104,7 @@ TEST_F(LocalEndpointInitTest, UsesInterfaceAddress_whenInterfaceIsSpecified) {
 
     // Set a default return value for the other fake
     uv_udp_bind_fake.return_val = 0;
+    faked_resolve_local_endpoint_from_handle_fake.return_val = 0;
 
     // Create and configure the ct_local_endpoint_t to use our test interface
     ct_local_endpoint_t local_endpoint;
@@ -107,7 +117,7 @@ TEST_F(LocalEndpointInitTest, UsesInterfaceAddress_whenInterfaceIsSpecified) {
     ct_remote_endpoint_with_ipv4(remote_endpoint, inet_addr("127.0.0.1"));
 
     ct_transport_properties_t* transport_properties = ct_transport_properties_new();
-  ASSERT_NE(transport_properties, nullptr);
+    ASSERT_NE(transport_properties, nullptr);
     // Allocated with ct_transport_properties_new()
     ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, PROHIBIT);
     ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_ORDER, PROHIBIT);

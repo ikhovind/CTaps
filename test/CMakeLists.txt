@@ -142,6 +142,8 @@ add_gtest(candidate_gathering_test
 add_gtest(local_endpoint_unit_test
         SOURCES
             src/unit/endpoint/local.cpp ${CTAPS_SOURCES}
+          WRAP_FUNCTIONS
+            resolve_local_endpoint_from_handle
 )
 add_gtest(dns_integration_test
         SOURCES
