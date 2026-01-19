@@ -14,11 +14,13 @@ void ct_message_free(ct_message_t* message) {
 
 ct_message_t* ct_message_deep_copy(const ct_message_t* message) {
   if (!message) {
+    log_error("Cannot deep copy a NULL message");
     return NULL;
   }
 
   ct_message_t* copy = malloc(sizeof(ct_message_t));
   if (!copy) {
+    log_error("Failed to allocate memory for message copy");
     return NULL;
   }
   log_trace("Deep copying message of size %zu", message->length);
@@ -26,6 +28,7 @@ ct_message_t* ct_message_deep_copy(const ct_message_t* message) {
   copy->length = message->length;
   copy->content = malloc(message->length);
   if (!copy->content) {
+    log_error("Failed to allocate memory for message content copy");
     free(copy);
     return NULL;
   }

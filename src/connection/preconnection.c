@@ -8,6 +8,8 @@
 #include <endpoint/local_endpoint.h>
 #include <endpoint/remote_endpoint.h>
 #include <security_parameter/security_parameters.h>
+#include "message/message.h"
+#include "message/message_context.h"
 #include <errno.h>
 #include <glib.h>
 #include <logging/log.h>
@@ -116,16 +118,26 @@ int ct_preconnection_initiate(ct_preconnection_t* preconnection, ct_connection_c
   log_info("Initiating connection from preconnection with candidate racing");
 
   // The winning connection will be passed to the ready()
-  return preconnection_initiate_with_racing(preconnection, NULL, connection_callbacks);
+  return preconnection_initiate_with_racing(preconnection, NULL, connection_callbacks, NULL, NULL);
 }
 
 int ct_preconnection_initiate_with_send(ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks, const ct_message_t* message, const ct_message_context_t* message_context) {
-  (void)preconnection;
-  (void)connection_callbacks;
-  (void)message;
-  (void)message_context;
+  ct_message_t* msg_copy = ct_message_deep_copy(message);
+  if (!msg_copy) {
+    log_error("Failed to deep copy message for preconnection initiate with send");
+    return -ENOMEM;
+  }
+  ct_message_context_t* message_context_copy = NULL;
+  if (message_context) {
+    message_context_copy = ct_message_context_deep_copy(message_context);
+    if (!message_context_copy) {
+      log_error("Failed to deep copy message context for preconnection initiate with send");
+      ct_message_free(msg_copy);
+      return -ENOMEM;
+    }
+  }
 
-  return -ENOSYS;
+  return preconnection_initiate_with_racing(preconnection, NULL, connection_callbacks, msg_copy, message_context_copy);
 }
 
 void ct_preconnection_free(ct_preconnection_t* preconnection) {
