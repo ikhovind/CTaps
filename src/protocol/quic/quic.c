@@ -502,12 +502,10 @@ int picoquic_callback(picoquic_cnx_t* cnx,
         log_debug("Server connection ready, notifying listener");
         ct_listener_t* listener = connection->socket_manager->listener;
 
-        log_info("Resolving local endpoint with handle pointer2: %p", (void*)group_state->udp_handle);
         int rc = resolve_local_endpoint_from_handle((uv_handle_t*)group_state->udp_handle, connection);
         if (rc < 0) {
           log_error("Failed to get UDP socket name: %s", uv_strerror(rc));
         }
-        log_info("successfully resolved local endpoint for server connection");
         ct_connection_mark_as_established(connection);
         listener->listener_callbacks.connection_received(listener, connection);
       }
@@ -563,12 +561,10 @@ int picoquic_callback(picoquic_cnx_t* cnx,
             if (listener) {
               ct_connection_mark_as_established(new_stream_connection);
 
-              log_info("Resolving local endpoint with handle pointer1: %p", (void*)group_state->udp_handle);
               int rc = resolve_local_endpoint_from_handle((uv_handle_t*)group_state->udp_handle, new_stream_connection);
               if (rc < 0) {
                 log_error("Failed to get UDP socket name: %s", uv_strerror(rc));
               }
-              log_info("successfully resolved local endpoint for new stream connection");
               listener->listener_callbacks.connection_received(listener, new_stream_connection);
             } else {
               log_warn("Received new stream but listener has been closed, not notifying application");
