@@ -79,6 +79,11 @@ void udp_multiplex_received_message(ct_socket_manager_t* socket_manager, char* b
 
   if (was_new) {
     log_debug("UDP listener invoking callback for new connection from remote endpoint");
+
+    int rc = resolve_local_endpoint_from_handle((uv_handle_t*)socket_manager->internal_socket_manager_state, connection);
+    if (rc < 0) {
+      log_error("Failed to get UDP socket name: %s", uv_strerror(rc));
+    }
     socket_manager->listener->listener_callbacks.connection_received(socket_manager->listener, connection);
   }
   ct_connection_on_protocol_receive(connection, buf, len);
@@ -130,20 +135,17 @@ int udp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
   log_debug("Initiating UDP connection\n");
 
   uv_udp_t* new_udp_handle = create_udp_listening_on_local(&connection->local_endpoint, alloc_buffer, on_read);
+  if (!new_udp_handle) {
+    log_error("Failed to create UDP handle for connection");
+    return -EIO;
+  }
+
   
-  // struct sockaddr_storage local_addr;
-  // int rc = uv_udp_getsockname(new_udp_handle, (struct sockaddr*)&local_addr, &(int){sizeof(connection->local_endpoint.data.resolved_address)});
-  int namelen = sizeof(connection->local_endpoint.data.resolved_address);
-  int rc = uv_udp_getsockname(new_udp_handle, (struct sockaddr*)&connection->local_endpoint.data.resolved_address, &namelen);
+  int rc = resolve_local_endpoint_from_handle((uv_handle_t*)new_udp_handle, connection);
   if (rc < 0) {
     log_error("Failed to get UDP socket name: %s", uv_strerror(rc));
     uv_close((uv_handle_t*)new_udp_handle, closed_handle_cb);
     return rc;
-  }
-
-  if (!new_udp_handle) {
-    log_error("Failed to create UDP handle for connection");
-    return -EIO;
   }
 
   // Store in internal connection state instead of connection group,
@@ -345,6 +347,13 @@ int udp_clone_connection(const struct ct_connection_s* source_connection, struct
 
   target_connection->internal_connection_state = (uv_handle_t*)new_udp_handle;
   new_udp_handle->data = target_connection;
+
+  int rc = resolve_local_endpoint_from_handle((uv_handle_t*)new_udp_handle, target_connection);
+  if (rc < 0) {
+    log_error("Failed to get UDP socket name for cloned connection: %s", uv_strerror(rc));
+    uv_close((uv_handle_t*)new_udp_handle, closed_handle_cb);
+    return rc;
+  }
 
   ct_connection_mark_as_established(target_connection);
   if (target_connection->connection_callbacks.ready) {

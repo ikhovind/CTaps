@@ -180,3 +180,7 @@ uint16_t local_endpoint_get_resolved_port(const ct_local_endpoint_t* local_endpo
   return 0;
 }
 
+void local_endpoint_set_resolved_address(ct_local_endpoint_t* local_endpoint, const struct sockaddr_storage* resolved_address) {
+  local_endpoint->data.resolved_address = *resolved_address;
+}
+
