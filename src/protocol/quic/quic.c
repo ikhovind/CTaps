@@ -322,6 +322,11 @@ size_t quic_alpn_select_cb(picoquic_quic_t* quic, ptls_iovec_t* list, size_t cou
 
   ct_listener_t* listener = quic_context->listener;
 
+  if (!listener->security_parameters->security_parameters[ALPN].value.array_of_strings) {
+    log_warn("Listener has no ALPNs configured for selection");
+    return count;
+  }
+
   const ct_string_array_value_t* listener_alpns = listener->security_parameters->security_parameters[ALPN].value.array_of_strings;
 
   for (size_t i = 0; i < count; i++) {

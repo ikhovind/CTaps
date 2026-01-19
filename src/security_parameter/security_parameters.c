@@ -105,9 +105,19 @@ ct_security_parameters_t* ct_security_parameters_deep_copy(const ct_security_par
       switch (src_param->type) {
         case TYPE_STRING_ARRAY:
           dst_param->value.array_of_strings = ct_string_array_value_deep_copy(src_param->value.array_of_strings);
+          if (!dst_param->value.array_of_strings) {
+            log_error("Failed to deep copy string array security parameter");
+            ct_sec_param_free(copy);
+            return NULL;
+          }
           break;
         case TYPE_CERTIFICATE_BUNDLES:
           dst_param->value.certificate_bundles = ct_certificate_bundles_deep_copy(src_param->value.certificate_bundles);
+          if (!dst_param->value.certificate_bundles) {
+            log_error("Failed to deep copy certificate bundles security parameter");
+            ct_sec_param_free(copy);
+            return NULL;
+          }
           break;
       }
     }
