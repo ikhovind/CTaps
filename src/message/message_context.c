@@ -18,10 +18,17 @@ ct_message_context_t* ct_message_context_new(void) {
 
   // Initialize with default message properties
   ctx->message_properties = DEFAULT_MESSAGE_PROPERTIES;
-  ctx->local_endpoint = NULL;
-  ctx->remote_endpoint = NULL;
-  ctx->user_receive_context = NULL;
 
+  return ctx;
+}
+
+ct_message_context_t* ct_message_context_new_from_connection(const ct_connection_t* connection) {
+  ct_message_context_t* ctx = ct_message_context_new();
+  if (!ctx) {
+    return NULL;
+  }
+  ctx->local_endpoint = &connection->local_endpoint;
+  ctx->remote_endpoint = &connection->remote_endpoint;
   return ctx;
 }
 
@@ -38,30 +45,9 @@ ct_message_context_t* ct_message_context_deep_copy(const ct_message_context_t* s
   // Deep copy message properties
   copy->message_properties = source->message_properties;
 
-  // Deep copy local endpoint if present
-  if (source->local_endpoint) {
-    copy->local_endpoint = local_endpoint_copy(source->local_endpoint);
-    if (!copy->local_endpoint) {
-      free(copy);
-      return NULL;
-    }
-  } else {
-    copy->local_endpoint = NULL;
-  }
-
-  // Deep copy remote endpoint if present
-  if (source->remote_endpoint) {
-    copy->remote_endpoint = remote_endpoint_copy(source->remote_endpoint);
-    if (!copy->remote_endpoint) {
-      if (copy->local_endpoint) {
-        ct_local_endpoint_free(copy->local_endpoint);
-      }
-      free(copy);
-      return NULL;
-    }
-  } else {
-    copy->remote_endpoint = NULL;
-  }
+  // shallow copy endpoints, because these are only set by the library, and are owned by an associated connection
+  copy->local_endpoint = source->local_endpoint;
+  copy->remote_endpoint = source->remote_endpoint;
 
   // Copy user context pointer (shallow copy - user owns the actual data)
   copy->user_receive_context = source->user_receive_context;
@@ -72,15 +58,6 @@ ct_message_context_t* ct_message_context_deep_copy(const ct_message_context_t* s
 void ct_message_context_free(ct_message_context_t* message_context) {
   if (!message_context) {
     return;
-  }
-
-  // Free endpoints if they exist
-  if (message_context->local_endpoint) {
-    ct_local_endpoint_free(message_context->local_endpoint);
-  }
-
-  if (message_context->remote_endpoint) {
-    ct_remote_endpoint_free(message_context->remote_endpoint);
   }
 
   free(message_context);

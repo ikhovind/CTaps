@@ -58,7 +58,7 @@ void alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
   *buf = uv_buf_init(malloc(suggested_size), suggested_size);
 }
 
-void udp_multiplex_received_message(ct_socket_manager_t* socket_manager, ct_message_t* message, const struct sockaddr_storage* remote_addr) {
+void udp_multiplex_received_message(ct_socket_manager_t* socket_manager, char* buf, size_t len, const struct sockaddr_storage* remote_addr) {
   log_trace("UDP listener received message, demultiplexing to connection");
 
   bool was_new = false;
@@ -67,7 +67,6 @@ void udp_multiplex_received_message(ct_socket_manager_t* socket_manager, ct_mess
 
   if (connection_group == NULL) {
     log_error("Failed to get or create connection group for UDP message");
-    ct_message_free(message);
     return;
   }
 
@@ -75,7 +74,6 @@ void udp_multiplex_received_message(ct_socket_manager_t* socket_manager, ct_mess
   ct_connection_t* connection = ct_connection_group_get_first(connection_group);
   if (connection == NULL) {
     log_error("Connection group exists but has no connections");
-    ct_message_free(message);
     return;
   }
 
@@ -83,20 +81,7 @@ void udp_multiplex_received_message(ct_socket_manager_t* socket_manager, ct_mess
     log_debug("UDP listener invoking callback for new connection from remote endpoint");
     socket_manager->listener->listener_callbacks.connection_received(socket_manager->listener, connection);
   }
-
-  if (g_queue_is_empty(connection->received_callbacks)) {
-    log_debug("Connection has no receive callback ready, queueing message");
-    g_queue_push_tail(connection->received_messages, message);
-  }
-  else {
-    log_debug("Connection has receive callback ready, invoking it");
-    ct_receive_callbacks_t* receive_callback = g_queue_pop_head(connection->received_callbacks);
-
-    ct_message_context_t ctx = {0};
-    ctx.user_receive_context = receive_callback->user_receive_context;
-    receive_callback->receive_callback(connection, &message, &ctx);
-    free(receive_callback);
-  }
+  ct_connection_on_protocol_receive(connection, buf, len);
 }
 
 void on_send(uv_udp_send_t* req, int status) {
@@ -136,10 +121,26 @@ void on_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
   free(buf->base);
 }
 
+void closed_handle_cb(uv_handle_t* handle) {
+  free(handle);
+  log_info("Successfully closed UDP handle");
+}
+
 int udp_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks) {
   log_debug("Initiating UDP connection\n");
 
   uv_udp_t* new_udp_handle = create_udp_listening_on_local(&connection->local_endpoint, alloc_buffer, on_read);
+  
+  // struct sockaddr_storage local_addr;
+  // int rc = uv_udp_getsockname(new_udp_handle, (struct sockaddr*)&local_addr, &(int){sizeof(connection->local_endpoint.data.resolved_address)});
+  int namelen = sizeof(connection->local_endpoint.data.resolved_address);
+  int rc = uv_udp_getsockname(new_udp_handle, (struct sockaddr*)&connection->local_endpoint.data.resolved_address, &namelen);
+  if (rc < 0) {
+    log_error("Failed to get UDP socket name: %s", uv_strerror(rc));
+    uv_close((uv_handle_t*)new_udp_handle, closed_handle_cb);
+    return rc;
+  }
+
   if (!new_udp_handle) {
     log_error("Failed to create UDP handle for connection");
     return -EIO;
@@ -154,11 +155,6 @@ int udp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
   ct_connection_mark_as_established(connection);
   connection_callbacks->ready(connection);
   return 0;
-}
-
-void closed_handle_cb(uv_handle_t* handle) {
-  (void)handle;
-  log_info("Successfully closed UDP handle");
 }
 
 int udp_close(ct_connection_t* connection) {
@@ -291,31 +287,10 @@ void socket_listen_callback(uv_udp_t* handle,
 
   ct_socket_manager_t *socket_manager = (ct_socket_manager_t*)handle->data;
 
-  ct_message_t* received_message = malloc(sizeof(ct_message_t));
-  if (!received_message) {
-    free(buf->base);
-    return;
-  }
-  if (nread > 0) {
-    received_message->content = malloc(nread);
-  }
-  else {
-    received_message->content = NULL;
-  }
-  if (!received_message->content) {
-    free(received_message);
-    free(buf->base);
-    log_error("Could not allocate memory for received message content");
-    return;
-  }
-  received_message->length = nread;
-
-  memcpy(received_message->content, buf->base, nread);
-
-  // Free the buffer allocated by alloc_buffer now that we've copied the data
+  udp_multiplex_received_message(socket_manager, buf->base, buf->len, (struct sockaddr_storage*)addr);
+  // When buf is passed up to connection, connection.c copies the content into a message, so
+  // we can safely free the buffer here
   free(buf->base);
-
-  udp_multiplex_received_message(socket_manager, received_message, (struct sockaddr_storage*)addr);
 }
 
 int udp_listen(ct_socket_manager_t* socket_manager) {

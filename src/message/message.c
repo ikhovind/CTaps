@@ -57,10 +57,29 @@ ct_message_t* ct_message_new_with_content(const char* content, size_t length) {
   return message;
 }
 
-unsigned int ct_message_get_length(const ct_message_t* message) {
+size_t ct_message_get_length(const ct_message_t* message) {
   return message ? message->length : 0;
 }
 
 const char* ct_message_get_content(const ct_message_t* message) {
   return message ? message->content : NULL;
+}
+
+void ct_message_set_content(ct_message_t* message, const char* content, size_t length) {
+  if (!message) {
+    log_error("Cannot set content on a NULL message");
+    return;
+  }
+  if (message->content) {
+    log_debug("Replacing existing message content of size %zu", message->length);
+    free(message->content);
+  }
+  message->content = malloc(length);
+  if (!message->content) {
+    log_error("Failed to allocate memory for message content");
+    message->length = 0;
+    return;
+  }
+  memcpy(message->content, content, length);
+  message->length = length;
 }

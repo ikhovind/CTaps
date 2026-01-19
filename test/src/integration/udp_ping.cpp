@@ -8,8 +8,6 @@ extern "C" {
 #include "fixtures/awaiting_fixture.cpp"
 }
 
-#define UDP_PING_PORT 5005
-
 class UdpGenericTests : public CTapsGenericFixture {};
 
 TEST_F(UdpGenericTests, sendsSingleUdpPacket) {

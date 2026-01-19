@@ -16,6 +16,20 @@
 int ct_connection_build_with_new_connection_group(ct_connection_t* connection);
 
 /**
+ * @brief Deliver received protocol data to the connection
+ *
+ * Used to deliver received data to the connection's framer and application callbacks.
+ *
+ * @param[in] connection The connection
+ * @param[in] data Received data buffer
+ * @param[in] len Length of received data
+ */
+void ct_connection_on_protocol_receive(ct_connection_t* connection,
+                                       const void* data,
+                                       size_t len);
+
+
+/**
   * @brief Allocate 0-initialized connection with only UUID.
   *
   * @return Pointer to newly created empty connection, or NULL on error

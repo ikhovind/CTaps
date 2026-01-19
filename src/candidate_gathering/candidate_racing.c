@@ -133,6 +133,8 @@ static int start_connection_attempt(ct_racing_context_t* context, size_t attempt
   ct_racing_attempt_t* attempt = &context->attempts[attempt_index];
   ct_candidate_node_t* candidate = &attempt->candidate;
 
+  log_info("Candidate has local endpoint port: %u", candidate->local_endpoint->port);
+
   log_debug("Attempting connection with protocol: %s", candidate->protocol->name);
 
   // Allocate connection for this attempt

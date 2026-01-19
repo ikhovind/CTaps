@@ -212,14 +212,20 @@ add_gtest(local_endpoint_resolve_test
     get_service_port
 )
 
-add_gtest(message_context_test
+add_gtest(message_context_unit_test
   SOURCES
-    src/unit/message/message_context_test.cpp
+    src/unit/message/message_context_unit_test.cpp
     ${CTAPS_SOURCES}
 )
 
 add_gtest(connection_properties_test
   SOURCES
     src/unit/transport_properties/connection_properties/connection_properties_test.cpp
+    ${CTAPS_SOURCES}
+)
+
+add_gtest(message_context_integration_test
+  SOURCES
+    src/integration/message/message_context_integration_test.cpp
     ${CTAPS_SOURCES}
 )

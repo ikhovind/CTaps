@@ -204,6 +204,17 @@ int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
     }
     return rc;
   }
+  int namelen = sizeof(connection->local_endpoint.data.resolved_address);
+  rc = uv_tcp_getsockname(new_tcp_handle, (struct sockaddr*)&connection->local_endpoint.data.resolved_address, &namelen);
+  if (rc < 0) {
+    log_error("Failed to get UDP socket name: %s", uv_strerror(rc));
+    ct_connection_close(connection);
+    if (connection->connection_callbacks.establishment_error) {
+      connection->connection_callbacks.establishment_error(connection);
+    }
+    return rc;
+  }
+
   return 0;
 }
 

@@ -4,8 +4,15 @@
 extern "C" {
 #include "ctaps.h"
 #include "ctaps_internal.h"
+#include "endpoint/local_endpoint.h"
 #include <logging/log.h>
 }
+
+#define UDP_PING_PORT 5005
+#define QUIC_PING_PORT 4433
+#define TCP_PING_PORT 5006
+#define QUIC_CLONE_LISTENER_PORT 4434
+
 
 struct CallbackContext {
     std::map<ct_connection_t*, std::vector<ct_message_t*>>* per_connection_messages;
@@ -15,6 +22,7 @@ struct CallbackContext {
     size_t total_expected_messages;
     ct_listener_t* listener;
     bool connection_succeeded = false;
+    uint16_t expected_remote_port = 0; // Expected remote port for message context verification
 };
 
 class CTapsGenericFixture : public ::testing::Test {
@@ -507,6 +515,50 @@ int server_on_connection_received_for_cloning(ct_listener_t* listener, ct_connec
     };
 
     ct_receive_message(new_connection, receive_req);
+    return 0;
+}
+
+// --- Callbacks for message context endpoint verification ---
+
+int verify_message_context_endpoints_and_close(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
+    log_info("verify_message_context_endpoints_and_close: checking message context endpoints");
+    auto* ctx = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
+
+    (*ctx->per_connection_messages)[connection].push_back(*received_message);
+
+    // Get and verify remote endpoint from message context
+    const ct_remote_endpoint_t* remote_ep = ct_message_context_get_remote_endpoint(message_context);
+    EXPECT_NE(remote_ep, nullptr) << "Remote endpoint in message context should not be null";
+    EXPECT_EQ(remote_ep->port, ctx->expected_remote_port) << "Remote endpoint port should match expected port";
+
+    // Get and verify local endpoint from message context
+    const ct_local_endpoint_t* local_ep = ct_message_context_get_local_endpoint(message_context);
+    log_info("Resolved address from local endpoint: %p", local_endpoint_get_resolved_address(local_ep));
+    EXPECT_NE(local_ep, nullptr) << "Local endpoint in message context should not be null";
+    EXPECT_GT(local_endpoint_get_resolved_port(local_ep), 0) << "Local endpoint port should be greater than 0";
+
+    // Close the connection
+    ct_connection_close(connection);
+
+    return 0;
+}
+
+int send_message_and_verify_context_on_receive(ct_connection_t* connection) {
+    log_info("send_message_and_verify_context_on_receive: sending message and setting up receive");
+    auto* context = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
+    context->client_connections.push_back(connection);
+
+    // Send a ping message
+    ct_message_t* message = ct_message_new_with_content("ping", strlen("ping") + 1);
+    ct_send_message(connection, message);
+    ct_message_free(message);
+
+    // Set up receive callback to verify message context
+    ct_receive_callbacks_t receive_callbacks = {
+        .receive_callback = verify_message_context_endpoints_and_close,
+    };
+
+    ct_receive_message(connection, receive_callbacks);
     return 0;
 }
 
