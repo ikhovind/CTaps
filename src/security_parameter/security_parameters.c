@@ -13,7 +13,6 @@ ct_security_parameters_t* ct_security_parameters_new(void) {
   if (!params) {
     return NULL;
   }
-  // Initialize with default values including proper type fields from X-macro
   memcpy(params, &DEFAULT_SECURITY_PARAMETERS, sizeof(ct_security_parameters_t));
   return params;
 }

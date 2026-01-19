@@ -16,7 +16,7 @@ struct ct_listener_s;
 // Per-context QUIC state (one per listener or client connection group)
 // Holds a picoquic_quic_t context with its own timer and certificates
 typedef struct ct_quic_context_s {
-  picoquic_quic_t* quic_ctx;
+  picoquic_quic_t* picoquic_ctx;
   uv_timer_t* timer_handle;
   struct ct_listener_s* listener;      // NULL for client connections
   uint32_t num_active_connections;

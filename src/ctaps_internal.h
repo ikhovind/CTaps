@@ -99,7 +99,6 @@ typedef struct ct_security_parameters_s {
   ct_security_parameter_t security_parameters[SEC_PROPERTY_END];  ///< Array of security parameters
 } ct_security_parameters_t;
 
-// Initializer macro for security parameters - sets name and type from X-macro
 #define create_sec_property_initializer(enum_name, string_name, property_type) \
 {                                                                              \
     .name = string_name,                                                       \
