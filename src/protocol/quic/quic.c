@@ -322,7 +322,7 @@ size_t quic_alpn_select_cb(picoquic_quic_t* quic, ptls_iovec_t* list, size_t cou
 
   ct_listener_t* listener = quic_context->listener;
 
-  const ct_string_array_value_t* listener_alpns = &listener->security_parameters->security_parameters[ALPN].value.array_of_strings;
+  const ct_string_array_value_t* listener_alpns = listener->security_parameters->security_parameters[ALPN].value.array_of_strings;
 
   for (size_t i = 0; i < count; i++) {
     for (size_t j = 0; j < listener_alpns->num_strings; j++) {
@@ -670,7 +670,7 @@ int picoquic_callback(picoquic_cnx_t* cnx,
           log_error("No security parameters set for connection when handling ALPN request");
           return -EINVAL;
         }
-        const ct_string_array_value_t* alpn_string_array = &connection->security_parameters->security_parameters[ALPN].value.array_of_strings;
+        const ct_string_array_value_t* alpn_string_array = connection->security_parameters->security_parameters[ALPN].value.array_of_strings;
         log_trace("Number of ALPN strings to propose: %zu", alpn_string_array->num_strings);
         for (size_t i = 0; i < alpn_string_array->num_strings; i++) {
           picoquic_add_proposed_alpn(bytes, alpn_string_array->strings[i]);
@@ -957,7 +957,7 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
   }
 
   const ct_certificate_bundles_t* cert_bundles =
-      &connection->security_parameters->security_parameters[CLIENT_CERTIFICATE].value.certificate_bundles;
+      connection->security_parameters->security_parameters[CLIENT_CERTIFICATE].value.certificate_bundles;
 
   if (cert_bundles->num_bundles == 0) {
     log_error("No certificate bundle configured for QUIC client connection");
@@ -1231,7 +1231,7 @@ int quic_listen(ct_socket_manager_t* socket_manager) {
   }
 
   const ct_certificate_bundles_t* cert_bundles =
-      &listener->security_parameters->security_parameters[SERVER_CERTIFICATE].value.certificate_bundles;
+      listener->security_parameters->security_parameters[SERVER_CERTIFICATE].value.certificate_bundles;
 
   if (cert_bundles->num_bundles == 0) {
     log_error("No certificate bundle configured for QUIC listener");

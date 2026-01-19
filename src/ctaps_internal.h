@@ -78,8 +78,8 @@ typedef struct {
  * @brief Union holding security parameter values.
  */
 typedef union ct_sec_property_value_u {
-  ct_string_array_value_t array_of_strings;  ///< For TYPE_STRING_ARRAY properties
-  ct_certificate_bundles_t certificate_bundles; ///< For TYPE_CERTIFICATE_BUNDLES properties
+  ct_string_array_value_t* array_of_strings;  ///< For TYPE_STRING_ARRAY properties
+  ct_certificate_bundles_t* certificate_bundles; ///< For TYPE_CERTIFICATE_BUNDLES properties
 } ct_sec_property_value_t;
 
 /**
@@ -105,7 +105,7 @@ typedef struct ct_security_parameters_s {
     .name = string_name,                                                       \
     .type = property_type,                                                     \
     .set_by_user = false,                                                      \
-    .value = {{0}}                                                             \
+    .value = {0}                                                               \
 },
 
 static const ct_security_parameters_t DEFAULT_SECURITY_PARAMETERS = {
