@@ -415,6 +415,89 @@ typedef enum {
  */
 typedef struct ct_connection_properties_s ct_connection_properties_t;
 
+// Connection property getters
+
+CT_EXTERN uint64_t ct_connection_properties_get_recv_checksum_len(ct_connection_properties_t* conn_props);
+
+CT_EXTERN uint32_t ct_connection_properties_get_conn_priority(ct_connection_properties_t* conn_props);
+
+CT_EXTERN uint32_t ct_connection_properties_get_conn_timeout(ct_connection_properties_t* conn_props);
+
+CT_EXTERN uint32_t ct_connection_properties_get_keep_alive_timeout(ct_connection_properties_t* conn_props);
+
+CT_EXTERN ct_connection_scheduler_enum_t ct_connection_properties_get_conn_scheduler(ct_connection_properties_t* conn_props);
+
+CT_EXTERN ct_capacity_profile_enum_t ct_connection_properties_get_conn_capacity_profile(ct_connection_properties_t* conn_props);
+
+CT_EXTERN ct_multipath_policy_enum_t ct_connection_properties_get_multipath_policy(ct_connection_properties_t* conn_props);
+
+CT_EXTERN uint64_t ct_connection_properties_get_min_send_rate(ct_connection_properties_t* conn_props);
+
+CT_EXTERN uint64_t ct_connection_properties_get_min_recv_rate(ct_connection_properties_t* conn_props);
+
+CT_EXTERN uint64_t ct_connection_properties_get_max_send_rate(ct_connection_properties_t* conn_props);
+
+CT_EXTERN uint64_t ct_connection_properties_get_max_recv_rate(ct_connection_properties_t* conn_props);
+
+CT_EXTERN uint64_t ct_connection_properties_get_group_conn_limit(ct_connection_properties_t* conn_props);
+
+CT_EXTERN bool ct_connection_properties_get_isolate_session(ct_connection_properties_t* conn_props);
+
+CT_EXTERN ct_connection_state_enum_t ct_connection_properties_get_state(ct_connection_properties_t* conn_props);
+
+CT_EXTERN bool ct_connection_properties_get_can_send(ct_connection_properties_t* conn_props);
+
+CT_EXTERN bool ct_connection_properties_get_can_receive(ct_connection_properties_t* conn_props);
+
+CT_EXTERN uint64_t ct_connection_properties_get_singular_transmission_msg_max_len(ct_connection_properties_t* conn_props);
+
+CT_EXTERN uint64_t ct_connection_properties_get_send_message_max_len(ct_connection_properties_t* conn_props);
+
+CT_EXTERN uint64_t ct_connection_properties_get_recv_message_max_len(ct_connection_properties_t* conn_props);
+
+CT_EXTERN uint32_t ct_connection_properties_get_user_timeout_value_ms(ct_connection_properties_t* conn_props);
+
+CT_EXTERN bool ct_connection_properties_get_user_timeout_enabled(ct_connection_properties_t* conn_props);
+
+CT_EXTERN bool ct_connection_properties_get_user_timeout_changeable(ct_connection_properties_t* conn_props);
+
+// Writable connection property setters
+
+CT_EXTERN void ct_connection_properties_set_recv_checksum_len(ct_connection_properties_t* conn_props, uint32_t recv_checksum_len);
+
+CT_EXTERN void ct_connection_properties_set_conn_priority(ct_connection_properties_t* conn_props, uint32_t conn_priority);
+
+CT_EXTERN void ct_connection_properties_set_conn_timeout(ct_connection_properties_t* conn_props, uint32_t conn_timeout);
+
+CT_EXTERN void ct_connection_properties_set_keep_alive_timeout(ct_connection_properties_t* conn_props, uint32_t keep_alive_timeout);
+
+CT_EXTERN void ct_connection_properties_set_conn_scheduler(ct_connection_properties_t* conn_props, ct_connection_scheduler_enum_t conn_scheduler);
+
+CT_EXTERN void ct_connection_properties_set_conn_capacity_profile(ct_connection_properties_t* conn_props, ct_capacity_profile_enum_t conn_capacity_profile);
+
+CT_EXTERN void ct_connection_properties_set_multipath_policy(ct_connection_properties_t* conn_props, ct_multipath_policy_enum_t multipath_policy);
+
+CT_EXTERN void ct_connection_properties_set_min_send_rate(ct_connection_properties_t* conn_props, uint64_t min_send_rate);
+
+
+CT_EXTERN void ct_connection_properties_set_min_recv_rate(ct_connection_properties_t* conn_props, uint64_t min_recv_rate);
+
+CT_EXTERN void ct_connection_properties_set_max_send_rate(ct_connection_properties_t* conn_props, uint64_t max_send_rate);
+
+CT_EXTERN void ct_connection_properties_set_max_recv_rate(ct_connection_properties_t* conn_props, uint64_t max_recv_rate);
+
+CT_EXTERN void ct_connection_properties_set_group_conn_limit(ct_connection_properties_t* conn_props, uint64_t group_conn_limit);
+
+CT_EXTERN void ct_connection_properties_set_isolate_session(ct_connection_properties_t* conn_props, bool isolate_session);
+
+CT_EXTERN void ct_connection_properties_set_user_timeout_value_ms(ct_connection_properties_t* conn_props, uint32_t user_timeout_value_ms);
+
+CT_EXTERN void ct_connection_properties_set_user_timeout_enabled(ct_connection_properties_t* conn_props, bool user_timeout_enabled);
+
+// TODO - is user_timeout_changeable settable?
+
+
+
 #define create_con_property_initializer(enum_name, string_name, property_type, default_value) \
   [enum_name] = {                                                          \
     .name = string_name,                                                   \
@@ -1270,6 +1353,8 @@ CT_EXTERN const char* ct_message_get_content(const ct_message_t* message);
  */
 CT_EXTERN ct_message_context_t* ct_message_context_new();
 
+
+
 /**
  * @brief Free resources in a message context.
  * @param[in] message_context Context to free
@@ -1291,7 +1376,7 @@ CT_EXTERN ct_message_properties_t* ct_message_context_get_message_properties(ct_
  * @brief Get the remote endpoint from a message context.
  *
  * @param[in] message_context Context to get remote endpoint from
- * @return Pointer to remote endpoint, or NULL if message_context is NULL
+ * @return Pointer to remote endpoint, or NULL if message_context is NULL or remote endpoint not set
  */
 CT_EXTERN const ct_remote_endpoint_t* ct_message_context_get_remote_endpoint(const ct_message_context_t* message_context);
 
@@ -1300,7 +1385,7 @@ CT_EXTERN const ct_remote_endpoint_t* ct_message_context_get_remote_endpoint(con
  * @brief Get the local endpoint from a message context.
  *
  * @param[in] message_context Context to get local endpoint from
- * @return Pointer to local endpoint, or NULL if message_context is NULL
+ * @return Pointer to local endpoint, or NULL if message_context is NULL or local endpoint not set
  */
 CT_EXTERN const ct_local_endpoint_t* ct_message_context_get_local_endpoint(const ct_message_context_t* message_context);
 
