@@ -22,7 +22,7 @@ struct CallbackContext {
     size_t total_expected_messages;
     ct_listener_t* listener;
     bool connection_succeeded = false;
-    uint16_t expected_remote_port = 0; // Expected remote port for message context verification
+    uint16_t expected_server_port = 0; // Expected remote port for message context verification
 };
 
 class CTapsGenericFixture : public ::testing::Test {
@@ -125,6 +125,30 @@ int respond_on_message_received_inline(ct_connection_t* connection, ct_message_t
     log_info("ct_callback_t: respond_on_message_received.\n");
     auto* ctx = static_cast<CallbackContext*>(message_context->user_receive_context);
     (*ctx->per_connection_messages)[connection].push_back(*received_message);
+
+    ct_message_t* message = ct_message_new_with_content("pong", strlen("pong") + 1);
+    ct_send_message(connection, message);
+    ct_message_free(message);
+    return 0;
+}
+
+int respond_and_verify_server_message_context_remote_context_on_message_received(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
+    log_info("ct_callback_t: respond_on_message_received.\n");
+    auto* ctx = static_cast<CallbackContext*>(message_context->user_receive_context);
+    (*ctx->per_connection_messages)[connection].push_back(*received_message);
+
+    // This is used for the connection from the point of view of the server listener
+    // This means the remote endpoint should be ephemeral, since the client does not set a specific port
+    // The local endpoint should be the listener's port
+
+    const ct_remote_endpoint_t* remote_ep = ct_message_context_get_remote_endpoint(message_context);
+    EXPECT_NE(remote_ep, nullptr) << "Remote endpoint in message context should not be null";
+    EXPECT_GT(remote_ep->port, 0) << "Remote endpoint port be ephemeral (greater than 0)";
+
+    const ct_local_endpoint_t* local_ep = ct_message_context_get_local_endpoint(message_context);
+    log_info("Resolved address from local endpoint: %p", local_endpoint_get_resolved_address(local_ep));
+    EXPECT_NE(local_ep, nullptr) << "Local endpoint in message context should not be null";
+    EXPECT_GT(local_endpoint_get_resolved_port(local_ep), ctx->expected_server_port) << "For server, local endpoint port should match server port";
 
     ct_message_t* message = ct_message_new_with_content("pong", strlen("pong") + 1);
     ct_send_message(connection, message);
@@ -520,18 +544,19 @@ int server_on_connection_received_for_cloning(ct_listener_t* listener, ct_connec
 
 // --- Callbacks for message context endpoint verification ---
 
-int verify_message_context_endpoints_and_close(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
-    log_info("verify_message_context_endpoints_and_close: checking message context endpoints");
+int verify_client_message_context_endpoints_and_close(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
+    log_info("verify_client_message_context_endpoints_and_close: checking message context endpoints");
     auto* ctx = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
 
     (*ctx->per_connection_messages)[connection].push_back(*received_message);
 
-    // Get and verify remote endpoint from message context
+    // Since this is from the point of view of the client connection,
+    // The local endpoint will be ephemeral (client's port)
+    // and the remote endpoint will be the server's listening port
     const ct_remote_endpoint_t* remote_ep = ct_message_context_get_remote_endpoint(message_context);
     EXPECT_NE(remote_ep, nullptr) << "Remote endpoint in message context should not be null";
-    EXPECT_EQ(remote_ep->port, ctx->expected_remote_port) << "Remote endpoint port should match expected port";
+    EXPECT_EQ(remote_ep->port, ctx->expected_server_port) << "For client, remote endpoint port should match server port";
 
-    // Get and verify local endpoint from message context
     const ct_local_endpoint_t* local_ep = ct_message_context_get_local_endpoint(message_context);
     log_info("Resolved address from local endpoint: %p", local_endpoint_get_resolved_address(local_ep));
     EXPECT_NE(local_ep, nullptr) << "Local endpoint in message context should not be null";
@@ -555,10 +580,26 @@ int send_message_and_verify_context_on_receive(ct_connection_t* connection) {
 
     // Set up receive callback to verify message context
     ct_receive_callbacks_t receive_callbacks = {
-        .receive_callback = verify_message_context_endpoints_and_close,
+        .receive_callback = verify_client_message_context_endpoints_and_close,
     };
 
     ct_receive_message(connection, receive_callbacks);
     return 0;
 }
 
+int receive_message_verify_and_close_listener_on_connection_received(ct_listener_t* listener, ct_connection_t* new_connection) {
+    log_trace("ct_connection_t received callback from listener");
+    auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
+    context->server_connections.push_back(new_connection);
+
+    ct_receive_callbacks_t receive_message_request = {
+      .receive_callback = respond_and_verify_server_message_context_remote_context_on_message_received,
+      .user_receive_context = listener->listener_callbacks.user_listener_context,
+    };
+
+    ct_listener_close(listener);
+
+    log_trace("Adding receive callback from ct_listener_t");
+    ct_receive_message(new_connection, receive_message_request);
+    return 0;
+}

@@ -8,8 +8,6 @@ extern "C" {
 #include <logging/log.h>
 }
 
-#define QUIC_PING_PORT 4433
-
 class QuicPingTest : public CTapsGenericFixture {};
 
 TEST_F(QuicPingTest, successfullyPingsQuicServer) {
