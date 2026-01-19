@@ -378,15 +378,7 @@ int handle_closed_picoquic_connection(ct_connection_t* connection) {
     }
     uv_close((uv_handle_t*)group_state->udp_handle, quic_closed_udp_handle_cb);
     log_info("Successfully handled closed QUIC connection");
-
-    // Note: quic_context is freed via timer close callback - not here, as this
-    // function may be called from within the timer callback chain
-    // Mark the context for cleanup by stopping the timer
-    if (quic_context && quic_context->timer_handle) {
-      uv_timer_stop(quic_context->timer_handle);
-      uv_close((uv_handle_t*)quic_context->timer_handle, quic_context_timer_close_cb);
-      quic_context->timer_handle = NULL;
-    }
+    ct_close_quic_context(quic_context);
 
     ct_free_quic_group_state(group_state);
     ct_free_quic_stream_state(stream_state);
@@ -822,8 +814,8 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
     ct_quic_group_state_t* listener_group_state = (ct_quic_group_state_t*)listener->socket_manager->internal_socket_manager_state;
     group_state->udp_handle = listener_group_state->udp_handle;
     group_state->udp_sock_name = malloc(sizeof(struct sockaddr_storage));
-    int inner_namelen = sizeof(struct sockaddr_storage);
-    rc = uv_udp_getsockname(group_state->udp_handle, (struct sockaddr*)group_state->udp_sock_name, &inner_namelen);
+    int sockname_len = sizeof(struct sockaddr_storage);
+    rc = uv_udp_getsockname(group_state->udp_handle, (struct sockaddr*)group_state->udp_sock_name, &sockname_len);
     if (rc < 0) {
       log_error("Could not get UDP socket name for QUIC connection: %s", uv_strerror(rc));
       free(group_state->udp_sock_name);
