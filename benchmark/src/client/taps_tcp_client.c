@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
     client_ctx.host = host;
     client_ctx.port = port;
 
-    if (ct_initialize(NULL, NULL) != 0) {
+    if (ct_initialize() != 0) {
         if (json_only_mode) {
             printf("ERROR\n");
         } else {

@@ -23,21 +23,12 @@
 #  define CT_EXTERN
 #endif
 
-/**
- * @brief Global configuration structure for CTaps library.
- */
-typedef struct ct_config_s {
-  char* cert_file_name;  ///< Path to TLS certificate file for secure connections
-  char* key_file_name;   ///< Path to TLS private key file for secure connections
-} ct_config_t;
-
 // =============================================================================
 // Library State and Configuration
 // =============================================================================
 
 typedef struct ct_config_s ct_config_t;
 
-extern ct_config_t global_config;
 extern uv_loop_t* event_loop;
 
 /**
@@ -71,13 +62,7 @@ typedef struct ct_listener_s ct_listener_t;
  * @brief Initialize the CTaps library
  *
  * This function must be called before any other CTaps functions. It initializes
- * the library state, sets up the protocol registry, and configures TLS credentials
- * for secure connections (QUIC).
- *
- * @param[in] cert_file_name Path to the TLS certificate file (PEM format). Can be NULL
- *                           if QUIC will not be used.
- * @param[in] key_file_name Path to the TLS private key file (PEM format). Can be NULL
- *                          if QUIC will not be used.
+ * the library state, and sets up the protocol registry.
  *
  * @return 0 on success
  * @return Non-zero error code on failure
@@ -88,7 +73,7 @@ typedef struct ct_listener_s ct_listener_t;
  * @see ct_start_event_loop() for starting the event loop after initialization
  * @see ct_close() for cleanup and shutdown
  */
-CT_EXTERN int ct_initialize(const char *cert_file_name, const char *key_file_name);
+CT_EXTERN int ct_initialize(void);
 
 /**
  * @brief Start the CTaps event loop (blocking operation).
@@ -477,13 +462,6 @@ typedef struct ct_transport_properties_s ct_transport_properties_t;
 // =============================================================================
 
 /**
- * @brief Type of value stored in a security parameter.
- */
-typedef enum ct_sec_property_type_t {
-  TYPE_STRING_ARRAY,  ///< Array of strings (e.g., ALPN protocols, cipher suites)
-} ct_sec_property_type_t;
-
-/**
  * @brief Union holding security parameter values.
  * Opaque type - full definition is in ctaps_internal.h.
  */
@@ -499,6 +477,8 @@ typedef struct ct_sec_property_s ct_security_parameter_t;
 #define get_security_parameter_list(f)                                                                    \
   f(SUPPORTED_GROUP,    "supportedGroup",    TYPE_STRING_ARRAY)                  \
   f(CIPHERSUITE,        "ciphersuite",       TYPE_STRING_ARRAY)                  \
+  f(SERVER_CERTIFICATE, "serverCertificate", TYPE_CERTIFICATE_BUNDLES)                  \
+  f(CLIENT_CERTIFICATE, "clientCertificate", TYPE_CERTIFICATE_BUNDLES)                  \
   f(SIGNATURE_ALGORITHM,"signatureAlgorithm",TYPE_STRING_ARRAY)                  \
   f(ALPN,               "alpn",              TYPE_STRING_ARRAY)
 // clang-format on
@@ -969,23 +949,6 @@ CT_EXTERN bool ct_message_properties_get_boolean(const ct_message_properties_t* 
 
 CT_EXTERN ct_capacity_profile_enum_t ct_message_properties_get_capacity_profile(const ct_message_properties_t* message_properties,  ct_message_properties_enum_t property);
 
-/*
-
-  f(MSG_LIFETIME,           "msgLifetime",          TYPE_UINT64_MSG,   0)                  \
-  f(MSG_PRIORITY,           "msgPriority",          TYPE_INTEGER_MSG,  100)                \
-  f(MSG_ORDERED,            "msgOrdered",           TYPE_BOOLEAN_MSG,  true)               \
-  f(MSG_SAFELY_REPLAYABLE,  "msgSafelyReplayable",  TYPE_BOOLEAN_MSG,  false)              \
-  f(FINAL,                  "final",                TYPE_BOOLEAN_MSG,  false)              \
-  f(MSG_CHECKSUM_LEN,       "msgChecksumLen",       TYPE_INTEGER_MSG,  0)                  \
-  f(MSG_RELIABLE,           "msgReliable",          TYPE_BOOLEAN_MSG,  true)               \
-  f(MSG_CAPACITY_PROFILE,   "msgCapacityProfile",   TYPE_ENUM_MSG,     CAPACITY_PROFILE_BEST_EFFORT)    \
-  f(NO_FRAGMENTATION,       "noFragmentation",      TYPE_BOOLEAN_MSG,  false)              \
-  f(NO_SEGMENTATION,        "noSegmentation",       TYPE_BOOLEAN_MSG,  false)
-
- */
-
-
-
 /**
  * @brief Free resources in message properties.
  * @param[in] message_properties structure to free
@@ -998,6 +961,16 @@ CT_EXTERN void ct_message_properties_free(ct_message_properties_t* message_prope
  */
 CT_EXTERN void ct_transport_properties_free(ct_transport_properties_t* transport_properties);
 
+// Certificate bundles
+typedef struct ct_certificate_bundles_s ct_certificate_bundles_t;
+
+CT_EXTERN ct_certificate_bundles_t* ct_certificate_bundles_new(void);
+
+CT_EXTERN int ct_certificate_bundles_add_cert(ct_certificate_bundles_t* bundles, const char* cert_file_path, const char* key_file_path);
+
+CT_EXTERN void ct_certificate_bundles_free(ct_certificate_bundles_t* bundles);
+
+
 // Security Parameters
 /**
  * @brief Allocate a new security parameters object on the heap.
@@ -1009,7 +982,7 @@ CT_EXTERN ct_security_parameters_t* ct_security_parameters_new(void);
  * @brief Free resources in security parameters including the structure itself.
  * @param[in] security_parameters structure to free
  */
-CT_EXTERN void ct_security_parameters_free(ct_security_parameters_t* security_parameters);
+CT_EXTERN void ct_sec_param_free(ct_security_parameters_t* security_parameters);
 
 /**
  * @brief Set a string array security parameter (e.g., ALPN, ciphersuites).
@@ -1021,11 +994,7 @@ CT_EXTERN void ct_security_parameters_free(ct_security_parameters_t* security_pa
  */
 CT_EXTERN int ct_sec_param_set_property_string_array(ct_security_parameters_t* security_parameters, ct_security_property_enum_t property, char** strings, size_t num_strings);
 
-/**
- * @brief Free string content in security parameters without freeing the structure.
- * @param[in] security_parameters structure whose content to free
- */
-CT_EXTERN void ct_free_security_parameter_content(ct_security_parameters_t* security_parameters);
+CT_EXTERN int ct_sec_param_set_property_certificate_bundles(ct_security_parameters_t* security_parameters, ct_security_property_enum_t property, ct_certificate_bundles_t* bundles);
 
 // ==============================================================================
 // ENDPOINT OWNERSHIP MODEL

@@ -27,7 +27,7 @@ protected:
 
 
     void SetUp() override {
-        int rc = ct_initialize(TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
+        int rc = ct_initialize();
         ct_set_log_level(CT_LOG_TRACE);
         ASSERT_EQ(rc, 0);
 

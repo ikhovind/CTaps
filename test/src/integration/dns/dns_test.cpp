@@ -11,7 +11,7 @@ class RemoteEndpointDnsTests : public CTapsGenericFixture {};
 
 TEST_F(RemoteEndpointDnsTests, canDnsLookupHostName) {
     GTEST_SKIP(); // Don't know why this fails atm
-    ct_initialize(NULL,NULL);
+    ct_initialize();
     printf("Sending UDP packet...\n");
 
     ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();

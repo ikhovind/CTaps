@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
     client_ctx.host = host;
     client_ctx.port = port;
 
-    if (ct_initialize(RESOURCE_FOLDER "/cert.pem", RESOURCE_FOLDER "/key.pem") != 0) {
+    if (ct_initialize() != 0) {
         fprintf(stderr, "ERROR: Failed to initialize CTaps\n");
         return -1;
     }
@@ -67,12 +67,12 @@ int main(int argc, char *argv[]) {
     ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, security_parameters);
     if (!preconnection) {
         fprintf(stderr, "Failed to allocate preconnection\n");
-        ct_security_parameters_free(security_parameters);
+        ct_sec_param_free(security_parameters);
         ct_transport_properties_free(transport_properties);
         ct_remote_endpoint_free(remote_endpoint);
         return 1;
     }
-    ct_security_parameters_free(security_parameters);
+    ct_sec_param_free(security_parameters);
 
     ct_connection_callbacks_t connection_callbacks = {
         .ready = on_connection_ready,

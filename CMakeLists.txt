@@ -38,6 +38,7 @@ set(CTAPS_SOURCES
     src/transport_property/message_properties/message_properties.c
     # Security parameters
     src/security_parameter/security_parameters.c
+    src/security_parameter/certificate_bundles/certificate_bundles.c
     # Connections
     src/connection/preconnection.c
     src/connection/connection.c

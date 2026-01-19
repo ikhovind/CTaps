@@ -58,17 +58,10 @@ const ct_protocol_impl_t quic_protocol_interface = {
     .retarget_protocol_connection = quic_retarget_protocol_connection
 };
 
-void on_quic_timer(uv_timer_t* timer_handle);
-
 int picoquic_callback(picoquic_cnx_t* cnx,
     uint64_t stream_id, uint8_t* bytes, size_t length,
     picoquic_call_back_event_t fin_or_event, void* callback_ctx, void* v_stream_ctx);
 
-typedef struct ct_quic_global_state_t {
-  struct ct_listener_s* listener;
-  uv_timer_t* timer_handle;
-  uint32_t num_active_sockets;
-} ct_quic_global_state_t;
 
 ct_quic_group_state_t* ct_create_quic_group_state() {
   ct_quic_group_state_t* state = malloc(sizeof(ct_quic_group_state_t));
@@ -94,6 +87,142 @@ void ct_free_quic_stream_state(ct_quic_stream_state_t* state) {
   if (state) {
     free(state);
   }
+}
+
+// Forward declaration for timer callback
+void on_quic_context_timer(uv_timer_t* timer_handle);
+
+// Internal helper to free QUIC context resources (excluding timer)
+static void quic_context_free_resources(ct_quic_context_t* ctx) {
+  if (ctx->quic_ctx) {
+    picoquic_free(ctx->quic_ctx);
+  }
+  if (ctx->cert_file_name) {
+    free(ctx->cert_file_name);
+  }
+  if (ctx->key_file_name) {
+    free(ctx->key_file_name);
+  }
+  free(ctx);
+  log_debug("Freed QUIC context");
+}
+
+static void quic_context_timer_close_cb(uv_handle_t* handle) {
+  log_info("Successfully closed QUIC context timer handle");
+  uv_timer_t* timer = (uv_timer_t*)handle;
+  ct_quic_context_t* ctx = (ct_quic_context_t*)timer->data;
+  free(handle);
+
+  // Now safe to free the QUIC context - timer callback is done
+  if (ctx) {
+    quic_context_free_resources(ctx);
+  }
+}
+
+ct_quic_context_t* ct_create_quic_context(const char* cert_file, const char* key_file, struct ct_listener_s* listener) {
+  if (!cert_file || !key_file) {
+    log_error("Certificate and key files are required for QUIC context creation");
+    return NULL;
+  }
+
+  ct_quic_context_t* ctx = malloc(sizeof(ct_quic_context_t));
+  if (!ctx) {
+    log_error("Failed to allocate memory for QUIC context");
+    return NULL;
+  }
+  memset(ctx, 0, sizeof(ct_quic_context_t));
+
+  // Store certificate file names (deep copy)
+  ctx->cert_file_name = strdup(cert_file);
+  if (!ctx->cert_file_name) {
+    log_error("Failed to duplicate certificate file name");
+    free(ctx);
+    return NULL;
+  }
+
+  ctx->key_file_name = strdup(key_file);
+  if (!ctx->key_file_name) {
+    log_error("Failed to duplicate key file name");
+    free(ctx->cert_file_name);
+    free(ctx);
+    return NULL;
+  }
+
+  ctx->listener = listener;
+  ctx->num_active_connections = 0;
+
+  // Create picoquic context
+  ctx->quic_ctx = picoquic_create(
+      MAX_CONCURRENT_QUIC_CONNECTIONS,
+      ctx->cert_file_name,
+      ctx->key_file_name,
+      NULL,
+      NULL,  // ALPN selection handled by callback
+      picoquic_callback,
+      ctx,   // Default callback context is the quic_context
+      NULL,
+      NULL,
+      NULL,
+      picoquic_current_time(),
+      NULL,
+      NULL,
+      NULL,
+      0
+  );
+
+  if (!ctx->quic_ctx) {
+    log_error("Failed to create picoquic context");
+    free(ctx->key_file_name);
+    free(ctx->cert_file_name);
+    free(ctx);
+    return NULL;
+  }
+
+  // Set up timer handle for this context
+  ctx->timer_handle = malloc(sizeof(uv_timer_t));
+  if (!ctx->timer_handle) {
+    log_error("Failed to allocate memory for QUIC context timer");
+    picoquic_free(ctx->quic_ctx);
+    free(ctx->key_file_name);
+    free(ctx->cert_file_name);
+    free(ctx);
+    return NULL;
+  }
+
+  int rc = uv_timer_init(event_loop, ctx->timer_handle);
+  if (rc < 0) {
+    log_error("Error initializing QUIC context timer: %s", uv_strerror(rc));
+    free(ctx->timer_handle);
+    picoquic_free(ctx->quic_ctx);
+    free(ctx->key_file_name);
+    free(ctx->cert_file_name);
+    free(ctx);
+    return NULL;
+  }
+
+  // Store context pointer in timer for access in callback
+  ctx->timer_handle->data = ctx;
+
+  log_debug("Created QUIC context with cert=%s, key=%s", cert_file, key_file);
+  return ctx;
+}
+
+void ct_close_quic_context(ct_quic_context_t* ctx) {
+  if (!ctx) {
+    return;
+  }
+
+  // If timer exists, defer all freeing to the timer close callback
+  // This ensures we don't free the context while timer callback is executing
+  if (ctx->timer_handle) {
+    uv_timer_stop(ctx->timer_handle);
+    uv_close((uv_handle_t*)ctx->timer_handle, quic_context_timer_close_cb);
+    // Callback will handle freeing ctx
+    return;
+  }
+
+  // No timer, safe to free everything directly
+  quic_context_free_resources(ctx);
 }
 
 // Forward declarations of helper functions
@@ -168,32 +297,30 @@ picoquic_cnx_t* ct_connection_get_picoquic_connection(const ct_connection_t* con
   return group_state->picoquic_connection;
 }
 
-static picoquic_quic_t* global_quic_ctx;
+ct_quic_context_t* ct_connection_get_quic_context(const ct_connection_t* connection) {
+  ct_quic_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
+  if (!group_state) {
+    log_error("Cannot get QUIC context, group state is NULL");
+    return NULL;
+  }
+  return group_state->quic_context;
+}
 
-static ct_quic_global_state_t default_global_quic_state = {
-  .timer_handle = NULL,
-  .listener = NULL,
-  .num_active_sockets = 0
-};
 
 size_t quic_alpn_select_cb(picoquic_quic_t* quic, ptls_iovec_t* list, size_t count) {
   log_trace("QUIC server alpn select cb");
 
   (void)count;
 
-  /*
-   * As far as I can see there is no way of associating this callback with
-   * which ct_listener_t is being connected to. This means that if two listeners
-   * exist and have different ALPN possibilities, we don't know which one
-   * we should check. We can therefore do several things:
-   *
-   *  - picoquic_quic_t* struct per-listener instead of a single one
-   *  - Accept all ALPNs associated with any listener and then redirect
-   *  - Dissalow different ALPNs between listeners
-   */
-  ct_quic_global_state_t* global_state = picoquic_get_default_callback_context(quic);
+  // Get the QUIC context from the default callback context
+  // The quic_context stores the listener pointer
+  ct_quic_context_t* quic_context = picoquic_get_default_callback_context(quic);
+  if (!quic_context || !quic_context->listener) {
+    log_error("ALPN select callback: no listener associated with QUIC context");
+    return count;  // Return count to indicate no match
+  }
 
-  ct_listener_t* listener = global_state->listener;
+  ct_listener_t* listener = quic_context->listener;
 
   const ct_string_array_value_t* listener_alpns = &listener->security_parameters->security_parameters[ALPN].value.array_of_strings;
 
@@ -209,73 +336,20 @@ size_t quic_alpn_select_cb(picoquic_quic_t* quic, ptls_iovec_t* list, size_t cou
   return count;
 }
 
-picoquic_quic_t* get_global_quic_ctx() {
-  log_trace("Getting global QUIC context");
-  if (global_quic_ctx == NULL) {
-    log_debug("Initializing global QUIC context");
-    if (global_config.cert_file_name == NULL) {
-      log_error("QUIC global context initialization failed: certificate file not provided");
-      return NULL;
-    }
-    if (global_config.key_file_name == NULL) {
-      log_error("QUIC global context initialization failed: key file not provided");
-      return NULL;
-    }
-
-    global_quic_ctx = picoquic_create(
-       MAX_CONCURRENT_QUIC_CONNECTIONS,
-       global_config.cert_file_name,
-       global_config.key_file_name,
-       NULL,
-       NULL, // Must set this to NULL, to have callback decide ALPN selection
-       picoquic_callback,
-       &default_global_quic_state,
-       NULL,
-       NULL,
-       NULL,
-       picoquic_current_time(),
-       NULL,
-       NULL,
-       NULL,
-      0
-      );
-    if (!global_quic_ctx) {
-      log_error("Failed to create global picoquic context");
-      return NULL;
-    }
-    picoquic_set_alpn_select_fn(global_quic_ctx, quic_alpn_select_cb);
+void reset_quic_timer(ct_quic_context_t* ctx) {
+  if (!ctx || !ctx->quic_ctx || !ctx->timer_handle) {
+    log_error("Cannot reset QUIC timer: invalid context");
+    log_debug("ctx=%p, ctx->quic_ctx=%p, ctx->timer_handle=%p", (void*)ctx, (void*)(ctx ? ctx->quic_ctx : NULL), (void*)(ctx ? ctx->timer_handle : NULL));
+    return;
   }
-  return global_quic_ctx;
-}
-
-void reset_quic_timer() {
-  uint64_t next_wake_delay = picoquic_get_next_wake_delay(get_global_quic_ctx(), picoquic_get_quic_time(get_global_quic_ctx()), INT64_MAX - 1);
+  uint64_t next_wake_delay = picoquic_get_next_wake_delay(ctx->quic_ctx, picoquic_get_quic_time(ctx->quic_ctx), INT64_MAX - 1);
   log_debug("Resetting QUIC timer to fire in %llu ms", (unsigned long long)MICRO_TO_MILLI(next_wake_delay));
-  uv_timer_start(default_global_quic_state.timer_handle, on_quic_timer, MICRO_TO_MILLI(next_wake_delay), 0);
+  uv_timer_start(ctx->timer_handle, on_quic_context_timer, MICRO_TO_MILLI(next_wake_delay), 0);
 }
 
 void quic_closed_udp_handle_cb(uv_handle_t* handle) {
   log_info("Successfully closed UDP handle for QUIC connection");
   free(handle);
-}
-
-void quic_closed_timer_handle_cb(uv_handle_t* handle) {
-  log_info("Successfully closed QUIC timer handle");
-  free(handle);
-  default_global_quic_state.timer_handle = NULL;
-}
-
-void increment_active_socket_counter() {
-  default_global_quic_state.num_active_sockets++;
-  log_trace("Active QUIC sockets increased to %u", default_global_quic_state.num_active_sockets);
-}
-
-uint32_t decrement_active_socket_counter() {
-  if (default_global_quic_state.num_active_sockets > 0) {
-    default_global_quic_state.num_active_sockets--;
-  }
-  log_trace("Active QUIC sockets decreased to %u", default_global_quic_state.num_active_sockets);
-  return default_global_quic_state.num_active_sockets;
 }
 
 int handle_closed_picoquic_connection(ct_connection_t* connection) {
@@ -289,6 +363,10 @@ int handle_closed_picoquic_connection(ct_connection_t* connection) {
     log_error("Cannot handle closed QUIC connection, due to invalid parameter");
     return -EINVAL;
   }
+
+  // Save quic_context before potentially freeing group_state
+  ct_quic_context_t* quic_context = group_state->quic_context;
+
   int rc = 0;
   if (connection->socket_type == CONNECTION_SOCKET_TYPE_STANDALONE) {
     log_info("Closing standalone QUIC connection with UDP handle: %p", group_state->udp_handle);
@@ -300,6 +378,16 @@ int handle_closed_picoquic_connection(ct_connection_t* connection) {
     }
     uv_close((uv_handle_t*)group_state->udp_handle, quic_closed_udp_handle_cb);
     log_info("Successfully handled closed QUIC connection");
+
+    // Note: quic_context is freed via timer close callback - not here, as this
+    // function may be called from within the timer callback chain
+    // Mark the context for cleanup by stopping the timer
+    if (quic_context && quic_context->timer_handle) {
+      uv_timer_stop(quic_context->timer_handle);
+      uv_close((uv_handle_t*)quic_context->timer_handle, quic_context_timer_close_cb);
+      quic_context->timer_handle = NULL;
+    }
+
     ct_free_quic_group_state(group_state);
     ct_free_quic_stream_state(stream_state);
     connection->connection_group->connection_group_state = NULL;
@@ -324,20 +412,9 @@ int handle_closed_picoquic_connection(ct_connection_t* connection) {
   }
   log_info("Setting connection state to CLOSED for connection: %p", (void*)connection);
   ct_connection_mark_as_closed(connection);
-  reset_quic_timer();
   return 0;
 }
 
-
-int close_timer_handle() {
-  log_info("Closing QUIC timer handle");
-  int rc = uv_timer_stop(default_global_quic_state.timer_handle);
-  if (rc < 0) {
-    log_error("Error stopping QUIC timer: %s", uv_strerror(rc));
-  }
-  uv_close((uv_handle_t*) default_global_quic_state.timer_handle, quic_closed_timer_handle_cb);
-  return 0;
-}
 
 /**
  * Helper function to process received stream data and deliver it to the application.
@@ -580,16 +657,6 @@ int picoquic_callback(picoquic_cnx_t* cnx,
         if (connection) {
           log_info("Picoquic close callback for connection: %p", (void*)connection);
           handle_closed_picoquic_connection(connection);
-
-          // Only decrement counter for standalone connections that own their UDP socket
-          // Multiplexed connections share the listener's socket and don't affect the counter
-          if (connection->socket_type == CONNECTION_SOCKET_TYPE_STANDALONE) {
-            uint32_t active_sockets = decrement_active_socket_counter();
-            if (active_sockets == 0) {
-              log_info("No active QUIC sockets remaining, closing timer handle");
-              close_timer_handle();
-            }
-          }
         }
       }
       break;
@@ -666,8 +733,15 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
     return;
   }
 
-  picoquic_quic_t* quic_ctx = get_global_quic_ctx();
+  // Get QUIC context from udp_handle->data
+  ct_quic_context_t* quic_context = (ct_quic_context_t*)udp_handle->data;
+  if (!quic_context || !quic_context->quic_ctx) {
+    log_error("No QUIC context associated with UDP handle");
+    free(buf->base);
+    return;
+  }
 
+  picoquic_quic_t* quic_ctx = quic_context->quic_ctx;
   picoquic_cnx_t *cnx = NULL;
 
   struct sockaddr_storage addr_to_storage;
@@ -700,7 +774,12 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
   // create our own ct_connection_t
   if (picoquic_get_callback_context(cnx) == picoquic_get_default_callback_context(picoquic_get_quic_ctx(cnx))) {
     log_info("Received packet for new QUIC cnx for listener");
-    ct_listener_t* listener = default_global_quic_state.listener;
+    ct_listener_t* listener = quic_context->listener;
+
+    if (!listener) {
+      log_error("No listener associated with QUIC context for incoming connection");
+      return;
+    }
 
     if (rc != 0) {
       log_error("Could not get remote address from picoquic connection: %d", rc);
@@ -737,13 +816,14 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
       return;
     }
     group_state->picoquic_connection = cnx;
+    group_state->quic_context = quic_context;  // Share the listener's quic_context
 
     log_trace("Setting up received ct_connection_t state for new ct_connection_t");
     ct_quic_group_state_t* listener_group_state = (ct_quic_group_state_t*)listener->socket_manager->internal_socket_manager_state;
     group_state->udp_handle = listener_group_state->udp_handle;
     group_state->udp_sock_name = malloc(sizeof(struct sockaddr_storage));
-    int namelen = sizeof(struct sockaddr_storage);
-    rc = uv_udp_getsockname(group_state->udp_handle, (struct sockaddr*)group_state->udp_sock_name, &namelen);
+    int inner_namelen = sizeof(struct sockaddr_storage);
+    rc = uv_udp_getsockname(group_state->udp_handle, (struct sockaddr*)group_state->udp_sock_name, &inner_namelen);
     if (rc < 0) {
       log_error("Could not get UDP socket name for QUIC connection: %s", uv_strerror(rc));
       free(group_state->udp_sock_name);
@@ -769,17 +849,21 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
     log_trace("Done setting up received QUIC connection state");
   }
 
-
   log_trace("Processed incoming QUIC packet, picoquic connection: %p", (void*)cnx);
 
-  reset_quic_timer();
+  reset_quic_timer(quic_context);
 }
 
-void on_quic_timer(uv_timer_t* timer_handle) {
-  (void)timer_handle;
-  log_trace("QUIC timer triggered, checking for new QUIC packets to send");
+void on_quic_context_timer(uv_timer_t* timer_handle) {
+  ct_quic_context_t* ctx = (ct_quic_context_t*)timer_handle->data;
+  if (!ctx || !ctx->quic_ctx) {
+    log_error("QUIC context timer triggered but context is invalid");
+    return;
+  }
 
-  picoquic_quic_t* quic_ctx = get_global_quic_ctx();
+  log_trace("QUIC context timer triggered, checking for new QUIC packets to send");
+
+  picoquic_quic_t* quic_ctx = ctx->quic_ctx;
   size_t send_length = 0;
 
   struct sockaddr_storage from_address;
@@ -867,55 +951,59 @@ void on_quic_timer(uv_timer_t* timer_handle) {
   } while (send_length > 0);
   log_debug("Finished sending QUIC packets");
 
-  reset_quic_timer();
-}
-
-uv_timer_t* set_up_timer_handle(void) {
-  uv_timer_t* timer_handle = malloc(sizeof(*timer_handle));
-  if (timer_handle == NULL) {
-      log_error("Failed to allocate memory for timer handle");
-      return NULL;
-  }
-
-  int rc = uv_timer_init(event_loop, timer_handle);
-  if (rc < 0) {
-      log_error("Error initializing timer handle: %s", uv_strerror(rc));
-      free(timer_handle);
-      return NULL;
-  }
-  return timer_handle;
+  reset_quic_timer(ctx);
 }
 
 int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks) {
   (void)connection_callbacks;
   log_info("Initializing standalone QUIC connection");
-  picoquic_quic_t* quic_ctx = get_global_quic_ctx();
-  if (!quic_ctx) {
-    log_error("Failed to get global QUIC context");
+
+  // Get certificate from security parameters
+  if (!connection->security_parameters) {
+    log_error("Security parameters required for QUIC connection");
+    return -EINVAL;
+  }
+
+  const ct_certificate_bundles_t* cert_bundles =
+      &connection->security_parameters->security_parameters[CLIENT_CERTIFICATE].value.certificate_bundles;
+
+  if (cert_bundles->num_bundles == 0) {
+    log_error("No certificate bundle configured for QUIC client connection");
+    return -EINVAL;
+  }
+
+  const char* cert_file = cert_bundles->certificate_bundles[0].certificate_file_name;
+  const char* key_file = cert_bundles->certificate_bundles[0].private_key_file_name;
+
+  if (!cert_file || !key_file) {
+    log_error("Certificate or key file not configured in security parameters");
+    return -EINVAL;
+  }
+
+  // Create QUIC context for this client connection
+  ct_quic_context_t* quic_context = ct_create_quic_context(cert_file, key_file, NULL);
+  if (!quic_context) {
+    log_error("Failed to create QUIC context for client connection");
     return -EIO;
   }
-  uint64_t current_time = 0;
 
-  /* 1. INITIALIZATION & CONTEXT SETUP */
-
-  current_time = picoquic_get_quic_time(quic_ctx);
+  uint64_t current_time = picoquic_get_quic_time(quic_context->quic_ctx);
 
   uv_udp_t* udp_handle = create_udp_listening_on_local(&connection->local_endpoint, alloc_quic_buf, on_quic_udp_read);
   if (!udp_handle) {
     log_error("Failed to create UDP handle for QUIC connection");
+    ct_close_quic_context(quic_context);
     return -EIO;
   }
+  // Store quic_context in udp_handle->data for access in on_quic_udp_read
+  udp_handle->data = quic_context;
   log_debug("Created UDP handle %p for QUIC connection", (void*)udp_handle);
-
-  if (default_global_quic_state.timer_handle == NULL) {
-    default_global_quic_state.timer_handle = set_up_timer_handle();
-    log_debug("Set up QUIC timer handle: %p", (void*)default_global_quic_state.timer_handle);
-  }
 
   // Allocate shared group state (UDP handle + QUIC connection)
   ct_quic_group_state_t* group_state = ct_create_quic_group_state();
   if (!group_state) {
     log_error("Failed to allocate QUIC group state");
+    ct_close_quic_context(quic_context);
     return -ENOMEM;
   }
 
@@ -923,6 +1011,7 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
     .udp_handle = udp_handle,
     .udp_sock_name = malloc(sizeof(struct sockaddr_storage)),
     .picoquic_connection = NULL,
+    .quic_context = quic_context,
   };
   connection->connection_group->connection_group_state = group_state;
 
@@ -931,6 +1020,7 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
     log_error("Failed to allocate QUIC stream state");
     free(group_state->udp_sock_name);
     free(group_state);
+    ct_close_quic_context(quic_context);
     return -ENOMEM;
   }
   stream_state->stream_id = 0;
@@ -945,12 +1035,13 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
     free(group_state->udp_sock_name);
     free(group_state);
     free(stream_state);
+    ct_close_quic_context(quic_context);
     return rc;
   }
 
   log_debug("Creating picoquic cnx to remote endpoint");
   group_state->picoquic_connection = picoquic_create_cnx(
-      quic_ctx,
+      quic_context->quic_ctx,
       picoquic_null_connection_id,
       picoquic_null_connection_id,
       (struct sockaddr*) &connection->remote_endpoint.data.resolved_address,
@@ -972,11 +1063,12 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
     free(group_state->udp_sock_name);
     free(group_state);
     free(stream_state);
+    ct_close_quic_context(quic_context);
     return rc;
   }
-  increment_active_socket_counter();
+  quic_context->num_active_connections++;
 
-  reset_quic_timer();
+  reset_quic_timer(quic_context);
   log_trace("Successfully initiated standalone QUIC connection %p", (void*)connection);
   return 0;
 }
@@ -1020,7 +1112,7 @@ int quic_close(ct_connection_t* connection) {
     ct_connection_group_decrement_active(connection_group);
   }
 
-  reset_quic_timer();
+  reset_quic_timer(group_state->quic_context);
   return rc;
 }
 
@@ -1058,7 +1150,7 @@ void quic_abort(ct_connection_t* connection) {
     picoquic_close_immediate(group_state->picoquic_connection);
   }
 
-  reset_quic_timer();
+  reset_quic_timer(group_state->quic_context);
 }
 
 int quic_clone_connection(const struct ct_connection_s* source_connection, struct ct_connection_s* target_connection) {
@@ -1127,7 +1219,8 @@ int quic_send(ct_connection_t* connection, ct_message_t* message, ct_message_con
   ct_message_free(message);
 
   // Reset the timer to ensure data gets processed and sent immediately
-  reset_quic_timer();
+  ct_quic_context_t* quic_context = ct_connection_get_quic_context(connection);
+  reset_quic_timer(quic_context);
 
   if (connection->connection_callbacks.sent) {
     connection->connection_callbacks.sent(connection);
@@ -1137,35 +1230,65 @@ int quic_send(ct_connection_t* connection, ct_message_t* message, ct_message_con
 }
 
 int quic_listen(ct_socket_manager_t* socket_manager) {
-  picoquic_quic_t* quic_ctx = get_global_quic_ctx();
-  if (!quic_ctx) {
-    log_error("Failed to get global QUIC context");
+  ct_listener_t* listener = socket_manager->listener;
+
+  // Get certificate from listener's security parameters
+  if (!listener->security_parameters) {
+    log_error("Security parameters required for QUIC listener");
+    return -EINVAL;
+  }
+
+  const ct_certificate_bundles_t* cert_bundles =
+      &listener->security_parameters->security_parameters[SERVER_CERTIFICATE].value.certificate_bundles;
+
+  if (cert_bundles->num_bundles == 0) {
+    log_error("No certificate bundle configured for QUIC listener");
+    return -EINVAL;
+  }
+
+  const char* cert_file = cert_bundles->certificate_bundles[0].certificate_file_name;
+  const char* key_file = cert_bundles->certificate_bundles[0].private_key_file_name;
+
+  if (!cert_file || !key_file) {
+    log_error("Certificate or key file not configured in listener security parameters");
+    return -EINVAL;
+  }
+
+  // Create QUIC context for this listener
+  ct_quic_context_t* quic_context = ct_create_quic_context(cert_file, key_file, listener);
+  if (!quic_context) {
+    log_error("Failed to create QUIC context for listener");
     return -EIO;
   }
-  if (default_global_quic_state.listener != NULL) {
-    log_error("Multiple listeners is currently not supported");
-    return -ENOSYS;
-  }
+
+  // Set ALPN select callback
+  picoquic_set_alpn_select_fn(quic_context->quic_ctx, quic_alpn_select_cb);
 
   ct_quic_group_state_t* listener_group_state = ct_create_quic_group_state();
   if (!listener_group_state) {
     log_error("Failed to allocate QUIC listener group state");
+    ct_close_quic_context(quic_context);
     return -ENOMEM;
   }
-  ct_local_endpoint_t local_endpoint = ct_listener_get_local_endpoint(socket_manager->listener);
+
+  listener_group_state->quic_context = quic_context;
+
+  ct_local_endpoint_t local_endpoint = ct_listener_get_local_endpoint(listener);
 
   listener_group_state->udp_handle = create_udp_listening_on_local(&local_endpoint, alloc_quic_buf, on_quic_udp_read);
 
   if (!listener_group_state->udp_handle) {
+    log_error("Failed to create UDP handle for QUIC listener");
     free(listener_group_state);
+    ct_close_quic_context(quic_context);
     return -EIO;
   }
 
+  // Store quic_context in udp_handle->data for access in on_quic_udp_read
+  listener_group_state->udp_handle->data = quic_context;
+
   socket_manager->internal_socket_manager_state = listener_group_state;
   socket_manager_increment_ref(socket_manager);
-  increment_active_socket_counter();
-
-  default_global_quic_state.listener = socket_manager->listener;
 
   return 0;
 }
@@ -1181,13 +1304,14 @@ int quic_stop_listen(ct_socket_manager_t* socket_manager) {
     return rc;
   }
   uv_close((uv_handle_t*)group_state->udp_handle, quic_closed_udp_handle_cb);
-  ct_free_quic_group_state(group_state);
 
-  uint32_t active_sockets = decrement_active_socket_counter();
-  if (active_sockets == 0) {
-    log_info("No active QUIC sockets remaining after stopping listener, closing timer handle");
-    close_timer_handle();
+  // Free the QUIC context for this listener
+  if (group_state->quic_context) {
+    ct_close_quic_context(group_state->quic_context);
+    group_state->quic_context = NULL;
   }
+
+  ct_free_quic_group_state(group_state);
 
   return 0;
 }

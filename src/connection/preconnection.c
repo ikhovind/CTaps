@@ -150,7 +150,7 @@ void ct_preconnection_free(ct_preconnection_t* preconnection) {
 
   // Free security parameters (owns a deep copy)
   if (preconnection->security_parameters) {
-    ct_security_parameters_free(preconnection->security_parameters);
+    ct_sec_param_free(preconnection->security_parameters);
   }
 
   // Free the preconnection struct itself

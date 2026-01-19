@@ -48,6 +48,24 @@ typedef struct ct_message_s {
 // =============================================================================
 
 /**
+ * @brief Type of value stored in a security parameter.
+ */
+typedef enum ct_sec_property_type_e {
+  TYPE_STRING_ARRAY,  ///< Array of strings (e.g., ALPN protocols, cipher suites)
+  TYPE_CERTIFICATE_BUNDLES  ///< ct_certificate_bundles_t for certificate configuration
+} ct_sec_property_type_t;
+
+typedef struct ct_certificate_bundle_s {
+  char* certificate_file_name;
+  char* private_key_file_name;
+} ct_certificate_bundle_t;
+
+typedef struct ct_certificate_bundles_s {
+  ct_certificate_bundle_t* certificate_bundles;
+  size_t num_bundles;
+} ct_certificate_bundles_t;
+
+/**
  * @brief String array value for security parameters.
  */
 typedef struct {
@@ -61,6 +79,7 @@ typedef struct {
  */
 typedef union ct_sec_property_value_u {
   ct_string_array_value_t array_of_strings;  ///< For TYPE_STRING_ARRAY properties
+  ct_certificate_bundles_t certificate_bundles; ///< For TYPE_CERTIFICATE_BUNDLES properties
 } ct_sec_property_value_t;
 
 /**
@@ -79,6 +98,21 @@ typedef struct ct_sec_property_s {
 typedef struct ct_security_parameters_s {
   ct_security_parameter_t security_parameters[SEC_PROPERTY_END];  ///< Array of security parameters
 } ct_security_parameters_t;
+
+// Initializer macro for security parameters - sets name and type from X-macro
+#define create_sec_property_initializer(enum_name, string_name, property_type) \
+{                                                                              \
+    .name = string_name,                                                       \
+    .type = property_type,                                                     \
+    .set_by_user = false,                                                      \
+    .value = {{0}}                                                             \
+},
+
+static const ct_security_parameters_t DEFAULT_SECURITY_PARAMETERS = {
+  .security_parameters = {
+    get_security_parameter_list(create_sec_property_initializer)
+  }
+};
 
 // =============================================================================
 // Transport Properties Internal Definitions
