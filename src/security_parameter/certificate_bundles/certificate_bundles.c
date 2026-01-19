@@ -71,7 +71,29 @@ ct_certificate_bundles_t* ct_certificate_bundles_deep_copy(const ct_certificate_
 
   for (size_t i = 0; i < num_bundles; i++) {
     copy->certificate_bundles[i].certificate_file_name = strdup(bundles->certificate_bundles[i].certificate_file_name);
+    if (!copy->certificate_bundles[i].certificate_file_name) {
+      // Free previously allocated entries
+      for (size_t j = 0; j < i; j++) {
+        free(copy->certificate_bundles[j].certificate_file_name);
+        free(copy->certificate_bundles[j].private_key_file_name);
+      }
+      free(copy->certificate_bundles);
+      free(copy);
+      return NULL;
+    }
     copy->certificate_bundles[i].private_key_file_name = strdup(bundles->certificate_bundles[i].private_key_file_name);
+    if (!copy->certificate_bundles[i].private_key_file_name) {
+      // Free previously allocated entries
+      for (size_t j = 0; j <= i; j++) {
+        free(copy->certificate_bundles[j].certificate_file_name);
+      }
+      for (size_t j = 0; j < i; j++) {
+        free(copy->certificate_bundles[j].private_key_file_name);
+      }
+      free(copy->certificate_bundles);
+      free(copy);
+      return NULL;
+    }
   }
   return copy;
 }
