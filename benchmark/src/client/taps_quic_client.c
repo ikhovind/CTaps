@@ -1,4 +1,5 @@
 #include "common_taps.h"
+#include "../common/protocol.h"
 
 client_context_t client_ctx;
 int json_only_mode = 0;
@@ -63,6 +64,11 @@ int main(int argc, char *argv[]) {
     }
     char* alpn_strings = "benchmark";
     ct_sec_param_set_property_string_array(security_parameters, ALPN, &alpn_strings, 1);
+
+    ct_certificate_bundles_t* client_bundles = ct_certificate_bundles_new();
+    ct_certificate_bundles_add_cert(client_bundles, RESOURCE_FOLDER "/cert.pem", RESOURCE_FOLDER "/key.pem");
+    ct_sec_param_set_property_certificate_bundles(security_parameters, CLIENT_CERTIFICATE, client_bundles);
+    ct_certificate_bundles_free(client_bundles);
 
     ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, security_parameters);
     if (!preconnection) {

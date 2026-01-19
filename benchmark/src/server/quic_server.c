@@ -174,7 +174,7 @@ static int server_callback(picoquic_cnx_t *cnx, uint64_t stream_id,
 }
 
 int main(int argc, char *argv[]) {
-    int port = 4433;
+    int port = DEFAULT_PORT;
     int ret = 0;
     picoquic_quic_t *quic = NULL;
 
