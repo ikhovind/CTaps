@@ -217,3 +217,9 @@ add_gtest(message_context_test
     src/unit/message/message_context_test.cpp
     ${CTAPS_SOURCES}
 )
+
+add_gtest(connection_properties_test
+  SOURCES
+    src/unit/transport_properties/connection_properties/connection_properties_test.cpp
+    ${CTAPS_SOURCES}
+)
