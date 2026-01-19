@@ -143,3 +143,49 @@ TEST_F(UdpGenericTests, canPingArbitraryBytes) {
   ct_preconnection_free(preconnection);
   ct_transport_properties_free(transport_properties);
 }
+
+TEST_F(UdpGenericTests, sendsSingleUdpPacketWithInitiateWithSend) {
+  log_info("Starting test: sendsSingleUdpPacketWithInitiateWithSend");
+  // --- Setup ---
+  ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
+  ASSERT_NE(remote_endpoint, nullptr);
+  ct_remote_endpoint_with_ipv4(remote_endpoint, inet_addr("127.0.0.1"));
+  ct_remote_endpoint_with_port(remote_endpoint, UDP_PING_PORT);
+
+  ct_transport_properties_t* transport_properties = ct_transport_properties_new();
+  ASSERT_NE(transport_properties, nullptr);
+
+  ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, PROHIBIT);
+  ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_ORDER, PROHIBIT);
+  ct_tp_set_sel_prop_preference(transport_properties, CONGESTION_CONTROL, PROHIBIT);
+
+  ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
+  ASSERT_NE(preconnection, nullptr);
+
+
+  ct_connection_callbacks_t connection_callbacks = {
+    .establishment_error = on_establishment_error,
+    .ready = receive_on_ready,
+    .user_connection_context = &test_context,
+  };
+
+  ct_message_t* message = ct_message_new_with_content("ping", strlen("ping") + 1);
+
+  int rc = ct_preconnection_initiate_with_send(preconnection, connection_callbacks, message, NULL);
+
+  ASSERT_EQ(rc, 0);
+
+  ct_start_event_loop();
+
+  // assert state of connection is closed
+  ASSERT_TRUE(ct_connection_is_closed(test_context.client_connections[0]));
+
+  ASSERT_EQ(per_connection_messages.size(), 1);
+  ASSERT_EQ(per_connection_messages[test_context.client_connections[0]].size(), 1);
+  ASSERT_STREQ(per_connection_messages[test_context.client_connections[0]][0]->content, "Pong: ping");
+
+  ct_remote_endpoint_free(remote_endpoint);
+  ct_preconnection_free(preconnection);
+  ct_transport_properties_free(transport_properties);
+  ct_message_free(message);
+}

@@ -174,6 +174,21 @@ int send_message_and_receive(struct ct_connection_s* connection) {
     return 0;
 }
 
+int receive_on_ready(struct ct_connection_s* connection) {
+    log_trace("ct_callback_t: Ready - receive_on_ready");
+    auto* context = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
+    context->client_connections.push_back(connection);
+
+    ct_receive_callbacks_t receive_message_request = {
+      .receive_callback = close_on_message_received,
+      .user_receive_context = ct_connection_get_callback_context(connection),
+    };
+
+    log_trace("Adding receive callback from ct_connection_t");
+    ct_receive_message(connection, receive_message_request);
+    return 0;
+}
+
 // Complex callback for multi-message listener tests
 int on_message_receive_send_new_message_and_receive_inline(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
     printf("ct_callback_t: on_message_receive_send_new_message_and_receive.\n");
