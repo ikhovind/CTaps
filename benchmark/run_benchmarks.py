@@ -50,7 +50,7 @@ class BenchmarkRunner:
                 "name": "quic_native",
                 "server": "quic_server",
                 "client": "quic_client",
-                "port": 4433,
+                "port": 8080,
                 "description": "Pure picoquic implementation"
             },
             {
@@ -64,7 +64,7 @@ class BenchmarkRunner:
                 "name": "taps_quic",
                 "server": "quic_server",
                 "client": "taps_quic_client",
-                "port": 4433,
+                "port": 8080,
                 "description": "TAPS API with QUIC backend"
             }
         ]
@@ -183,7 +183,7 @@ class BenchmarkRunner:
                 [str(client_path), "127.0.0.1", str(port), "--json"],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=15
             )
 
             stdout = result.stdout.strip()

@@ -123,7 +123,7 @@ static int sample_client_loop_cb(picoquic_quic_t* quic, picoquic_packet_loop_cb_
 
 int main(int argc, char *argv[]) {
     const char *host = "127.0.0.1";
-    int port = 4433;
+    int port = DEFAULT_PORT;
     int ret = 0;
     int arg_idx = 1;
 
