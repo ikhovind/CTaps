@@ -22,6 +22,7 @@
 // Protocol interface definition (moved from header to access internal struct)
 const ct_protocol_impl_t tcp_protocol_interface = {
     .name = "TCP",
+    .protocol_enum = CT_PROTOCOL_TCP,
     .selection_properties = {
       .selection_property = {
         [RELIABILITY] = {.value = {.simple_preference = REQUIRE}},

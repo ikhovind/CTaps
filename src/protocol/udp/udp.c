@@ -20,6 +20,7 @@
 // Protocol interface definition (moved from header to access internal struct)
 const ct_protocol_impl_t udp_protocol_interface = {
     .name = "UDP",
+    .protocol_enum = CT_PROTOCOL_UDP,
     .selection_properties = {
       .selection_property = {
         [RELIABILITY] = {.value = {.simple_preference = PROHIBIT}},

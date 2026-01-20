@@ -25,6 +25,7 @@
 // Protocol interface definition (moved from header to access internal struct)
 const ct_protocol_impl_t quic_protocol_interface = {
     .name = "QUIC",
+    .protocol_enum = CT_PROTOCOL_QUIC,
     .selection_properties = {
       .selection_property = {
         [RELIABILITY] = {.value = {.simple_preference = REQUIRE}},

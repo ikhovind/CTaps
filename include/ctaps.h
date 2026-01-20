@@ -1807,7 +1807,16 @@ size_t ct_get_num_protocols();
 // Connection functions
 // =============================================================================
 
+typedef enum CT_TRANSPORT_PROTOCOL_ENUM_E {
+  CT_PROTOCOL_ERROR = -1, // returned from getters in errors, e.g. null connection
+  CT_PROTOCOL_TCP,
+  CT_PROTOCOL_UDP,
+  CT_PROTOCOL_QUIC,
+} ct_protocol_enum_t;
+
 CT_EXTERN const ct_connection_properties_t* ct_connection_get_connection_properties(const ct_connection_t* connection);
+
+CT_EXTERN ct_protocol_enum_t ct_connection_get_transport_protocol(const ct_connection_t* connection);
 
 
 #endif  // CTAPS_H
