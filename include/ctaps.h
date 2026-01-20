@@ -557,13 +557,14 @@ typedef union ct_sec_property_value_u ct_sec_property_value_t;
 typedef struct ct_sec_property_s ct_security_parameter_t;
 
 // clang-format off
-#define get_security_parameter_list(f)                                                                    \
-  f(SUPPORTED_GROUP,    "supportedGroup",    TYPE_STRING_ARRAY)                  \
-  f(CIPHERSUITE,        "ciphersuite",       TYPE_STRING_ARRAY)                  \
-  f(SERVER_CERTIFICATE, "serverCertificate", TYPE_CERTIFICATE_BUNDLES)                  \
-  f(CLIENT_CERTIFICATE, "clientCertificate", TYPE_CERTIFICATE_BUNDLES)                  \
-  f(SIGNATURE_ALGORITHM,"signatureAlgorithm",TYPE_STRING_ARRAY)                  \
-  f(ALPN,               "alpn",              TYPE_STRING_ARRAY)
+#define get_security_parameter_list(f)                                        \
+  f(SUPPORTED_GROUP,    "supportedGroup",    TYPE_STRING_ARRAY)               \
+  f(CIPHERSUITE,        "ciphersuite",       TYPE_STRING_ARRAY)               \
+  f(SERVER_CERTIFICATE, "serverCertificate", TYPE_CERTIFICATE_BUNDLES)        \
+  f(CLIENT_CERTIFICATE, "clientCertificate", TYPE_CERTIFICATE_BUNDLES)        \
+  f(SIGNATURE_ALGORITHM,"signatureAlgorithm",TYPE_STRING_ARRAY)               \
+  f(ALPN,               "alpn",              TYPE_STRING_ARRAY)               \
+  f(TICKET_STORE_PATH,  "ticketStorePath",   TYPE_STRING)
 // clang-format on
 
 #define output_sec_enum(enum_name, string_name, property_type) enum_name,
@@ -1065,6 +1066,8 @@ CT_EXTERN ct_security_parameters_t* ct_security_parameters_new(void);
  */
 CT_EXTERN void ct_sec_param_free(ct_security_parameters_t* security_parameters);
 
+
+// TODO - change these to be per-value not per-type
 /**
  * @brief Set a string array security parameter (e.g., ALPN, ciphersuites).
  * @param[in,out] security_parameters structure to modify
@@ -1076,6 +1079,10 @@ CT_EXTERN void ct_sec_param_free(ct_security_parameters_t* security_parameters);
 CT_EXTERN int ct_sec_param_set_property_string_array(ct_security_parameters_t* security_parameters, ct_security_property_enum_t property, char** strings, size_t num_strings);
 
 CT_EXTERN int ct_sec_param_set_property_certificate_bundles(ct_security_parameters_t* security_parameters, ct_security_property_enum_t property, ct_certificate_bundles_t* bundles);
+
+CT_EXTERN int ct_sec_param_set_ticket_store_path(ct_security_parameters_t* security_parameters, const char* ticket_store_path);
+
+CT_EXTERN const char* ct_sec_param_get_ticket_store_path(const ct_security_parameters_t* security_parameters);
 
 // ==============================================================================
 // ENDPOINT OWNERSHIP MODEL

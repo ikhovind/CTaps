@@ -41,6 +41,9 @@ void ct_sec_param_free(ct_security_parameters_t* security_parameters) {
       case TYPE_CERTIFICATE_BUNDLES:
         ct_certificate_bundles_free(sec_param->value.certificate_bundles);
         break;
+      case TYPE_STRING:
+        free(sec_param->value.string);
+        break;
     }
   }
   free(security_parameters);
@@ -117,6 +120,18 @@ ct_security_parameters_t* ct_security_parameters_deep_copy(const ct_security_par
             log_error("Failed to deep copy certificate bundles security parameter");
             ct_sec_param_free(copy);
             return NULL;
+          }
+          break;
+        case TYPE_STRING:
+          if (src_param->value.string) {
+            dst_param->value.string = strdup(src_param->value.string);
+            if (!dst_param->value.string) {
+              log_error("Failed to deep copy string security parameter");
+              ct_sec_param_free(copy);
+              return NULL;
+            }
+          } else {
+            dst_param->value.string = NULL;
           }
           break;
       }
@@ -205,4 +220,38 @@ int ct_sec_param_set_property_certificate_bundles(ct_security_parameters_t* secu
 
   sec_param->set_by_user = true;
   return 0;
+}
+
+int ct_sec_param_set_ticket_store_path(ct_security_parameters_t* security_parameters, const char* ticket_store_path) {
+  if (!security_parameters) {
+    log_error("Attempted to set ticket store path on NULL security parameters");
+    return -EINVAL;
+  }
+  if (security_parameters->security_parameters[TICKET_STORE_PATH].value.string) {
+    log_trace("Freeing existing ticket store path before setting new value");
+    free(security_parameters->security_parameters[TICKET_STORE_PATH].value.string);
+    security_parameters->security_parameters[TICKET_STORE_PATH].value.string = NULL;
+  }
+
+  security_parameters->security_parameters[TICKET_STORE_PATH].set_by_user = true;
+  if (!ticket_store_path) {
+    log_debug("Setting ticket store path to NULL, clearing existing value if any");
+    security_parameters->security_parameters[TICKET_STORE_PATH].value.string = NULL;
+    return 0;
+  }
+  security_parameters->security_parameters[TICKET_STORE_PATH].value.string = strdup(ticket_store_path);
+  if (!security_parameters->security_parameters[TICKET_STORE_PATH].value.string) {
+    log_error("Failed to allocate memory for ticket store path");
+    return -ENOMEM;
+  }
+
+  return 0;
+}
+
+const char* ct_sec_param_get_ticket_store_path(const ct_security_parameters_t* security_parameters) {
+  if (!security_parameters) {
+    log_error("Attempted to get ticket store path from NULL security parameters");
+    return NULL;
+  }
+  return security_parameters->security_parameters[TICKET_STORE_PATH].value.string;
 }
