@@ -20,6 +20,8 @@ int ct_connection_build_with_new_connection_group(ct_connection_t* connection);
  *
  * Used to deliver received data to the connection's framer and application callbacks.
  *
+ * Takes a deep copy of the passed content in the buffer. Does NOT free the data buffer.
+ *
  * @param[in] connection The connection
  * @param[in] data Received data buffer
  * @param[in] len Length of received data

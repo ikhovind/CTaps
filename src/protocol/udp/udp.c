@@ -129,7 +129,7 @@ void on_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
 
 void closed_handle_cb(uv_handle_t* handle) {
   free(handle);
-  log_info("Successfully closed UDP handle");
+  log_debug("Successfully closed UDP handle");
 }
 
 int udp_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks) {
@@ -290,7 +290,7 @@ void socket_listen_callback(uv_udp_t* handle,
 
   ct_socket_manager_t *socket_manager = (ct_socket_manager_t*)handle->data;
 
-  udp_multiplex_received_message(socket_manager, buf->base, buf->len, (struct sockaddr_storage*)addr);
+  udp_multiplex_received_message(socket_manager, buf->base, (size_t)nread, (struct sockaddr_storage*)addr);
   // When buf is passed up to connection, connection.c copies the content into a message, so
   // we can safely free the buffer here
   free(buf->base);

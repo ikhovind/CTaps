@@ -102,5 +102,4 @@ int resolve_local_endpoint_from_handle(uv_handle_t* handle, ct_connection_t* con
       log_error("Unsupported handle type for resolving local endpoint: %d", handle->type);
       return -EINVAL;
   }
-  return 0;
 }

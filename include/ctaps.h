@@ -928,8 +928,6 @@ struct ct_framer_impl_s {
    * @param[in] message received from transport layer
    * @param[in] context Message context containing endpoint info
    * @param[in] callback Callback to invoke when decoding is complete
-   *
-   * TODO - Change this to take a message object instead of raw data?
    */
   void (*decode_data)(ct_connection_t* connection,
                      ct_message_t* message,
