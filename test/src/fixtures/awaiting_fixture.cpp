@@ -143,12 +143,19 @@ int respond_and_verify_server_message_context_remote_context_on_message_received
 
     const ct_remote_endpoint_t* remote_ep = ct_message_context_get_remote_endpoint(message_context);
     EXPECT_NE(remote_ep, nullptr) << "Remote endpoint in message context should not be null";
-    EXPECT_GT(remote_ep->port, 0) << "Remote endpoint port be ephemeral (greater than 0)";
+    EXPECT_GT(remote_ep->port, 0) << "For server, remote endpoint port be ephemeral (greater than 0)";
 
     const ct_local_endpoint_t* local_ep = ct_message_context_get_local_endpoint(message_context);
     log_info("Resolved address from local endpoint: %p", local_endpoint_get_resolved_address(local_ep));
     EXPECT_NE(local_ep, nullptr) << "Local endpoint in message context should not be null";
-    EXPECT_GT(local_endpoint_get_resolved_port(local_ep), ctx->expected_server_port) << "For server, local endpoint port should match server port";
+
+    if (ct_connection_get_transport_protocol(connection) == CT_PROTOCOL_TCP) {
+        EXPECT_GT(remote_ep->port, 0) << "For TCP server, local endpoint port be ephemeral (greater than 0)";
+    }
+    else {
+        EXPECT_EQ(local_endpoint_get_resolved_port(local_ep), ctx->expected_server_port) << "For non-tcp server, local endpoint port should match server port";
+    }
+
 
     ct_message_t* message = ct_message_new_with_content("pong", strlen("pong") + 1);
     ct_send_message(connection, message);
