@@ -231,3 +231,9 @@ add_gtest(message_context_integration_test
     src/integration/message/message_context_integration_test.cpp
     ${CTAPS_SOURCES}
 )
+
+add_gtest(message_unit_test
+  SOURCES
+    src/unit/message/message_unit_test.cpp
+    ${CTAPS_SOURCES}
+)
