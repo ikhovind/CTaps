@@ -177,7 +177,7 @@ int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
   int rc = uv_tcp_init(event_loop, new_tcp_handle);
 
   if (rc < 0) {
-    log_error("Error initializing udp handle: %s", uv_strerror(rc));
+    log_error("Error initializing tcp handle: %s", uv_strerror(rc));
     free(new_tcp_handle);
     return rc;
   }
@@ -208,7 +208,7 @@ int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
   }
   rc = resolve_local_endpoint_from_handle((uv_handle_t*)new_tcp_handle, connection);
   if (rc < 0) {
-    log_error("Failed to get UDP socket name: %s", uv_strerror(rc));
+    log_error("Failed to get TCP socket name: %s", uv_strerror(rc));
     ct_connection_close(connection);
     if (connection->connection_callbacks.establishment_error) {
       connection->connection_callbacks.establishment_error(connection);
@@ -354,7 +354,7 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
 
   rc = resolve_local_endpoint_from_handle((uv_handle_t*)client, connection);
   if (rc < 0) {
-    log_error("Failed to get UDP socket name: %s", uv_strerror(rc));
+    log_error("Failed to get TCP socket name: %s", uv_strerror(rc));
   }
 
   log_trace("TCP invoking new connection callback");
