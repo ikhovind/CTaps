@@ -60,13 +60,12 @@ TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnRec
 TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnReceiveForTcp) {
     log_info("Starting test: messageContextContainsValidEndpointsOnReceive");
 
-    // Setup remote endpoint to UDP ping server
+    // Setup remote endpoint to ping server
     ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
     ASSERT_NE(remote_endpoint, nullptr);
     ct_remote_endpoint_with_ipv4(remote_endpoint, inet_addr("127.0.0.1"));
     ct_remote_endpoint_with_port(remote_endpoint, TCP_PING_PORT);
 
-    // Setup transport properties for UDP
     ct_transport_properties_t* transport_properties = ct_transport_properties_new();
     ASSERT_NE(transport_properties, nullptr);
     ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT); // force tcp
@@ -104,13 +103,13 @@ TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnRec
 TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnReceiveForQuic) {
     log_info("Starting test: messageContextContainsValidEndpointsOnReceive");
 
-    // Setup remote endpoint to UDP ping server
+    // Setup remote endpoint to ping server
     ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
     ASSERT_NE(remote_endpoint, nullptr);
     ct_remote_endpoint_with_ipv4(remote_endpoint, inet_addr("127.0.0.1"));
     ct_remote_endpoint_with_port(remote_endpoint, QUIC_PING_PORT);
 
-    // Setup transport properties for UDP
+    // Setup transport properties
     ct_transport_properties_t* transport_properties = ct_transport_properties_new();
     ASSERT_NE(transport_properties, nullptr);
     ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, REQUIRE); // force quic
@@ -154,7 +153,7 @@ TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnRec
     ct_transport_properties_free(transport_properties);
 }
 
-TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnReceiveForTcpListner) {
+TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnReceiveForTcpListener) {
     ct_listener_t listener;
 
     // Set expected remote port for verification

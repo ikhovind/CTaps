@@ -19,6 +19,18 @@ typedef struct ct_local_endpoint_s {
 } ct_local_endpoint_t;
 
 /**
+ * @brief Wrapper for queued messages with their context.
+ *
+ * Used to store messages along with their context when no receive callback
+ * is ready. The context contains endpoint pointers that remain valid as
+ * long as the connection exists.
+ */
+typedef struct ct_queued_message_s {
+  ct_message_t* message;           ///< The queued message
+  ct_message_context_t* context;   ///< Message context with endpoint info
+} ct_queued_message_t;
+
+/**
  * @brief Remote endpoint specification for connection targets.
  *
  * Specifies the remote address, hostname, port, or service name to connect to.
@@ -251,18 +263,6 @@ typedef struct ct_message_context_s {
   const ct_remote_endpoint_t* remote_endpoint;       ///< Remote endpoint for this message (optional)
   void* user_receive_context;                  ///< User context from ct_receive_callbacks_t
 } ct_message_context_t;
-
-/**
- * @brief Wrapper for queued messages with their context.
- *
- * Used to store messages along with their context when no receive callback
- * is ready. The context contains endpoint pointers that remain valid as
- * long as the connection exists.
- */
-typedef struct ct_queued_message_s {
-  ct_message_t* message;           ///< The queued message
-  ct_message_context_t* context;   ///< Message context with endpoint info
-} ct_queued_message_t;
 
 /**
  * @brief Protocol implementation interface.

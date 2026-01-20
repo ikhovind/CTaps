@@ -202,10 +202,11 @@ int ct_receive_message(ct_connection_t* connection,
 
   if (!g_queue_is_empty(connection->received_messages)) {
     log_debug("Calling receive callback immediately");
-    ct_message_t* received_message = g_queue_pop_head(connection->received_messages);
-    ct_message_context_t ctx = {0};
-    ctx.user_receive_context = receive_callbacks.user_receive_context;
-    receive_callbacks.receive_callback(connection, &received_message, &ctx);
+    ct_queued_message_t* queued_message = g_queue_pop_head(connection->received_messages);
+    queued_message->context->user_receive_context = receive_callbacks.user_receive_context;
+    receive_callbacks.receive_callback(connection, &queued_message->message, queued_message->context);
+    ct_queued_message_free_ctaps_ownership(queued_message);
+
     return 0;
   }
 
@@ -353,13 +354,8 @@ void ct_connection_free_content(ct_connection_t* connection) {
   if (connection->received_messages) {
     // Free any pending messages in the queue
     while (!g_queue_is_empty(connection->received_messages)) {
-      ct_message_t* msg = g_queue_pop_head(connection->received_messages);
-      if (msg) {
-        if (msg->content) {
-          free(msg->content);
-        }
-        free(msg);
-      }
+      ct_queued_message_t* q_msg = g_queue_pop_head(connection->received_messages);
+      ct_queued_message_free_all(q_msg);
     }
     g_queue_free(connection->received_messages);
     connection->received_messages = NULL;
@@ -411,13 +407,12 @@ void ct_connection_deliver_to_app(ct_connection_t* connection,
   // Check if there's a waiting receive callback
   if (g_queue_is_empty(connection->received_callbacks)) {
     log_debug("No receive callback ready, queueing message");
-    g_queue_push_tail(connection->received_messages, message);
+    ct_queued_message_t* queued_message = ct_queued_message_new(message, context);
+    g_queue_push_tail(connection->received_messages, queued_message);
   } else {
     log_debug("Receive callback ready, calling it");
     ct_receive_callbacks_t* receive_callback = g_queue_pop_head(connection->received_callbacks);
 
-    log_info("Context pointer is %p", (void*)context);
-    log_info("User receive context pointer is %p", (void*)receive_callback->user_receive_context);
     if (!context) {
       log_warn("Message context is NULL, allocating new context");
       context = ct_message_context_new_from_connection(connection);

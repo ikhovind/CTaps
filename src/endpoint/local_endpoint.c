@@ -181,6 +181,11 @@ uint16_t local_endpoint_get_resolved_port(const ct_local_endpoint_t* local_endpo
 }
 
 void local_endpoint_set_resolved_address(ct_local_endpoint_t* local_endpoint, const struct sockaddr_storage* resolved_address) {
+  if (!local_endpoint || !resolved_address) {
+    log_error("Cannot set resolved address on NULL local endpoint or with NULL resolved address");
+    log_debug("local_endpoint: %p, resolved_address: %p", (void*)local_endpoint, (void*)resolved_address);
+    return;
+  }
   local_endpoint->data.resolved_address = *resolved_address;
 }
 

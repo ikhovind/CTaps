@@ -49,7 +49,7 @@ uint64_t ct_connection_properties_get_recv_checksum_len(ct_connection_properties
     log_warn("Null pointer passed to get_recv_checksum_len");
     return 0;
   }
-  return conn_props->list[RECV_CHECKSUM_LEN].value.uint32_val;
+  return conn_props->list[RECV_CHECKSUM_LEN].value.uint64_val;
 }
 
 uint32_t ct_connection_properties_get_conn_priority(ct_connection_properties_t* conn_props) {
