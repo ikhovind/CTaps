@@ -615,3 +615,11 @@ const ct_connection_properties_t* ct_connection_get_connection_properties(const 
 void connection_set_resolved_local_address(ct_connection_t* connection, const struct sockaddr_storage* addr) {
   memcpy(&connection->local_endpoint.data.resolved_address, addr, sizeof(struct sockaddr_storage));
 }
+
+ct_protocol_enum_t ct_connection_get_transport_protocol(const ct_connection_t* connection) {
+  if (!connection) {
+    log_error("ct_connection_get_transport_protocol called with NULL connection");
+    return CT_PROTOCOL_ERROR;
+  }
+  return connection->protocol.protocol_enum;
+}

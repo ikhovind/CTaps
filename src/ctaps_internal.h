@@ -272,6 +272,7 @@ typedef struct ct_queued_message_s {
  */
 typedef struct ct_protocol_impl_s {
   const char* name;                              ///< Protocol name (e.g., "TCP", "UDP", "QUIC")
+  ct_protocol_enum_t protocol_enum;              ///< Protocol enumeration value
   ct_selection_properties_t selection_properties; ///< Properties supported by this protocol
 
   /** @brief Initialize a new connection using this protocol. */
