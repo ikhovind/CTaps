@@ -73,7 +73,6 @@ struct ct_racing_context_t {
  * @return 0 on success, negative error code on failure
  */
 int preconnection_initiate_with_racing(ct_preconnection_t* preconnection,
-                                       ct_connection_t* connection,
                                        ct_connection_callbacks_t connection_callbacks,
                                        ct_message_t* initial_message,
                                        ct_message_context_t* initial_message_context

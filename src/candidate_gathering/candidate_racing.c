@@ -371,13 +371,10 @@ static void initiate_next_attempt(ct_racing_context_t* context) {
  * @brief Main entry point for initiating connection with racing.
  */
 int preconnection_initiate_with_racing(ct_preconnection_t* preconnection,
-                                       ct_connection_t* user_connection,
                                        ct_connection_callbacks_t connection_callbacks,
                                        ct_message_t* initial_message,
                                        ct_message_context_t* initial_message_context
                                        ) {
-  (void)user_connection;
-
   // Get ordered candidate nodes
   GArray* candidate_nodes = get_ordered_candidate_nodes(preconnection);
   // TODO - NULL vs 0 len are different, handle differently
