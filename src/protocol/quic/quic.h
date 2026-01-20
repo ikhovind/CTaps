@@ -38,7 +38,7 @@ typedef struct ct_quic_group_state_s {
 } ct_quic_group_state_t;
 
 // QUIC context management
-ct_quic_context_t* ct_create_quic_context(const char* cert_file, const char* key_file, struct ct_listener_s* listener);
+ct_quic_context_t* ct_create_quic_context(const char* cert_file, const char* key_file, struct ct_listener_s* listener, const char* ticket_store_path);
 void ct_close_quic_context(ct_quic_context_t* ctx);
 
 int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks);

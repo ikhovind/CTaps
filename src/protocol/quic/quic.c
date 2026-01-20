@@ -117,7 +117,10 @@ static void quic_context_timer_close_cb(uv_handle_t* handle) {
   }
 }
 
-ct_quic_context_t* ct_create_quic_context(const char* cert_file, const char* key_file, struct ct_listener_s* listener) {
+ct_quic_context_t* ct_create_quic_context(const char* cert_file,
+                                          const char* key_file,
+                                          struct ct_listener_s* listener,
+                                          const char* ticket_store_path) {
   if (!cert_file || !key_file) {
     log_error("Certificate and key files are required for QUIC context creation");
     return NULL;
@@ -163,7 +166,7 @@ ct_quic_context_t* ct_create_quic_context(const char* cert_file, const char* key
       NULL,
       picoquic_current_time(),
       NULL,
-      NULL,
+      ticket_store_path,
       NULL,
       0
   );
@@ -977,7 +980,13 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
     return -EINVAL;
   }
 
-  ct_quic_context_t* quic_context = ct_create_quic_context(cert_file, key_file, NULL);
+  ct_quic_context_t* quic_context = ct_create_quic_context(
+    cert_file,
+    key_file,
+    NULL,
+    ct_sec_param_get_ticket_store_path(connection->security_parameters)
+  );
+
   if (!quic_context) {
     log_error("Failed to create QUIC context for client connection");
     return -EIO;
@@ -1248,7 +1257,12 @@ int quic_listen(ct_socket_manager_t* socket_manager) {
   }
 
   // Create QUIC context for this listener
-  ct_quic_context_t* quic_context = ct_create_quic_context(cert_file, key_file, listener);
+  ct_quic_context_t* quic_context = ct_create_quic_context(
+    cert_file,
+    key_file,
+    listener,
+    ct_sec_param_get_ticket_store_path(listener->security_parameters)
+  );
   if (!quic_context) {
     log_error("Failed to create QUIC context for listener");
     return -EIO;

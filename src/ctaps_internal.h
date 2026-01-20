@@ -66,7 +66,8 @@ typedef struct ct_message_s {
  */
 typedef enum ct_sec_property_type_e {
   TYPE_STRING_ARRAY,  ///< Array of strings (e.g., ALPN protocols, cipher suites)
-  TYPE_CERTIFICATE_BUNDLES  ///< ct_certificate_bundles_t for certificate configuration
+  TYPE_CERTIFICATE_BUNDLES,  ///< ct_certificate_bundles_t for certificate configuration
+  TYPE_STRING  ///< Single string value
 } ct_sec_property_type_t;
 
 typedef struct ct_certificate_bundle_s {
@@ -94,6 +95,7 @@ typedef struct {
 typedef union ct_sec_property_value_u {
   ct_string_array_value_t* array_of_strings;  ///< For TYPE_STRING_ARRAY properties
   ct_certificate_bundles_t* certificate_bundles; ///< For TYPE_CERTIFICATE_BUNDLES properties
+  char* string;                         ///< For TYPE_STRING properties
 } ct_sec_property_value_t;
 
 /**
