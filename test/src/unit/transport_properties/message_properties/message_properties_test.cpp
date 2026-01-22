@@ -322,7 +322,7 @@ TEST(MessagePropertiesUnitTests, GetCapacityProfileReturnsSetValue) {
 
     ct_message_properties_set_capacity_profile(message_properties, MSG_CAPACITY_PROFILE, CAPACITY_PROFILE_LOW_LATENCY_INTERACTIVE);
 
-    EXPECT_EQ(ct_message_properties_get_capacity_profile(message_properties, MSG_CAPACITY_PROFILE), CAPACITY_PROFILE_LOW_LATENCY_INTERACTIVE);
+    EXPECT_EQ(ct_message_properties_get_capacity_profile(message_properties), CAPACITY_PROFILE_LOW_LATENCY_INTERACTIVE);
 
     ct_message_properties_free(message_properties);
 }
@@ -341,7 +341,7 @@ TEST(MessagePropertiesUnitTests, GetBooleanReturnsFalseForNullPointer) {
 }
 
 TEST(MessagePropertiesUnitTests, GetCapacityProfileReturnsDefaultForNullPointer) {
-    EXPECT_EQ(ct_message_properties_get_capacity_profile(nullptr, MSG_CAPACITY_PROFILE), CAPACITY_PROFILE_BEST_EFFORT);
+    EXPECT_EQ(ct_message_properties_get_capacity_profile(nullptr), CAPACITY_PROFILE_BEST_EFFORT);
 }
 
 // Negative tests for getters - type mismatch returns default value
@@ -368,15 +368,6 @@ TEST(MessagePropertiesUnitTests, GetBooleanOnUint32PropertyReturnsFalse) {
     ASSERT_NE(message_properties, nullptr);
 
     EXPECT_FALSE(ct_message_properties_get_boolean(message_properties, MSG_PRIORITY));
-
-    ct_message_properties_free(message_properties);
-}
-
-TEST(MessagePropertiesUnitTests, GetCapacityProfileOnBooleanPropertyReturnsDefault) {
-    ct_message_properties_t* message_properties = ct_message_properties_new();
-    ASSERT_NE(message_properties, nullptr);
-
-    EXPECT_EQ(ct_message_properties_get_capacity_profile(message_properties, MSG_ORDERED), CAPACITY_PROFILE_BEST_EFFORT);
 
     ct_message_properties_free(message_properties);
 }
