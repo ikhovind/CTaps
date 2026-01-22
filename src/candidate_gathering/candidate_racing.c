@@ -133,7 +133,7 @@ static int start_connection_attempt(ct_racing_context_t* context, size_t attempt
   ct_racing_attempt_t* attempt = &context->attempts[attempt_index];
   ct_candidate_node_t* candidate = &attempt->candidate;
 
-  log_debug("Attempting connection with protocol: %s", candidate->protocol->name);
+  log_debug("Attempting connection with protocol: %s", candidate->protocol_candidate->protocol_impl->name);
 
   // Allocate connection for this attempt
   attempt->connection = malloc(sizeof(ct_connection_t));
@@ -152,7 +152,7 @@ static int start_connection_attempt(ct_racing_context_t* context, size_t attempt
   }
 
   // Setup connection with candidate parameters
-  attempt->connection->protocol = *candidate->protocol;
+  attempt->connection->protocol = *candidate->protocol_candidate->protocol_impl;
   // Deep copy endpoints so connection owns its own copies
   attempt->connection->remote_endpoint = ct_remote_endpoint_copy_content(candidate->remote_endpoint);
   attempt->connection->local_endpoint = ct_local_endpoint_copy_content(candidate->local_endpoint);
@@ -173,7 +173,7 @@ static int start_connection_attempt(ct_racing_context_t* context, size_t attempt
   attempt->state = ATTEMPT_STATE_CONNECTING;
 
   // Initiate the connection using the protocol's init function
-  rc = attempt->connection->protocol.init(attempt->connection, &attempt->connection->connection_callbacks);
+  rc = attempt->connection->protocol.init(attempt->connection, &attempt->connection->connection_callbacks, context->initial_message, context->initial_message_context);
   if (rc != 0) {
     log_error("Failed to initiate connection attempt %zu: %d", attempt_index, rc);
     attempt->state = ATTEMPT_STATE_FAILED;

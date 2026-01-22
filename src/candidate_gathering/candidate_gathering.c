@@ -17,7 +17,48 @@ typedef struct ct_node_pruning_data_t {
   GList* undesirable_nodes;
 } ct_node_pruning_data_t;
 
-void build_candidate_tree_recursive(GNode* parent_node);
+/**
+ * TODO - issues with moving to a non-recursive tree building
+ *
+ * Need to differentiate options/candidates more clearly
+ * Need to handle 0-rtt QUIC candidates
+ *
+ * Should run gathering tests with ASAN enabled to find memory issues
+ *
+ *
+ */
+
+GNode* build_candidate_tree(const ct_preconnection_t* precon);
+int branch_by_path(GNode* parent, const ct_local_endpoint_t* local_ep);
+int branch_by_protocol(GNode* parent, ct_protocol_options_t* protocol_options);
+int branch_by_remote(GNode* parent, const ct_remote_endpoint_t* remote_ep);
+
+ct_protocol_impl_array_t* ct_protocol_impl_array_new(void) {
+  ct_protocol_impl_array_t* protocol_array = malloc(sizeof(ct_protocol_impl_array_t));
+  if (protocol_array == NULL) {
+    log_error("Could not allocate memory for ct_protocol_impl_array_t");
+    return NULL;
+  }
+  const ct_protocol_impl_t **candidate_stacks = ct_get_supported_protocols();
+  size_t num_found_protocols = ct_get_num_protocols(); // Assume one protocol for demonstration purposes.
+  protocol_array->protocols = candidate_stacks;
+  protocol_array->count = num_found_protocols;
+  return protocol_array;
+}
+
+ct_protocol_options_t* ct_protocol_options_new(const ct_preconnection_t* precon) {
+  ct_protocol_options_t* options = malloc(sizeof(ct_protocol_options_t));
+  if (options == NULL) {
+    log_error("Could not allocate memory for ct_protocol_options_t");
+    return NULL;
+  }
+  memset(options, 0, sizeof(ct_protocol_options_t));
+  if (precon->security_parameters && precon->security_parameters->security_parameters[ALPN].value.array_of_strings) {
+    options->options = precon->security_parameters->security_parameters[ALPN].value.array_of_strings;
+  }
+  options->protocols = ct_protocol_impl_array_new();
+  return options;
+}
 
 gboolean free_candidate_node(GNode *node, gpointer user_data) {
   (void)user_data;
@@ -155,14 +196,14 @@ gboolean gather_incompatible_protocol_nodes(GNode *node, gpointer user_data) {
     return true;
   }
 
-  log_trace("Checking protocol node with protocol %s", node_data->protocol->name);
+  log_trace("Checking protocol node with protocol %s", node_data->protocol_candidate->protocol_impl->name);
   ct_node_pruning_data_t* pruning_data = (ct_node_pruning_data_t*)user_data;
-  if (!protocol_implementation_supports_selection_properties(node_data->protocol, &node_data->transport_properties->selection_properties)) {
-    log_trace("Found incompatible protocol node with protocol %s", node_data->protocol->name);
+  if (!protocol_implementation_supports_selection_properties(node_data->protocol_candidate->protocol_impl, &node_data->transport_properties->selection_properties)) {
+    log_trace("Found incompatible protocol node with protocol %s", node_data->protocol_candidate->protocol_impl->name);
     pruning_data->undesirable_nodes = g_list_append(pruning_data->undesirable_nodes, node);
   }
   else {
-    log_trace("Protocol node with protocol %s is compatible", node_data->protocol->name);
+    log_trace("Protocol node with protocol %s is compatible", node_data->protocol_candidate->protocol_impl->name);
   }
   return false;
 }
@@ -216,13 +257,13 @@ gint compare_prefer_and_avoid_preferences(gconstpointer a, gconstpointer b, gpoi
       if (selection_properties->selection_property[i].value.simple_preference == PREFER) {
         log_trace("Found PREFER property at index %d", i);
         // If A can provide this property then bump its score
-        if (candidate_a->protocol->selection_properties.selection_property[i].value.simple_preference != PROHIBIT) {
+        if (candidate_a->protocol_candidate->protocol_impl->selection_properties.selection_property[i].value.simple_preference != PROHIBIT) {
           log_trace("A could supply prefer property at index %d", i);
           a_prefer_score++;
         }
         // But if B can provide it too, then do not bump it after all
         // If A cannot provide but B can, then A's score should decrease
-        if (candidate_b->protocol->selection_properties.selection_property[i].value.simple_preference != PROHIBIT) {
+        if (candidate_b->protocol_candidate->protocol_impl->selection_properties.selection_property[i].value.simple_preference != PROHIBIT) {
           log_trace("B could supply prefer property at index %d", i);
           a_prefer_score--;
         }
@@ -230,11 +271,11 @@ gint compare_prefer_and_avoid_preferences(gconstpointer a, gconstpointer b, gpoi
       else if (selection_properties->selection_property[i].value.simple_preference == AVOID) {
         log_trace("Found AVOID property at index %d", i);
 
-        if (candidate_a->protocol->selection_properties.selection_property[i].value.simple_preference != REQUIRE) {
+        if (candidate_a->protocol_candidate->protocol_impl->selection_properties.selection_property[i].value.simple_preference != REQUIRE) {
           log_trace("A could unsupply avoid property at index %d", i);
           a_avoid_score++;
         }
-        if (candidate_b->protocol->selection_properties.selection_property[i].value.simple_preference != REQUIRE) {
+        if (candidate_b->protocol_candidate->protocol_impl->selection_properties.selection_property[i].value.simple_preference != REQUIRE) {
           log_trace("B could unsupply avoid property at index %d", i);
           a_avoid_score--;
         }
@@ -262,7 +303,7 @@ gint compare_prefer_and_avoid_preferences(gconstpointer a, gconstpointer b, gpoi
 struct ct_candidate_node_t* candidate_node_new(ct_node_type_t type,
                                          const ct_local_endpoint_t* local_ep,
                                          const ct_remote_endpoint_t* remote_ep,
-                                         const ct_protocol_impl_t* proto,
+                                         ct_protocol_candidate_t* proto, // not const because we need to free it later
                                          const ct_transport_properties_t* props) {
   log_debug("Creating new candidate node of type %d", type);
   ct_candidate_node_t* node = malloc(sizeof(struct ct_candidate_node_t));
@@ -270,24 +311,29 @@ struct ct_candidate_node_t* candidate_node_new(ct_node_type_t type,
     log_error("Could not allocate memory for ct_candidate_node_t");
     return NULL;
   }
+  memset(node, 0, sizeof(struct ct_candidate_node_t));
   node->type = type;
   node->score = 0;
-  node->local_endpoint = local_endpoint_copy(local_ep);
-  if (node->local_endpoint == NULL) {
-    log_error("Could not copy local endpoint for ct_candidate_node_t");
-    free(node);
-    return NULL;
+  if (local_ep) {
+    node->local_endpoint = local_endpoint_copy(local_ep);
+    if (node->local_endpoint == NULL) {
+      log_error("Could not copy local endpoint for ct_candidate_node_t");
+      free(node);
+      return NULL;
+    }
   }
 
-  node->remote_endpoint = remote_endpoint_copy(remote_ep);
-  if (node->remote_endpoint == NULL) {
-    log_error("Could not allocate memory for remote_endpoint");
-    ct_local_endpoint_free(node->local_endpoint);
-    free(node);
-    return NULL;
+  if (remote_ep) {
+    node->remote_endpoint = remote_endpoint_copy(remote_ep);
+    if (node->remote_endpoint == NULL) {
+      log_error("Could not allocate memory for remote_endpoint");
+      ct_local_endpoint_free(node->local_endpoint);
+      free(node);
+      return NULL;
+    }
   }
 
-  node->protocol = proto;
+  node->protocol_candidate = proto;
   node->transport_properties = props;
   return node;
 }
@@ -308,6 +354,184 @@ gboolean get_leaf_nodes(GNode *node, gpointer user_data) {
   return false;
 }
 
+static gboolean collect_leaves(GNode *node, gpointer user_data) {
+  GList** leaves = (GList**)user_data;
+  if (G_NODE_IS_LEAF(node)) {
+    *leaves = g_list_append(*leaves, node);
+  }
+  return false;
+}
+
+GNode* build_candidate_tree(const ct_preconnection_t* precon) {
+  struct ct_candidate_node_t* root = candidate_node_new(
+    NODE_TYPE_ROOT,
+    NULL, 
+    NULL,
+    NULL,
+    preconnection_get_transport_properties(precon)
+  );
+
+  if (root == NULL) {
+    log_error("Could not create root candidate node data");
+    return NULL;
+  }
+
+  GNode* root_node = g_node_new(root);
+
+  if (!root_node) {
+    log_error("Could not create root GNode for candidate tree");
+    free(root);
+    return NULL;
+  }
+
+  branch_by_path(root_node, preconnection_get_local_endpoint(precon));  
+
+  GList* leaves = NULL; 
+  g_node_traverse(root_node, G_IN_ORDER, G_TRAVERSE_LEAVES, -1, collect_leaves, &leaves);
+
+  ct_protocol_options_t* protocol_options = ct_protocol_options_new(precon);
+  for (GList* iter = leaves; iter != NULL; iter = iter->next) {
+    GNode* leaf_node = (GNode*)iter->data;
+    branch_by_protocol(leaf_node, protocol_options);
+  }
+
+  g_list_free(leaves);
+  leaves = NULL;
+
+  g_node_traverse(root_node, G_IN_ORDER, G_TRAVERSE_LEAVES, -1, collect_leaves, &leaves);
+  for (GList* iter = leaves; iter != NULL; iter = iter->next) {
+    GNode* leaf_node = (GNode*)iter->data;
+    branch_by_remote(leaf_node, precon->remote_endpoints);
+  }
+
+  g_list_free(leaves);
+  return root_node;
+}
+
+int branch_by_path(GNode* parent, const ct_local_endpoint_t* local_ep) {
+  ct_local_endpoint_t* local_endpoint_list = NULL;
+  size_t num_found_local = 0;
+  struct ct_candidate_node_t* parent_data = (struct ct_candidate_node_t*)parent->data;
+  if (parent_data->type != NODE_TYPE_ROOT) {
+    log_error("branch_by_path called on non-ROOT node");
+    return -1;
+  }
+
+  // Resolve the local endpoint. The `ct_local_endpoint_resolve` function
+  // will find all available interfaces when the interface is not specified.
+  int rc = ct_local_endpoint_resolve(local_ep, &local_endpoint_list, &num_found_local);
+  if (rc != 0) {
+    log_error("Error resolving local endpoint");
+    return rc;
+  }
+  log_trace("Found %zu local endpoints, adding as children to ROOT node", num_found_local);
+
+  for (size_t i = 0; i < num_found_local; i++) {
+    // Create a child node for each local endpoint found.
+    struct ct_candidate_node_t* path_node_data = candidate_node_new(
+      NODE_TYPE_PATH,
+      &local_endpoint_list[i],
+      NULL,
+      NULL, // Protocol not yet specified
+      parent_data->transport_properties
+    );
+    if (path_node_data == NULL) {
+      log_error("Could not create PATH node data");
+      free(local_endpoint_list);
+      return -1;
+    }
+    g_node_append_data(parent, path_node_data);
+  }
+  return 0;
+}
+
+int branch_by_protocol(GNode* parent, ct_protocol_options_t* protocol_options) {
+  struct ct_candidate_node_t* parent_data = (struct ct_candidate_node_t*)parent->data;
+  if (parent_data->type != NODE_TYPE_PATH) {
+    log_error("branch_by_path called on non-PATH node");
+    return -1;
+  }
+
+  log_trace("Expanding node of type PATH to PROTOCOL nodes");
+
+  // Get all protocols that fit the selection properties.
+
+  for (size_t i = 0; i < protocol_options->protocols->count; i++) {
+    ct_protocol_candidate_t* candidate = ct_protocol_candidate_new(
+      protocol_options->protocols->protocols[i],
+      protocol_options->options
+    );
+    if (candidate == NULL) {
+      log_error("Could not create protocol candidate for protocol %s", protocol_options->protocols->protocols[i]->name);
+      return -1;
+    }
+
+    // Create a child node for each supported protocol.
+    ct_candidate_node_t* proto_node_data = candidate_node_new(
+      NODE_TYPE_PROTOCOL,
+      parent_data->local_endpoint,
+      NULL,
+      candidate,
+      parent_data->transport_properties 
+    );
+    if (proto_node_data == NULL) {
+      log_error("Could not create PROTOCOL node data");
+      return -1;
+    }
+    g_node_append_data(parent, proto_node_data);
+
+    // TODO - if current protocol is quic, add candidate with only one ALPN, (0-rtt compatible)
+    // if (candidate_stacks[i]->protocol_enum == CT_PROTOCOL_QUIC) {
+    //   log_trace("Checking QUIC protocol against selection properties");
+    //   ct_protocol_candidate_t* zeroRttCandidate = ct_protocol_candidate_new(
+    //     candidate_stacks[i],
+    //     protocol_options->options
+    //   );
+    // }
+  }
+  return 0;
+}
+
+
+
+
+int branch_by_remote(GNode* parent, const ct_remote_endpoint_t* remote_ep) {
+  struct ct_candidate_node_t* parent_data = (struct ct_candidate_node_t*)parent->data;
+  if (parent_data->type != NODE_TYPE_PROTOCOL) {
+    log_error("branch_by_remote called on non-PROTOCOL node");
+    return -1;
+  }
+  log_trace("Expanding node of type PROTOCOL to ENDPOINT nodes");
+  ct_remote_endpoint_t* resolved_remote_endpoints = NULL;
+  size_t num_found_remote = 0;
+
+  // Resolve the remote endpoint (hostname to IP address).
+  int rc = ct_remote_endpoint_resolve(remote_ep, &resolved_remote_endpoints, &num_found_remote);
+  if (rc != 0) {
+    log_error("Error resolving remote endpoint");
+    return rc;
+  }
+
+  for (size_t i = 0; i < num_found_remote; i++) {
+    // Create a leaf node for each resolved IP address.
+    ct_candidate_node_t* leaf_node_data = candidate_node_new(
+      NODE_TYPE_ENDPOINT,
+      parent_data->local_endpoint,
+      &resolved_remote_endpoints[i],
+      parent_data->protocol_candidate,
+      parent_data->transport_properties
+    );
+    g_node_append_data(parent, leaf_node_data);
+  }
+
+  // Clean up the allocated memory for the list of remote endpoints.
+  if (resolved_remote_endpoints != NULL) {
+    log_trace("Freeing list of remote endpoints after building leaf nodes");
+    free(resolved_remote_endpoints);
+  }
+  return 0;
+}
+
 /**
  * @brief Get an array of candidate nodes. Internally builds a tree
  * as described in RFC9623 and then prunes it. It then gets all the
@@ -323,24 +547,11 @@ GArray* get_ordered_candidate_nodes(const ct_preconnection_t* precon) {
     return NULL;
   }
 
-  
-  // 1. Create a new ct_candidate_node_t struct for the root
-  struct ct_candidate_node_t* root_data = candidate_node_new(
-    NODE_TYPE_ROOT,
-    preconnection_get_local_endpoint(precon),
-    preconnection_get_remote_endpoints(precon, NULL)[0],
-    NULL, // Protocol is selected in a later stage
-    preconnection_get_transport_properties(precon)
-  );
-
-  if (root_data == NULL) {
-    log_error("Could not create root candidate node data");
+  GNode* root_node = build_candidate_tree(precon);
+  if (root_node == NULL) {
+    log_error("Could not build candidate tree");
     return NULL;
   }
-
-  GNode* root_node = g_node_new(root_data);
-
-  build_candidate_tree_recursive(root_node);
 
   prune_candidate_tree(root_node, preconnection_get_transport_properties(precon)->selection_properties);
 
@@ -362,7 +573,7 @@ GArray* get_ordered_candidate_nodes(const ct_preconnection_t* precon) {
   g_array_sort_with_data(root_array, compare_prefer_and_avoid_preferences, (gpointer)&preconnection_get_transport_properties(precon)->selection_properties);
 
   if (root_array->len > 0) {
-    log_trace("Most desirable candidate protocol is: %s", (g_array_index(root_array, ct_candidate_node_t, 0)).protocol->name);
+    log_trace("Most desirable candidate protocol is: %s", (g_array_index(root_array, ct_candidate_node_t, 0)).protocol_candidate->protocol_impl->name);
   }
   else {
     log_warn("No candidate nodes found after pruning");
@@ -372,111 +583,6 @@ GArray* get_ordered_candidate_nodes(const ct_preconnection_t* precon) {
 }
 
 
-/**
- * @brief Recursively builds the candidate tree by applying the branching logic.
- *
- * @param parent_node The current node to expand.
- */
-void build_candidate_tree_recursive(GNode* parent_node) {
-  log_debug("Expanding candidate tree node of type %d", ((struct ct_candidate_node_t*)parent_node->data)->type);
-  struct ct_candidate_node_t* parent_data = (struct ct_candidate_node_t*)parent_node->data;
-
-  // According to RFC 9623, the branching order should be:
-  // 1. Network Paths (Local Endpoints)
-  // 2. Protocol Options
-  // 3. Derived Endpoints (Remote Endpoints via DNS)
-
-  // Step 1: Branch by Network Paths (Local Endpoints)
-  if (parent_data->type == NODE_TYPE_ROOT) {
-    log_trace("Expanding node of type ROOT to PATH nodes");
-    ct_local_endpoint_t* local_endpoint_list = NULL;
-    size_t num_found_local = 0;
-
-    // Resolve the local endpoint. The `ct_local_endpoint_resolve` function
-    // will find all available interfaces when the interface is not specified.
-    ct_local_endpoint_resolve(parent_data->local_endpoint, &local_endpoint_list, &num_found_local);
-    log_trace("Found %zu local endpoints, adding as children to ROOT node", num_found_local);
-
-    for (size_t i = 0; i < num_found_local; i++) {
-      // Create a child node for each local endpoint found.
-      struct ct_candidate_node_t* path_node_data = candidate_node_new(
-        NODE_TYPE_PATH,
-        &local_endpoint_list[i],
-        parent_data->remote_endpoint,
-        NULL, // Protocol not yet specified
-        parent_data->transport_properties
-      );
-      g_node_append_data(parent_node, path_node_data);
-
-      // Recurse to the next level of the tree.
-      build_candidate_tree_recursive(g_node_last_child(parent_node));
-    }
-
-    // Clean up the allocated memory for the list of local endpoints
-    if (local_endpoint_list != NULL) {
-      for (size_t i = 0; i < num_found_local; i++) {
-        ct_local_endpoint_free_strings(&local_endpoint_list[i]);
-      }
-      log_trace("Freeing list of local endpoints after building path nodes");
-      free(local_endpoint_list);
-    }
-  }
-
-  // Step 2: Branch by Protocols, they are pruned later
-  else if (parent_data->type == NODE_TYPE_PATH) {
-    log_trace("Expanding node of type PATH to PROTOCOL nodes");
-    size_t num_found_protocols = 0;
-
-    // Get all protocols that fit the selection properties.
-    const ct_protocol_impl_t **candidate_stacks = ct_get_supported_protocols();
-    num_found_protocols = ct_get_num_protocols(); // Assume one protocol for demonstration purposes.
-    log_trace("Found %d candidate protocols", num_found_protocols);
-
-    for (size_t i = 0; i < num_found_protocols; i++) {
-      // Create a child node for each supported protocol.
-      ct_candidate_node_t* proto_node_data = candidate_node_new(
-        NODE_TYPE_PROTOCOL,
-        parent_data->local_endpoint,
-        parent_data->remote_endpoint,
-        candidate_stacks[i],
-        parent_data->transport_properties
-      );
-      g_node_append_data(parent_node, proto_node_data);
-
-      // Recurse to the next level of the tree.
-      build_candidate_tree_recursive(g_node_last_child(parent_node));
-    }
-  }
-
-  // Step 3: Branch by Resolved Endpoints (DNS Lookup)
-  else if (parent_data->type == NODE_TYPE_PROTOCOL) {
-    log_trace("Expanding node of type PROTOCOL to ENDPOINT nodes");
-    ct_remote_endpoint_t* resolved_remote_endpoints = NULL;
-    size_t num_found_remote = 0;
-
-    // Resolve the remote endpoint (hostname to IP address).
-    ct_remote_endpoint_resolve(parent_data->remote_endpoint, &resolved_remote_endpoints, &num_found_remote);
-
-    for (size_t i = 0; i < num_found_remote; i++) {
-      // Create a leaf node for each resolved IP address.
-      ct_candidate_node_t* leaf_node_data = candidate_node_new(
-        NODE_TYPE_ENDPOINT,
-        parent_data->local_endpoint,
-        &resolved_remote_endpoints[i],
-        parent_data->protocol,
-        parent_data->transport_properties
-      );
-      g_node_append_data(parent_node, leaf_node_data);
-    }
-
-    // Clean up the allocated memory for the list of remote endpoints.
-    if (resolved_remote_endpoints != NULL) {
-      log_trace("Freeing list of remote endpoints after building leaf nodes");
-      free(resolved_remote_endpoints);
-    }
-  }
-}
-
 void free_candidate_array(GArray* candidate_array) {
   for (guint i = 0; i < candidate_array->len; i++) {
     const ct_candidate_node_t candidate_node = g_array_index(candidate_array, ct_candidate_node_t, i);
@@ -484,4 +590,15 @@ void free_candidate_array(GArray* candidate_array) {
     ct_remote_endpoint_free(candidate_node.remote_endpoint);
   }
   g_array_free(candidate_array, true);
+}
+
+ct_protocol_candidate_t* ct_protocol_candidate_new(const ct_protocol_impl_t* protocol_impl, ct_string_array_value_t* alpns) {
+  ct_protocol_candidate_t* protocol_candidate = malloc(sizeof(ct_protocol_candidate_t));
+  if (protocol_candidate == NULL) {
+    log_error("Could not allocate memory for ct_protocol_candidate_t");
+    return NULL;
+  }
+  protocol_candidate->protocol_impl = protocol_impl;
+  protocol_candidate->alpns = alpns;
+  return protocol_candidate;
 }

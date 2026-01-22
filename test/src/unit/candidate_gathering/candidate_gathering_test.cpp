@@ -169,15 +169,15 @@ TEST_F(CandidateTreeTest, CreatesAndResolvesFullTree) {
 
     // 2. Verify the calls to mocked functions
     ASSERT_EQ(faked_ct_local_endpoint_resolve_fake.call_count, 1);
-    ASSERT_EQ(faked_ct_get_supported_protocols_fake.call_count, 2); // Called for each path child
+    ASSERT_EQ(faked_ct_get_supported_protocols_fake.call_count, 1);
     ASSERT_EQ(faked_ct_remote_endpoint_resolve_fake.call_count, 6); // Called for each protocol leaf
 
     // 3. Verify data in a leaf node
     ct_candidate_node_t first_node = g_array_index(root, ct_candidate_node_t, 0);
 
-    ASSERT_STREQ(first_node.protocol->name, "MockProto1");
+    ASSERT_STREQ(first_node.protocol_candidate->protocol_impl->name, "MockProto1");
     ASSERT_EQ(first_node.type, NODE_TYPE_ENDPOINT);
-    ASSERT_EQ(first_node.protocol, &mock_proto_1);
+    ASSERT_EQ(first_node.protocol_candidate->protocol_impl, &mock_proto_1);
 
     // --- CLEANUP ---
     free_candidate_array(root);
@@ -221,18 +221,18 @@ TEST_F(CandidateTreeTest, PrunesPathAndProtocol) {
 
     // 2. Verify the calls to mocked functions
     ASSERT_EQ(faked_ct_local_endpoint_resolve_fake.call_count, 1);
-    ASSERT_EQ(faked_ct_get_supported_protocols_fake.call_count, 2); // Called for each path child
+    ASSERT_EQ(faked_ct_get_supported_protocols_fake.call_count, 1);
     ASSERT_EQ(faked_ct_remote_endpoint_resolve_fake.call_count, 6); // Called for each protocol leaf
 
     // 3. Verify data in result list
     ct_candidate_node_t first_candidate = g_array_index(candidates, ct_candidate_node_t, 0);
 
-    ASSERT_STREQ(first_candidate.protocol->name, "MockProto2");
+    ASSERT_STREQ(first_candidate.protocol_candidate->protocol_impl->name, "MockProto2");
     ASSERT_EQ(first_candidate.type, NODE_TYPE_ENDPOINT);
 
     ct_candidate_node_t second_candidate = g_array_index(candidates, ct_candidate_node_t, 1);
 
-    ASSERT_STREQ(second_candidate.protocol->name, "MockProto3");
+    ASSERT_STREQ(second_candidate.protocol_candidate->protocol_impl->name, "MockProto3");
     ASSERT_EQ(second_candidate.type, NODE_TYPE_ENDPOINT);
 
     // --- CLEANUP ---
@@ -283,25 +283,25 @@ TEST_F(CandidateTreeTest, SortsOnPreferOverAvoid) {
 
     // 2. Verify the calls to mocked functions
     ASSERT_EQ(faked_ct_local_endpoint_resolve_fake.call_count, 1);
-    ASSERT_EQ(faked_ct_get_supported_protocols_fake.call_count, 2); // Called for each path child
+    ASSERT_EQ(faked_ct_get_supported_protocols_fake.call_count, 1);
     ASSERT_EQ(faked_ct_remote_endpoint_resolve_fake.call_count, 6); // Called for each protocol leaf
 
     ct_candidate_node_t first_candidate = g_array_index(root, ct_candidate_node_t, 0);
 
-    ASSERT_STREQ(first_candidate.protocol->name, "MockProto2");
+    ASSERT_STREQ(first_candidate.protocol_candidate->protocol_impl->name, "MockProto2");
     ASSERT_EQ(first_candidate.type, NODE_TYPE_ENDPOINT);
 
     ct_candidate_node_t second_candidate = g_array_index(root, ct_candidate_node_t, 1);
 
-    ASSERT_STREQ(second_candidate.protocol->name, "MockProto2");
+    ASSERT_STREQ(second_candidate.protocol_candidate->protocol_impl->name, "MockProto2");
     ASSERT_EQ(second_candidate.type, NODE_TYPE_ENDPOINT);
 
     ct_candidate_node_t third_candidate = g_array_index(root, ct_candidate_node_t, 2);
-    ASSERT_STREQ(third_candidate.protocol->name, "MockProto3");
+    ASSERT_STREQ(third_candidate.protocol_candidate->protocol_impl->name, "MockProto3");
     ASSERT_EQ(third_candidate.type, NODE_TYPE_ENDPOINT);
 
     ct_candidate_node_t fourth_candidate = g_array_index(root, ct_candidate_node_t, 3);
-    ASSERT_STREQ(fourth_candidate.protocol->name, "MockProto3");
+    ASSERT_STREQ(fourth_candidate.protocol_candidate->protocol_impl->name, "MockProto3");
     ASSERT_EQ(fourth_candidate.type, NODE_TYPE_ENDPOINT);
 
     // --- CLEANUP ---
@@ -351,25 +351,25 @@ TEST_F(CandidateTreeTest, UsesAvoidAsTieBreaker) {
 
     // 2. Verify the calls to mocked functions
     ASSERT_EQ(faked_ct_local_endpoint_resolve_fake.call_count, 1);
-    ASSERT_EQ(faked_ct_get_supported_protocols_fake.call_count, 2); // Called for each path child
+    ASSERT_EQ(faked_ct_get_supported_protocols_fake.call_count, 1);
     ASSERT_EQ(faked_ct_remote_endpoint_resolve_fake.call_count, 6); // Called for each protocol leaf
 
     ct_candidate_node_t first_candidate = g_array_index(root, ct_candidate_node_t, 0);
 
-    ASSERT_STREQ(first_candidate.protocol->name, "MockProto3");
+    ASSERT_STREQ(first_candidate.protocol_candidate->protocol_impl->name, "MockProto3");
     ASSERT_EQ(first_candidate.type, NODE_TYPE_ENDPOINT);
 
     ct_candidate_node_t second_candidate = g_array_index(root, ct_candidate_node_t, 1);
 
-    ASSERT_STREQ(second_candidate.protocol->name, "MockProto3");
+    ASSERT_STREQ(second_candidate.protocol_candidate->protocol_impl->name, "MockProto3");
     ASSERT_EQ(second_candidate.type, NODE_TYPE_ENDPOINT);
 
     ct_candidate_node_t third_candidate = g_array_index(root, ct_candidate_node_t, 2);
-    ASSERT_STREQ(third_candidate.protocol->name, "MockProto2");
+    ASSERT_STREQ(third_candidate.protocol_candidate->protocol_impl->name, "MockProto2");
     ASSERT_EQ(third_candidate.type, NODE_TYPE_ENDPOINT);
 
     ct_candidate_node_t fourth_candidate = g_array_index(root, ct_candidate_node_t, 3);
-    ASSERT_STREQ(fourth_candidate.protocol->name, "MockProto2");
+    ASSERT_STREQ(fourth_candidate.protocol_candidate->protocol_impl->name, "MockProto2");
     ASSERT_EQ(fourth_candidate.type, NODE_TYPE_ENDPOINT);
 
     // --- CLEANUP ---
@@ -412,7 +412,7 @@ TEST_F(CandidateTreeTest, GivesNoCandidateNodesWhenAllProtocolsProhibited) {
 
     // 2. Verify the calls to mocked functions
     ASSERT_EQ(faked_ct_local_endpoint_resolve_fake.call_count, 1);
-    ASSERT_EQ(faked_ct_get_supported_protocols_fake.call_count, 2); // Called for each path child
+    ASSERT_EQ(faked_ct_get_supported_protocols_fake.call_count, 1);
     ASSERT_EQ(faked_ct_remote_endpoint_resolve_fake.call_count, 6); // Called for each protocol leaf
 
     // --- CLEANUP ---
