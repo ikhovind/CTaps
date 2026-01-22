@@ -117,15 +117,11 @@ bool ct_message_properties_get_boolean(const ct_message_properties_t* message_pr
   return message_properties->message_property[property].value.boolean_value;
 }
 
-ct_capacity_profile_enum_t ct_message_properties_get_capacity_profile(const ct_message_properties_t* message_properties,  ct_message_properties_enum_t property) {
+ct_capacity_profile_enum_t ct_message_properties_get_capacity_profile(const ct_message_properties_t* message_properties) {
   if (!message_properties) {
     return CAPACITY_PROFILE_BEST_EFFORT;
   }
-  if (message_properties->message_property[property].type != TYPE_ENUM_MSG) {
-    log_error("Type mismatch when getting message property %s", message_properties->message_property[property].name);
-    return CAPACITY_PROFILE_BEST_EFFORT;
-  }
-  return message_properties->message_property[property].value.capacity_profile_enum_value;
+  return message_properties->message_property[MSG_CAPACITY_PROFILE].value.capacity_profile_enum_value;
 }
 
 bool ct_message_properties_is_final(const ct_message_properties_t* message_properties) {
@@ -133,4 +129,20 @@ bool ct_message_properties_is_final(const ct_message_properties_t* message_prope
     return false;
   }
   return message_properties->message_property[FINAL].value.boolean_value;
+}
+
+bool ct_message_properties_get_safely_replayable(const ct_message_properties_t* message_properties) {
+  if (!message_properties) {
+    log_error("Null pointer passed to ct_message_properties_get_safely_replayable");
+    return false;
+  }
+  return message_properties->message_property[MSG_SAFELY_REPLAYABLE].value.boolean_value;
+}
+
+void ct_message_properties_set_safely_replayable(ct_message_properties_t* message_properties, bool value) {
+  if (!message_properties) {
+    log_error("Null pointer passed to ct_message_properties_set_safely_replayable");
+    return;
+  }
+  message_properties->message_property[MSG_SAFELY_REPLAYABLE].value.boolean_value = value;
 }

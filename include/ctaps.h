@@ -1029,7 +1029,11 @@ CT_EXTERN uint32_t ct_message_properties_get_uint32(const ct_message_properties_
 
 CT_EXTERN bool ct_message_properties_get_boolean(const ct_message_properties_t* message_properties,  ct_message_properties_enum_t property);
 
-CT_EXTERN ct_capacity_profile_enum_t ct_message_properties_get_capacity_profile(const ct_message_properties_t* message_properties,  ct_message_properties_enum_t property);
+CT_EXTERN ct_capacity_profile_enum_t ct_message_properties_get_capacity_profile(const ct_message_properties_t* message_properties);
+
+CT_EXTERN bool ct_message_properties_get_safely_replayable(const ct_message_properties_t* message_properties);
+
+CT_EXTERN void ct_message_properties_set_safely_replayable(ct_message_properties_t* message_properties, bool value);
 
 /**
  * @brief Free resources in message properties.
@@ -1406,6 +1410,8 @@ CT_EXTERN void ct_message_context_set_boolean(ct_message_context_t* message_cont
 
 CT_EXTERN void ct_message_context_set_capacity_profile(ct_message_context_t* message_context, ct_message_properties_enum_t property, ct_capacity_profile_enum_t value);
 
+CT_EXTERN void ct_message_context_set_safely_replayable(ct_message_context_t* message_context, bool value);
+
 // Message context property getters
 CT_EXTERN uint64_t ct_message_context_get_uint64(const ct_message_context_t* message_context, ct_message_properties_enum_t property);
 
@@ -1413,7 +1419,6 @@ CT_EXTERN uint32_t ct_message_context_get_uint32(const ct_message_context_t* mes
 
 CT_EXTERN bool ct_message_context_get_boolean(const ct_message_context_t* message_context, ct_message_properties_enum_t property);
 
-CT_EXTERN ct_capacity_profile_enum_t ct_message_context_get_capacity_profile(const ct_message_context_t* message_context, ct_message_properties_enum_t property);
 
 /**
  * @brief Create a new preconnection with transport properties and endpoints.

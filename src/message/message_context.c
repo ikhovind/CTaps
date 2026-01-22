@@ -133,9 +133,9 @@ bool ct_message_context_get_boolean(const ct_message_context_t* message_context,
   return ct_message_properties_get_boolean(&message_context->message_properties, property);
 }
 
-ct_capacity_profile_enum_t ct_message_context_get_capacity_profile(const ct_message_context_t* message_context, ct_message_properties_enum_t property) {
+void ct_message_context_set_safely_replayable(ct_message_context_t* message_context, bool value) {
   if (!message_context) {
-    return CAPACITY_PROFILE_BEST_EFFORT;
+    return;
   }
-  return ct_message_properties_get_capacity_profile(&message_context->message_properties, property);
+  ct_message_properties_set_safely_replayable(&message_context->message_properties, value);
 }

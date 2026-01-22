@@ -88,7 +88,7 @@ TEST(MessageContextUnitTests, SetAndGetCapacityProfile) {
 
     ct_message_context_set_capacity_profile(msg_ctx, MSG_CAPACITY_PROFILE, CAPACITY_PROFILE_LOW_LATENCY_INTERACTIVE);
 
-    EXPECT_EQ(ct_message_context_get_capacity_profile(msg_ctx, MSG_CAPACITY_PROFILE), CAPACITY_PROFILE_LOW_LATENCY_INTERACTIVE);
+    EXPECT_EQ(ct_message_properties_get_capacity_profile(ct_message_context_get_message_properties(msg_ctx)), CAPACITY_PROFILE_LOW_LATENCY_INTERACTIVE);
 
     ct_message_context_free(msg_ctx);
 }
@@ -124,8 +124,4 @@ TEST(MessageContextUnitTests, GetBooleanReturnsFalseForNullContext) {
 TEST(MessageContextUnitTests, SetCapacityProfileHandlesNullContext) {
     ct_message_context_set_capacity_profile(nullptr, MSG_CAPACITY_PROFILE, CAPACITY_PROFILE_LOW_LATENCY_INTERACTIVE);
     SUCCEED();
-}
-
-TEST(MessageContextUnitTests, GetCapacityProfileReturnsDefaultForNullContext) {
-    EXPECT_EQ(ct_message_context_get_capacity_profile(nullptr, MSG_CAPACITY_PROFILE), CAPACITY_PROFILE_BEST_EFFORT);
 }
