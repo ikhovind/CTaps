@@ -22,6 +22,7 @@
 conan_deps/
 # Test artifacts
 Testing/
+**/ticket_store.db
 # Benchmark artifacts
 **/large_file.dat
 **/short_file.dat

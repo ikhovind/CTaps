@@ -1088,6 +1088,8 @@ CT_EXTERN int ct_sec_param_set_ticket_store_path(ct_security_parameters_t* secur
 
 CT_EXTERN const char* ct_sec_param_get_ticket_store_path(const ct_security_parameters_t* security_parameters);
 
+CT_EXTERN const char** ct_sec_param_get_alpn_strings(const ct_security_parameters_t* security_parameters, size_t* out_num_strings);
+
 // ==============================================================================
 // ENDPOINT OWNERSHIP MODEL
 // ==============================================================================

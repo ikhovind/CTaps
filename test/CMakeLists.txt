@@ -163,6 +163,7 @@ add_gtest(remote_endpoint_integration_test
             ${CMAKE_SOURCE_DIR}/src/protocol/tcp/tcp.c
             ${CMAKE_SOURCE_DIR}/src/protocol/quic/quic.c
             ${CMAKE_SOURCE_DIR}/src/protocol/common/socket_utils.c
+            ${CMAKE_SOURCE_DIR}/src/protocol/common/protocol.c
             ${CMAKE_SOURCE_DIR}/src/util/uuid_util.c
             ${CMAKE_SOURCE_DIR}/src/state/ctaps_state.c
             ${CMAKE_SOURCE_DIR}/src/transport_property/transport_properties.c

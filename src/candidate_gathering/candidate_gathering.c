@@ -21,7 +21,6 @@ typedef struct ct_node_pruning_data_t {
  * TODO - issues with moving to a non-recursive tree building
  *
  * Need to differentiate options/candidates more clearly
- * Need to handle 0-rtt QUIC candidates
  *
  * Should run gathering tests with ASAN enabled to find memory issues
  *
@@ -54,9 +53,9 @@ ct_protocol_options_t* ct_protocol_options_new(const ct_preconnection_t* precon)
   }
   memset(options, 0, sizeof(ct_protocol_options_t));
   if (precon->security_parameters && precon->security_parameters->security_parameters[ALPN].value.array_of_strings) {
-    options->options = precon->security_parameters->security_parameters[ALPN].value.array_of_strings;
+    options->alpns = precon->security_parameters->security_parameters[ALPN].value.array_of_strings;
   }
-  options->protocols = ct_protocol_impl_array_new();
+  options->protocol_impls = ct_protocol_impl_array_new();
   return options;
 }
 
@@ -454,40 +453,69 @@ int branch_by_protocol(GNode* parent, ct_protocol_options_t* protocol_options) {
 
   log_trace("Expanding node of type PATH to PROTOCOL nodes");
 
-  // Get all protocols that fit the selection properties.
+  for (size_t i = 0; i < protocol_options->protocol_impls->count; i++) {
+    if (ct_protocol_supports_alpn(protocol_options->protocol_impls->protocols[i])
+        && protocol_options->alpns->num_strings > 0) {
+      // If the current protocol supports ALPN, create a candidate for each ALPN value
+      // Picoquic does support passing multiple ALPNs as a single connection attempt,
+      // but not if we want to support 0-rtt because then the alpn has to be passed to 
+      // the picoquic_create invocation, which only takes a single value.
+      // It was therefore decided to create separate
+      // candidates for each ALPN value, as the added overhead is assumed to not be too high
+      for (size_t j = 0; j < protocol_options->alpns->num_strings; j++) {
+        log_trace("Checking QUIC protocol against selection properties");
+        ct_protocol_candidate_t* candidate = ct_protocol_candidate_new(
+          protocol_options->protocol_impls->protocols[i],
+          protocol_options->alpns->strings[j]
+        );
+        if (candidate == NULL) {
+          log_error("Could not create protocol candidate for protocol %s with ALPN %s",
+                    protocol_options->protocol_impls->protocols[i]->name,
+                    protocol_options->alpns->strings[j]);
+          return -1;
+        }
 
-  for (size_t i = 0; i < protocol_options->protocols->count; i++) {
-    ct_protocol_candidate_t* candidate = ct_protocol_candidate_new(
-      protocol_options->protocols->protocols[i],
-      protocol_options->options
-    );
-    if (candidate == NULL) {
-      log_error("Could not create protocol candidate for protocol %s", protocol_options->protocols->protocols[i]->name);
-      return -1;
+        // Create a child node for each supported protocol.
+        ct_candidate_node_t* candidate_node = candidate_node_new(
+          NODE_TYPE_PROTOCOL,
+          parent_data->local_endpoint,
+          NULL,
+          candidate,
+          parent_data->transport_properties 
+        );
+        if (candidate_node == NULL) {
+          log_error("Could not create PROTOCOL node data");
+          return -1;
+        }
+        g_node_append_data(parent, candidate_node);
+      }
     }
+    else {
+      // If the current protocol does not support ALPN, just create a single candidate without any alpn
+      ct_protocol_candidate_t* candidate = ct_protocol_candidate_new(
+        protocol_options->protocol_impls->protocols[i],
+        NULL 
+      );
+      if (candidate == NULL) {
+        log_error("Could not create protocol candidate for protocol %s without ALPN",
+                  protocol_options->protocol_impls->protocols[i]->name);
+        return -1;
+      }
 
-    // Create a child node for each supported protocol.
-    ct_candidate_node_t* proto_node_data = candidate_node_new(
-      NODE_TYPE_PROTOCOL,
-      parent_data->local_endpoint,
-      NULL,
-      candidate,
-      parent_data->transport_properties 
-    );
-    if (proto_node_data == NULL) {
-      log_error("Could not create PROTOCOL node data");
-      return -1;
+      ct_candidate_node_t* candidate_node = candidate_node_new(
+        NODE_TYPE_PROTOCOL,
+        parent_data->local_endpoint,
+        NULL,
+        candidate,
+        parent_data->transport_properties 
+      );
+
+      if (candidate_node == NULL) {
+        log_error("Could not create PROTOCOL node data");
+        return -1;
+      }
+      g_node_append_data(parent, candidate_node);
     }
-    g_node_append_data(parent, proto_node_data);
-
-    // TODO - if current protocol is quic, add candidate with only one ALPN, (0-rtt compatible)
-    // if (candidate_stacks[i]->protocol_enum == CT_PROTOCOL_QUIC) {
-    //   log_trace("Checking QUIC protocol against selection properties");
-    //   ct_protocol_candidate_t* zeroRttCandidate = ct_protocol_candidate_new(
-    //     candidate_stacks[i],
-    //     protocol_options->options
-    //   );
-    // }
   }
   return 0;
 }
@@ -592,13 +620,27 @@ void free_candidate_array(GArray* candidate_array) {
   g_array_free(candidate_array, true);
 }
 
-ct_protocol_candidate_t* ct_protocol_candidate_new(const ct_protocol_impl_t* protocol_impl, ct_string_array_value_t* alpns) {
+ct_protocol_candidate_t* ct_protocol_candidate_new(const ct_protocol_impl_t* protocol_impl, const char* alpn) {
   ct_protocol_candidate_t* protocol_candidate = malloc(sizeof(ct_protocol_candidate_t));
   if (protocol_candidate == NULL) {
     log_error("Could not allocate memory for ct_protocol_candidate_t");
     return NULL;
   }
+  memset(protocol_candidate, 0, sizeof(ct_protocol_candidate_t));
+  if (!protocol_impl) {
+    log_error("NULL protocol implementation provided to ct_protocol_candidate_new");
+    free(protocol_candidate);
+    return NULL;
+  }
+
   protocol_candidate->protocol_impl = protocol_impl;
-  protocol_candidate->alpns = alpns;
+  if (alpn) {
+    protocol_candidate->alpn = strdup(alpn);
+    if (!protocol_candidate->alpn) {
+      log_error("Could not allocate memory for ALPN string in ct_protocol_candidate_t");
+      free(protocol_candidate);
+      return NULL;
+    }
+  }
   return protocol_candidate;
 }

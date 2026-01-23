@@ -19,15 +19,14 @@ typedef struct ct_protocol_impl_array_s {
   size_t count;
 } ct_protocol_impl_array_t;
 
-// wrapper struct to capture protocol "options" as well as actual protocol
 typedef struct ct_protocol_options_s {
-  ct_protocol_impl_array_t* protocols;
-  ct_string_array_value_t* options; // e.g., ALPN strings
+  ct_protocol_impl_array_t* protocol_impls;
+  ct_string_array_value_t* alpns; // e.g., ALPN strings
 } ct_protocol_options_t;
 
 typedef struct ct_protocol_candidate_s {
   const ct_protocol_impl_t* protocol_impl;
-  ct_string_array_value_t* alpns;
+  char* alpn;
 } ct_protocol_candidate_t;
 
 typedef struct ct_candidate_node_t {
@@ -46,7 +45,7 @@ GArray* get_ordered_candidate_nodes(const ct_preconnection_t* precon);
 
 ct_protocol_options_t* ct_protocol_options_new(const ct_preconnection_t* precon);
 
-ct_protocol_candidate_t* ct_protocol_candidate_new(const ct_protocol_impl_t* protocol_impl, ct_string_array_value_t* alpns);
+ct_protocol_candidate_t* ct_protocol_candidate_new(const ct_protocol_impl_t* protocol_impl, const char* alpn);
 
 void ct_protocol_options_free(ct_protocol_options_t* protocol_options);
 
