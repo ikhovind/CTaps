@@ -88,6 +88,8 @@ typedef struct {
   size_t num_strings;   ///< Number of strings in the array
 } ct_string_array_value_t;
 
+ct_string_array_value_t* ct_string_array_value_new(char** strings, size_t num_strings);
+
 
 /**
  * @brief Union holding security parameter values.
@@ -275,10 +277,11 @@ typedef struct ct_message_context_s {
 typedef struct ct_protocol_impl_s {
   const char* name;                              ///< Protocol name (e.g., "TCP", "UDP", "QUIC")
   ct_protocol_enum_t protocol_enum;              ///< Protocol enumeration value
+  bool supports_alpn;                        ///< True if protocol supports ALPN negotiation
   ct_selection_properties_t selection_properties; ///< Properties supported by this protocol
 
   /** @brief Initialize a new connection using this protocol. */
-  int (*init)(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks);
+  int (*init)(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks, ct_message_t* initial_message, ct_message_context_t* initial_message_context);
 
   /** @brief Send a message over the protocol. */
   int (*send)(ct_connection_t*, ct_message_t*, ct_message_context_t*);
@@ -305,6 +308,8 @@ typedef struct ct_protocol_impl_s {
   /** @brief Retarget protocol-specific connection state during racing. */
   void (*retarget_protocol_connection)(ct_connection_t* from_connection, ct_connection_t* to_connection);
 } ct_protocol_impl_t;
+
+bool ct_protocol_supports_alpn(const ct_protocol_impl_t* protocol_impl);
 
 typedef struct ct_listener_s {
   ct_transport_properties_t transport_properties;     ///< Transport properties for accepted connections

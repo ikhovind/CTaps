@@ -255,3 +255,37 @@ const char* ct_sec_param_get_ticket_store_path(const ct_security_parameters_t* s
   }
   return security_parameters->security_parameters[TICKET_STORE_PATH].value.string;
 }
+
+ct_string_array_value_t* ct_string_array_value_new(char** strings, size_t num_strings) {
+  ct_string_array_value_t* arr = malloc(sizeof(ct_string_array_value_t));
+  if (!arr) {
+    log_error("Failed to allocate memory for ct_string_array_value_t");
+    return NULL;
+  }
+  memset(arr, 0, sizeof(ct_string_array_value_t));
+  arr->strings = malloc(sizeof(char*) * num_strings);
+  arr->num_strings = num_strings;
+  for (size_t i = 0; i < num_strings; i++) {
+    arr->strings[i] = strdup(strings[i]);
+    if (!arr->strings[i]) {
+      log_error("Failed to allocate memory for string array element");
+      for (size_t j = 0; j < i; j++) {
+        free(arr->strings[j]);
+      }
+      free(arr->strings);
+      free(arr);
+      return NULL;
+    }
+  }
+  return arr;
+}
+
+const char** ct_sec_param_get_alpn_strings(const ct_security_parameters_t* security_parameters, size_t* out_num_strings) {
+  if (!security_parameters || !out_num_strings) {
+    log_error("Invalid arguments to get ALPN strings");
+    return NULL;
+  }
+  const ct_security_parameter_t* sec_param = &security_parameters->security_parameters[ALPN];
+  *out_num_strings = security_parameters->security_parameters->value.array_of_strings->num_strings;
+  return (const char**) sec_param->value.array_of_strings->strings;
+}

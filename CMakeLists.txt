@@ -58,6 +58,7 @@ set(CTAPS_SOURCES
     src/protocol/udp/udp.c
     src/protocol/tcp/tcp.c
     src/protocol/quic/quic.c
+    src/protocol/common/protocol.c
     src/protocol/common/socket_utils.c
     # State
     src/state/ctaps_state.c

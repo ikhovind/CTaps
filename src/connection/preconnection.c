@@ -102,7 +102,7 @@ int ct_preconnection_listen(ct_preconnection_t* preconnection, ct_listener_t* li
       .transport_properties = preconnection->transport_properties,
       .security_parameters = preconnection->security_parameters,
     };
-    socket_manager->protocol_impl = *first_node.protocol;
+    socket_manager->protocol_impl = *first_node.protocol_candidate->protocol_impl;
 
     socket_manager_build(socket_manager, listener);
     log_info("Starting to listen on ct_listener_t using protocol: %s on port: %d", socket_manager->protocol_impl.name, listener->local_endpoint.port);
