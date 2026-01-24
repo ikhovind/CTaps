@@ -1830,5 +1830,7 @@ CT_EXTERN const ct_connection_properties_t* ct_connection_get_connection_propert
 
 CT_EXTERN ct_protocol_enum_t ct_connection_get_transport_protocol(const ct_connection_t* connection);
 
+CT_EXTERN bool ct_connection_used_0rtt(const ct_connection_t* connection);
+
 
 #endif  // CTAPS_H

@@ -124,4 +124,6 @@ ct_connection_group_t* ct_connection_get_connection_group(const ct_connection_t*
 
 void connection_set_resolved_local_address(ct_connection_t* connection, const struct sockaddr_storage* addr);
 
+void ct_connection_set_used_0rtt(ct_connection_t* connection, bool used_0rtt);
+
 #endif // CONNECTION_H
