@@ -23,6 +23,7 @@
 const ct_protocol_impl_t tcp_protocol_interface = {
     .name = "TCP",
     .protocol_enum = CT_PROTOCOL_TCP,
+    .supports_alpn = false,
     .selection_properties = {
       .selection_property = {
         [RELIABILITY] = {.value = {.simple_preference = REQUIRE}},
@@ -160,7 +161,9 @@ void on_write(uv_write_t* req, int status) {
   free(req);
 }
 
-int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks) {
+int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks, ct_message_t* initial_message, ct_message_context_t* initial_message_context) {
+  (void)initial_message;
+  (void)initial_message_context;
   (void)connection_callbacks;
   log_info("Initiating TCP connection");
   uv_tcp_t* new_tcp_handle = malloc(sizeof(uv_tcp_t));

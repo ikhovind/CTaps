@@ -22,6 +22,7 @@ typedef struct ct_quic_context_s {
   uint32_t num_active_connections;
   char* cert_file_name;
   char* key_file_name;
+  char* ticket_store_path;             // Path for 0-RTT session ticket persistence
 } ct_quic_context_t;
 
 // Per-stream state for individual connections
@@ -38,10 +39,10 @@ typedef struct ct_quic_group_state_s {
 } ct_quic_group_state_t;
 
 // QUIC context management
-ct_quic_context_t* ct_create_quic_context(const char* cert_file, const char* key_file, struct ct_listener_s* listener, const char* ticket_store_path);
+ct_quic_context_t* ct_create_quic_context(const char* cert_file, const char* key_file, struct ct_listener_s* listener, const ct_security_parameters_t* security_parameters);
 void ct_close_quic_context(ct_quic_context_t* ctx);
 
-int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks);
+int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks, ct_message_t* initial_message, ct_message_context_t* initial_message_context);
 int quic_close(ct_connection_t* connection);
 void quic_abort(ct_connection_t* connection);
 int quic_send(ct_connection_t* connection, ct_message_t* message, ct_message_context_t*);

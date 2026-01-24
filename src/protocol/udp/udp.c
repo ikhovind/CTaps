@@ -21,6 +21,7 @@
 const ct_protocol_impl_t udp_protocol_interface = {
     .name = "UDP",
     .protocol_enum = CT_PROTOCOL_UDP,
+    .supports_alpn = false,
     .selection_properties = {
       .selection_property = {
         [RELIABILITY] = {.value = {.simple_preference = PROHIBIT}},
@@ -132,7 +133,9 @@ void closed_handle_cb(uv_handle_t* handle) {
   log_debug("Successfully closed UDP handle");
 }
 
-int udp_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks) {
+int udp_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks, ct_message_t* initial_message, ct_message_context_t* initial_message_context) {
+  (void)initial_message;
+  (void)initial_message_context;
   log_debug("Initiating UDP connection\n");
 
   uv_udp_t* new_udp_handle = create_udp_listening_on_local(&connection->local_endpoint, alloc_buffer, on_read);

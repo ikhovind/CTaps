@@ -26,6 +26,7 @@
 const ct_protocol_impl_t quic_protocol_interface = {
     .name = "QUIC",
     .protocol_enum = CT_PROTOCOL_QUIC,
+    .supports_alpn = true,
     .selection_properties = {
       .selection_property = {
         [RELIABILITY] = {.value = {.simple_preference = REQUIRE}},
@@ -92,6 +93,16 @@ void on_quic_context_timer(uv_timer_t* timer_handle);
 
 // Internal helper to free QUIC context resources (excluding timer)
 static void quic_context_free_resources(ct_quic_context_t* quic_ctx) {
+  // Save session tickets before freeing picoquic context (for 0-RTT support)
+  if (quic_ctx->picoquic_ctx && quic_ctx->ticket_store_path) {
+    int rc = picoquic_save_session_tickets(quic_ctx->picoquic_ctx, quic_ctx->ticket_store_path);
+    if (rc != 0) {
+      log_warn("Failed to save session tickets to %s: %d", quic_ctx->ticket_store_path, rc);
+    } else {
+      log_debug("Saved session tickets to %s", quic_ctx->ticket_store_path);
+    }
+  }
+
   if (quic_ctx->picoquic_ctx) {
     picoquic_free(quic_ctx->picoquic_ctx);
   }
@@ -100,6 +111,9 @@ static void quic_context_free_resources(ct_quic_context_t* quic_ctx) {
   }
   if (quic_ctx->key_file_name) {
     free(quic_ctx->key_file_name);
+  }
+  if (quic_ctx->ticket_store_path) {
+    free(quic_ctx->ticket_store_path);
   }
   free(quic_ctx);
   log_debug("Freed QUIC context");
@@ -120,10 +134,26 @@ static void quic_context_timer_close_cb(uv_handle_t* handle) {
 ct_quic_context_t* ct_create_quic_context(const char* cert_file,
                                           const char* key_file,
                                           struct ct_listener_s* listener,
-                                          const char* ticket_store_path) {
-  if (!cert_file || !key_file) {
-    log_error("Certificate and key files are required for QUIC context creation");
+                                          const ct_security_parameters_t* security_parameters) {
+  if (!cert_file || !key_file || !security_parameters) {
+    log_error("Certificate, key files and security parameters are required for QUIC context creation");
     return NULL;
+  }
+
+  const char* ticket_store_path = ct_sec_param_get_ticket_store_path(security_parameters);
+
+  if (ticket_store_path) {
+    log_debug("Using ticket store path: %s", ticket_store_path);
+    // Check if ticket file exists
+    FILE* f = fopen(ticket_store_path, "r");
+    if (f) {
+      fseek(f, 0, SEEK_END);
+      long size = ftell(f);
+      fclose(f);
+      log_info("Ticket store file exists with size: %ld bytes", size);
+    } else {
+      log_info("Ticket store file does not exist yet");
+    }
   }
 
   ct_quic_context_t* quic_ctx = malloc(sizeof(ct_quic_context_t));
@@ -152,13 +182,45 @@ ct_quic_context_t* ct_create_quic_context(const char* cert_file,
   quic_ctx->listener = listener;
   quic_ctx->num_active_connections = 0;
 
+  // Store ticket store path for 0-RTT session persistence
+  if (ticket_store_path) {
+    quic_ctx->ticket_store_path = strdup(ticket_store_path);
+    if (!quic_ctx->ticket_store_path) {
+      log_error("Failed to duplicate ticket store path");
+      free(quic_ctx->key_file_name);
+      free(quic_ctx->cert_file_name);
+      free(quic_ctx);
+      return NULL;
+    }
+  } else {
+    quic_ctx->ticket_store_path = NULL;
+  }
+
+  size_t out_num_alpns = 0;
+
+  const char** alpn_strings = ct_sec_param_get_alpn_strings(security_parameters, &out_num_alpns);
+  if (!alpn_strings) {
+    log_error("No ALPN strings specified in security parameters for QUIC context");
+    free(quic_ctx->ticket_store_path);
+    free(quic_ctx->key_file_name);
+    free(quic_ctx->cert_file_name);
+    return NULL;
+  }
+  if (out_num_alpns == 0) {
+    log_error("ALPN string array is empty in security parameters for QUIC context");
+    free(quic_ctx->ticket_store_path);
+    free(quic_ctx->key_file_name);
+    free(quic_ctx->cert_file_name);
+    return NULL;
+  }
+
   // Create picoquic context
   quic_ctx->picoquic_ctx = picoquic_create(
       MAX_CONCURRENT_QUIC_CONNECTIONS,
       quic_ctx->cert_file_name,
       quic_ctx->key_file_name,
       NULL,
-      NULL,  // ALPN selection handled by callback
+      alpn_strings[0],
       picoquic_callback,
       quic_ctx,   // Default callback context is the quic_context
       NULL,
@@ -173,6 +235,7 @@ ct_quic_context_t* ct_create_quic_context(const char* cert_file,
 
   if (!quic_ctx->picoquic_ctx) {
     log_error("Failed to create picoquic context");
+    free(quic_ctx->ticket_store_path);
     free(quic_ctx->key_file_name);
     free(quic_ctx->cert_file_name);
     free(quic_ctx);
@@ -184,6 +247,7 @@ ct_quic_context_t* ct_create_quic_context(const char* cert_file,
   if (!quic_ctx->timer_handle) {
     log_error("Failed to allocate memory for QUIC context timer");
     picoquic_free(quic_ctx->picoquic_ctx);
+    free(quic_ctx->ticket_store_path);
     free(quic_ctx->key_file_name);
     free(quic_ctx->cert_file_name);
     free(quic_ctx);
@@ -195,6 +259,7 @@ ct_quic_context_t* ct_create_quic_context(const char* cert_file,
     log_error("Error initializing QUIC context timer: %s", uv_strerror(rc));
     free(quic_ctx->timer_handle);
     picoquic_free(quic_ctx->picoquic_ctx);
+    free(quic_ctx->ticket_store_path);
     free(quic_ctx->key_file_name);
     free(quic_ctx->cert_file_name);
     free(quic_ctx);
@@ -585,6 +650,11 @@ int picoquic_callback(picoquic_cnx_t* cnx,
           }
         } else {
           log_debug("First connection has uninitialized stream, using it for stream %llu", (unsigned long long)stream_id);
+          picoquic_state_enum curr_picoquic_state = picoquic_get_cnx_state(group_state->picoquic_connection);
+          if (curr_picoquic_state < picoquic_state_ready && curr_picoquic_state >= picoquic_state_server_init) {
+            log_debug("Picoquic received data in early state: %d", curr_picoquic_state);
+          }
+
           ct_quic_set_connection_stream(first_connection, stream_id);
 
           picoquic_set_app_stream_ctx(group_state->picoquic_connection, stream_id, first_connection);
@@ -670,25 +740,8 @@ int picoquic_callback(picoquic_cnx_t* cnx,
       // Handle application close
       break;
     case picoquic_callback_request_alpn_list:
-      log_debug("Picoquic requested ALPN list");
-      // Get first connection to check security parameters
-      {
-        connection = ct_connection_group_get_first(connection_group);
-        if (!connection) {
-          log_error("No connections in group when handling ALPN request");
-          return -EINVAL;
-        }
-        log_debug("ct_connection_t type is: %d", connection->socket_type);
-        if (!connection->security_parameters) {
-          log_error("No security parameters set for connection when handling ALPN request");
-          return -EINVAL;
-        }
-        const ct_string_array_value_t* alpn_string_array = connection->security_parameters->security_parameters[ALPN].value.array_of_strings;
-        log_trace("Number of ALPN strings to propose: %zu", alpn_string_array->num_strings);
-        for (size_t i = 0; i < alpn_string_array->num_strings; i++) {
-          picoquic_add_proposed_alpn(bytes, alpn_string_array->strings[i]);
-        }
-      }
+      log_error("ALPN list requested in callback, should never happen");
+      return -EINVAL;
       break;
     default:
       log_debug("Unhandled callback event: %d", fin_or_event);
@@ -954,7 +1007,7 @@ void on_quic_context_timer(uv_timer_t* timer_handle) {
   reset_quic_timer(quic_ctx);
 }
 
-int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks) {
+int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks, ct_message_t* initial_message, ct_message_context_t* initial_message_context) {
   (void)connection_callbacks;
   log_info("Initializing standalone QUIC connection");
 
@@ -984,7 +1037,7 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
     cert_file,
     key_file,
     NULL,
-    ct_sec_param_get_ticket_store_path(connection->security_parameters)
+    connection->security_parameters
   );
 
   if (!quic_context) {
@@ -1014,6 +1067,7 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
     return -ENOMEM;
   }
 
+
   *group_state = (ct_quic_group_state_t){
     .udp_handle = udp_handle,
     .picoquic_connection = NULL,
@@ -1042,7 +1096,16 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
     return rc;
   }
 
-  log_debug("Creating picoquic cnx to remote endpoint");
+  size_t alpn_count = 0;
+  const char** alpn_strings = ct_sec_param_get_alpn_strings(connection->security_parameters, &alpn_count);
+  if (alpn_count == 0) {
+    log_error("No ALPN strings configured for QUIC connection");
+    free(group_state);
+    free(stream_state);
+    ct_close_quic_context(quic_context);
+    return -EINVAL;
+  }
+
   group_state->picoquic_connection = picoquic_create_cnx(
       quic_context->picoquic_ctx,
       picoquic_null_connection_id,
@@ -1051,7 +1114,7 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
       current_time,
       1,
       "localhost",
-      NULL, // If we set ALPN here we can picoquic only lets us set one, therefore set in callback instead to set potentially multiple
+      alpn_strings[0], // We create separate candidates for each ALPN to support 0-rtt (see candidate gathering code)
       1
   );
 
@@ -1059,6 +1122,35 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
 
   // Set picoquic callback to connection group
   picoquic_set_callback(group_state->picoquic_connection, picoquic_callback, connection->connection_group);
+
+
+  if (initial_message && initial_message_context) {
+    log_debug("Attempting to add initial message to QUIC stream for 0-RTT");
+    ct_message_properties_t* m_props = ct_message_context_get_message_properties(initial_message_context);
+    if (ct_message_properties_get_safely_replayable(m_props)) {
+      log_debug("Adding initial message to QUIC stream");
+      ct_connection_assign_next_free_stream(connection, false);
+
+      int rc = picoquic_add_to_stream(
+          group_state->picoquic_connection,
+          ct_connection_get_stream_id(connection),
+          (const uint8_t*)initial_message->content,
+          initial_message->length,
+          0 // not final
+      );
+      if (rc < 0) {
+        log_error("Failed to add initial message to QUIC stream: %d", rc);
+      }
+    }
+    else {
+      log_debug("Initial message is not safely replayable, not attempting 0-rtt");
+    }
+  }
+  else {
+    log_debug("No initial message provided for 0-RTT");
+  }
+
+
 
   rc = picoquic_start_client_cnx(group_state->picoquic_connection);
   if (rc != 0) {
@@ -1068,6 +1160,9 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
     ct_close_quic_context(quic_context);
     return rc;
   }
+
+  log_info("0-RTT available after start: %s", picoquic_is_0rtt_available(group_state->picoquic_connection) ? "YES" : "NO");
+
   quic_context->num_active_connections++;
 
   reset_quic_timer(quic_context);
@@ -1261,7 +1356,7 @@ int quic_listen(ct_socket_manager_t* socket_manager) {
     cert_file,
     key_file,
     listener,
-    ct_sec_param_get_ticket_store_path(listener->security_parameters)
+    listener->security_parameters
   );
   if (!quic_context) {
     log_error("Failed to create QUIC context for listener");
