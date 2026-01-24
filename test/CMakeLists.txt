@@ -137,6 +137,7 @@ add_gtest(candidate_gathering_test
             ct_remote_endpoint_resolve
             ct_get_supported_protocols
             ct_get_num_protocols
+        ASAN_ENABLED
 )
 
 add_gtest(local_endpoint_unit_test
