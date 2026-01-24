@@ -33,6 +33,10 @@ class QuicEchoProtocol(QuicConnectionProtocol):
 
         # Handle data received on a stream
         if isinstance(event, StreamDataReceived):
+            # Check if this is 0-RTT early data (arrived before handshake complete)
+            if not self._quic.tls.early_data_accepted:
+                logging.info("*** 0-RTT EARLY DATA received on stream %d ***", event.stream_id)
+
             # 1. Log the incoming data
             logging.info("Received on stream %d: %s", event.stream_id, event.data.decode(errors='ignore'))
             receive_string = event.data.decode(errors='ignore')

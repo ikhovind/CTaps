@@ -1124,12 +1124,14 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
   picoquic_set_callback(group_state->picoquic_connection, picoquic_callback, connection->connection_group);
 
 
+  bool queued_0rtt = false;
   if (initial_message && initial_message_context) {
     log_debug("Attempting to add initial message to QUIC stream for 0-RTT");
     ct_message_properties_t* m_props = ct_message_context_get_message_properties(initial_message_context);
     if (ct_message_properties_get_safely_replayable(m_props)) {
       log_debug("Adding initial message to QUIC stream");
       ct_connection_assign_next_free_stream(connection, false);
+      queued_0rtt = true;
 
       int rc = picoquic_add_to_stream(
           group_state->picoquic_connection,
@@ -1150,8 +1152,6 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
     log_debug("No initial message provided for 0-RTT");
   }
 
-
-
   rc = picoquic_start_client_cnx(group_state->picoquic_connection);
   if (rc != 0) {
     log_error("Error starting QUIC client connection: %d", rc);
@@ -1162,6 +1162,12 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
   }
 
   log_info("0-RTT available after start: %s", picoquic_is_0rtt_available(group_state->picoquic_connection) ? "YES" : "NO");
+  log_info("QUIC client connection used tls resumption: %s", picoquic_tls_is_psk_handshake(group_state->picoquic_connection) ? "YES" : "NO");
+  if (picoquic_is_0rtt_available(group_state->picoquic_connection) && queued_0rtt) {
+    // TODO - rename to "attempted 0rtt", clean up and introduce helper functions
+    ct_connection_set_used_0rtt(connection, picoquic_is_0rtt_available(group_state->picoquic_connection));
+  }
+  
 
   quic_context->num_active_connections++;
 

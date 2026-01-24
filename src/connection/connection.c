@@ -618,3 +618,19 @@ ct_protocol_enum_t ct_connection_get_transport_protocol(const ct_connection_t* c
   }
   return connection->protocol.protocol_enum;
 }
+
+bool ct_connection_used_0rtt(const ct_connection_t* connection) {
+  if (!connection) {
+    log_error("ct_connection_used_0rtt called with NULL connection");
+    return false;
+  }
+  return connection->used_0rtt;
+}
+
+void ct_connection_set_used_0rtt(ct_connection_t* connection, bool used_0rtt) {
+  if (!connection) {
+    log_error("ct_connection_set_used_0rtt called with NULL connection");
+    return;
+  }
+  connection->used_0rtt = used_0rtt;
+}
