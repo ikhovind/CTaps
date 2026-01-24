@@ -285,7 +285,13 @@ const char** ct_sec_param_get_alpn_strings(const ct_security_parameters_t* secur
     log_error("Invalid arguments to get ALPN strings");
     return NULL;
   }
+  if (!security_parameters->security_parameters[ALPN].value.array_of_strings) {
+    log_trace("No ALPN strings set in security parameters");
+    *out_num_strings = 0;
+    return NULL;
+  }
+  log_trace("Fetching %zu ALPN strings from security parameters", security_parameters->security_parameters[ALPN].value.array_of_strings->num_strings);
   const ct_security_parameter_t* sec_param = &security_parameters->security_parameters[ALPN];
-  *out_num_strings = security_parameters->security_parameters->value.array_of_strings->num_strings;
+  *out_num_strings = security_parameters->security_parameters[ALPN].value.array_of_strings->num_strings;
   return (const char**) sec_param->value.array_of_strings->strings;
 }

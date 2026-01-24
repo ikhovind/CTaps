@@ -156,6 +156,9 @@ int ct_remote_endpoint_resolve(const ct_remote_endpoint_t* remote_endpoint, ct_r
 }
 
 void ct_remote_endpoint_free_strings(ct_remote_endpoint_t* remote_endpoint) {
+  if (!remote_endpoint) {
+    return;
+  }
   if (remote_endpoint->hostname) {
     free(remote_endpoint->hostname);
     remote_endpoint->hostname = NULL;
