@@ -228,6 +228,12 @@ add_gtest(connection_properties_test
     ${CTAPS_SOURCES}
 )
 
+add_gtest(security_parameters_test
+  SOURCES
+    src/unit/security_parameters/security_parameters_unit_test.cpp
+    ${CTAPS_SOURCES}
+)
+
 add_gtest(message_context_integration_test
   SOURCES
     src/integration/message/message_context_integration_test.cpp
