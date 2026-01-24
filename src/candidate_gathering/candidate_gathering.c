@@ -17,19 +17,40 @@ typedef struct ct_node_pruning_data_t {
   GList* undesirable_nodes;
 } ct_node_pruning_data_t;
 
+typedef struct ct_protocol_impl_array_s {
+  const ct_protocol_impl_t** protocols;
+  size_t count;
+} ct_protocol_impl_array_t;
+
 /**
- * TODO - issues with moving to a non-recursive tree building
- *
- * Need to differentiate options/candidates more clearly
- *
- * Should run gathering tests with ASAN enabled to find memory issues
- *
- *
- */
+  * Represents all protocol options for candidate gathering.
+  *
+  * branch_by_protocol function will use this to expand PATH nodes into PROTOCOL nodes.
+  * Creating a PROTOCOL node for each combination, where appropriate. Add future options
+  * as members in this struct and modify branch_by_protocol accordingly.
+  */
+typedef struct ct_protocol_options_s {
+  ct_protocol_impl_array_t* protocol_impls;
+  ct_string_array_value_t* alpns; // e.g., ALPN strings
+} ct_protocol_options_t;
+
+ct_protocol_options_t* ct_protocol_options_new(const ct_preconnection_t* precon);
+
+ct_protocol_candidate_t* ct_protocol_candidate_new(const ct_protocol_impl_t* protocol_impl, const char* alpn);
+
+ct_protocol_candidate_t* ct_protocol_candidate_copy(const ct_protocol_candidate_t* protocol_candidate);
+
+ct_candidate_node_t* ct_candidate_node_copy(const ct_candidate_node_t* candidate_node);
+
+void ct_protocol_candidate_free(ct_protocol_candidate_t* protocol_candidate);
+
+void ct_protocol_options_free(ct_protocol_options_t* protocol_options);
+
+ct_protocol_impl_array_t* ct_protocol_impl_array_new(void);
 
 GNode* build_candidate_tree(const ct_preconnection_t* precon);
 int branch_by_path(GNode* parent, const ct_local_endpoint_t* local_ep);
-int branch_by_protocol(GNode* parent, ct_protocol_options_t* protocol_options);
+int branch_by_protocol_options(GNode* parent, ct_protocol_options_t* protocol_options);
 int branch_by_remote(GNode* parent, const ct_remote_endpoint_t* remote_ep);
 
 ct_protocol_impl_array_t* ct_protocol_impl_array_new(void) {
@@ -68,6 +89,7 @@ gboolean free_candidate_node(GNode *node, gpointer user_data) {
   if (candidate_node->remote_endpoint) {
     ct_remote_endpoint_free(candidate_node->remote_endpoint);
   }
+  ct_protocol_candidate_free(candidate_node->protocol_candidate);
   free(node->data);
   return false;
 }
@@ -302,7 +324,7 @@ gint compare_prefer_and_avoid_preferences(gconstpointer a, gconstpointer b, gpoi
 struct ct_candidate_node_t* candidate_node_new(ct_node_type_t type,
                                          const ct_local_endpoint_t* local_ep,
                                          const ct_remote_endpoint_t* remote_ep,
-                                         ct_protocol_candidate_t* proto, // not const because we need to free it later
+                                         const ct_protocol_candidate_t* proto, // not const because we need to free it later
                                          const ct_transport_properties_t* props) {
   log_debug("Creating new candidate node of type %d", type);
   ct_candidate_node_t* node = malloc(sizeof(struct ct_candidate_node_t));
@@ -332,22 +354,20 @@ struct ct_candidate_node_t* candidate_node_new(ct_node_type_t type,
     }
   }
 
-  node->protocol_candidate = proto;
+  node->protocol_candidate = ct_protocol_candidate_copy(proto);
   node->transport_properties = props;
   return node;
 }
 
-gboolean get_leaf_nodes(GNode *node, gpointer user_data) {
+gboolean get_deep_copy_leaf_nodes(GNode *node, gpointer user_data) {
   log_trace("Iterating candidate tree for getting candidate leaf nodes");
   GArray* node_array = user_data;
 
   if (((ct_candidate_node_t*)node->data)->type == NODE_TYPE_ENDPOINT) {
     log_trace("Found candidate node of type ENDPOINT in candidate tree, adding to output array");
-    ct_candidate_node_t candidate_node = *(ct_candidate_node_t*)node->data;
-    candidate_node.local_endpoint = local_endpoint_copy(candidate_node.local_endpoint);
-    candidate_node.remote_endpoint = remote_endpoint_copy(candidate_node.remote_endpoint);
-
-    g_array_append_val(node_array, candidate_node);
+    ct_candidate_node_t* candidate_node = ct_candidate_node_copy(node->data);
+    g_array_append_val(node_array, *candidate_node);
+    free(candidate_node);
   }
 
   return false;
@@ -391,8 +411,9 @@ GNode* build_candidate_tree(const ct_preconnection_t* precon) {
   ct_protocol_options_t* protocol_options = ct_protocol_options_new(precon);
   for (GList* iter = leaves; iter != NULL; iter = iter->next) {
     GNode* leaf_node = (GNode*)iter->data;
-    branch_by_protocol(leaf_node, protocol_options);
+    branch_by_protocol_options(leaf_node, protocol_options);
   }
+  ct_protocol_options_free(protocol_options);
 
   g_list_free(leaves);
   leaves = NULL;
@@ -444,7 +465,7 @@ int branch_by_path(GNode* parent, const ct_local_endpoint_t* local_ep) {
   return 0;
 }
 
-int branch_by_protocol(GNode* parent, ct_protocol_options_t* protocol_options) {
+int branch_by_protocol_options(GNode* parent, ct_protocol_options_t* protocol_options) {
   struct ct_candidate_node_t* parent_data = (struct ct_candidate_node_t*)parent->data;
   if (parent_data->type != NODE_TYPE_PATH) {
     log_error("branch_by_path called on non-PATH node");
@@ -455,6 +476,7 @@ int branch_by_protocol(GNode* parent, ct_protocol_options_t* protocol_options) {
 
   for (size_t i = 0; i < protocol_options->protocol_impls->count; i++) {
     if (ct_protocol_supports_alpn(protocol_options->protocol_impls->protocols[i])
+        && protocol_options->alpns
         && protocol_options->alpns->num_strings > 0) {
       // If the current protocol supports ALPN, create a candidate for each ALPN value
       // Picoquic does support passing multiple ALPNs as a single connection attempt,
@@ -481,8 +503,9 @@ int branch_by_protocol(GNode* parent, ct_protocol_options_t* protocol_options) {
           parent_data->local_endpoint,
           NULL,
           candidate,
-          parent_data->transport_properties 
+          parent_data->transport_properties
         );
+        ct_protocol_candidate_free(candidate);  // candidate_node_new copies it
         if (candidate_node == NULL) {
           log_error("Could not create PROTOCOL node data");
           return -1;
@@ -494,7 +517,7 @@ int branch_by_protocol(GNode* parent, ct_protocol_options_t* protocol_options) {
       // If the current protocol does not support ALPN, just create a single candidate without any alpn
       ct_protocol_candidate_t* candidate = ct_protocol_candidate_new(
         protocol_options->protocol_impls->protocols[i],
-        NULL 
+        NULL
       );
       if (candidate == NULL) {
         log_error("Could not create protocol candidate for protocol %s without ALPN",
@@ -507,8 +530,9 @@ int branch_by_protocol(GNode* parent, ct_protocol_options_t* protocol_options) {
         parent_data->local_endpoint,
         NULL,
         candidate,
-        parent_data->transport_properties 
+        parent_data->transport_properties
       );
+      ct_protocol_candidate_free(candidate);  // candidate_node_new copies it
 
       if (candidate_node == NULL) {
         log_error("Could not create PROTOCOL node data");
@@ -588,10 +612,12 @@ GArray* get_ordered_candidate_nodes(const ct_preconnection_t* precon) {
   GArray *root_array = g_array_new(false, false, sizeof(ct_candidate_node_t));
 
   log_trace("Fetching leaf nodes from candidate tree");
-  // Get leaf nodes and insert them in array
-  g_node_traverse(root_node, G_IN_ORDER, G_TRAVERSE_LEAVES, -1, get_leaf_nodes, root_array);
+
+  // Get deep copy of leaf caniddate nodes and insert them in array
+  g_node_traverse(root_node, G_IN_ORDER, G_TRAVERSE_LEAVES, -1, get_deep_copy_leaf_nodes, root_array);
 
   log_trace("Freeing undesirable nodes from candidate tree");
+
   // Free data owned by tree
   g_node_traverse(root_node, G_IN_ORDER, G_TRAVERSE_ALL, -1, free_candidate_node, NULL);
 
@@ -616,6 +642,7 @@ void free_candidate_array(GArray* candidate_array) {
     const ct_candidate_node_t candidate_node = g_array_index(candidate_array, ct_candidate_node_t, i);
     ct_local_endpoint_free(candidate_node.local_endpoint);
     ct_remote_endpoint_free(candidate_node.remote_endpoint);
+    ct_protocol_candidate_free(candidate_node.protocol_candidate);
   }
   g_array_free(candidate_array, true);
 }
@@ -643,4 +670,43 @@ ct_protocol_candidate_t* ct_protocol_candidate_new(const ct_protocol_impl_t* pro
     }
   }
   return protocol_candidate;
+}
+
+void ct_protocol_candidate_free(ct_protocol_candidate_t* protocol_candidate) {
+  if (protocol_candidate) {
+    if (protocol_candidate->alpn) {
+      free(protocol_candidate->alpn);
+    }
+    free(protocol_candidate);
+  }
+}
+
+void ct_protocol_options_free(ct_protocol_options_t* protocol_options) {
+  if (protocol_options) {
+    if (protocol_options->protocol_impls) {
+      // protocols array points to static data, don't free it
+      free(protocol_options->protocol_impls);
+    }
+    // alpns points to security_parameters data, don't free it
+    free(protocol_options);
+  }
+}
+ct_protocol_candidate_t* ct_protocol_candidate_copy(const ct_protocol_candidate_t* protocol_candidate) {
+  if (protocol_candidate == NULL) {
+    return NULL;
+  }
+  return ct_protocol_candidate_new(protocol_candidate->protocol_impl, protocol_candidate->alpn);
+}
+
+ct_candidate_node_t* ct_candidate_node_copy(const ct_candidate_node_t* candidate_node) {
+  if (candidate_node == NULL) {
+    return NULL;
+  }
+  return candidate_node_new(
+    candidate_node->type,
+    candidate_node->local_endpoint,
+    candidate_node->remote_endpoint,
+    candidate_node->protocol_candidate,
+    candidate_node->transport_properties
+  );
 }
