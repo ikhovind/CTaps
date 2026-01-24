@@ -2,6 +2,8 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <glib.h>
+#include <map>
+#include <string>
 
 extern "C" {
   #include "fff.h"
@@ -59,6 +61,7 @@ int local_endpoint_resolve_fake_custom(const ct_local_endpoint_t* local_endpoint
 // Fake data for get_supported_protocols
 static ct_protocol_impl_t mock_proto_1 = {
     .name = "MockProto1",
+    .supports_alpn = false,
     .selection_properties = {
       .selection_property = {
         [RELIABILITY] = {.value = {.simple_preference = PROHIBIT}},
@@ -70,6 +73,7 @@ static ct_protocol_impl_t mock_proto_1 = {
 };
 static ct_protocol_impl_t mock_proto_2 = {
     .name = "MockProto2",
+    .supports_alpn = true,
     .selection_properties = {
       .selection_property = {
         [RELIABILITY] = {.value = {.simple_preference = REQUIRE}},
@@ -81,6 +85,7 @@ static ct_protocol_impl_t mock_proto_2 = {
 };
 static ct_protocol_impl_t mock_proto_3 = {
     .name = "MockProto3",
+    .supports_alpn = true,
     .selection_properties = {
       .selection_property = {
         [RELIABILITY] = {.value = {.simple_preference = REQUIRE}},
@@ -92,7 +97,7 @@ static ct_protocol_impl_t mock_proto_3 = {
 };
 
 
-static const ct_protocol_impl_t* fake_protocol_list[] = {&mock_proto_1, &mock_proto_2, &mock_proto_3, nullptr};
+static const ct_protocol_impl_t* fake_protocol_list[] = {&mock_proto_1, &mock_proto_2, &mock_proto_3};
 const ct_protocol_impl_t** get_supported_protocols_fake_custom() {
     return fake_protocol_list;
 }
@@ -414,6 +419,79 @@ TEST_F(CandidateTreeTest, GivesNoCandidateNodesWhenAllProtocolsProhibited) {
     ASSERT_EQ(faked_ct_local_endpoint_resolve_fake.call_count, 1);
     ASSERT_EQ(faked_ct_get_supported_protocols_fake.call_count, 1);
     ASSERT_EQ(faked_ct_remote_endpoint_resolve_fake.call_count, 6); // Called for each protocol leaf
+
+    // --- CLEANUP ---
+    free_candidate_array(candidates);
+    ct_preconnection_free(preconnection);
+    ct_transport_properties_free(props);
+    ct_remote_endpoint_free(remote_endpoint);
+}
+
+// TODO - write tests for gathering with ALPN, both for protocols supprting and those that don't
+
+TEST_F(CandidateTreeTest, AlpnIsOnlySetWhenSupportedByProtocol) {
+    // --- ARRANGE ---
+    // 1. Create a minimal preconnection object
+    ct_transport_properties_t* props = ct_transport_properties_new();
+
+    ct_tp_set_sel_prop_preference(props, RELIABILITY, NO_PREFERENCE);
+    ct_tp_set_sel_prop_preference(props, PRESERVE_ORDER, NO_PREFERENCE);
+
+    ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
+    ct_remote_endpoint_with_hostname(remote_endpoint, "test.com");
+
+
+    ct_security_parameters_t* security_parameters = ct_security_parameters_new();
+    char* alpn_array[] = { "simple-ping", "complicated-ping" };
+    ct_sec_param_set_property_string_array(security_parameters, ALPN, alpn_array, 2);
+
+    ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, props, security_parameters);
+
+    ct_sec_param_free(security_parameters);
+
+    // 2. Mock behavior of internal functions
+    faked_ct_local_endpoint_resolve_fake.return_val = 0;
+    faked_ct_remote_endpoint_resolve_fake.return_val = 0;
+    faked_ct_get_supported_protocols_fake.return_val = fake_protocol_list;
+
+    // --- ACT ---
+    GArray* candidates = get_ordered_candidate_nodes(preconnection);
+
+    // --- ASSERT ---
+    ASSERT_EQ(candidates->len, 2 * 2 * 2 + 2 * 1); // 2 local endpoints, 2 protocols that support ALPN with 2 ALPNs each, and 1 protocol without ALPN, 1 remote endpoint each
+
+    // 2. Verify the calls to mocked functions
+    ASSERT_EQ(faked_ct_local_endpoint_resolve_fake.call_count, 1);
+    ASSERT_EQ(faked_ct_get_supported_protocols_fake.call_count, 1);
+    ASSERT_EQ(faked_ct_remote_endpoint_resolve_fake.call_count, 10); // Called for each protocol leaf
+
+    // Count occurrences of each (protocol, alpn) combination
+    std::map<std::pair<std::string, std::string>, int> alpn_counts;
+
+    for (size_t i = 0; i < candidates->len; i++) {
+        ct_candidate_node_t candidate = g_array_index(candidates, ct_candidate_node_t, i);
+        if (candidate.protocol_candidate->protocol_impl->supports_alpn) {
+            // ALPN should be set for protocols that support it
+            ASSERT_NE(candidate.protocol_candidate->alpn, nullptr);
+
+            std::string proto_name = candidate.protocol_candidate->protocol_impl->name;
+            std::string alpn_value = candidate.protocol_candidate->alpn;
+            alpn_counts[{proto_name, alpn_value}]++;
+
+            // Verify ALPN is one of the expected values
+            ASSERT_TRUE(alpn_value == "simple-ping" || alpn_value == "complicated-ping");
+        } else {
+            // ALPN should be null for protocols that don't support it
+            ASSERT_EQ(candidate.protocol_candidate->alpn, nullptr);
+        }
+    }
+
+    // Verify each ALPN appears exactly once per protocol per local endpoint
+    // We have 2 local endpoints, so each (protocol, alpn) combo should appear twice
+    ASSERT_EQ(alpn_counts[std::make_pair(std::string("MockProto2"), std::string("simple-ping"))], 2);
+    ASSERT_EQ(alpn_counts[std::make_pair(std::string("MockProto2"), std::string("complicated-ping"))], 2);
+    ASSERT_EQ(alpn_counts[std::make_pair(std::string("MockProto3"), std::string("simple-ping"))], 2);
+    ASSERT_EQ(alpn_counts[std::make_pair(std::string("MockProto3"), std::string("complicated-ping"))], 2);
 
     // --- CLEANUP ---
     free_candidate_array(candidates);
