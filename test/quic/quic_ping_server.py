@@ -5,10 +5,20 @@ import os
 from aioquic.asyncio import QuicConnectionProtocol, serve
 from aioquic.quic.configuration import QuicConfiguration
 from aioquic.quic.events import StreamDataReceived, ProtocolNegotiated, QuicEvent
+from aioquic.tls import SessionTicket
+from typing import Dict
 
 # Define a custom ALPN protocol to distinguish it from HTTP/3
 ECHO_ALPN = ["simple-ping"]
 SERVER_NAME = "aioquic/echo"
+
+# In-memory session ticket store for 0-RTT support
+session_ticket_store: Dict[bytes, SessionTicket] = {}
+
+def session_ticket_handler(ticket: SessionTicket) -> None:
+    """Store session tickets for 0-RTT support."""
+    logging.info("Storing session ticket for %s", ticket.server_name)
+    session_ticket_store[ticket.ticket] = ticket
 
 class QuicEchoProtocol(QuicConnectionProtocol):
     """
@@ -47,6 +57,7 @@ async def main_server(host: str, port: int, configuration: QuicConfiguration) ->
         port,
         configuration=configuration,
         create_protocol=QuicEchoProtocol,
+        session_ticket_handler=session_ticket_handler,
     )
     await asyncio.Future()
 
