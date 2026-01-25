@@ -12,7 +12,7 @@ extern "C" {
 #define QUIC_PING_PORT 4433
 #define TCP_PING_PORT 5006
 #define QUIC_CLONE_LISTENER_PORT 4434
-
+#define TEST_TICKET_STORE TEST_RESOURCE_DIR "/ticket_store.db"
 
 struct CallbackContext {
     std::map<ct_connection_t*, std::vector<ct_message_t*>>* per_connection_messages;
@@ -55,6 +55,8 @@ protected:
                 ct_message_free(msg);
             }
         }
+        // delete test ticket store
+        remove(TEST_TICKET_STORE);
     }
 
 

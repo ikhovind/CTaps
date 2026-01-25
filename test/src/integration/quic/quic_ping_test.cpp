@@ -8,8 +8,6 @@ extern "C" {
 #include <logging/log.h>
 }
 
-#define TEST_TICKET_STORE TEST_RESOURCE_DIR "/ticket_store.db"
-
 class QuicPingTest : public CTapsGenericFixture {};
 
 TEST_F(QuicPingTest, successfullyPingsQuicServer) {
