@@ -281,7 +281,10 @@ typedef struct ct_protocol_impl_s {
   ct_selection_properties_t selection_properties; ///< Properties supported by this protocol
 
   /** @brief Initialize a new connection using this protocol. */
-  int (*init)(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks, ct_message_t* initial_message, ct_message_context_t* initial_message_context);
+  int (*init)(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks);
+
+  /** @brief Initialize a new connection using this protocol and attempt 0-rtt. */
+  int (*init_with_send)(ct_connection_t*, const ct_connection_callbacks_t*, ct_message_t*, ct_message_context_t*);
 
   /** @brief Send a message over the protocol. */
   int (*send)(ct_connection_t*, ct_message_t*, ct_message_context_t*);
@@ -389,7 +392,7 @@ typedef struct ct_connection_s {
   GQueue* received_callbacks;                          ///< Queue of pending receive callbacks
   GQueue* received_messages;                           ///< Queue of received messages
 
-  bool used_0rtt;                                      ///< True if 0-RTT was used for this connection
+  bool sent_early_data;                                 ///< True if 0-RTT was used for this connection and we sent early data
 } ct_connection_t;
 
 

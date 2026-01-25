@@ -21,6 +21,14 @@ static int on_attempt_establishment_error(ct_connection_t* connection);
 static void cancel_all_other_attempts(ct_racing_context_t* context, size_t winning_index);
 static int start_connection_attempt(ct_racing_context_t* context, size_t attempt_index);
 
+bool should_send_early_data(ct_message_context_t* message_context) {
+  // If the preconnection has security parameters that allow early data, return true
+  if (!message_context) {
+    return false;
+  }
+  return ct_message_properties_get_safely_replayable(ct_message_context_get_message_properties(message_context));
+}
+
 static void on_timer_close_free_context(uv_handle_t* handle) {
   ct_racing_context_t* context = (ct_racing_context_t*)handle->data;
   free(handle);
@@ -44,14 +52,8 @@ static void on_timer_close_free_context(uv_handle_t* handle) {
       }
       free(context->attempts);
     }
-
-    if (context->initial_message) {
-      ct_message_free(context->initial_message);
-    }
-    if (context->initial_message_context) {
-      ct_message_context_free(context->initial_message_context);
-    }
-
+    // Do not free initial message and context here - they are owned by the protocol
+    // TODO - think about ownership model, does this make sense?
     free(context);
   }
 }
@@ -172,8 +174,31 @@ static int start_connection_attempt(ct_racing_context_t* context, size_t attempt
   attempt->connection->connection_callbacks = attempt_callbacks;
   attempt->state = ATTEMPT_STATE_CONNECTING;
 
-  // Initiate the connection using the protocol's init function
-  rc = attempt->connection->protocol.init(attempt->connection, &attempt->connection->connection_callbacks, context->initial_message, context->initial_message_context);
+  // TODO the decision for whether or not to send should really happen at the connection-level.
+  //
+  // Then we have to either override the "ready" callback so that the initial connection is passed
+  // back to the connection, which can then call send_message(). This would require us to add more
+  // state to the connection struct, because when the connection is passed back to the callback 
+  // specified in preconnection_initiate_with_send() we need to know which data to send.
+  //
+  // Alternatively we can separate out the different flows in the racing creation: early data, message after ready and normal racing
+  //
+  // From a single "preconnection_initiate_with_racing()" to:
+  //
+  // preconnection_race_with_early_data(preconnection, callbacks, message, message_context)
+  // preconnection_race_with_send_after_ready(preconnection, callbacks, message, message_context)
+  // preconnection_race(preconnection, callbacks)
+  //
+  // Simpler, does not need any extra state in the connection. only two "real" functions since preconnection_race
+  // is just a warpper for preconnection_race_with_send_after_ready(preconnection, callbacks, NULL, NULL)
+  if (should_send_early_data(context->initial_message_context)) {
+    log_debug("Initiating racing connection attempt %zu with early data", attempt_index);
+    rc = attempt->connection->protocol.init_with_send(attempt->connection, &attempt->connection->connection_callbacks, context->initial_message, context->initial_message_context);
+    attempt->attempted_early_data = true;
+  }
+  else {
+    rc = attempt->connection->protocol.init(attempt->connection, &attempt->connection->connection_callbacks);
+  }
   if (rc != 0) {
     log_error("Failed to initiate connection attempt %zu: %d", attempt_index, rc);
     attempt->state = ATTEMPT_STATE_FAILED;
@@ -212,7 +237,8 @@ int racing_on_attempt_ready(ct_connection_t* connection) {
   // Restore the user's original callbacks (connection has the wrapped racing callbacks)
   connection->connection_callbacks = context->user_callbacks;
 
-  if (context->initial_message) {
+  // If we didn't send the initial message as early data, send it now
+  if (!attempt->attempted_early_data && context->initial_message) {
     log_debug("Sending initial message on winning connection");
     // This takes deep copy of message and context, so freeing our copies is fine in racing_context_free
     int rc = ct_send_message_full(connection, context->initial_message, context->initial_message_context);
