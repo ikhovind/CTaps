@@ -51,6 +51,7 @@ const ct_protocol_impl_t quic_protocol_interface = {
     },
     .init = quic_init,
     .send = quic_send,
+    .init_with_send = quic_init_with_send,
     .listen = quic_listen,
     .stop_listen = quic_stop_listen,
     .close = quic_close,
@@ -565,11 +566,14 @@ int picoquic_callback(picoquic_cnx_t* cnx,
         listener->listener_callbacks.connection_received(listener, connection);
       }
       else if (ct_connection_is_client(connection)) {
-        log_debug("Client connection ready, notifying application");
         if (picoquic_tls_is_psk_handshake(group_state->picoquic_connection)) {
-          log_debug("Client connection established with 0-RTT");
-          ct_connection_set_used_0rtt(connection, true);
+          log_trace("Client connection was established with 0-RTT");
+          ct_quic_stream_state_t* stream_state = ct_connection_get_stream_state(connection);
+          if (stream_state->attempted_early_data) {
+            ct_connection_set_sent_early_data(connection, true);
+          }
         }
+        log_debug("Client connection ready, notifying application");
         ct_connection_mark_as_established(connection);
         if (connection->connection_callbacks.ready) {
           connection->connection_callbacks.ready(connection);
@@ -633,6 +637,7 @@ int picoquic_callback(picoquic_cnx_t* cnx,
             return handle_stream_data(new_stream_connection, bytes, length);
           } if (ct_connection_is_client(first_connection)) {
             log_error("Received new remote-initiated stream on client connection - multi-streaming not yet implemented");
+            log_info("Stream id is: %d", stream_id);
             return -ENOSYS;
           } else {
             log_error("Unknown connection role when handling new remote-initiated stream");
@@ -997,8 +1002,9 @@ void on_quic_context_timer(uv_timer_t* timer_handle) {
   reset_quic_timer(quic_ctx);
 }
 
-int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks, ct_message_t* initial_message, ct_message_context_t* initial_message_context) {
+int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks, ct_message_t* initial_message, ct_message_context_t* initial_message_context) {
   (void)connection_callbacks;
+  (void)initial_message_context;
   log_info("Initializing standalone QUIC connection");
 
   // Get certificate from security parameters
@@ -1114,32 +1120,21 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
   picoquic_set_callback(group_state->picoquic_connection, picoquic_callback, connection->connection_group);
 
 
-  bool queued_0rtt = false;
-  if (initial_message && initial_message_context) {
-    log_debug("Attempting to add initial message to QUIC stream for 0-RTT");
-    ct_message_properties_t* m_props = ct_message_context_get_message_properties(initial_message_context);
-    if (ct_message_properties_get_safely_replayable(m_props)) {
-      log_debug("Adding initial message to QUIC stream");
-      ct_connection_assign_next_free_stream(connection, false);
-      queued_0rtt = true;
-      int rc = picoquic_add_to_stream(
-          group_state->picoquic_connection,
-          ct_connection_get_stream_id(connection),
-          (const uint8_t*)initial_message->content,
-          initial_message->length,
-          0 // not final
-      );
-      if (rc < 0) {
-        log_error("Failed to add initial message to QUIC stream: %d", rc);
-      }
-    }
-    else {
-      log_debug("Initial message is not safely replayable, not attempting 0-rtt");
-    }
+  ct_connection_assign_next_free_stream(connection, false);
+  rc = picoquic_add_to_stream(
+      group_state->picoquic_connection,
+      ct_connection_get_stream_id(connection),
+      (const uint8_t*)initial_message->content,
+      initial_message->length,
+      0 // not final
+  );
+
+  picoquic_set_app_stream_ctx(group_state->picoquic_connection, ct_connection_get_stream_id(connection), connection);
+  if (rc < 0) {
+    log_error("Failed to add initial message to QUIC stream: %d", rc);
+    return rc;
   }
-  else {
-    log_debug("No initial message provided for 0-RTT");
-  }
+  stream_state->attempted_early_data = true;
 
   rc = picoquic_start_client_cnx(group_state->picoquic_connection);
   if (rc != 0) {
@@ -1150,12 +1145,137 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
     return rc;
   }
 
-  log_info("0-RTT available after start: %s", picoquic_is_0rtt_available(group_state->picoquic_connection) ? "YES" : "NO");
-  log_info("QUIC client connection used tls resumption: %s", picoquic_tls_is_psk_handshake(group_state->picoquic_connection) ? "YES" : "NO");
-  if (picoquic_is_0rtt_available(group_state->picoquic_connection) && queued_0rtt) {
-    // TODO - rename to "attempted 0rtt", clean up and introduce helper functions
+  quic_context->num_active_connections++;
+
+  reset_quic_timer(quic_context);
+  log_trace("Successfully initiated standalone QUIC connection %p", (void*)connection);
+  return 0;
+}
+
+int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks) {
+  (void)connection_callbacks;
+  log_info("Initializing standalone QUIC connection");
+
+  // Get certificate from security parameters
+  if (!connection->security_parameters) {
+    log_error("Security parameters required for QUIC connection");
+    return -EINVAL;
   }
-  
+
+  const ct_certificate_bundles_t* cert_bundles =
+      connection->security_parameters->security_parameters[CLIENT_CERTIFICATE].value.certificate_bundles;
+
+  if (cert_bundles->num_bundles == 0) {
+    log_error("No certificate bundle configured for QUIC client connection");
+    return -EINVAL;
+  }
+
+  const char* cert_file = cert_bundles->certificate_bundles[0].certificate_file_name;
+  const char* key_file = cert_bundles->certificate_bundles[0].private_key_file_name;
+
+  if (!cert_file || !key_file) {
+    log_error("Certificate or key file not configured in security parameters");
+    return -EINVAL;
+  }
+
+  ct_quic_context_t* quic_context = ct_create_quic_context(
+    cert_file,
+    key_file,
+    NULL,
+    connection->security_parameters
+  );
+
+  if (!quic_context) {
+    log_error("Failed to create QUIC context for client connection");
+    return -EIO;
+  }
+
+  uint64_t current_time = picoquic_get_quic_time(quic_context->picoquic_ctx);
+
+  uv_udp_t* udp_handle = create_udp_listening_on_local(&connection->local_endpoint, alloc_quic_buf, on_quic_udp_read);
+  if (!udp_handle) {
+    log_error("Failed to create UDP handle for QUIC connection");
+    ct_close_quic_context(quic_context);
+    return -EIO;
+  }
+
+  // Store quic_context in udp_handle->data for access in on_quic_udp_read
+  udp_handle->data = quic_context;
+  log_debug("Created UDP handle %p for QUIC connection", (void*)udp_handle);
+
+
+  // Allocate shared group state (UDP handle + QUIC connection)
+  ct_quic_group_state_t* group_state = ct_create_quic_group_state();
+  if (!group_state) {
+    log_error("Failed to allocate QUIC group state");
+    ct_close_quic_context(quic_context);
+    return -ENOMEM;
+  }
+
+  *group_state = (ct_quic_group_state_t){
+    .udp_handle = udp_handle,
+    .picoquic_connection = NULL,
+    .quic_context = quic_context,
+  };
+  connection->connection_group->connection_group_state = group_state;
+
+  ct_quic_stream_state_t* stream_state = malloc(sizeof(ct_quic_stream_state_t));
+  if (!stream_state) {
+    log_error("Failed to allocate QUIC stream state");
+    free(group_state);
+    ct_close_quic_context(quic_context);
+    return -ENOMEM;
+  }
+  stream_state->stream_id = 0;
+  stream_state->stream_initialized = false;
+  stream_state->attempted_early_data = false;
+  connection->internal_connection_state = stream_state;
+
+  int rc = resolve_local_endpoint_from_handle((uv_handle_t*)udp_handle, connection);
+  if (rc < 0) {
+    log_error("Error getting UDP socket name: %s", uv_strerror(rc));
+    log_error("Error code: %d", rc);
+    free(group_state);
+    free(stream_state);
+    ct_close_quic_context(quic_context);
+    return rc;
+  }
+
+  size_t alpn_count = 0;
+  const char** alpn_strings = ct_sec_param_get_alpn_strings(connection->security_parameters, &alpn_count);
+  if (alpn_count == 0) {
+    log_error("No ALPN strings configured for QUIC connection");
+    free(group_state);
+    free(stream_state);
+    ct_close_quic_context(quic_context);
+    return -EINVAL;
+  }
+
+  group_state->picoquic_connection = picoquic_create_cnx(
+      quic_context->picoquic_ctx,
+      picoquic_null_connection_id,
+      picoquic_null_connection_id,
+      (struct sockaddr*) &connection->remote_endpoint.data.resolved_address,
+      current_time,
+      1,
+      "localhost",
+      alpn_strings[0], // We create separate candidates for each ALPN to support 0-rtt (see candidate gathering code)
+      1
+  );
+
+  log_trace("Setting callback context to connection group: %p", (void*)connection->connection_group);
+
+  // Set picoquic callback to connection group
+  picoquic_set_callback(group_state->picoquic_connection, picoquic_callback, connection->connection_group);
+
+  rc = picoquic_start_client_cnx(group_state->picoquic_connection);
+  if (rc != 0) {
+    log_error("Error starting QUIC client connection: %d", rc);
+    free(group_state);
+    free(stream_state);
+    ct_close_quic_context(quic_context);
+    return rc;
+  }
 
   quic_context->num_active_connections++;
 

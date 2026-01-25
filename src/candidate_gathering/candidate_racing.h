@@ -30,6 +30,7 @@ typedef struct ct_racing_attempt_t {
   ct_attempt_state_t state;
   size_t attempt_index;
   ct_racing_context_t* context;  // Back-pointer to parent racing context
+  bool attempted_early_data;
 } ct_racing_attempt_t;
 
 // Context for managing the racing process

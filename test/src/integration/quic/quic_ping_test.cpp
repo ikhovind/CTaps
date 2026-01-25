@@ -57,7 +57,7 @@ TEST_F(QuicPingTest, successfullyPingsQuicServer) {
   ASSERT_EQ(per_connection_messages.size(), 1);
   ASSERT_EQ(per_connection_messages[connection].size(), 1);
   ASSERT_STREQ(per_connection_messages[connection][0]->content, "Pong: ping");
-  ASSERT_FALSE(ct_connection_used_0rtt(connection));
+  ASSERT_FALSE(ct_connection_sent_early_data(connection));
 
   ct_remote_endpoint_free(remote_endpoint);
   ct_preconnection_free(preconnection);
@@ -113,12 +113,14 @@ TEST_F(QuicPingTest, successfullyPingsQuicServerWith0Rtt) {
   ASSERT_EQ(per_connection_messages.size(), 1);
   ASSERT_EQ(per_connection_messages[connection].size(), 1);
   ASSERT_STREQ(per_connection_messages[connection][0]->content, "Pong: ping");
-  ASSERT_FALSE(ct_connection_used_0rtt(connection));
+  ASSERT_FALSE(ct_connection_sent_early_data(connection));
 
   ct_remote_endpoint_free(remote_endpoint);
   ct_transport_properties_free(transport_properties);
 
   // --- 2nd Connection with 0-RTT ---
+  //
+  log_info("Starting 2nd connection with early data");
 
   ASSERT_NE(preconnection, nullptr);
 
@@ -147,7 +149,7 @@ TEST_F(QuicPingTest, successfullyPingsQuicServerWith0Rtt) {
   ASSERT_EQ(per_connection_messages.size(), 2);
   ASSERT_EQ(per_connection_messages[connection].size(), 1);
   ASSERT_STREQ(per_connection_messages[connection][0]->content, "Pong: ping");
-  ASSERT_TRUE(ct_connection_used_0rtt(connection));
+  ASSERT_TRUE(ct_connection_sent_early_data(connection));
 
   ct_preconnection_free(preconnection);
 }
@@ -201,7 +203,7 @@ TEST_F(QuicPingTest, doesNotUse0rttWithNormalInitiate) {
   ASSERT_EQ(per_connection_messages.size(), 1);
   ASSERT_EQ(per_connection_messages[connection].size(), 1);
   ASSERT_STREQ(per_connection_messages[connection][0]->content, "Pong: ping");
-  ASSERT_FALSE(ct_connection_used_0rtt(connection));
+  ASSERT_FALSE(ct_connection_sent_early_data(connection));
 
   ct_remote_endpoint_free(remote_endpoint);
   ct_transport_properties_free(transport_properties);
@@ -220,7 +222,7 @@ TEST_F(QuicPingTest, doesNotUse0rttWithNormalInitiate) {
   ASSERT_EQ(per_connection_messages.size(), 2);
   ASSERT_EQ(per_connection_messages[connection].size(), 1);
   ASSERT_STREQ(per_connection_messages[connection][0]->content, "Pong: ping");
-  ASSERT_FALSE(ct_connection_used_0rtt(connection));
+  ASSERT_FALSE(ct_connection_sent_early_data(connection));
 
   ct_preconnection_free(preconnection);
 }
@@ -274,7 +276,7 @@ TEST_F(QuicPingTest, doesNotUse0rttWhenReplayableNotSet) {
   ASSERT_EQ(per_connection_messages.size(), 1);
   ASSERT_EQ(per_connection_messages[connection].size(), 1);
   ASSERT_STREQ(per_connection_messages[connection][0]->content, "Pong: ping");
-  ASSERT_FALSE(ct_connection_used_0rtt(connection));
+  ASSERT_FALSE(ct_connection_sent_early_data(connection));
 
   ct_remote_endpoint_free(remote_endpoint);
   ct_transport_properties_free(transport_properties);
@@ -308,7 +310,7 @@ TEST_F(QuicPingTest, doesNotUse0rttWhenReplayableNotSet) {
   ASSERT_EQ(per_connection_messages.size(), 2);
   ASSERT_EQ(per_connection_messages[connection].size(), 1);
   ASSERT_STREQ(per_connection_messages[connection][0]->content, "Pong: ping");
-  ASSERT_FALSE(ct_connection_used_0rtt(connection));
+  ASSERT_FALSE(ct_connection_sent_early_data(connection));
 
   ct_preconnection_free(preconnection);
 }

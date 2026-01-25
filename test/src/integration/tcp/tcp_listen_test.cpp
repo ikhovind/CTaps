@@ -7,7 +7,9 @@ extern "C" {
 }
 #include "fixtures/awaiting_fixture.cpp"
 
-TEST_F(CTapsGenericFixture, ReceivesConnectionFromListenerAndExchangesMessages) {
+class TcpListenTests : public CTapsGenericFixture {};
+
+TEST_F(TcpListenTests, ReceivesConnectionFromListenerAndExchangesMessages) {
     ct_listener_t listener;
 
     ct_local_endpoint_t* listener_endpoint = ct_local_endpoint_new();

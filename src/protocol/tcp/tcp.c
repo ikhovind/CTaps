@@ -47,6 +47,7 @@ const ct_protocol_impl_t tcp_protocol_interface = {
       }
     },
     .init = tcp_init,
+    .init_with_send = tcp_init_with_send,
     .send = tcp_send,
     .listen = tcp_listen,
     .stop_listen = tcp_stop_listen,
@@ -56,6 +57,24 @@ const ct_protocol_impl_t tcp_protocol_interface = {
     .remote_endpoint_from_peer = tcp_remote_endpoint_from_peer,
     .retarget_protocol_connection = tcp_retarget_protocol_connection
 };
+
+typedef struct tcp_connection_state_s {
+  ct_connection_t* connection;
+  ct_message_t* initial_message;
+  ct_message_context_t* initial_message_context;
+} tcp_connection_state_t;
+
+tcp_connection_state_t* tcp_connection_state_new(ct_connection_t* connection, ct_message_t* initial_message, ct_message_context_t* initial_message_context) {
+  tcp_connection_state_t* state = malloc(sizeof(tcp_connection_state_t));
+  if (!state) {
+    log_error("Failed to allocate memory for TCP connection state");
+    return NULL;
+  }
+  state->connection = connection;
+  state->initial_message = initial_message;
+  state->initial_message_context = initial_message_context;
+  return state;
+}
 
 static void alloc_cb(uv_handle_t* handle, size_t size, uv_buf_t* buf) {
 	(void)handle;
@@ -67,7 +86,8 @@ void on_close(uv_handle_t* handle) {
 }
 
 void tcp_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
-  ct_connection_t* connection = (ct_connection_t*)handle->data;
+  tcp_connection_state_t* conn_state = (tcp_connection_state_t*)handle->data;
+  ct_connection_t* connection = conn_state->connection;
   if (nread == UV_EOF) {
     log_info("TCP connection closed by peer");
     ct_connection_close(connection);
@@ -87,7 +107,8 @@ void tcp_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
 }
 
 void on_clone_connect(struct uv_connect_s *req, int status) {
-  ct_connection_t* connection = (ct_connection_t*)req->handle->data;
+  tcp_connection_state_t* conn_state = (tcp_connection_state_t*)req->handle->data;
+  ct_connection_t* connection = conn_state->connection;
   free(req);
 
   if (status < 0) {
@@ -117,7 +138,8 @@ void on_clone_connect(struct uv_connect_s *req, int status) {
 }
 
 void on_connect(struct uv_connect_s *req, int status) {
-  ct_connection_t* connection = (ct_connection_t*)req->handle->data;
+  tcp_connection_state_t* conn_state = (tcp_connection_state_t*)req->handle->data;
+  ct_connection_t* connection = conn_state->connection;
   if (status < 0) {
     log_error("ct_connection_t error: %s", uv_strerror(status));
     ct_connection_close(connection);
@@ -130,13 +152,18 @@ void on_connect(struct uv_connect_s *req, int status) {
   log_info("Successfully connected to remote endpoint using TCP");
   uv_read_start((uv_stream_t*)connection->internal_connection_state, alloc_cb, tcp_on_read);
   ct_connection_mark_as_established(connection);
+  if (conn_state->initial_message) {
+    tcp_send(connection, conn_state->initial_message, conn_state->initial_message_context);
+  }
+
   if (connection->connection_callbacks.ready) {
     connection->connection_callbacks.ready(connection);
   }
 }
 
 void on_write(uv_write_t* req, int status) {
-  ct_connection_t *connection = (ct_connection_t*)req->handle->data;
+  tcp_connection_state_t* conn_state = (tcp_connection_state_t*)req->handle->data;
+  ct_connection_t* connection = conn_state->connection;
   ct_message_t* message = (ct_message_t*)req->data;
 
   if (status < 0) {
@@ -161,9 +188,7 @@ void on_write(uv_write_t* req, int status) {
   free(req);
 }
 
-int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks, ct_message_t* initial_message, ct_message_context_t* initial_message_context) {
-  (void)initial_message;
-  (void)initial_message_context;
+int tcp_init_with_send(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks, ct_message_t* initial_message, ct_message_context_t* initial_message_context) {
   (void)connection_callbacks;
   log_info("Initiating TCP connection");
   uv_tcp_t* new_tcp_handle = malloc(sizeof(uv_tcp_t));
@@ -184,7 +209,78 @@ int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
     free(new_tcp_handle);
     return rc;
   }
-  new_tcp_handle->data = connection;
+  tcp_connection_state_t* conn_state = tcp_connection_state_new(connection, initial_message, initial_message_context);
+  if (!conn_state) {
+    log_error("Failed to allocate memory for TCP connection state");
+    free(new_tcp_handle);
+    return -ENOMEM;
+  }
+
+  new_tcp_handle->data = conn_state;
+
+  uint32_t keepalive_timeout = connection->transport_properties.connection_properties.list[KEEP_ALIVE_TIMEOUT].value.uint32_val;
+  if (keepalive_timeout != CONN_TIMEOUT_DISABLED) {
+    log_info("Setting TCP keepalive with timeout: %u seconds", keepalive_timeout);
+    rc = uv_tcp_keepalive(new_tcp_handle, true, keepalive_timeout);
+    if (rc < 0) {
+      log_warn("Error setting TCP keepalive: %s", uv_strerror(rc));
+    }
+  }
+
+  uv_connect_t* connect_req = malloc(sizeof(uv_connect_t));
+  rc = uv_tcp_connect(connect_req,
+                 new_tcp_handle,
+                 (const struct sockaddr*)remote_endpoint_get_resolved_address(ct_connection_get_remote_endpoint(connection)),
+                 on_connect);
+  if (rc < 0) {
+    log_error("Error initiating TCP connection: %s", uv_strerror(rc));
+    free(connect_req);
+    ct_connection_close(connection);
+    if (connection->connection_callbacks.establishment_error) {
+      connection->connection_callbacks.establishment_error(connection);
+    }
+    return rc;
+  }
+  rc = resolve_local_endpoint_from_handle((uv_handle_t*)new_tcp_handle, connection);
+  if (rc < 0) {
+    log_error("Failed to get TCP socket name: %s", uv_strerror(rc));
+    ct_connection_close(connection);
+    if (connection->connection_callbacks.establishment_error) {
+      connection->connection_callbacks.establishment_error(connection);
+    }
+    return rc;
+  }
+
+  return 0;
+}
+
+int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks) {
+  (void)connection_callbacks;
+  log_info("Initiating TCP connection");
+  uv_tcp_t* new_tcp_handle = malloc(sizeof(uv_tcp_t));
+  if (new_tcp_handle == NULL) {
+    log_error("Failed to allocate memory for TCP handle");
+    return -ENOMEM;
+  }
+
+  // Store in internal connection state instead of connection group,
+  // because TCP does not have a multiplexing concept, so when cloning
+  // each connection gets its own handle
+  connection->internal_connection_state = (uv_handle_t*)new_tcp_handle;
+
+  int rc = uv_tcp_init(event_loop, new_tcp_handle);
+
+  if (rc < 0) {
+    log_error("Error initializing tcp handle: %s", uv_strerror(rc));
+    free(new_tcp_handle);
+    return rc;
+  }
+  new_tcp_handle->data = tcp_connection_state_new(connection, NULL, NULL);;
+  if (!new_tcp_handle->data) {
+    log_error("Failed to allocate memory for TCP connection state");
+    free(new_tcp_handle);
+    return -ENOMEM;
+  }
 
   uint32_t keepalive_timeout = connection->transport_properties.connection_properties.list[KEEP_ALIVE_TIMEOUT].value.uint32_val;
   if (keepalive_timeout != CONN_TIMEOUT_DISABLED) {
@@ -344,7 +440,7 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
     return;
   }
 
-  client->data = connection;
+  client->data = tcp_connection_state_new(connection, NULL, NULL);
 
   rc = uv_read_start((uv_stream_t*)client, alloc_cb, tcp_on_read);
   if (rc < 0) {
@@ -424,7 +520,7 @@ int tcp_clone_connection(const struct ct_connection_s* source_connection,
   }
 
   target_connection->internal_connection_state = (uv_handle_t*)new_tcp_handle;
-  new_tcp_handle->data = target_connection;
+  new_tcp_handle->data = tcp_connection_state_new(target_connection, NULL, NULL);
 
   // Copy TCP keepalive settings
   uint32_t keepalive_timeout = target_connection->transport_properties

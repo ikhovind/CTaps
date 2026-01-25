@@ -45,6 +45,7 @@ const ct_protocol_impl_t udp_protocol_interface = {
       }
     },
     .init = udp_init,
+    .init_with_send = udp_init_with_send,
     .send = udp_send,
     .listen = udp_listen,
     .stop_listen = udp_stop_listen,
@@ -133,9 +134,8 @@ void closed_handle_cb(uv_handle_t* handle) {
   log_debug("Successfully closed UDP handle");
 }
 
-int udp_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks, ct_message_t* initial_message, ct_message_context_t* initial_message_context) {
-  (void)initial_message;
-  (void)initial_message_context;
+int udp_init_with_send(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks, ct_message_t* initial_message, ct_message_context_t* initial_message_context) {
+  (void)connection_callbacks;
   log_debug("Initiating UDP connection\n");
 
   uv_udp_t* new_udp_handle = create_udp_listening_on_local(&connection->local_endpoint, alloc_buffer, on_read);
@@ -159,8 +159,17 @@ int udp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
   new_udp_handle->data = connection;
 
   ct_connection_mark_as_established(connection);
-  connection_callbacks->ready(connection);
+
+  if (initial_message) {
+    udp_send(connection, initial_message, initial_message_context);
+  }
+
+  connection->connection_callbacks.ready(connection);
   return 0;
+}
+
+int udp_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks) {
+  return udp_init_with_send(connection, connection_callbacks, NULL, NULL);
 }
 
 int udp_close(ct_connection_t* connection) {
