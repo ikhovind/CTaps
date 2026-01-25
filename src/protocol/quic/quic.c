@@ -142,20 +142,6 @@ ct_quic_context_t* ct_create_quic_context(const char* cert_file,
 
   const char* ticket_store_path = ct_sec_param_get_ticket_store_path(security_parameters);
 
-  if (ticket_store_path) {
-    log_debug("Using ticket store path: %s", ticket_store_path);
-    // Check if ticket file exists
-    FILE* f = fopen(ticket_store_path, "r");
-    if (f) {
-      fseek(f, 0, SEEK_END);
-      long size = ftell(f);
-      fclose(f);
-      log_info("Ticket store file exists with size: %ld bytes", size);
-    } else {
-      log_info("Ticket store file does not exist yet");
-    }
-  }
-
   ct_quic_context_t* quic_ctx = malloc(sizeof(ct_quic_context_t));
   if (!quic_ctx) {
     log_error("Failed to allocate memory for QUIC context");
@@ -580,6 +566,10 @@ int picoquic_callback(picoquic_cnx_t* cnx,
       }
       else if (ct_connection_is_client(connection)) {
         log_debug("Client connection ready, notifying application");
+        if (picoquic_tls_is_psk_handshake(group_state->picoquic_connection)) {
+          log_debug("Client connection established with 0-RTT");
+          ct_connection_set_used_0rtt(connection, true);
+        }
         ct_connection_mark_as_established(connection);
         if (connection->connection_callbacks.ready) {
           connection->connection_callbacks.ready(connection);
@@ -1132,7 +1122,6 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
       log_debug("Adding initial message to QUIC stream");
       ct_connection_assign_next_free_stream(connection, false);
       queued_0rtt = true;
-
       int rc = picoquic_add_to_stream(
           group_state->picoquic_connection,
           ct_connection_get_stream_id(connection),
@@ -1165,7 +1154,6 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
   log_info("QUIC client connection used tls resumption: %s", picoquic_tls_is_psk_handshake(group_state->picoquic_connection) ? "YES" : "NO");
   if (picoquic_is_0rtt_available(group_state->picoquic_connection) && queued_0rtt) {
     // TODO - rename to "attempted 0rtt", clean up and introduce helper functions
-    ct_connection_set_used_0rtt(connection, picoquic_is_0rtt_available(group_state->picoquic_connection));
   }
   
 

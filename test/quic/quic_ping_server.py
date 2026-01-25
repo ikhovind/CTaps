@@ -7,10 +7,11 @@ from aioquic.quic.configuration import QuicConfiguration
 from aioquic.quic.events import StreamDataReceived, ProtocolNegotiated, QuicEvent
 from aioquic.tls import SessionTicket
 from typing import Dict
+from typing import Optional
 
 # Define a custom ALPN protocol to distinguish it from HTTP/3
 ECHO_ALPN = ["simple-ping"]
-SERVER_NAME = "aioquic/echo"
+SERVER_NAME = "localhost"
 
 # In-memory session ticket store for 0-RTT support
 session_ticket_store: Dict[bytes, SessionTicket] = {}
@@ -19,6 +20,12 @@ def session_ticket_handler(ticket: SessionTicket) -> None:
     """Store session tickets for 0-RTT support."""
     logging.info("Storing session ticket for %s", ticket.server_name)
     session_ticket_store[ticket.ticket] = ticket
+
+def session_ticket_fetcher(server_name: str) -> Optional[SessionTicket]:
+    if server_name in session_ticket_store:
+        return session_ticket_store[server_name]
+    return None
+    
 
 class QuicEchoProtocol(QuicConnectionProtocol):
     """
@@ -34,7 +41,7 @@ class QuicEchoProtocol(QuicConnectionProtocol):
         # Handle data received on a stream
         if isinstance(event, StreamDataReceived):
             # Check if this is 0-RTT early data (arrived before handshake complete)
-            if not self._quic.tls.early_data_accepted:
+            if self._quic.tls.early_data_accepted:
                 logging.info("*** 0-RTT EARLY DATA received on stream %d ***", event.stream_id)
 
             # 1. Log the incoming data
@@ -62,6 +69,7 @@ async def main_server(host: str, port: int, configuration: QuicConfiguration) ->
         configuration=configuration,
         create_protocol=QuicEchoProtocol,
         session_ticket_handler=session_ticket_handler,
+        session_ticket_fetcher=session_ticket_fetcher,
     )
     await asyncio.Future()
 
@@ -75,6 +83,7 @@ if __name__ == "__main__":
     configuration = QuicConfiguration(
         alpn_protocols=ECHO_ALPN,  # Use our custom protocol identifier
         is_client=False,
+        server_name=SERVER_NAME,
     )
     cert_abs_path = os.path.join(os.path.dirname(__file__), "cert.pem")
     key_abs_path = os.path.join(os.path.dirname(__file__), "key.pem")
