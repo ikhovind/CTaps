@@ -468,7 +468,7 @@ int branch_by_path(GNode* parent, const ct_local_endpoint_t* local_ep) {
 int branch_by_protocol_options(GNode* parent, ct_protocol_options_t* protocol_options) {
   struct ct_candidate_node_t* parent_data = (struct ct_candidate_node_t*)parent->data;
   if (parent_data->type != NODE_TYPE_PATH) {
-    log_error("branch_by_path called on non-PATH node");
+    log_error("branch_by_protocol_options called on non-PATH node");
     return -1;
   }
 
@@ -613,7 +613,7 @@ GArray* get_ordered_candidate_nodes(const ct_preconnection_t* precon) {
 
   log_trace("Fetching leaf nodes from candidate tree");
 
-  // Get deep copy of leaf caniddate nodes and insert them in array
+  // Get deep copy of leaf candidate nodes and insert them in array
   g_node_traverse(root_node, G_IN_ORDER, G_TRAVERSE_LEAVES, -1, get_deep_copy_leaf_nodes, root_array);
 
   log_trace("Freeing undesirable nodes from candidate tree");

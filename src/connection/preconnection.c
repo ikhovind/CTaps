@@ -141,7 +141,7 @@ int ct_preconnection_initiate_with_send(ct_preconnection_t* preconnection, ct_co
     }
   }
 
-  if (ct_message_properties_get_safely_replayable(ct_message_context_get_message_properties(message_context))) {
+  if (message_context && ct_message_properties_get_safely_replayable(ct_message_context_get_message_properties(message_context))) {
     return preconnection_race_with_early_data(preconnection, connection_callbacks, msg_copy, message_context_copy);
   }
   return preconnection_race_with_send_after_ready(preconnection, connection_callbacks, msg_copy, message_context_copy);

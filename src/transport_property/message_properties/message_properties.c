@@ -154,3 +154,11 @@ void ct_message_properties_set_final(ct_message_properties_t* message_properties
   }
   message_properties->message_property[FINAL].value.boolean_value = value;
 }
+
+bool ct_message_properties_get_final(const ct_message_properties_t* message_properties) {
+  if (!message_properties) {
+    log_warn("Tried to get FINAL property on NULL message properties");
+    return false;
+  }
+  return message_properties->message_property[FINAL].value.boolean_value;
+}

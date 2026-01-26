@@ -12,7 +12,7 @@ int picoquic_set_textlog(picoquic_quic_t* quic, char const* textlog_file);
 #define ALPN "complicated-ping"
 #define SNI "localhost"
 #define SERVER_PORT 4433
-#define TIMEOUT_US 10000000  // 30 second timeout
+#define TIMEOUT_US 5000000  // 5 second timeout
 
 static bool connection_ready = false;
 static bool connection_closed = false;
