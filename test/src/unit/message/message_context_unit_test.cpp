@@ -116,7 +116,7 @@ TEST(MessageContextUnitTests, SetAndGetSafelyReplayable) {
 }
 
 TEST(MessageContextUnitTests, GetMessagePropertiesReturnsNullForNullContext) {
-    EXPECT_EQ(ct_message_context_get_message_properties(nullptr), NULL);
+    EXPECT_EQ(ct_message_context_get_message_properties(nullptr), nullptr);
 }
 
 // Null pointer tests for message context wrappers

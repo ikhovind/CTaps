@@ -324,7 +324,7 @@ gint compare_prefer_and_avoid_preferences(gconstpointer a, gconstpointer b, gpoi
 struct ct_candidate_node_t* candidate_node_new(ct_node_type_t type,
                                          const ct_local_endpoint_t* local_ep,
                                          const ct_remote_endpoint_t* remote_ep,
-                                         const ct_protocol_candidate_t* proto, // not const because we need to free it later
+                                         const ct_protocol_candidate_t* proto,
                                          const ct_transport_properties_t* props) {
   log_debug("Creating new candidate node of type %d", type);
   ct_candidate_node_t* node = malloc(sizeof(struct ct_candidate_node_t));

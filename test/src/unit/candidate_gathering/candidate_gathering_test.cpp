@@ -427,8 +427,6 @@ TEST_F(CandidateTreeTest, GivesNoCandidateNodesWhenAllProtocolsProhibited) {
     ct_remote_endpoint_free(remote_endpoint);
 }
 
-// TODO - write tests for gathering with ALPN, both for protocols supprting and those that don't
-
 TEST_F(CandidateTreeTest, AlpnIsOnlySetWhenSupportedByProtocol) {
     // --- ARRANGE ---
     // 1. Create a minimal preconnection object

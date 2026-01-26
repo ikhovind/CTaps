@@ -13,6 +13,7 @@ ct_security_parameters_t* ct_security_parameters_new(void) {
   if (!params) {
     return NULL;
   }
+  memset(params, 0, sizeof(ct_security_parameters_t));
   memcpy(params, &DEFAULT_SECURITY_PARAMETERS, sizeof(ct_security_parameters_t));
   return params;
 }

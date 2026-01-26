@@ -14,6 +14,11 @@ typedef enum {
   NODE_TYPE_ENDPOINT,
 } ct_node_type_t;
 
+/**
+  * @Brief A single combination of options from the ct_protocol_options_t struct
+  *
+  * A single PROTOCOL node contains a single one of these.
+  */
 typedef struct ct_protocol_candidate_s {
   const ct_protocol_impl_t* protocol_impl;
   char* alpn;

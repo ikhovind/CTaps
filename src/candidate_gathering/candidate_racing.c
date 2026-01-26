@@ -147,6 +147,7 @@ static int start_connection_attempt(ct_racing_context_t* context, size_t attempt
     return rc;
   }
 
+  // TODO - create a connection_from_candidate function to encapsulate this logic
   // Setup connection with candidate parameters
   attempt->connection->protocol = *candidate->protocol_candidate->protocol_impl;
   // Deep copy endpoints so connection owns its own copies
@@ -155,7 +156,21 @@ static int start_connection_attempt(ct_racing_context_t* context, size_t attempt
   attempt->connection->socket_type = CONNECTION_SOCKET_TYPE_STANDALONE;
   attempt->connection->role = CONNECTION_ROLE_CLIENT;
   // Deep copy security parameters so connection owns its own copy
-  attempt->connection->security_parameters = ct_security_parameters_deep_copy(context->preconnection->security_parameters);
+  if (context->preconnection->security_parameters) {
+    attempt->connection->security_parameters = ct_security_parameters_deep_copy(context->preconnection->security_parameters);
+    if (!attempt->connection->security_parameters) {
+      log_error("Failed to deep copy security parameters for attempt %zu", attempt_index);
+      return -ENOMEM;
+    }
+    log_info("Setting alpn to: %s", candidate->protocol_candidate->alpn);
+    // When branching we assign a single ALPN to each node (if the protocol supports ALPN)
+    // However the security parameters contain all the original ALPNs from the preconnection
+    // So to make sure that this connection attempt uses the ALPN from the candidate node
+    // we just overwrite this (deeply copied) ALPN value
+    // The old ALPN value is freed in the setter.
+    ct_sec_param_set_property_string_array(attempt->connection->security_parameters, ALPN, &attempt->candidate.protocol_candidate->alpn, 1);
+  }
+
   attempt->connection->framer_impl = context->preconnection->framer_impl;
 
   // Setup wrapped callbacks that point back to this attempt
