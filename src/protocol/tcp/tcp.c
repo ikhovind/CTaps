@@ -212,7 +212,7 @@ int tcp_init_with_send(ct_connection_t* connection, const ct_connection_callback
   tcp_connection_state_t* conn_state = tcp_connection_state_new(connection, initial_message, initial_message_context);
   if (!conn_state) {
     log_error("Failed to allocate memory for TCP connection state");
-    free(new_tcp_handle);
+    uv_close((uv_handle_t*)new_tcp_handle, on_close);
     return -ENOMEM;
   }
 
@@ -275,10 +275,10 @@ int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
     free(new_tcp_handle);
     return rc;
   }
-  new_tcp_handle->data = tcp_connection_state_new(connection, NULL, NULL);;
+  new_tcp_handle->data = tcp_connection_state_new(connection, NULL, NULL);
   if (!new_tcp_handle->data) {
     log_error("Failed to allocate memory for TCP connection state");
-    free(new_tcp_handle);
+    uv_close((uv_handle_t*)new_tcp_handle, on_close);
     return -ENOMEM;
   }
 
@@ -359,6 +359,7 @@ int tcp_send(ct_connection_t* connection, ct_message_t* message, ct_message_cont
     log_error("Error sending message over TCP: %s", uv_strerror(rc));
     free(req);
     ct_message_free(message);
+    ct_message_context_free(ctx);
     return rc;
   }
   return 0;

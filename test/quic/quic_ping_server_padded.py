@@ -1,13 +1,23 @@
 import asyncio
 import logging
-
 import os
 from aioquic.asyncio import QuicConnectionProtocol, serve
 from aioquic.quic.configuration import QuicConfiguration
 from aioquic.quic.events import StreamDataReceived, ProtocolNegotiated, QuicEvent
+from aioquic.quic.packet_builder import QuicPacketBuilder, QuicPacketType
 from aioquic.tls import SessionTicket
-from typing import Dict
-from typing import Optional
+from typing import Dict, Optional
+
+# Monkey-patch the packet builder to always pad INITIAL packets
+_original_end_packet = QuicPacketBuilder._end_packet
+
+def _patched_end_packet(self) -> None:
+    # Force padding for all INITIAL packets (not just client or ack-eliciting)
+    if self._packet_type == QuicPacketType.INITIAL:
+        self._datagram_needs_padding = True
+    _original_end_packet(self)
+
+QuicPacketBuilder._end_packet = _patched_end_packet
 
 # Define a custom ALPN protocol to distinguish it from HTTP/3
 ECHO_ALPN = ["simple-ping"]
@@ -25,7 +35,7 @@ def session_ticket_fetcher(server_name: str) -> Optional[SessionTicket]:
     if server_name in session_ticket_store:
         return session_ticket_store[server_name]
     return None
-    
+
 
 class QuicEchoProtocol(QuicConnectionProtocol):
     """
@@ -33,7 +43,7 @@ class QuicEchoProtocol(QuicConnectionProtocol):
     """
     def quic_event_received(self, event: QuicEvent) -> None:
         """Handle incoming QUIC events."""
-        
+
         # Check if the protocol was successfully negotiated (optional for a simple server)
         if isinstance(event, ProtocolNegotiated):
             logging.info("Protocol negotiated: %s", event.alpn_protocol)
@@ -49,7 +59,7 @@ class QuicEchoProtocol(QuicConnectionProtocol):
             receive_string = event.data.decode(errors='ignore')
             receive_string = "Pong: " + receive_string
             send_bytes = receive_string.encode()
-            
+
             # 2. Echo the data back
             self._quic.send_stream_data(
                 stream_id=event.stream_id,
@@ -62,7 +72,7 @@ class QuicEchoProtocol(QuicConnectionProtocol):
 
 async def main_server(host: str, port: int, configuration: QuicConfiguration) -> None:
     """Start the QUIC server."""
-    logging.info("Starting QUIC Echo Server on %s:%d with ALPN %s", host, port, ECHO_ALPN)
+    logging.info("Starting QUIC Echo Server (PADDED) on %s:%d with ALPN %s", host, port, ECHO_ALPN)
     await serve(
         host,
         port,

@@ -56,6 +56,23 @@ const ct_protocol_impl_t udp_protocol_interface = {
     .retarget_protocol_connection = udp_retarget_protocol_connection
 };
 
+// Used to free data in send callbac
+typedef struct udp_send_data_s {
+  ct_message_t* message;
+  ct_message_context_t* message_context;
+} udp_send_data_t;
+
+udp_send_data_t* udp_send_data_new(ct_message_t* message, ct_message_context_t* message_context) {
+  udp_send_data_t* send_data = malloc(sizeof(udp_send_data_t));
+  if (!send_data) {
+    log_error("Failed to allocate memory for UDP send data");
+    return NULL;
+  }
+  send_data->message = message;
+  send_data->message_context = message_context;
+  return send_data;
+}
+
 void alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
   (void)handle;
   *buf = uv_buf_init(malloc(suggested_size), suggested_size);
@@ -97,8 +114,9 @@ void on_send(uv_udp_send_t* req, int status) {
     log_error("Send error: %s\n", uv_strerror(status));
   }
   if (req && req->data) {
-    ct_message_t* message = (ct_message_t*)req->data;
-    ct_message_free(message);
+    udp_send_data_t* send_data = (udp_send_data_t*)req->data;
+    ct_message_free(send_data->message);
+    ct_message_context_free(send_data->message_context);
   }
   free(req);
 }
@@ -262,7 +280,7 @@ int udp_send(ct_connection_t* connection, ct_message_t* message, ct_message_cont
   }
 
   // Store the message in send_req->data so we can free it in the callback
-  send_req->data = message;
+  send_req->data = udp_send_data_new(message, message_context);
 
   int rc = uv_udp_send(
       send_req, (uv_udp_t*)connection->internal_connection_state, &buffer, 1,

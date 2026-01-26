@@ -135,7 +135,10 @@ static void quic_context_timer_close_cb(uv_handle_t* handle) {
 ct_quic_context_t* ct_create_quic_context(const char* cert_file,
                                           const char* key_file,
                                           struct ct_listener_s* listener,
-                                          const ct_security_parameters_t* security_parameters) {
+                                          const ct_security_parameters_t* security_parameters,
+                                          ct_message_t* initial_message, // to be freed in case this connection suceeds
+                                          ct_message_context_t* initial_message_context // to be freed in case this connection suceeds
+                                          ) {
   if (!cert_file || !key_file || !security_parameters) {
     log_error("Certificate, key files and security parameters are required for QUIC context creation");
     return NULL;
@@ -149,6 +152,9 @@ ct_quic_context_t* ct_create_quic_context(const char* cert_file,
     return NULL;
   }
   memset(quic_ctx, 0, sizeof(ct_quic_context_t));
+
+  quic_ctx->initial_message = initial_message;
+  quic_ctx->initial_message_context = initial_message_context;
 
   // Store certificate file names (deep copy)
   quic_ctx->cert_file_name = strdup(cert_file);
@@ -554,6 +560,16 @@ int picoquic_callback(picoquic_cnx_t* cnx,
         return -EINVAL;
       }
 
+      ct_quic_context_t* quic_context = ct_connection_get_quic_context(connection);
+      if (quic_context->initial_message) {
+        ct_message_free(quic_context->initial_message);
+        quic_context->initial_message = NULL;
+      }
+      if (quic_context->initial_message_context) {
+        ct_message_context_free(quic_context->initial_message_context);
+        quic_context->initial_message_context = NULL;
+      }
+
       if (ct_connection_is_server(connection)) {
         log_debug("Server connection ready, notifying listener");
         ct_listener_t* listener = connection->socket_manager->listener;
@@ -735,7 +751,7 @@ int picoquic_callback(picoquic_cnx_t* cnx,
       // Handle application close
       break;
     case picoquic_callback_request_alpn_list:
-      log_error("ALPN list requested in callback, should never happen");
+      log_warn("ALPN list requested in callback, should never happen");
       return -EINVAL;
       break;
     default:
@@ -1002,6 +1018,7 @@ void on_quic_context_timer(uv_timer_t* timer_handle) {
   reset_quic_timer(quic_ctx);
 }
 
+// TODO - this and quic_init shares a lot of code, should refactor to common function
 int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks, ct_message_t* initial_message, ct_message_context_t* initial_message_context) {
   (void)connection_callbacks;
   (void)initial_message_context;
@@ -1033,7 +1050,9 @@ int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbac
     cert_file,
     key_file,
     NULL,
-    connection->security_parameters
+    connection->security_parameters,
+    initial_message,
+    initial_message_context
   );
 
   if (!quic_context) {
@@ -1119,6 +1138,7 @@ int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbac
   // Set picoquic callback to connection group
   picoquic_set_callback(group_state->picoquic_connection, picoquic_callback, connection->connection_group);
 
+  bool is_final = initial_message_context && ct_message_properties_get_final(ct_message_context_get_message_properties(initial_message_context));
 
   ct_connection_assign_next_free_stream(connection, false);
   rc = picoquic_add_to_stream(
@@ -1126,7 +1146,7 @@ int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbac
       ct_connection_get_stream_id(connection),
       (const uint8_t*)initial_message->content,
       initial_message->length,
-      0 // not final
+      is_final
   );
 
   picoquic_set_app_stream_ctx(group_state->picoquic_connection, ct_connection_get_stream_id(connection), connection);
@@ -1182,7 +1202,9 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
     cert_file,
     key_file,
     NULL,
-    connection->security_parameters
+    connection->security_parameters,
+    NULL,
+    NULL
   );
 
   if (!quic_context) {
@@ -1396,6 +1418,7 @@ int quic_send(ct_connection_t* connection, ct_message_t* message, ct_message_con
   if (picoquic_get_cnx_state(cnx) < picoquic_state_ready) {
     log_warn("ct_connection_t not ready to send data, state: %d", picoquic_get_cnx_state(cnx));
     ct_message_free(message);
+    ct_message_context_free(ctx);
     return -EAGAIN;
   }
 
@@ -1423,11 +1446,13 @@ int quic_send(ct_connection_t* connection, ct_message_t* message, ct_message_con
       log_error("Invalid stream ID: %llu", (unsigned long long)stream_id);
     }
     ct_message_free(message);
+    ct_message_context_free(ctx);
     return -EIO;
   }
 
   // picoquic_add_to_stream copies the data internally, so we can free the message now
   ct_message_free(message);
+  ct_message_context_free(ctx);
 
   // Reset the timer to ensure data gets processed and sent immediately
   ct_quic_context_t* quic_context = ct_connection_get_quic_context(connection);
@@ -1470,7 +1495,9 @@ int quic_listen(ct_socket_manager_t* socket_manager) {
     cert_file,
     key_file,
     listener,
-    listener->security_parameters
+    listener->security_parameters,
+    NULL,
+    NULL
   );
   if (!quic_context) {
     log_error("Failed to create QUIC context for listener");

@@ -1035,6 +1035,8 @@ CT_EXTERN bool ct_message_properties_get_safely_replayable(const ct_message_prop
 
 CT_EXTERN void ct_message_properties_set_safely_replayable(ct_message_properties_t* message_properties, bool value);
 
+CT_EXTERN bool ct_message_properties_get_final(const ct_message_properties_t* message_properties);
+
 CT_EXTERN void ct_message_properties_set_final(ct_message_properties_t* message_properties, bool value);
 
 /**
