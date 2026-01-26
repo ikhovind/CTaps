@@ -24,16 +24,18 @@ ECHO_ALPN = ["simple-ping"]
 SERVER_NAME = "localhost"
 
 # In-memory session ticket store for 0-RTT support
-session_ticket_store = {}
+session_ticket_store: Dict[bytes, SessionTicket] = {}
 
 def session_ticket_handler(ticket: SessionTicket) -> None:
     """Store session tickets for 0-RTT support."""
     logging.info("Storing session ticket for %s", ticket.server_name)
-    session_ticket_store[ticket.server_name] = ticket
+    session_ticket_store[ticket.ticket] = ticket
 
-def session_ticket_fetcher(server_name: str) -> Optional[SessionTicket]:
-    if server_name in session_ticket_store:
-        return session_ticket_store[server_name]
+def session_ticket_fetcher(ticket_bytes) -> Optional[SessionTicket]:
+    if ticket_bytes in session_ticket_store:
+        logging.info("Found active session ticket")
+        return session_ticket_store[ticket_bytes]
+    logging.info("Did not find active session ticket")
     return None
 
 
