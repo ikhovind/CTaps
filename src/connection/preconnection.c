@@ -118,14 +118,18 @@ int ct_preconnection_initiate(ct_preconnection_t* preconnection, ct_connection_c
   log_info("Initiating connection from preconnection with candidate racing");
 
   // The winning connection will be passed to the ready()
-  return preconnection_initiate_with_racing(preconnection, connection_callbacks, NULL, NULL);
+  //
+  return preconnection_race(preconnection, connection_callbacks);
 }
 
 int ct_preconnection_initiate_with_send(ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks, const ct_message_t* message, const ct_message_context_t* message_context) {
-  ct_message_t* msg_copy = ct_message_deep_copy(message);
-  if (!msg_copy) {
-    log_error("Failed to deep copy message for preconnection initiate with send");
-    return -ENOMEM;
+  ct_message_t* msg_copy = NULL;
+  if (message) {
+    msg_copy = ct_message_deep_copy(message);
+    if (!msg_copy) {
+      log_error("Failed to deep copy message for preconnection initiate with send");
+      return -ENOMEM;
+    }
   }
   ct_message_context_t* message_context_copy = NULL;
   if (message_context) {
@@ -137,7 +141,11 @@ int ct_preconnection_initiate_with_send(ct_preconnection_t* preconnection, ct_co
     }
   }
 
-  return preconnection_initiate_with_racing(preconnection, connection_callbacks, msg_copy, message_context_copy);
+  if (ct_message_properties_get_safely_replayable(ct_message_context_get_message_properties(message_context))) {
+    return preconnection_race_with_early_data(preconnection, connection_callbacks, msg_copy, message_context_copy);
+  }
+  return preconnection_race_with_send_after_ready(preconnection, connection_callbacks, msg_copy, message_context_copy);
+
 }
 
 void ct_preconnection_free(ct_preconnection_t* preconnection) {

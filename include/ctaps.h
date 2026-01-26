@@ -1035,6 +1035,8 @@ CT_EXTERN bool ct_message_properties_get_safely_replayable(const ct_message_prop
 
 CT_EXTERN void ct_message_properties_set_safely_replayable(ct_message_properties_t* message_properties, bool value);
 
+CT_EXTERN void ct_message_properties_set_final(ct_message_properties_t* message_properties, bool value);
+
 /**
  * @brief Free resources in message properties.
  * @param[in] message_properties structure to free
@@ -1384,7 +1386,7 @@ CT_EXTERN void ct_message_context_free(ct_message_context_t* message_context);
  * @param[in] message_context Context to get properties from
  * @return Pointer to message properties, or NULL if message_context is NULL
  */
-CT_EXTERN ct_message_properties_t* ct_message_context_get_message_properties(ct_message_context_t* message_context);
+CT_EXTERN const ct_message_properties_t* ct_message_context_get_message_properties(const ct_message_context_t* message_context);
 
 /**
  * @brief Get the remote endpoint from a message context.
@@ -1413,6 +1415,8 @@ CT_EXTERN void ct_message_context_set_boolean(ct_message_context_t* message_cont
 CT_EXTERN void ct_message_context_set_capacity_profile(ct_message_context_t* message_context, ct_message_properties_enum_t property, ct_capacity_profile_enum_t value);
 
 CT_EXTERN void ct_message_context_set_safely_replayable(ct_message_context_t* message_context, bool value);
+
+CT_EXTERN void ct_message_context_set_final(ct_message_context_t* message_context, bool value);
 
 // Message context property getters
 CT_EXTERN uint64_t ct_message_context_get_uint64(const ct_message_context_t* message_context, ct_message_properties_enum_t property);

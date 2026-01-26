@@ -21,14 +21,6 @@ static int on_attempt_establishment_error(ct_connection_t* connection);
 static void cancel_all_other_attempts(ct_racing_context_t* context, size_t winning_index);
 static int start_connection_attempt(ct_racing_context_t* context, size_t attempt_index);
 
-bool should_send_early_data(ct_message_context_t* message_context) {
-  // If the preconnection has security parameters that allow early data, return true
-  if (!message_context) {
-    return false;
-  }
-  return ct_message_properties_get_safely_replayable(ct_message_context_get_message_properties(message_context));
-}
-
 static void on_timer_close_free_context(uv_handle_t* handle) {
   ct_racing_context_t* context = (ct_racing_context_t*)handle->data;
   free(handle);
@@ -65,7 +57,8 @@ static ct_racing_context_t* racing_context_create(GArray* candidate_nodes,
                                             ct_connection_callbacks_t user_callbacks,
                                             const ct_preconnection_t* preconnection,
                                             ct_message_t* initial_message,
-                                            ct_message_context_t* initial_message_context
+                                            ct_message_context_t* initial_message_context,
+                                            bool should_try_early_data 
                                             ) {
   log_info("Creating racing context with %d candidates", candidate_nodes->len);
 
@@ -85,6 +78,7 @@ static ct_racing_context_t* racing_context_create(GArray* candidate_nodes,
   context->connection_attempt_delay_ms = DEFAULT_CONNECTION_ATTEMPT_DELAY_MS;
   context->initial_message = initial_message;
   context->initial_message_context = initial_message_context;
+  context->should_try_early_data = should_try_early_data;
 
 
   // Allocate attempts array
@@ -174,27 +168,9 @@ static int start_connection_attempt(ct_racing_context_t* context, size_t attempt
   attempt->connection->connection_callbacks = attempt_callbacks;
   attempt->state = ATTEMPT_STATE_CONNECTING;
 
-  // TODO the decision for whether or not to send should really happen at the connection-level.
-  //
-  // Then we have to either override the "ready" callback so that the initial connection is passed
-  // back to the connection, which can then call send_message(). This would require us to add more
-  // state to the connection struct, because when the connection is passed back to the callback 
-  // specified in preconnection_initiate_with_send() we need to know which data to send.
-  //
-  // Alternatively we can separate out the different flows in the racing creation: early data, message after ready and normal racing
-  //
-  // From a single "preconnection_initiate_with_racing()" to:
-  //
-  // preconnection_race_with_early_data(preconnection, callbacks, message, message_context)
-  // preconnection_race_with_send_after_ready(preconnection, callbacks, message, message_context)
-  // preconnection_race(preconnection, callbacks)
-  //
-  // Simpler, does not need any extra state in the connection. only two "real" functions since preconnection_race
-  // is just a warpper for preconnection_race_with_send_after_ready(preconnection, callbacks, NULL, NULL)
-  if (should_send_early_data(context->initial_message_context)) {
+  if (context->should_try_early_data) {
     log_debug("Initiating racing connection attempt %zu with early data", attempt_index);
     rc = attempt->connection->protocol.init_with_send(attempt->connection, &attempt->connection->connection_callbacks, context->initial_message, context->initial_message_context);
-    attempt->attempted_early_data = true;
   }
   else {
     rc = attempt->connection->protocol.init(attempt->connection, &attempt->connection->connection_callbacks);
@@ -238,7 +214,7 @@ int racing_on_attempt_ready(ct_connection_t* connection) {
   connection->connection_callbacks = context->user_callbacks;
 
   // If we didn't send the initial message as early data, send it now
-  if (!attempt->attempted_early_data && context->initial_message) {
+  if (!context->should_try_early_data && context->initial_message) {
     log_debug("Sending initial message on winning connection");
     // This takes deep copy of message and context, so freeing our copies is fine in racing_context_free
     int rc = ct_send_message_full(connection, context->initial_message, context->initial_message_context);
@@ -396,10 +372,11 @@ static void initiate_next_attempt(ct_racing_context_t* context) {
 /**
  * @brief Main entry point for initiating connection with racing.
  */
-int preconnection_initiate_with_racing(ct_preconnection_t* preconnection,
+int start_candidate_racing(ct_preconnection_t* preconnection,
                                        ct_connection_callbacks_t connection_callbacks,
                                        ct_message_t* initial_message,
-                                       ct_message_context_t* initial_message_context
+                                       ct_message_context_t* initial_message_context,
+                                       bool should_try_early_data
                                        ) {
   // Get ordered candidate nodes
   GArray* candidate_nodes = get_ordered_candidate_nodes(preconnection);
@@ -418,7 +395,8 @@ int preconnection_initiate_with_racing(ct_preconnection_t* preconnection,
                                                        connection_callbacks,
                                                        preconnection,
                                                        initial_message,
-                                                       initial_message_context
+                                                       initial_message_context,
+                                                       should_try_early_data
                                                        );
 
   if (context == NULL) {
@@ -441,6 +419,25 @@ int preconnection_initiate_with_racing(ct_preconnection_t* preconnection,
 
   return 0;
 }
+
+int preconnection_race_with_early_data(ct_preconnection_t* preconnection,
+                                       ct_connection_callbacks_t connection_callbacks,
+                                       ct_message_t* initial_message,
+                                       ct_message_context_t* initial_message_context) {
+  return start_candidate_racing(preconnection, connection_callbacks, initial_message, initial_message_context, true);
+}
+
+int preconnection_race_with_send_after_ready(ct_preconnection_t* preconnection,
+                                       ct_connection_callbacks_t connection_callbacks,
+                                       ct_message_t* initial_message,
+                                       ct_message_context_t* initial_message_context) {
+  return start_candidate_racing(preconnection, connection_callbacks, initial_message, initial_message_context, false);
+}
+
+int preconnection_race(ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks) {
+  return start_candidate_racing(preconnection, connection_callbacks, NULL, NULL, false);
+}
+
 
 /**
  * @brief Frees a racing context and all associated resources.

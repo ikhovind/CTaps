@@ -63,7 +63,7 @@ void ct_message_context_free(ct_message_context_t* message_context) {
   free(message_context);
 }
 
-ct_message_properties_t* ct_message_context_get_message_properties(ct_message_context_t* message_context) {
+const ct_message_properties_t* ct_message_context_get_message_properties(const ct_message_context_t* message_context) {
   if (!message_context) {
     return NULL;
   }
@@ -138,4 +138,12 @@ void ct_message_context_set_safely_replayable(ct_message_context_t* message_cont
     return;
   }
   ct_message_properties_set_safely_replayable(&message_context->message_properties, value);
+}
+
+void ct_message_context_set_final(ct_message_context_t* message_context, bool value) {
+  if (!message_context) {
+    log_warn("Tried to set FINAL property on NULL message context");
+    return;
+  }
+  ct_message_properties_set_final(&message_context->message_properties, value);
 }

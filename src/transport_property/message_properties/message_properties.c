@@ -146,3 +146,11 @@ void ct_message_properties_set_safely_replayable(ct_message_properties_t* messag
   }
   message_properties->message_property[MSG_SAFELY_REPLAYABLE].value.boolean_value = value;
 }
+
+void ct_message_properties_set_final(ct_message_properties_t* message_properties, bool value) {
+  if (!message_properties) {
+    log_warn("Tried to set FINAL property on NULL message properties");
+    return;
+  }
+  message_properties->message_property[FINAL].value.boolean_value = value;
+}
