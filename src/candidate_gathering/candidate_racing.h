@@ -30,7 +30,6 @@ typedef struct ct_racing_attempt_t {
   ct_attempt_state_t state;
   size_t attempt_index;
   ct_racing_context_t* context;  // Back-pointer to parent racing context
-  bool attempted_early_data;
 } ct_racing_attempt_t;
 
 // Context for managing the racing process
@@ -40,6 +39,7 @@ struct ct_racing_context_t {
   size_t num_attempts;
   size_t next_attempt_index;  // Index of next attempt to initiate
 
+  bool should_try_early_data; // This decision is made by the preconnection
   ct_message_t* initial_message; // not null if this racing was initiated with a send
   ct_message_context_t* initial_message_context;
 
@@ -73,11 +73,17 @@ struct ct_racing_context_t {
  * @param connection_callbacks User's connection callbacks
  * @return 0 on success, negative error code on failure
  */
-int preconnection_initiate_with_racing(ct_preconnection_t* preconnection,
+int preconnection_race_with_early_data(ct_preconnection_t* preconnection,
                                        ct_connection_callbacks_t connection_callbacks,
                                        ct_message_t* initial_message,
-                                       ct_message_context_t* initial_message_context
-                                       );
+                                       ct_message_context_t* initial_message_context);
+
+int preconnection_race_with_send_after_ready(ct_preconnection_t* preconnection,
+                                       ct_connection_callbacks_t connection_callbacks,
+                                       ct_message_t* initial_message,
+                                       ct_message_context_t* initial_message_context);
+
+int preconnection_race(ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks);
 
 /**
  * @brief Frees a racing context and all associated resources.

@@ -371,3 +371,11 @@ TEST(MessagePropertiesUnitTests, GetBooleanOnUint32PropertyReturnsFalse) {
 
     ct_message_properties_free(message_properties);
 }
+
+TEST(MessagePropertiesUnitTests, GetSafelyReplayableHandlesNullptr) {
+    EXPECT_FALSE(ct_message_properties_get_safely_replayable(nullptr));
+}
+
+TEST(MessagePropertiesUnitTests, GetFinalHandlesNullptr) {
+    EXPECT_FALSE(ct_message_properties_is_final(nullptr));
+}

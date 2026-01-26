@@ -154,8 +154,7 @@ TEST(ConnectionUnitTests, SendMessageWithFinalSetsCanSendToFalse) {
 
     ct_message_context_t* context = ct_message_context_new();
     ASSERT_NE(context, nullptr);
-    ct_message_properties_t* props = ct_message_context_get_message_properties(context);
-    ct_message_properties_set_boolean(props, FINAL, true);
+    ct_message_context_set_final(context, true);
 
     // Send message
     int rc = ct_send_message_full(&connection, message, context);

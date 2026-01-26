@@ -93,6 +93,32 @@ TEST(MessageContextUnitTests, SetAndGetCapacityProfile) {
     ct_message_context_free(msg_ctx);
 }
 
+TEST(MessageContextUnitTests, SetAndGetFinal) {
+    ct_message_context_t* msg_ctx = ct_message_context_new();
+    ASSERT_NE(msg_ctx, nullptr);
+
+    ct_message_context_set_final(msg_ctx, true);
+
+    EXPECT_TRUE(ct_message_properties_is_final(ct_message_context_get_message_properties(msg_ctx)));
+
+    ct_message_context_free(msg_ctx);
+}
+
+TEST(MessageContextUnitTests, SetAndGetSafelyReplayable) {
+    ct_message_context_t* msg_ctx = ct_message_context_new();
+    ASSERT_NE(msg_ctx, nullptr);
+
+    ct_message_context_set_safely_replayable(msg_ctx, true);
+
+    EXPECT_TRUE(ct_message_properties_get_safely_replayable(ct_message_context_get_message_properties(msg_ctx)));
+
+    ct_message_context_free(msg_ctx);
+}
+
+TEST(MessageContextUnitTests, GetMessagePropertiesReturnsNullForNullContext) {
+    EXPECT_EQ(ct_message_context_get_message_properties(nullptr), NULL);
+}
+
 // Null pointer tests for message context wrappers
 TEST(MessageContextUnitTests, SetUint64HandlesNullContext) {
     ct_message_context_set_uint64(nullptr, MSG_LIFETIME, 5000);
