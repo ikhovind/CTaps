@@ -258,6 +258,7 @@ int prune_candidate_tree(GNode* root, ct_selection_properties_t selection_proper
 
     current_node_list = next_iter;
   }
+  g_list_free(pruning_data.undesirable_nodes);
 
   log_trace("Total nodes in tree after pruning: %d", g_node_n_nodes(root, G_TRAVERSE_ALL));
   return 0;
