@@ -222,8 +222,8 @@ ct_quic_context_t* ct_create_quic_context(const char* cert_file,
       picoquic_current_time(),
       NULL,
       ticket_store_path,
-      NULL,
-      0
+      ticket_key,
+      ticket_key_length 
   );
 
   if (!quic_ctx->picoquic_ctx) {

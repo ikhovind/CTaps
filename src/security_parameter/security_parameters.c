@@ -2,6 +2,7 @@
 #include "ctaps_internal.h"
 #include "security_parameter/security_parameters.h"
 #include "security_parameter/certificate_bundles/certificate_bundles.h"
+#include "security_parameter/byte_array/byte_array.h"
 
 #include <errno.h>
 #include <logging/log.h>
@@ -44,6 +45,9 @@ void ct_sec_param_free(ct_security_parameters_t* security_parameters) {
         break;
       case TYPE_STRING:
         free(sec_param->value.string);
+        break;
+      case TYPE_BYTE_ARRAY:
+        ct_byte_array_free(sec_param->value.byte_array);
         break;
     }
   }
@@ -135,6 +139,14 @@ ct_security_parameters_t* ct_security_parameters_deep_copy(const ct_security_par
             dst_param->value.string = NULL;
           }
           break;
+        case TYPE_BYTE_ARRAY:
+          dst_param->value.byte_array = ct_byte_array_copy(src_param->value.byte_array);
+          if (!dst_param->value.byte_array) {
+            log_error("Failed to deep copy byte array security parameter");
+            ct_sec_param_free(copy);
+            return NULL;
+          }
+          break;
       }
     }
   }
@@ -142,7 +154,7 @@ ct_security_parameters_t* ct_security_parameters_deep_copy(const ct_security_par
   return copy;
 }
 
-int ct_sec_param_set_property_string_array(ct_security_parameters_t* security_parameters, ct_security_property_enum_t property, char** strings, size_t num_strings) {
+int ct_sec_param_set_property_string_array(ct_security_parameters_t* security_parameters, ct_security_property_enum_t property, const char** strings, size_t num_strings) {
   if (property >= SEC_PROPERTY_END) {
     log_error("Attempted to set invalid security parameter property");
     return -EINVAL;
@@ -223,6 +235,24 @@ int ct_sec_param_set_property_certificate_bundles(ct_security_parameters_t* secu
   return 0;
 }
 
+int ct_sec_param_set_property_byte_array(ct_security_parameters_t* security_parameters, ct_security_property_enum_t property, const ct_byte_array_t* byte_array) {
+  if (!security_parameters) {
+    log_error("Attempted to set byte array on NULL security parameters");
+    return -EINVAL;
+  }
+  if (security_parameters->security_parameters[property].type != TYPE_BYTE_ARRAY) {
+    log_error("Attempted to set a non-byte-array security parameter as byte array");
+    return -EINVAL;
+  }
+  security_parameters->security_parameters[property].set_by_user = true;
+  security_parameters->security_parameters[property].value.byte_array = ct_byte_array_copy(byte_array);
+  if (!security_parameters->security_parameters[property].value.byte_array) {
+    log_error("Failed to copy byte array for security parameter");
+    return -ENOMEM;
+  }
+  return 0;
+}
+
 int ct_sec_param_set_ticket_store_path(ct_security_parameters_t* security_parameters, const char* ticket_store_path) {
   if (!security_parameters) {
     log_error("Attempted to set ticket store path on NULL security parameters");
@@ -295,4 +325,27 @@ const char** ct_sec_param_get_alpn_strings(const ct_security_parameters_t* secur
   const ct_security_parameter_t* sec_param = &security_parameters->security_parameters[ALPN];
   *out_num_strings = security_parameters->security_parameters[ALPN].value.array_of_strings->num_strings;
   return (const char**) sec_param->value.array_of_strings->strings;
+}
+
+const ct_byte_array_t* ct_sec_param_get_session_ticket_encryption_key(const ct_security_parameters_t* security_parameters) {
+  if (!security_parameters) {
+    log_error("Invalid security parameters argument to get session ticket encryption key");
+    return NULL;
+  }
+  return security_parameters->security_parameters[SESSION_TICKET_ENCRYPTION_KEY].value.byte_array;
+}
+
+int ct_sec_param_set_session_ticket_encryption_key(ct_security_parameters_t* security_parameters, const ct_byte_array_t* key) {
+  log_trace("Setting session ticket encryption key of length %zu", key ? key->length : 0);
+  if (!security_parameters) {
+    log_error("Invalid security parameters argument to set session ticket encryption key");
+    return -EINVAL;
+  }
+  if (ct_sec_param_get_session_ticket_encryption_key(security_parameters)) {
+    log_debug("Freeing existing session ticket encryption key before setting new value");
+    ct_byte_array_free(security_parameters->security_parameters[SESSION_TICKET_ENCRYPTION_KEY].value.byte_array);
+    security_parameters->security_parameters[SESSION_TICKET_ENCRYPTION_KEY].value.byte_array = NULL;
+  }
+
+  return ct_sec_param_set_property_byte_array(security_parameters, SESSION_TICKET_ENCRYPTION_KEY, key);
 }

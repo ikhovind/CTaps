@@ -558,13 +558,14 @@ typedef struct ct_sec_property_s ct_security_parameter_t;
 
 // clang-format off
 #define get_security_parameter_list(f)                                        \
-  f(SUPPORTED_GROUP,    "supportedGroup",    TYPE_STRING_ARRAY)               \
-  f(CIPHERSUITE,        "ciphersuite",       TYPE_STRING_ARRAY)               \
-  f(SERVER_CERTIFICATE, "serverCertificate", TYPE_CERTIFICATE_BUNDLES)        \
-  f(CLIENT_CERTIFICATE, "clientCertificate", TYPE_CERTIFICATE_BUNDLES)        \
-  f(SIGNATURE_ALGORITHM,"signatureAlgorithm",TYPE_STRING_ARRAY)               \
-  f(ALPN,               "alpn",              TYPE_STRING_ARRAY)               \
-  f(TICKET_STORE_PATH,  "ticketStorePath",   TYPE_STRING)
+  f(SUPPORTED_GROUP,                "supportedGroup",    TYPE_STRING_ARRAY)               \
+  f(CIPHERSUITE,                    "ciphersuite",       TYPE_STRING_ARRAY)               \
+  f(SERVER_CERTIFICATE,             "serverCertificate", TYPE_CERTIFICATE_BUNDLES)        \
+  f(CLIENT_CERTIFICATE,             "clientCertificate", TYPE_CERTIFICATE_BUNDLES)        \
+  f(SIGNATURE_ALGORITHM,            "signatureAlgorithm",TYPE_STRING_ARRAY)               \
+  f(ALPN,                           "alpn",              TYPE_STRING_ARRAY)               \
+  f(TICKET_STORE_PATH,              "ticketStorePath",   TYPE_STRING)                     \
+  f(SESSION_TICKET_ENCRYPTION_KEY,  "ticketStorePath",   TYPE_BYTE_ARRAY) // Optional parameter to allow for session resumption 
 // clang-format on
 
 #define output_sec_enum(enum_name, string_name, property_type) enum_name,
@@ -1060,6 +1061,12 @@ CT_EXTERN int ct_certificate_bundles_add_cert(ct_certificate_bundles_t* bundles,
 
 CT_EXTERN void ct_certificate_bundles_free(ct_certificate_bundles_t* bundles);
 
+typedef struct ct_byte_array_s ct_byte_array_t;
+
+CT_EXTERN ct_byte_array_t* ct_byte_array_new_from_data(const uint8_t* data, size_t length);
+
+CT_EXTERN void ct_byte_array_free(ct_byte_array_t* byte_array);
+
 
 // Security Parameters
 /**
@@ -1084,15 +1091,22 @@ CT_EXTERN void ct_sec_param_free(ct_security_parameters_t* security_parameters);
  * @param[in] num_strings Number of strings in the array
  * @return 0 on success, non-zero on error
  */
-CT_EXTERN int ct_sec_param_set_property_string_array(ct_security_parameters_t* security_parameters, ct_security_property_enum_t property, char** strings, size_t num_strings);
+CT_EXTERN int ct_sec_param_set_property_string_array(ct_security_parameters_t* security_parameters, ct_security_property_enum_t property, const char** strings, size_t num_strings);
 
 CT_EXTERN int ct_sec_param_set_property_certificate_bundles(ct_security_parameters_t* security_parameters, ct_security_property_enum_t property, ct_certificate_bundles_t* bundles);
+
+CT_EXTERN int ct_sec_param_set_property_byte_array(ct_security_parameters_t* security_parameters, ct_security_property_enum_t property, const ct_byte_array_t* byte_array);
 
 CT_EXTERN int ct_sec_param_set_ticket_store_path(ct_security_parameters_t* security_parameters, const char* ticket_store_path);
 
 CT_EXTERN const char* ct_sec_param_get_ticket_store_path(const ct_security_parameters_t* security_parameters);
 
 CT_EXTERN const char** ct_sec_param_get_alpn_strings(const ct_security_parameters_t* security_parameters, size_t* out_num_strings);
+
+CT_EXTERN const ct_byte_array_t* ct_sec_param_get_session_ticket_encryption_key(const ct_security_parameters_t* security_parameters);
+
+CT_EXTERN int ct_sec_param_set_session_ticket_encryption_key(ct_security_parameters_t* security_parameters, const ct_byte_array_t* key);
+
 
 // ==============================================================================
 // ENDPOINT OWNERSHIP MODEL

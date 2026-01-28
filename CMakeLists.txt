@@ -39,6 +39,7 @@ set(CTAPS_SOURCES
     # Security parameters
     src/security_parameter/security_parameters.c
     src/security_parameter/certificate_bundles/certificate_bundles.c
+    src/security_parameter/byte_array/byte_array.c
     # Connections
     src/connection/preconnection.c
     src/connection/connection.c
