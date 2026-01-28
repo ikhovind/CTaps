@@ -106,7 +106,7 @@ void ct_remote_endpoint_with_port(ct_remote_endpoint_t* remote_endpoint, const u
 }
 
 int ct_remote_endpoint_resolve(const ct_remote_endpoint_t* remote_endpoint, ct_remote_endpoint_t** out_list, size_t* out_count) {
-  log_debug("Resolving remote endpoint");
+  log_trace("Resolving remote endpoint");
   int32_t assigned_port = 0;
   if (remote_endpoint->service != NULL) {
     assigned_port = remote_endpoint_get_service_port(remote_endpoint);

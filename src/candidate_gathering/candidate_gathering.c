@@ -327,7 +327,7 @@ struct ct_candidate_node_t* candidate_node_new(ct_node_type_t type,
                                          const ct_remote_endpoint_t* remote_ep,
                                          const ct_protocol_candidate_t* proto,
                                          const ct_transport_properties_t* props) {
-  log_debug("Creating new candidate node of type %d", type);
+  log_trace("Creating new candidate node of type %d", type);
   ct_candidate_node_t* node = malloc(sizeof(struct ct_candidate_node_t));
   if (node == NULL) {
     log_error("Could not allocate memory for ct_candidate_node_t");

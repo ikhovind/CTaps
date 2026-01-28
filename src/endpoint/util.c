@@ -40,7 +40,7 @@ void get_interface_addresses(const char *interface_name, int *num_found_addresse
 }
 
 int perform_dns_lookup(const char* hostname, const char* service, ct_remote_endpoint_t** out_list, size_t* out_count, uv_getaddrinfo_cb getaddrinfo_cb) {
-  log_debug("Performing dns lookup for hostname: %s\n", hostname);
+  log_trace("Performing dns lookup for hostname: %s\n", hostname);
   uv_getaddrinfo_t request = {0};
 
   int rc = uv_getaddrinfo(

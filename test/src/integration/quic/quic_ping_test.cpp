@@ -188,7 +188,7 @@ TEST_F(QuicPingTest, successfullyPingsQuicServerWith0Rtt) {
   ct_sec_param_set_property_certificate_bundles(security_parameters, CLIENT_CERTIFICATE, client_bundles);
   ct_certificate_bundles_free(client_bundles);
 
-  ct_sec_param_set_ticket_store_path(security_parameters, TEST_TICKET_STORE);
+  ct_sec_param_set_ticket_store_path(security_parameters, TEST_CLIENT_TICKET_STORE);
 
   ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, security_parameters);
 
@@ -278,7 +278,7 @@ TEST_F(QuicPingTest, doesNotUse0rttWithNormalInitiate) {
   ct_sec_param_set_property_certificate_bundles(security_parameters, CLIENT_CERTIFICATE, client_bundles);
   ct_certificate_bundles_free(client_bundles);
 
-  ct_sec_param_set_ticket_store_path(security_parameters, TEST_TICKET_STORE);
+  ct_sec_param_set_ticket_store_path(security_parameters, TEST_CLIENT_TICKET_STORE);
 
   ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, security_parameters);
 
@@ -351,7 +351,7 @@ TEST_F(QuicPingTest, doesNotUse0rttWhenReplayableNotSet) {
   ct_sec_param_set_property_certificate_bundles(security_parameters, CLIENT_CERTIFICATE, client_bundles);
   ct_certificate_bundles_free(client_bundles);
 
-  ct_sec_param_set_ticket_store_path(security_parameters, TEST_TICKET_STORE);
+  ct_sec_param_set_ticket_store_path(security_parameters, TEST_CLIENT_TICKET_STORE);
 
   ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, security_parameters);
 

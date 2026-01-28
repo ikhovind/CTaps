@@ -177,6 +177,7 @@ ct_quic_context_t* ct_create_quic_context(const char* cert_file,
 
   // Store ticket store path for 0-RTT session persistence
   if (ticket_store_path) {
+    log_trace("Setting ticket store path to %s for QUIC context", ticket_store_path);
     quic_ctx->ticket_store_path = strdup(ticket_store_path);
     if (!quic_ctx->ticket_store_path) {
       log_error("Failed to duplicate ticket store path");
@@ -186,6 +187,7 @@ ct_quic_context_t* ct_create_quic_context(const char* cert_file,
       return NULL;
     }
   } else {
+    log_trace("Ticket store path not specified in security parameters for QUIC context");
     quic_ctx->ticket_store_path = NULL;
   }
 
@@ -207,6 +209,17 @@ ct_quic_context_t* ct_create_quic_context(const char* cert_file,
     return NULL;
   }
 
+  uint8_t* ticket_key = NULL;
+  size_t ticket_key_length = 0;
+
+  const ct_byte_array_t* stek = ct_sec_param_get_session_ticket_encryption_key(security_parameters);
+  log_info("Stek address: %p", (void*)stek);
+  if (stek) {
+    log_trace("Using session ticket encryption key of length %zu from security parameters", ticket_key_length);
+    ticket_key = stek->bytes;
+    ticket_key_length = stek->length;
+  }
+
   // Create picoquic context
   quic_ctx->picoquic_ctx = picoquic_create(
       MAX_CONCURRENT_QUIC_CONNECTIONS,
@@ -223,7 +236,7 @@ ct_quic_context_t* ct_create_quic_context(const char* cert_file,
       NULL,
       ticket_store_path,
       ticket_key,
-      ticket_key_length 
+      ticket_key_length
   );
 
   if (!quic_ctx->picoquic_ctx) {
@@ -1022,7 +1035,7 @@ void on_quic_context_timer(uv_timer_t* timer_handle) {
 int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks, ct_message_t* initial_message, ct_message_context_t* initial_message_context) {
   (void)connection_callbacks;
   (void)initial_message_context;
-  log_info("Initializing standalone QUIC connection");
+  log_info("Initializing standalone QUIC connection and attempting early data");
 
   // Get certificate from security parameters
   if (!connection->security_parameters) {
@@ -1033,7 +1046,7 @@ int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbac
   const ct_certificate_bundles_t* cert_bundles =
       connection->security_parameters->security_parameters[CLIENT_CERTIFICATE].value.certificate_bundles;
 
-  if (cert_bundles->num_bundles == 0) {
+  if (!cert_bundles || cert_bundles->num_bundles == 0) {
     log_error("No certificate bundle configured for QUIC client connection");
     return -EINVAL;
   }
@@ -1043,6 +1056,7 @@ int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbac
 
   if (!cert_file || !key_file) {
     log_error("Certificate or key file not configured in security parameters");
+    log_debug("cert_file=%p, key_file=%p", (void*)cert_file, (void*)key_file);
     return -EINVAL;
   }
 

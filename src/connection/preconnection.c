@@ -123,6 +123,7 @@ int ct_preconnection_initiate(ct_preconnection_t* preconnection, ct_connection_c
 }
 
 int ct_preconnection_initiate_with_send(ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks, const ct_message_t* message, const ct_message_context_t* message_context) {
+  log_debug("Initiating connection from preconnection with send");
   ct_message_t* msg_copy = NULL;
   if (message) {
     msg_copy = ct_message_deep_copy(message);
@@ -142,8 +143,10 @@ int ct_preconnection_initiate_with_send(ct_preconnection_t* preconnection, ct_co
   }
 
   if (message_context && ct_message_properties_get_safely_replayable(ct_message_context_get_message_properties(message_context))) {
+    log_info("Initiating connection from preconnection with candidate racing and early data");
     return preconnection_race_with_early_data(preconnection, connection_callbacks, msg_copy, message_context_copy);
   }
+  log_info("Initiating connection from preconnection with candidate racing and send after ready");
   return preconnection_race_with_send_after_ready(preconnection, connection_callbacks, msg_copy, message_context_copy);
 
 }

@@ -168,7 +168,7 @@ static int start_connection_attempt(ct_racing_context_t* context, size_t attempt
     // So to make sure that this connection attempt uses the ALPN from the candidate node
     // we just overwrite this (deeply copied) ALPN value
     // The old ALPN value is freed in the setter.
-    ct_sec_param_set_property_string_array(attempt->connection->security_parameters, ALPN, &attempt->candidate.protocol_candidate->alpn, 1);
+    ct_sec_param_set_property_string_array(attempt->connection->security_parameters, ALPN, (const char**)&attempt->candidate.protocol_candidate->alpn, 1);
   }
 
   attempt->connection->framer_impl = context->preconnection->framer_impl;

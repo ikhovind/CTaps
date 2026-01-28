@@ -82,9 +82,10 @@ set_target_properties(CTaps PROPERTIES
     C_VISIBILITY_PRESET hidden
 )
 
-target_compile_options(CTaps PRIVATE 
-    $<$<CONFIG:Debug>:-O0 -g3 -Wall -Wextra -Wpedantic -Werror>
-    $<$<CONFIG:Release>:-O2 -DNDEBUG -Wall -Wextra -Werror>      # Aggressive optimization for Release builds
+target_compile_options(CTaps PRIVATE
+     -Wall -Wextra -Wpedantic -Werror
+     $<$<CONFIG:Debug>:-O0 -g3>
+     $<$<CONFIG:Release>:-O2 -DNDEBUG>
 )
 
 target_include_directories(CTaps
