@@ -26,8 +26,8 @@ TEST_F(QuicPingTest, successfullyPingsQuicServer) {
 
   ct_security_parameters_t* security_parameters = ct_security_parameters_new();
   ASSERT_NE(security_parameters, nullptr);
-  char* alpn_strings = "simple-ping";
-  ct_sec_param_set_property_string_array(security_parameters, ALPN, &alpn_strings, 1);
+  const char* alpn_strings = "simple-ping";
+  ct_sec_param_set_property_string_array(security_parameters, ALPN, (const char**)&alpn_strings, 1);
 
   ct_certificate_bundles_t* client_bundles = ct_certificate_bundles_new();
   ct_certificate_bundles_add_cert(client_bundles, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
@@ -80,8 +80,8 @@ TEST_F(QuicPingTest, ConnectionFailsIfAlpnDoesNotMatch) {
 
   ct_security_parameters_t* security_parameters = ct_security_parameters_new();
   ASSERT_NE(security_parameters, nullptr);
-  char* alpn_strings = "complicated-ping";
-  ct_sec_param_set_property_string_array(security_parameters, ALPN, &alpn_strings, 1);
+  const char* alpn_strings = "complicated-ping";
+  ct_sec_param_set_property_string_array(security_parameters, ALPN, (const char**)&alpn_strings, 1);
 
   ct_certificate_bundles_t* client_bundles = ct_certificate_bundles_new();
   ct_certificate_bundles_add_cert(client_bundles, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
@@ -126,7 +126,7 @@ TEST_F(QuicPingTest, SuccessfullyPingsQuicServerEvenIfFirstAlpnDoesNotMatch) {
 
   ct_security_parameters_t* security_parameters = ct_security_parameters_new();
   ASSERT_NE(security_parameters, nullptr);
-  char* alpn_strings[2] = { "non-matching-alpn", "simple-ping" };
+  const char* alpn_strings[2] = { "non-matching-alpn", "simple-ping" };
   ct_sec_param_set_property_string_array(security_parameters, ALPN, alpn_strings, 2);
 
   ct_certificate_bundles_t* client_bundles = ct_certificate_bundles_new();
@@ -180,8 +180,8 @@ TEST_F(QuicPingTest, successfullyPingsQuicServerWith0Rtt) {
 
   ct_security_parameters_t* security_parameters = ct_security_parameters_new();
   ASSERT_NE(security_parameters, nullptr);
-  char* alpn_strings = "simple-ping";
-  ct_sec_param_set_property_string_array(security_parameters, ALPN, &alpn_strings, 1);
+  const char* alpn_strings = "simple-ping";
+  ct_sec_param_set_property_string_array(security_parameters, ALPN, (const char**)&alpn_strings, 1);
 
   ct_certificate_bundles_t* client_bundles = ct_certificate_bundles_new();
   ct_certificate_bundles_add_cert(client_bundles, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
@@ -270,8 +270,8 @@ TEST_F(QuicPingTest, doesNotUse0rttWithNormalInitiate) {
 
   ct_security_parameters_t* security_parameters = ct_security_parameters_new();
   ASSERT_NE(security_parameters, nullptr);
-  char* alpn_strings = "simple-ping";
-  ct_sec_param_set_property_string_array(security_parameters, ALPN, &alpn_strings, 1);
+  const char* alpn_strings = "simple-ping";
+  ct_sec_param_set_property_string_array(security_parameters, ALPN, (const char**)&alpn_strings, 1);
 
   ct_certificate_bundles_t* client_bundles = ct_certificate_bundles_new();
   ct_certificate_bundles_add_cert(client_bundles, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
@@ -343,8 +343,8 @@ TEST_F(QuicPingTest, doesNotUse0rttWhenReplayableNotSet) {
 
   ct_security_parameters_t* security_parameters = ct_security_parameters_new();
   ASSERT_NE(security_parameters, nullptr);
-  char* alpn_strings = "simple-ping";
-  ct_sec_param_set_property_string_array(security_parameters, ALPN, &alpn_strings, 1);
+  const char* alpn_strings = "simple-ping";
+  ct_sec_param_set_property_string_array(security_parameters, ALPN, (const char**)&alpn_strings, 1);
 
   ct_certificate_bundles_t* client_bundles = ct_certificate_bundles_new();
   ct_certificate_bundles_add_cert(client_bundles, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");

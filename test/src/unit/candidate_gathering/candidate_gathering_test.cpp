@@ -440,7 +440,7 @@ TEST_F(CandidateTreeTest, AlpnIsOnlySetWhenSupportedByProtocol) {
 
 
     ct_security_parameters_t* security_parameters = ct_security_parameters_new();
-    char* alpn_array[] = { "simple-ping", "complicated-ping" };
+    const char* alpn_array[] = { "simple-ping", "complicated-ping" };
     ct_sec_param_set_property_string_array(security_parameters, ALPN, alpn_array, 2);
 
     ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, props, security_parameters);

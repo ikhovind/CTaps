@@ -253,8 +253,7 @@ ct_connection_t* ct_connection_create_clone(const ct_connection_t* src_clone) {
     return NULL;
   }
 
-  // Copy properties from source
-  dest_clone->connection_group = src_clone->connection_group;
+  // Copy properties from source, connection group is not added here but in the group_add_connection call below
   dest_clone->local_endpoint = src_clone->local_endpoint;
   dest_clone->remote_endpoint = src_clone->remote_endpoint;
   dest_clone->transport_properties = src_clone->transport_properties;
@@ -270,7 +269,7 @@ ct_connection_t* ct_connection_create_clone(const ct_connection_t* src_clone) {
   dest_clone->received_messages = g_queue_new();
 
   // Add to the connection group
-  int rc = ct_connection_group_add_connection(dest_clone->connection_group, dest_clone);
+  int rc = ct_connection_group_add_connection(src_clone->connection_group, dest_clone);
   if (rc < 0) {
     log_error("Failed to add cloned connection to group: %d", rc);
     ct_connection_free(dest_clone);
@@ -488,7 +487,6 @@ int ct_connection_clone_full(
     return rc;
   }
 
-  new_connection->connection_group = connection_group;
   new_connection->transport_properties = source_connection->transport_properties;
   new_connection->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_ESTABLISHING;
   new_connection->security_parameters = ct_security_parameters_deep_copy(source_connection->security_parameters);

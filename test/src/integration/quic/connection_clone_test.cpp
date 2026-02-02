@@ -23,8 +23,8 @@ TEST_F(ConnectionCloneTest, clonesConnectionSendsOnBothAndReceivesIndividualResp
 
     ct_security_parameters_t* security_parameters = ct_security_parameters_new();
     ASSERT_NE(security_parameters, nullptr);
-    char* alpn_strings = "simple-ping";
-    ct_sec_param_set_property_string_array(security_parameters, ALPN, &alpn_strings, 1);
+    const char* alpn_strings = "simple-ping";
+    ct_sec_param_set_property_string_array(security_parameters, ALPN, (const char**)&alpn_strings, 1);
 
     ct_certificate_bundles_t* client_bundles = ct_certificate_bundles_new();
     ct_certificate_bundles_add_cert(client_bundles, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
@@ -80,7 +80,7 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     ct_remote_endpoint_with_hostname(listener_remote, "127.0.0.1");
 
     ct_transport_properties_t* listener_props = ct_transport_properties_new();
-  ASSERT_NE(listener_props, nullptr);
+    ASSERT_NE(listener_props, nullptr);
     // Allocated with ct_transport_properties_new()
     ct_tp_set_sel_prop_preference(listener_props, RELIABILITY, REQUIRE);
     ct_tp_set_sel_prop_preference(listener_props, PRESERVE_MSG_BOUNDARIES, REQUIRE);
@@ -88,8 +88,8 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
 
     ct_security_parameters_t* server_security_parameters = ct_security_parameters_new();
     ASSERT_NE(server_security_parameters, nullptr);
-    char* alpn_strings = "simple-ping";
-    ct_sec_param_set_property_string_array(server_security_parameters, ALPN, &alpn_strings, 1);
+    const char* alpn_strings = "simple-ping";
+    ct_sec_param_set_property_string_array(server_security_parameters, ALPN, (const char**)&alpn_strings, 1);
 
     ct_certificate_bundles_t* server_bundles = ct_certificate_bundles_new();
     ct_certificate_bundles_add_cert(server_bundles, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
@@ -117,7 +117,7 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     ct_remote_endpoint_with_port(client_remote, QUIC_CLONE_LISTENER_PORT);
 
     ct_transport_properties_t* client_props = ct_transport_properties_new();
-  ASSERT_NE(client_props, nullptr);
+    ASSERT_NE(client_props, nullptr);
     // Allocated with ct_transport_properties_new()
     ct_tp_set_sel_prop_preference(client_props, RELIABILITY, REQUIRE);
     ct_tp_set_sel_prop_preference(client_props, PRESERVE_MSG_BOUNDARIES, REQUIRE);
@@ -125,7 +125,7 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
 
     ct_security_parameters_t* client_security_parameters = ct_security_parameters_new();
     ASSERT_NE(client_security_parameters, nullptr);
-    ct_sec_param_set_property_string_array(client_security_parameters, ALPN, &alpn_strings, 1);
+    ct_sec_param_set_property_string_array(client_security_parameters, ALPN, (const char**)&alpn_strings, 1);
 
     ct_certificate_bundles_t* client_bundles = ct_certificate_bundles_new();
     ct_certificate_bundles_add_cert(client_bundles, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");

@@ -826,6 +826,9 @@ typedef struct ct_connection_callbacks_s {
   /** @brief Called when connection is established and ready for data transfer. */
   int (*ready)(ct_connection_t* connection);
 
+  /** @brief Called when connection is established and ready for data transfer. */
+  int (*closed)(ct_connection_t* connection);
+
   /** @brief Called when a message send operation fails. */
   int (*send_error)(ct_connection_t* connection);
 

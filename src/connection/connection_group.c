@@ -10,6 +10,8 @@
 
 int ct_connection_group_add_connection(ct_connection_group_t* group, ct_connection_t* connection) {
   if (!group || !connection) {
+    log_error("ct_connection_group_add_connection called with NULL parameter");
+    log_debug("group: %p, connection: %p", (void*)group, (void*)connection);
     return -EINVAL;
   }
 
@@ -19,6 +21,11 @@ int ct_connection_group_add_connection(ct_connection_group_t* group, ct_connecti
     log_error("Connection with UUID %s already exists in group", connection->uuid);
     return -EEXIST; // Connection already in group
   }
+  if (connection->connection_group) {
+    log_error("Connection with UUID %s already belonged to a connection group, overwriting", connection->uuid);
+    return -EEXIST;
+  }
+  connection->connection_group = group;
   group->num_active_connections++;
   return 0;
 }
