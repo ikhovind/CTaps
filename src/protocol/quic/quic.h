@@ -5,8 +5,8 @@
 #include "ctaps.h"
 #include "ctaps_internal.h"
 #include <picoquic.h>
-#include <uv.h>
 #include <stdbool.h>
+#include <uv.h>
 
 struct ct_socket_manager_s;
 struct ct_listener_s;
@@ -63,6 +63,9 @@ int quic_stop_listen(struct ct_socket_manager_s* socket_manager);
 int quic_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* resolved_peer);
 void quic_retarget_protocol_connection(ct_connection_t* from_connection, ct_connection_t* to_connection);
 int quic_clone_connection(const struct ct_connection_s* source_connection, struct ct_connection_s* target_connection);
+
+// Helper function but also used in tests, so declared here
+ct_quic_group_state_t* ct_connection_get_quic_group_state(const ct_connection_t* connection);
 
 // Protocol interface (definition in quic.c)
 extern const ct_protocol_impl_t quic_protocol_interface;
