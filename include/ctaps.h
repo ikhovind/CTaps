@@ -1674,6 +1674,14 @@ CT_EXTERN void ct_connection_free(ct_connection_t* connection);
 
 /**
  * @brief Close a connection gracefully.
+ *
+ * Exact behaviour depends on the underlying transport protocol.
+ * For TCP, this performs a graceful shutdown (e.g., TCP FIN).
+ * For UDP this simply stops further sends and receives and closes the socket.
+ * For QUIC it closes the connection, if the connection it is invoked on
+ * is the last open connection in the connection group. Otherwise it closes
+ * the conncetion one way, stopping sending but allowing receives to continue.
+ *
  * @param[in] connection Connection to close
  */
 CT_EXTERN void ct_connection_close(ct_connection_t* connection);

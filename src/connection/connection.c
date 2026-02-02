@@ -291,20 +291,20 @@ ct_connection_t* ct_connection_create_clone(const ct_connection_t* src_clone) {
 }
 
 void ct_connection_close(ct_connection_t* connection) {
-  log_info("Closing connection: %s", connection->uuid);
+    log_info("Closing connection: %s", connection->uuid);
 
-  // Always let the protocol handle the close logic
-  // For protocols like QUIC, this will initiate close handshake
-  // The protocol is responsible for cleaning up (removing from socket manager, etc.)
-  if (ct_connection_is_closed_or_closing(connection)) {
-    log_warn("Trying to close closing or closed connection: %s, ignoring", connection->uuid);
-    return;
-  }
-  ct_connection_mark_as_closing(connection);
-  int rc = connection->protocol.close(connection);
-  if (rc < 0) {
-    log_error("Error closing connection: %d", rc);
-  }
+    if (ct_connection_is_closed_or_closing(connection)) {
+        log_warn("Trying to close closing or closed connection: %s, ignoring", connection->uuid);
+        return;
+    }
+
+    ct_connection_mark_as_closing(connection);
+    ct_connection_set_can_send(connection, false);
+
+    int rc = connection->protocol.close(connection);
+    if (rc < 0) {
+        log_error("Error closing connection: %d", rc);
+    }
 }
 
 ct_connection_t* ct_connection_build_from_received_handle(const struct ct_listener_s* listener, uv_stream_t* received_handle) {
