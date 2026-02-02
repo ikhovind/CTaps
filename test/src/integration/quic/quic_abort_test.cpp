@@ -62,8 +62,8 @@ TEST_F(QuicAbortTest, singleConnectionAbortCallsCloseImmediate) {
 
   ct_security_parameters_t* security_parameters = ct_security_parameters_new();
   ASSERT_NE(security_parameters, nullptr);
-  char* alpn_strings = "simple-ping";
-  ct_sec_param_set_property_string_array(security_parameters, ALPN, &alpn_strings, 1);
+  const char* alpn_strings = "simple-ping";
+  ct_sec_param_set_property_string_array(security_parameters, ALPN, (const char**) &alpn_strings, 1);
 
   ct_certificate_bundles_t* client_bundles = ct_certificate_bundles_new();
   ct_certificate_bundles_add_cert(client_bundles, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
@@ -119,8 +119,8 @@ TEST_F(QuicAbortTest, multiStreamAbortCallsResetStream) {
 
   ct_security_parameters_t* security_parameters = ct_security_parameters_new();
   ASSERT_NE(security_parameters, nullptr);
-  char* alpn_strings = "simple-ping";
-  ct_sec_param_set_property_string_array(security_parameters, ALPN, &alpn_strings, 1);
+  const char* alpn_strings = "simple-ping";
+  ct_sec_param_set_property_string_array(security_parameters, ALPN, (const char**)&alpn_strings, 1);
 
   ct_certificate_bundles_t* client_bundles = ct_certificate_bundles_new();
   ct_certificate_bundles_add_cert(client_bundles, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");

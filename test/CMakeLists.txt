@@ -120,16 +120,6 @@ add_gtest(remote_endpoint_unit_test SOURCES src/unit/endpoint/remote.cpp ${CTAPS
 add_gtest(preconnection_unit_test SOURCES src/unit/connections/preconnection.cpp ${CTAPS_SOURCES})
 add_gtest(connection_unit_test SOURCES src/unit/connections/connection_test.cpp ${CTAPS_SOURCES})
 add_gtest(connection_group_unit_test SOURCES src/unit/connections/connection_group_test.cpp ${CTAPS_SOURCES})
-add_gtest(connection_abort_test
-  SOURCES
-    src/unit/connections/connection_abort_test.cpp
-    ${CTAPS_SOURCES}
-  WRAP_FUNCTIONS
-    uv_tcp_close_reset
-    uv_close
-    uv_udp_recv_stop
-  DEBUG_SYMBOLS
-)
 add_gtest(candidate_gathering_test
         SOURCES
             src/unit/candidate_gathering/candidate_gathering_test.cpp
@@ -248,3 +238,29 @@ add_gtest(message_unit_test
     src/unit/message/message_unit_test.cpp
     ${CTAPS_SOURCES}
 )
+
+add_gtest(udp_close_callback_test
+  SOURCES
+    src/unit/protocol/udp_close_test.cpp
+    ${CTAPS_SOURCES}
+  WRAP_FUNCTIONS
+    uv_close
+    uv_udp_recv_stop
+)
+
+add_gtest(tcp_close_callback_test
+  SOURCES
+    src/unit/protocol/tcp_close_test.cpp
+    ${CTAPS_SOURCES}
+  WRAP_FUNCTIONS
+    uv_close
+    uv_tcp_close_reset
+)
+
+# add_gtest(quic_close_callback_test
+#   SOURCES
+#     src/unit/protocol/quic_close_test.cpp
+#     ${CTAPS_SOURCES}
+#   WRAP_FUNCTIONS
+#     socket_manager_remove_connection_group
+# )

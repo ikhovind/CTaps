@@ -73,7 +73,7 @@ TEST(SecurityParametersTest, setAlpnSetsCorrectValue) {
     ct_security_parameters_t* params = ct_security_parameters_new();
     ASSERT_NE(params, nullptr);
 
-    char* alpn_strings[] = {(char*)"h2", (char*)"http/1.1"};
+    const char* alpn_strings[] = {(char*)"h2", (char*)"http/1.1"};
     int result = ct_sec_param_set_property_string_array(params, ALPN, alpn_strings, 2);
 
     EXPECT_EQ(result, 0);
@@ -90,7 +90,7 @@ TEST(SecurityParametersTest, setCiphersuiteSetsCorrectValue) {
     ct_security_parameters_t* params = ct_security_parameters_new();
     ASSERT_NE(params, nullptr);
 
-    char* ciphersuite_strings[] = {(char*)"TLS_AES_128_GCM_SHA256", (char*)"TLS_AES_256_GCM_SHA384"};
+    const char* ciphersuite_strings[] = {(char*)"TLS_AES_128_GCM_SHA256", (char*)"TLS_AES_256_GCM_SHA384"};
     int result = ct_sec_param_set_property_string_array(params, CIPHERSUITE, ciphersuite_strings, 2);
 
     EXPECT_EQ(result, 0);
@@ -107,7 +107,7 @@ TEST(SecurityParametersTest, setSupportedGroupSetsCorrectValue) {
     ct_security_parameters_t* params = ct_security_parameters_new();
     ASSERT_NE(params, nullptr);
 
-    char* group_strings[] = {(char*)"x25519", (char*)"secp256r1", (char*)"secp384r1"};
+    const char* group_strings[] = {(char*)"x25519", (char*)"secp256r1", (char*)"secp384r1"};
     int result = ct_sec_param_set_property_string_array(params, SUPPORTED_GROUP, group_strings, 3);
 
     EXPECT_EQ(result, 0);
@@ -125,7 +125,7 @@ TEST(SecurityParametersTest, setSignatureAlgorithmSetsCorrectValue) {
     ct_security_parameters_t* params = ct_security_parameters_new();
     ASSERT_NE(params, nullptr);
 
-    char* sig_strings[] = {(char*)"ecdsa_secp256r1_sha256", (char*)"rsa_pss_rsae_sha256"};
+    const char* sig_strings[] = {(char*)"ecdsa_secp256r1_sha256", (char*)"rsa_pss_rsae_sha256"};
     int result = ct_sec_param_set_property_string_array(params, SIGNATURE_ALGORITHM, sig_strings, 2);
 
     EXPECT_EQ(result, 0);
@@ -142,7 +142,7 @@ TEST(SecurityParametersTest, setStringArrayWithSingleElement) {
     ct_security_parameters_t* params = ct_security_parameters_new();
     ASSERT_NE(params, nullptr);
 
-    char* alpn_strings[] = {(char*)"h3"};
+    const char* alpn_strings[] = {(char*)"h3"};
     int result = ct_sec_param_set_property_string_array(params, ALPN, alpn_strings, 1);
 
     EXPECT_EQ(result, 0);
@@ -157,10 +157,10 @@ TEST(SecurityParametersTest, setStringArrayOverwritesPreviousValue) {
     ct_security_parameters_t* params = ct_security_parameters_new();
     ASSERT_NE(params, nullptr);
 
-    char* alpn_strings1[] = {(char*)"h2"};
+    const char* alpn_strings1[] = {(char*)"h2"};
     ct_sec_param_set_property_string_array(params, ALPN, alpn_strings1, 1);
 
-    char* alpn_strings2[] = {(char*)"h3", (char*)"h2"};
+    const char* alpn_strings2[] = {(char*)"h3", (char*)"h2"};
     int result = ct_sec_param_set_property_string_array(params, ALPN, alpn_strings2, 2);
 
     EXPECT_EQ(result, 0);
@@ -175,7 +175,7 @@ TEST(SecurityParametersTest, setStringArrayReturnsErrorForInvalidProperty) {
     ct_security_parameters_t* params = ct_security_parameters_new();
     ASSERT_NE(params, nullptr);
 
-    char* strings[] = {(char*)"test"};
+    const char* strings[] = {(char*)"test"};
     int result = ct_sec_param_set_property_string_array(params, SEC_PROPERTY_END, strings, 1);
 
     EXPECT_NE(result, 0);
@@ -188,7 +188,7 @@ TEST(SecurityParametersTest, setStringArrayReturnsErrorForWrongType) {
     ASSERT_NE(params, nullptr);
 
     // SERVER_CERTIFICATE is TYPE_CERTIFICATE_BUNDLES, not TYPE_STRING_ARRAY
-    char* strings[] = {(char*)"test"};
+    const char* strings[] = {(char*)"test"};
     int result = ct_sec_param_set_property_string_array(params, SERVER_CERTIFICATE, strings, 1);
 
     EXPECT_NE(result, 0);

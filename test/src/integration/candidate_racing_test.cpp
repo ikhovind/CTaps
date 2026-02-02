@@ -198,9 +198,8 @@ TEST(CandidateRacingTests, WorksWithHostnameResolution) {
 
   ct_transport_properties_t* transport_properties = ct_transport_properties_new();
   ASSERT_NE(transport_properties, nullptr);
-  // Allocated with ct_transport_properties_new()
 
-  ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, REQUIRE);
+  ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT); // force TCP
 
   ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
   ASSERT_NE(preconnection, nullptr);

@@ -147,9 +147,31 @@ void on_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
   free(buf->base);
 }
 
-void closed_handle_cb(uv_handle_t* handle) {
+void abort_handle_cb(uv_handle_t* handle) {
+  log_info("UDP handle abort callback invoked with handle: %p", handle);
+  ct_connection_t* connection = (ct_connection_t*)handle->data;
+  log_info("Connection pointer in abort callback: %p", connection);
+  if (connection && connection->connection_callbacks.connection_error) {
+    connection->connection_callbacks.connection_error(connection);
+  }
+  else {
+    log_warn("No connection error callback set for UDP connection");
+    log_debug("Connection pointer: %p", (void*)connection);
+    if (connection) {
+      log_debug("Connection callbacks pointer: %p", (void*)&connection->connection_callbacks);
+    }
+  }
   free(handle);
-  log_debug("Successfully closed UDP handle");
+}
+
+void closed_handle_cb(uv_handle_t* handle) {
+  log_info("UDP handle closed callback invoked with handle: %p", handle);
+  ct_connection_t* connection = (ct_connection_t*)handle->data;
+  if (connection && connection->connection_callbacks.closed) {
+    log_trace("Invoking UDP connection closed callback");
+    connection->connection_callbacks.closed(connection);
+  }
+  free(handle);
 }
 
 int udp_init_with_send(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks, ct_message_t* initial_message, ct_message_context_t* initial_message_context) {
@@ -182,7 +204,12 @@ int udp_init_with_send(ct_connection_t* connection, const ct_connection_callback
     udp_send(connection, initial_message, initial_message_context);
   }
 
-  connection->connection_callbacks.ready(connection);
+  if (connection->connection_callbacks.ready) {
+    connection->connection_callbacks.ready(connection);
+  }
+  else {
+    log_warn("No ready callback set for UDP connection");
+  }
   return 0;
 }
 
@@ -194,7 +221,7 @@ int udp_close(ct_connection_t* connection) {
   log_info("Closing UDP connection");
 
   if (connection->socket_type == CONNECTION_SOCKET_TYPE_MULTIPLEXED) {
-    log_info("Closing multiplexed UDP connection");
+    log_debug("Closing multiplexed UDP connection");
 
     ct_connection_group_t* connection_group = connection->connection_group;
 
@@ -214,10 +241,15 @@ int udp_close(ct_connection_t* connection) {
       }
     }
   } else {
+    log_debug("Closing standalone UDP connection");
     // Standalone connection - close the UDP handle
     if (connection->internal_connection_state) {
+      log_debug("Stopping UDP receive and closing handle");
       uv_udp_recv_stop((uv_udp_t*)connection->internal_connection_state);
       uv_close(connection->internal_connection_state, closed_handle_cb);
+    }
+    else {
+      log_warn("UDP connection internal state is NULL during close");
     }
     ct_connection_mark_as_closed(connection);
   }
@@ -250,7 +282,7 @@ void udp_abort(ct_connection_t* connection) {
   } else {
     // Standalone connection - close the UDP handle
     uv_udp_recv_stop((uv_udp_t*)connection->internal_connection_state);
-    uv_close(connection->internal_connection_state, closed_handle_cb);
+    uv_close(connection->internal_connection_state, abort_handle_cb);
     ct_connection_mark_as_closed(connection);
   }
 }

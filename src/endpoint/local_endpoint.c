@@ -107,6 +107,9 @@ int ct_local_endpoint_resolve(const ct_local_endpoint_t* local_endpoint, ct_loca
 }
 
 void ct_local_endpoint_free_strings(ct_local_endpoint_t* local_endpoint) {
+  if (!local_endpoint) {
+    return;
+  }
   if (local_endpoint->interface_name) {
     log_trace("Freeing local endpoint interface name");
     free(local_endpoint->interface_name);
