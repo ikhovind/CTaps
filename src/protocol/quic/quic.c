@@ -135,6 +135,7 @@ static void quic_context_timer_close_cb(uv_handle_t* handle) {
 ct_quic_context_t* ct_create_quic_context(const char* cert_file,
                                           const char* key_file,
                                           struct ct_listener_s* listener,
+                                          ct_connection_group_t* connection_group,
                                           const ct_security_parameters_t* security_parameters,
                                           ct_message_t* initial_message, // to be freed in case this connection suceeds
                                           ct_message_context_t* initial_message_context // to be freed in case this connection suceeds
@@ -173,7 +174,7 @@ ct_quic_context_t* ct_create_quic_context(const char* cert_file,
   }
 
   quic_ctx->listener = listener;
-  quic_ctx->num_active_connections = 0;
+  quic_ctx->connection_group = connection_group;
 
   // Store ticket store path for 0-RTT session persistence
   if (ticket_store_path) {
@@ -426,6 +427,27 @@ void reset_quic_timer(ct_quic_context_t* quic_context) {
 
 void quic_closed_udp_handle_cb(uv_handle_t* handle) {
   log_info("Successfully closed UDP handle for QUIC connection");
+  ct_quic_context_t* quic_ctx = (ct_quic_context_t*)handle->data;
+  ct_connection_group_t* group = quic_ctx->connection_group;
+
+  gpointer key, value;
+  GHashTableIter iter;
+  if (group) {
+    g_hash_table_iter_init(&iter, group->connections);
+    while (g_hash_table_iter_next(&iter, &key, &value)) {
+      ct_connection_t* conn = (ct_connection_t*)value;
+      if (!ct_connection_is_closed(conn)) {
+        ct_connection_mark_as_closed(conn);
+        if (conn->connection_callbacks.closed) {
+          log_trace("Invoking connection closed callback for connection: %s", conn->uuid);
+          conn->connection_callbacks.closed(conn);
+        }
+        else {
+          log_trace("No connection closed callback set for connection: %s", conn->uuid);
+        }
+      }
+    }
+  }
   free(handle);
 }
 
@@ -592,15 +614,28 @@ int picoquic_callback(picoquic_cnx_t* cnx,
           log_error("Failed to get UDP socket name: %s", uv_strerror(rc));
         }
         ct_connection_mark_as_established(connection);
-        listener->listener_callbacks.connection_received(listener, connection);
+        if (listener->listener_callbacks.connection_received) {
+          log_debug("Invoking listener connection received callback for new server connection");
+          listener->listener_callbacks.connection_received(listener, connection);
+        }
+        else {
+          log_warn("No connection received callback set on listener");
+        }
       }
       else if (ct_connection_is_client(connection)) {
         if (picoquic_tls_is_psk_handshake(group_state->picoquic_connection)) {
           log_trace("Client connection was established with 0-RTT");
           ct_quic_stream_state_t* stream_state = ct_connection_get_stream_state(connection);
           if (stream_state->attempted_early_data) {
+            log_trace("Client connection sent early data together with 0-RTT");
             ct_connection_set_sent_early_data(connection, true);
           }
+          else {
+            log_trace("Client connection did not send early data with 0-RTT");
+          }
+        }
+        else {
+          log_trace("Client connection did not use 0-RTT");
         }
         log_debug("Client connection ready, notifying application");
         ct_connection_mark_as_established(connection);
@@ -1064,6 +1099,7 @@ int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbac
     cert_file,
     key_file,
     NULL,
+    connection->connection_group,
     connection->security_parameters,
     initial_message,
     initial_message_context
@@ -1179,7 +1215,6 @@ int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbac
     return rc;
   }
 
-  quic_context->num_active_connections++;
 
   reset_quic_timer(quic_context);
   log_trace("Successfully initiated standalone QUIC connection %p", (void*)connection);
@@ -1216,6 +1251,7 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
     cert_file,
     key_file,
     NULL,
+    connection->connection_group,
     connection->security_parameters,
     NULL,
     NULL
@@ -1313,7 +1349,6 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
     return rc;
   }
 
-  quic_context->num_active_connections++;
 
   reset_quic_timer(quic_context);
   log_trace("Successfully initiated standalone QUIC connection %p", (void*)connection);
@@ -1509,10 +1544,12 @@ int quic_listen(ct_socket_manager_t* socket_manager) {
     cert_file,
     key_file,
     listener,
+    NULL,
     listener->security_parameters,
     NULL,
     NULL
   );
+
   if (!quic_context) {
     log_error("Failed to create QUIC context for listener");
     return -EIO;

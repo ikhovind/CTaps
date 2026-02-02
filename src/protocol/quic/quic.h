@@ -3,6 +3,7 @@
 
 
 #include "ctaps.h"
+#include "ctaps_internal.h"
 #include <picoquic.h>
 #include <uv.h>
 #include <stdbool.h>
@@ -19,7 +20,7 @@ typedef struct ct_quic_context_s {
   picoquic_quic_t* picoquic_ctx;
   uv_timer_t* timer_handle;
   struct ct_listener_s* listener;      // NULL for client connections
-  uint32_t num_active_connections;
+  ct_connection_group_t* connection_group; // NULL for listener contexts
   char* cert_file_name;
   char* key_file_name;
   char* ticket_store_path;             // Path for 0-RTT session ticket persistence
@@ -45,6 +46,7 @@ typedef struct ct_quic_group_state_s {
 ct_quic_context_t* ct_create_quic_context(const char* cert_file, 
                                           const char* key_file, 
                                           struct ct_listener_s* listener, 
+                                          ct_connection_group_t* connection_group,
                                           const ct_security_parameters_t* security_parameters,
                                           ct_message_t* initial_message,
                                           ct_message_context_t* initial_message_context

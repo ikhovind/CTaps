@@ -32,6 +32,7 @@ int ct_connection_group_add_connection(ct_connection_group_t* group, ct_connecti
 
 ct_connection_t* ct_connection_group_get_first(ct_connection_group_t* group) {
   if (!group || !group->connections) {
+    log_error("ct_connection_group_get_first called with NULL parameter");
     return NULL;
   }
 
@@ -44,6 +45,7 @@ ct_connection_t* ct_connection_group_get_first(ct_connection_group_t* group) {
     return (ct_connection_t*)value;
   }
 
+  log_debug("Connection group %s is empty, no first connection", group->connection_group_id);
   return NULL;
 }
 
