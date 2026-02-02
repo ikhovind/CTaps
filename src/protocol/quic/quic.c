@@ -271,7 +271,6 @@ bool ct_connection_stream_is_initialized(ct_connection_t* connection);
 void ct_quic_set_connection_stream(ct_connection_t* connection, uint64_t stream_id);
 void ct_connection_assign_next_free_stream(ct_connection_t* connection, bool is_unidirectional);
 uint64_t ct_connection_get_stream_id(const ct_connection_t* connection);
-ct_quic_stream_state_t* ct_connection_get_stream_state(const ct_connection_t* connection);
 picoquic_cnx_t* ct_connection_get_picoquic_connection(const ct_connection_t* connection);
 
 bool ct_connection_stream_is_initialized(ct_connection_t* connection) {
@@ -396,6 +395,31 @@ void reset_quic_timer(ct_quic_context_t* quic_context) {
   uv_timer_start(quic_context->timer_handle, on_quic_context_timer, MICRO_TO_MILLI(next_wake_delay), 0);
 }
 
+void quic_aborted_udp_handle_cb(uv_handle_t* handle) {
+  log_info("Successfully aborted UDP handle for QUIC connection");
+  ct_quic_context_t* quic_ctx = (ct_quic_context_t*)handle->data;
+  ct_connection_group_t* group = quic_ctx->connection_group;
+
+  gpointer key, value;
+  GHashTableIter iter;
+  if (group) {
+    g_hash_table_iter_init(&iter, group->connections);
+    while (g_hash_table_iter_next(&iter, &key, &value)) {
+      ct_connection_t* conn = (ct_connection_t*)value;
+      if (!ct_connection_is_closed(conn)) {
+        ct_connection_mark_as_closed(conn);
+        if (conn->connection_callbacks.connection_error) {
+          log_trace("Invoking connection error callback for connection: %s", conn->uuid);
+          conn->connection_callbacks.connection_error(conn);
+        }
+        else {
+          log_trace("No connection error callback set for connection: %s", conn->uuid);
+        }
+      }
+    }
+  }
+}
+
 void quic_closed_udp_handle_cb(uv_handle_t* handle) {
   log_info("Successfully closed UDP handle for QUIC connection");
   ct_quic_context_t* quic_ctx = (ct_quic_context_t*)handle->data;
@@ -419,6 +443,43 @@ void quic_closed_udp_handle_cb(uv_handle_t* handle) {
       }
     }
   }
+}
+
+int handle_aborted_picoquic_connection_group(ct_connection_group_t* connection_group) {
+  ct_connection_t* connection = ct_connection_group_get_first(connection_group);
+  ct_quic_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
+
+  int rc = 0;
+  if (connection->socket_type == CONNECTION_SOCKET_TYPE_STANDALONE) {
+    log_info("Aborting standalone QUIC connection with UDP handle: %p", group_state->udp_handle);
+
+    rc = uv_udp_recv_stop(group_state->udp_handle);
+    if (rc < 0) {
+      log_error("Error closing underlying QUIC handles: %d", rc);
+      return rc;
+    }
+    log_info("Aborting UDP handle for standalone QUIC connection");
+    uv_close((uv_handle_t*)group_state->udp_handle, quic_aborted_udp_handle_cb);
+    ct_close_quic_context(group_state->quic_context);
+  }
+  else if (connection->socket_type == CONNECTION_SOCKET_TYPE_MULTIPLEXED) {
+    log_info("Removing aborted QUIC connection group from socket manager");
+    // The connection group's active count is already 0 at this point
+    rc = socket_manager_remove_connection_group(
+        connection->socket_manager,
+        &connection->remote_endpoint.data.resolved_address);
+
+    if (rc < 0) {
+      log_error("Error removing connection group from socket manager: %d", rc);
+      return rc;
+    }
+    log_info("Successfully removed connection group from socket manager");
+  }
+  else {
+    log_error("Unknown connection open type when handling aborted QUIC connection");
+    return -EINVAL;
+  }
+  return 0;
 }
 
 int handle_closed_picoquic_connection(ct_connection_t* connection) {
@@ -523,7 +584,15 @@ static void handle_stream_fin(ct_connection_t* connection) {
   if (!can_send) {
     // Both directions closed - close the connection per our earlier decision
     log_info("Both send and receive sides closed for connection %s, closing connection", connection->uuid);
-    ct_connection_close(connection);
+    ct_connection_group_decrement_active(connection->connection_group);
+    ct_connection_mark_as_closed(connection);
+    if (connection->connection_callbacks.closed) {
+      log_trace("Invoking connection closed callback for connection: %s", connection->uuid);
+      connection->connection_callbacks.closed(connection);
+    }
+    else {
+      log_trace("No connection closed callback set for connection: %s", connection->uuid);
+    }
   } else {
     log_debug("FIN received but send direction still open for connection %s (half-close)", connection->uuid);
   }
@@ -723,27 +792,73 @@ int picoquic_callback(picoquic_cnx_t* cnx,
           ct_connection_group_decrement_active(connection_group);
           ct_connection_mark_as_closed(connection);
         }
+        if (connection->connection_callbacks.connection_error) {
+          log_trace("Invoking connection error callback for connection: %s", connection->uuid);
+          connection->connection_callbacks.connection_error(connection);
+        }
+        else {
+          log_trace("No connection error callback set for connection: %s", connection->uuid);
+        }
       } else {
         log_warn("Received RESET on stream %llu but no stream context available", (unsigned long long)stream_id);
       }
       break;
+    case picoquic_callback_stop_sending:
+      log_info("Received STOP_SENDING on stream %llu", (unsigned long long)stream_id);
+      if (v_stream_ctx) {
+        connection = (ct_connection_t*)v_stream_ctx;
+        log_info("Peer sent STOP_SENDING for connection %p", (void*)connection);
+        ct_connection_set_can_send(connection, false);
+      } else {
+        log_warn("Received STOP_SENDING on stream %llu but no stream context available", (unsigned long long)stream_id);
+      }
+      break;
+    case picoquic_callback_stateless_reset:
+      // Reset the active connection counter since entire QUIC connection is closed
+      connection_group->num_active_connections = 0;
+      int rc = handle_aborted_picoquic_connection_group(connection_group);
+      if (rc != 0) {
+        log_error("Error handling stateless reset for connection group: %d", rc);
+        return rc;
+      }
+      break;
     case picoquic_callback_close:
+      log_debug("Picoquic connection closed callback received");
+
+      // Reset the active connection counter since entire QUIC connection is closed
+      connection_group->num_active_connections = 0;
+      uint64_t error = picoquic_get_remote_error(cnx);
+      if (error != 0) {
+        log_info("Connection closed by peer with error code: %llu", (unsigned long long)error);
+        rc = handle_aborted_picoquic_connection_group(connection_group);
+      } else {
+        log_info("Connection closed by peer without error");
+        rc = handle_closed_picoquic_connection(ct_connection_group_get_first(connection_group));
+      }
+
+      if (rc != 0) {
+        log_error("Error handling closed picoquic connection: %d", rc);
+        return rc;
+      }
+      break;
     case picoquic_callback_application_close:
       {
-        if (fin_or_event == picoquic_callback_close) {
-          log_info("Picoquic connection closed by peer");
-        } else {
-          log_info("Picoquic connection application-closed by peer");
-        }
+        log_info("Received picoquic_callback_application_close event from picoquic");
 
-        // Reset the active connection counter since entire QUIC connection is closed
         connection_group->num_active_connections = 0;
-
-        // Get first connection to determine type and handle cleanup
         connection = ct_connection_group_get_first(connection_group);
-        if (connection) {
-          log_info("Picoquic close callback for connection: %p", (void*)connection);
-          handle_closed_picoquic_connection(connection);
+
+        uint64_t error_code = picoquic_get_application_error(cnx);
+        if (error_code == 0) {
+          log_info("Connection closed by peer without application error");
+          rc = handle_closed_picoquic_connection(connection);
+        } else {
+          log_info("Connection closed by peer with application error code: %llu", (unsigned long long)error_code);
+          rc = handle_aborted_picoquic_connection_group(connection_group);
+        }
+        if (rc != 0) {
+          log_error("Error handling closed picoquic connection: %d", rc);
+          return rc;
         }
       }
       break;
@@ -783,7 +898,6 @@ void on_quic_udp_send(uv_udp_send_t* req, int status) {
 
 void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr_from, unsigned flags) {
   (void)flags;
-  log_debug("Received QUIC message over UDP");
   if (nread < 0) {
     log_error("Read error: %s\n", uv_strerror(nread));
     uv_close((uv_handle_t*)udp_handle, NULL);
@@ -798,6 +912,7 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
     }
     return;
   }
+  log_trace("Received %zd bytes on QUIC UDP socket", nread);
 
   ct_quic_context_t* quic_context = (ct_quic_context_t*)udp_handle->data;
   if (!quic_context || !quic_context->picoquic_ctx) {
@@ -909,8 +1024,6 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
     connection->internal_connection_state = stream_state;
     log_trace("Done setting up received QUIC connection state");
   }
-
-  log_trace("Processed incoming QUIC packet, picoquic connection: %p", (void*)cnx);
 
   reset_quic_timer(quic_context);
 }
@@ -1311,47 +1424,31 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
 }
 
 int quic_close(ct_connection_t* connection) {
-  int rc = 0;
-  ct_quic_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
-  uint64_t stream_id = ct_connection_get_stream_id(connection);
-  ct_connection_group_t* connection_group = connection->connection_group;
-  uint64_t num_active_connections = ct_connection_group_get_num_active_connections(connection_group);
+    log_debug("Closing QUIC connection: %s", connection->uuid);
+    ct_quic_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
+    ct_connection_group_t* connection_group = connection->connection_group;
 
-  log_info("Closing QUIC connection, active connections in group: %u", num_active_connections);
+    ct_connection_group_decrement_active(connection_group);
 
-  // Check if there are multiple active connections in the group
-  if (num_active_connections > 1) {
-    // Multiple streams active - only close this stream with FIN
-    log_info("Multiple active connections in group, closing stream %llu with FIN",
-             (unsigned long long)stream_id);
+    uint64_t num_active = ct_connection_group_get_num_active_connections(connection_group);
+    log_debug("Number of active connections in group after decrement: %u", num_active);
 
-    if (ct_connection_stream_is_initialized(connection)) {
-      // Send FIN on this stream to gracefully close it
-      if (ct_connection_can_send(connection)) {
-        log_debug("Sending FIN on stream %llu for connection: %s", (unsigned long long)stream_id, connection->uuid);
-        rc = picoquic_add_to_stream(group_state->picoquic_connection, stream_id, NULL, 0, 1);
-        if (rc != 0) {
-          log_error("Error sending FIN on stream %llu: %d", (unsigned long long)stream_id, rc);
+    if (num_active > 0) {
+        if (ct_connection_stream_is_initialized(connection)) {
+            uint64_t stream_id = ct_connection_get_stream_id(connection);
+            picoquic_add_to_stream(group_state->picoquic_connection, stream_id, NULL, 0, 1);
         }
-      }
+        if (!ct_connection_can_receive(connection)) {
+            ct_connection_mark_as_closed(connection);
+        }
+    } else {
+        picoquic_close(group_state->picoquic_connection, 0);
     }
 
-    // Decrement active connection counter and mark as closed
-    ct_connection_group_decrement_active(connection_group);
-    ct_connection_mark_as_closed(connection);
-  } else {
-    log_info("Last active connection in group, closing entire QUIC connection");
-    rc = picoquic_close(group_state->picoquic_connection, 0);
-    if (rc != 0) {
-      log_error("Error closing picoquic connection: %d", rc);
-    }
-
-    ct_connection_group_decrement_active(connection_group);
-  }
-
-  reset_quic_timer(group_state->quic_context);
-  return rc;
+    reset_quic_timer(group_state->quic_context);
+    return 0;
 }
+
 
 void quic_abort(ct_connection_t* connection) {
   ct_quic_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
@@ -1379,11 +1476,13 @@ void quic_abort(ct_connection_t* connection) {
     }
 
     // Decrement active connection counter and mark as closed
+    log_trace("Decrementing active connection count and marking connection as closed");
     ct_connection_group_decrement_active(connection_group);
     ct_connection_mark_as_closed(connection);
   } else {
     log_info("Last active connection in group, closing entire QUIC connection");
     // Marking as closed etc. is handled in callback
+    ct_connection_group_decrement_active(connection_group);
     picoquic_close_immediate(group_state->picoquic_connection);
   }
 
