@@ -95,7 +95,7 @@ void on_quic_context_timer(uv_timer_t* timer_handle);
 static void quic_context_timer_close_cb(uv_handle_t* handle) {
   log_trace("Successfully closed QUIC context timer handle: %p", handle);
   ct_quic_context_t* quic_ctx = (ct_quic_context_t*)handle->data;
-  if (quic_ctx) {
+  if (quic_ctx && quic_ctx->ticket_store_path) {
     int rc = picoquic_save_session_tickets(quic_ctx->picoquic_ctx, quic_ctx->ticket_store_path);
     if (rc != 0) {
       log_error("Failed to save QUIC session tickets to store %s: %d", quic_ctx->ticket_store_path, rc);
