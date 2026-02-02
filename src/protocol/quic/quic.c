@@ -728,12 +728,13 @@ int picoquic_callback(picoquic_cnx_t* cnx,
       }
       break;
     case picoquic_callback_close:
-      log_info("Picoquic callback closed");
-      // When the QUIC connection closes, all streams are closed
+    case picoquic_callback_application_close:
       {
-        uint32_t size = g_hash_table_size(connection_group->connections);
-        log_info("Number of connections in group at close event: %d", size);
-        log_info("Active connections before close: %u", connection_group->num_active_connections);
+        if (fin_or_event == picoquic_callback_close) {
+          log_info("Picoquic connection closed by peer");
+        } else {
+          log_info("Picoquic connection application-closed by peer");
+        }
 
         // Reset the active connection counter since entire QUIC connection is closed
         connection_group->num_active_connections = 0;
@@ -745,10 +746,6 @@ int picoquic_callback(picoquic_cnx_t* cnx,
           handle_closed_picoquic_connection(connection);
         }
       }
-      break;
-    case picoquic_callback_application_close:
-      log_info("picoquic application closed by peer");
-      // Handle application close
       break;
     case picoquic_callback_request_alpn_list:
       log_warn("ALPN list requested in callback, should never happen");

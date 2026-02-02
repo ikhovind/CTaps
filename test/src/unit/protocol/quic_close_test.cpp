@@ -108,7 +108,7 @@ protected:
   ct_connection_t* connection2;
 };
 
-TEST_F(QuicCloseTest, closedCallbackInvokedOnRemoteClose) {
+TEST_F(QuicCloseTest, ClosedCallbackInvokedOnTransportCloseCallback) {
   // Simulate picoquic detecting remote close
   picoquic_callback(
       nullptr,
@@ -125,16 +125,31 @@ TEST_F(QuicCloseTest, closedCallbackInvokedOnRemoteClose) {
 
   // Close timer and udp socket
   ASSERT_EQ(faked_uv_close_fake.call_count, 2);
+  ASSERT_TRUE(closed_handles.count((uv_handle_t*)group_state->udp_handle) == 1);
+  ASSERT_TRUE(closed_handles.count((uv_handle_t*)group_state->quic_context->timer_handle) == 1);
+
+  ASSERT_EQ(mock_closed_cb_fake.call_count, 1);
+  ASSERT_EQ(mock_closed_cb_fake.arg0_val, connection);
+  ASSERT_TRUE(ct_connection_is_closed(connection));
+}
+
+TEST_F(QuicCloseTest, ClosedCallbackInvokedOnApplicationCloseCallback) {
+  picoquic_callback(
+      nullptr,
+      0,
+      nullptr,
+      0,
+      picoquic_callback_application_close,
+      connection->connection_group,
+      nullptr
+  );
+
+  // get connection ct_quic_group_state_s
+  ct_quic_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
+
+  // Close timer and udp socket
+  ASSERT_EQ(faked_uv_close_fake.call_count, 2);
   ASSERT_TRUE(closed_handles.find((uv_handle_t*)group_state->udp_handle) != closed_handles.end());
-  log_info("quic context in test: %p", (void*)group_state->quic_context);
-  log_info("timer handle in test: %p", (void*)group_state->quic_context->timer_handle);
-  // print contents of closed_handles
-  log_info("Closed handles:");
-  for (auto handle : closed_handles) {
-    log_info(" - %p", (void*)handle);
-  }
-
-
   ASSERT_TRUE(closed_handles.find((uv_handle_t*)group_state->quic_context->timer_handle) != closed_handles.end());
 
   ASSERT_EQ(mock_closed_cb_fake.call_count, 1);
