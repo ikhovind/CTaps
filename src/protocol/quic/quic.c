@@ -92,43 +92,16 @@ void ct_free_quic_stream_state(ct_quic_stream_state_t* state) {
 // Forward declaration for timer callback
 void on_quic_context_timer(uv_timer_t* timer_handle);
 
-// Internal helper to free QUIC context resources (excluding timer)
-static void quic_context_free_resources(ct_quic_context_t* quic_ctx) {
-  // Save session tickets before freeing picoquic context (for 0-RTT support)
-  if (quic_ctx->picoquic_ctx && quic_ctx->ticket_store_path) {
+static void quic_context_timer_close_cb(uv_handle_t* handle) {
+  log_trace("Successfully closed QUIC context timer handle: %p", handle);
+  ct_quic_context_t* quic_ctx = (ct_quic_context_t*)handle->data;
+  if (quic_ctx) {
     int rc = picoquic_save_session_tickets(quic_ctx->picoquic_ctx, quic_ctx->ticket_store_path);
     if (rc != 0) {
-      log_warn("Failed to save session tickets to %s: %d", quic_ctx->ticket_store_path, rc);
+      log_error("Failed to save QUIC session tickets to store %s: %d", quic_ctx->ticket_store_path, rc);
     } else {
-      log_debug("Saved session tickets to %s", quic_ctx->ticket_store_path);
+      log_trace("Successfully saved QUIC session tickets to store %s", quic_ctx->ticket_store_path);
     }
-  }
-
-  if (quic_ctx->picoquic_ctx) {
-    picoquic_free(quic_ctx->picoquic_ctx);
-  }
-  if (quic_ctx->cert_file_name) {
-    free(quic_ctx->cert_file_name);
-  }
-  if (quic_ctx->key_file_name) {
-    free(quic_ctx->key_file_name);
-  }
-  if (quic_ctx->ticket_store_path) {
-    free(quic_ctx->ticket_store_path);
-  }
-  free(quic_ctx);
-  log_debug("Freed QUIC context");
-}
-
-static void quic_context_timer_close_cb(uv_handle_t* handle) {
-  log_info("Successfully closed QUIC context timer handle");
-  uv_timer_t* timer = (uv_timer_t*)handle;
-  ct_quic_context_t* quic_ctx = (ct_quic_context_t*)timer->data;
-  free(handle);
-
-  // Now safe to free the QUIC context - timer callback is done
-  if (quic_ctx) {
-    quic_context_free_resources(quic_ctx);
   }
 }
 
@@ -284,18 +257,13 @@ void ct_close_quic_context(ct_quic_context_t* quic_ctx) {
   if (!quic_ctx) {
     return;
   }
-
-  // If timer exists, defer all freeing to the timer close callback
-  // This ensures we don't free the context while timer callback is executing
+  log_trace("Closing QUIC context");
   if (quic_ctx->timer_handle) {
     uv_timer_stop(quic_ctx->timer_handle);
     // Callback will handle freeing
     uv_close((uv_handle_t*)quic_ctx->timer_handle, quic_context_timer_close_cb);
     return;
   }
-
-  // No timer, safe to free everything directly
-  quic_context_free_resources(quic_ctx);
 }
 
 // Forward declarations of helper functions
@@ -303,7 +271,6 @@ bool ct_connection_stream_is_initialized(ct_connection_t* connection);
 void ct_quic_set_connection_stream(ct_connection_t* connection, uint64_t stream_id);
 void ct_connection_assign_next_free_stream(ct_connection_t* connection, bool is_unidirectional);
 uint64_t ct_connection_get_stream_id(const ct_connection_t* connection);
-ct_quic_group_state_t* ct_connection_get_quic_group_state(const ct_connection_t* connection);
 ct_quic_stream_state_t* ct_connection_get_stream_state(const ct_connection_t* connection);
 picoquic_cnx_t* ct_connection_get_picoquic_connection(const ct_connection_t* connection);
 
@@ -348,6 +315,10 @@ uint64_t ct_connection_get_stream_id(const ct_connection_t* connection) {
 ct_quic_group_state_t* ct_connection_get_quic_group_state(const ct_connection_t* connection) {
   if (!connection || !connection->connection_group || !connection->connection_group->connection_group_state) {
     log_error("Cannot get QUIC group state, connection or group state is NULL");
+    log_debug("conn=%p, group=%p, group_state=%p", 
+              (void*)connection,
+              (void*)(connection ? connection->connection_group : NULL), 
+              (void*)(connection && connection->connection_group ? connection->connection_group->connection_group_state : NULL));
     return NULL;
   }
   return (ct_quic_group_state_t*)connection->connection_group->connection_group_state;
@@ -471,14 +442,9 @@ int handle_closed_picoquic_connection(ct_connection_t* connection) {
       log_error("Error closing underlying QUIC handles: %d", rc);
       return rc;
     }
+    log_info("Closing UDP handle for standalone QUIC connection");
     uv_close((uv_handle_t*)group_state->udp_handle, quic_closed_udp_handle_cb);
-    log_info("Successfully handled closed QUIC connection");
     ct_close_quic_context(group_state->quic_context);
-
-    ct_free_quic_group_state(group_state);
-    ct_free_quic_stream_state(stream_state);
-    connection->connection_group->connection_group_state = NULL;
-    connection->internal_connection_state = NULL;
   }
   else if (connection->socket_type == CONNECTION_SOCKET_TYPE_MULTIPLEXED) {
     log_info("Removing closed QUIC connection group from socket manager");
@@ -579,7 +545,6 @@ int picoquic_callback(picoquic_cnx_t* cnx,
   }
 
   ct_quic_group_state_t* group_state = (ct_quic_group_state_t*)connection_group->connection_group_state;
-  log_debug("QUIC connection state is: %d", picoquic_get_cnx_state(group_state->picoquic_connection));
   switch (fin_or_event) {
     case picoquic_callback_ready:
       log_debug("QUIC connection is ready, invoking CTaps callback");
@@ -1221,7 +1186,7 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
   const ct_certificate_bundles_t* cert_bundles =
       connection->security_parameters->security_parameters[CLIENT_CERTIFICATE].value.certificate_bundles;
 
-  if (cert_bundles->num_bundles == 0) {
+  if (!cert_bundles || cert_bundles->num_bundles == 0) {
     log_error("No certificate bundle configured for QUIC client connection");
     return -EINVAL;
   }
@@ -1276,6 +1241,12 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
     .picoquic_connection = NULL,
     .quic_context = quic_context,
   };
+  if (!connection->connection_group) {
+    log_error("Connection has no connection group assigned");
+    free(group_state);
+    ct_close_quic_context(quic_context);
+    return -EINVAL;
+  }
   connection->connection_group->connection_group_state = group_state;
 
   ct_quic_stream_state_t* stream_state = malloc(sizeof(ct_quic_stream_state_t));

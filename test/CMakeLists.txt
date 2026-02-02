@@ -257,10 +257,12 @@ add_gtest(tcp_close_callback_test
     uv_tcp_close_reset
 )
 
-# add_gtest(quic_close_callback_test
-#   SOURCES
-#     src/unit/protocol/quic_close_test.cpp
-#     ${CTAPS_SOURCES}
-#   WRAP_FUNCTIONS
-#     socket_manager_remove_connection_group
-# )
+add_gtest(quic_close_callback_test
+  SOURCES
+    src/unit/protocol/quic_close_test.cpp
+    ${CTAPS_SOURCES}
+  WRAP_FUNCTIONS
+    socket_manager_remove_connection_group
+    uv_close
+    uv_udp_recv_stop
+)
