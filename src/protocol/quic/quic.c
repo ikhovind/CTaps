@@ -448,7 +448,6 @@ void quic_closed_udp_handle_cb(uv_handle_t* handle) {
       }
     }
   }
-  free(handle);
 }
 
 int handle_closed_picoquic_connection(ct_connection_t* connection) {
@@ -498,8 +497,6 @@ int handle_closed_picoquic_connection(ct_connection_t* connection) {
     log_error("Unknown connection open type when handling closed QUIC connection");
     return -EINVAL;
   }
-  log_info("Setting connection state to CLOSED for connection: %p", (void*)connection);
-  ct_connection_mark_as_closed(connection);
   return 0;
 }
 
@@ -772,16 +769,6 @@ int picoquic_callback(picoquic_cnx_t* cnx,
         uint32_t size = g_hash_table_size(connection_group->connections);
         log_info("Number of connections in group at close event: %d", size);
         log_info("Active connections before close: %u", connection_group->num_active_connections);
-
-        // Mark all connections in the group as closed
-        GHashTableIter iter;
-        gpointer key = NULL;
-        gpointer value = NULL;
-        g_hash_table_iter_init(&iter, connection_group->connections);
-        while (g_hash_table_iter_next(&iter, &key, &value)) {
-          ct_connection_t* conn = (ct_connection_t*)value;
-          ct_connection_mark_as_closed(conn);
-        }
 
         // Reset the active connection counter since entire QUIC connection is closed
         connection_group->num_active_connections = 0;
