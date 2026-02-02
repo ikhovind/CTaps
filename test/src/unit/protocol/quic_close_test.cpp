@@ -97,6 +97,9 @@ protected:
     log_debug("Initializing second connection");
     rc = connection2->protocol.init(connection2, nullptr);
     ASSERT_EQ(rc, 0);
+
+    ct_connection_group_free(connection2->connection_group);
+    connection2->connection_group = nullptr;
   }
 
   void TearDown() override {
@@ -155,4 +158,74 @@ TEST_F(QuicCloseTest, ClosedCallbackInvokedOnApplicationCloseCallback) {
   ASSERT_EQ(mock_closed_cb_fake.call_count, 1);
   ASSERT_EQ(mock_closed_cb_fake.arg0_val, connection);
   ASSERT_TRUE(ct_connection_is_closed(connection));
+}
+
+TEST_F(QuicCloseTest, ClosedCallbackInvokedOnConnectionGroupOnTransportCloseCallback) {
+  ct_connection_group_add_connection(connection->connection_group, connection2);
+
+  // Simulate picoquic detecting remote close
+  picoquic_callback(
+      nullptr,
+      0,
+      nullptr,
+      0,
+      picoquic_callback_close,
+      connection->connection_group,
+      nullptr
+  );
+
+  // get connection ct_quic_group_state_s
+  ct_quic_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
+
+  // Close timer and udp socket
+  ASSERT_EQ(faked_uv_close_fake.call_count, 2);
+  ASSERT_TRUE(closed_handles.count((uv_handle_t*)group_state->udp_handle) == 1);
+  ASSERT_TRUE(closed_handles.count((uv_handle_t*)group_state->quic_context->timer_handle) == 1);
+
+  ASSERT_EQ(mock_closed_cb_fake.call_count, 2);
+
+  std::unordered_set<ct_connection_t*> closed_connections;
+  closed_connections.insert(mock_closed_cb_fake.arg0_history[0]);
+  closed_connections.insert(mock_closed_cb_fake.arg0_history[1]);
+
+  ASSERT_EQ(closed_connections.count(connection), 1);
+  ASSERT_EQ(closed_connections.count(connection2), 1);
+
+  ASSERT_TRUE(ct_connection_is_closed(connection));
+  ASSERT_TRUE(ct_connection_is_closed(connection2));
+}
+
+TEST_F(QuicCloseTest, ClosedCallbackInvokedOnConnectionGroupOnApplicationCloseCallback) {
+  ct_connection_group_add_connection(connection->connection_group, connection2);
+
+  // Simulate picoquic detecting remote close
+  picoquic_callback(
+      nullptr,
+      0,
+      nullptr,
+      0,
+      picoquic_callback_application_close,
+      connection->connection_group,
+      nullptr
+  );
+
+  // get connection ct_quic_group_state_s
+  ct_quic_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
+
+  // Close timer and udp socket
+  ASSERT_EQ(faked_uv_close_fake.call_count, 2);
+  ASSERT_TRUE(closed_handles.count((uv_handle_t*)group_state->udp_handle) == 1);
+  ASSERT_TRUE(closed_handles.count((uv_handle_t*)group_state->quic_context->timer_handle) == 1);
+
+  ASSERT_EQ(mock_closed_cb_fake.call_count, 2);
+
+  std::unordered_set<ct_connection_t*> closed_connections;
+  closed_connections.insert(mock_closed_cb_fake.arg0_history[0]);
+  closed_connections.insert(mock_closed_cb_fake.arg0_history[1]);
+
+  ASSERT_EQ(closed_connections.count(connection), 1);
+  ASSERT_EQ(closed_connections.count(connection2), 1);
+
+  ASSERT_TRUE(ct_connection_is_closed(connection));
+  ASSERT_TRUE(ct_connection_is_closed(connection2));
 }
