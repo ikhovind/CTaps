@@ -81,10 +81,15 @@ protected:
     connection2.connection_callbacks.connection_error = mock_connection_error;
     log_debug("Initializing second connection");
     connection2.protocol.init(&connection2, nullptr);
+
+    free(local_endpoint);
+    free(local_endpoint2);
+    free(remote_endpoint);
   }
 
   void TearDown() override {
     ct_connection_free_content(&connection);
+    ct_connection_free_content(&connection2);
     ct_close();
   }
 

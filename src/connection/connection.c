@@ -369,6 +369,10 @@ void ct_connection_free_content(ct_connection_t* connection) {
     connection->security_parameters = NULL;
   }
 
+  if (connection->protocol.free_state) {
+    connection->protocol.free_state(connection);
+  }
+
   // Remove connection from its group and free the group if this was the last connection
   ct_connection_group_t* group = ct_connection_get_connection_group(connection);
   if (group) {

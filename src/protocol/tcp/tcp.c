@@ -63,9 +63,15 @@ typedef struct tcp_connection_state_s {
   ct_listener_t* listener;
   ct_message_t* initial_message;
   ct_message_context_t* initial_message_context;
+  uv_connect_t* connect_req; // To be freed in tests etc. when we don't run the full connect flow
 } tcp_connection_state_t;
 
-tcp_connection_state_t* tcp_connection_state_new(ct_connection_t* connection, ct_listener_t* listener, ct_message_t* initial_message, ct_message_context_t* initial_message_context) {
+tcp_connection_state_t* tcp_connection_state_new(ct_connection_t* connection,
+                                                 ct_listener_t* listener,
+                                                 ct_message_t* initial_message,
+                                                 ct_message_context_t* initial_message_context,
+                                                 uv_connect_t* connect_req
+                                                 ) {
   tcp_connection_state_t* state = malloc(sizeof(tcp_connection_state_t));
   if (!state) {
     log_error("Failed to allocate memory for TCP connection state");
@@ -76,6 +82,7 @@ tcp_connection_state_t* tcp_connection_state_new(ct_connection_t* connection, ct
   state->listener = listener;
   state->initial_message = initial_message;
   state->initial_message_context = initial_message_context;
+  state->connect_req = connect_req;
   return state;
 }
 
@@ -83,8 +90,8 @@ void tcp_connection_state_free(tcp_connection_state_t* state) {
   if (!state) {
     log_warn("Attempted to free NULL TCP connection state");
   }
-  if (state->initial_message) {
-    ct_message_free(state->initial_message);
+  if (state->connect_req) {
+    free(state->connect_req);
   }
   if (state->initial_message_context) {
     ct_message_context_free(state->initial_message_context);
@@ -106,7 +113,6 @@ void on_abort(uv_handle_t* handle) {
   else {
     log_debug("Connection error callback not set, on abort");
   }
-  free(handle);
 }
 
 void on_stop_listen(uv_handle_t* handle) {
@@ -118,10 +124,6 @@ void on_stop_listen(uv_handle_t* handle) {
 
 void on_close(uv_handle_t* handle) {
   tcp_connection_state_t* conn_state = (tcp_connection_state_t*)handle->data;
-  log_debug("Handle is: %p", handle);
-  log_debug("Connection state is %p", conn_state);
-  log_debug("connection is %p", conn_state->connection);
-  log_debug("connection callbacks is %p", conn_state->connection->connection_callbacks.closed);
   if (conn_state->connection->connection_callbacks.closed) {
     log_debug("Invoking connection closed callback on close");
     conn_state->connection->connection_callbacks.closed(conn_state->connection);
@@ -130,7 +132,6 @@ void on_close(uv_handle_t* handle) {
     log_debug("Connection closed callback not set, when closing");
   }
   ct_connection_mark_as_closed(conn_state->connection);
-  free(handle);
 }
 
 void tcp_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
@@ -164,7 +165,6 @@ void tcp_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
 void on_clone_connect(struct uv_connect_s *req, int status) {
   tcp_connection_state_t* conn_state = (tcp_connection_state_t*)req->handle->data;
   ct_connection_t* connection = conn_state->connection;
-  free(req);
 
   if (status < 0) {
     log_error("Cloned TCP connection failed: %s", uv_strerror(status));
@@ -201,7 +201,6 @@ void on_connect(struct uv_connect_s *req, int status) {
     if (connection->connection_callbacks.establishment_error) {
       connection->connection_callbacks.establishment_error(connection);
     }
-    free(req);
     return;
   }
   log_info("Successfully connected to remote endpoint using TCP");
@@ -264,7 +263,9 @@ int tcp_init_with_send(ct_connection_t* connection, const ct_connection_callback
     free(new_tcp_handle);
     return rc;
   }
-  tcp_connection_state_t* conn_state = tcp_connection_state_new(connection, NULL, initial_message, initial_message_context);
+
+  uv_connect_t* connect_req = malloc(sizeof(uv_connect_t));
+  tcp_connection_state_t* conn_state = tcp_connection_state_new(connection, NULL, initial_message, initial_message_context, connect_req);
   if (!conn_state) {
     log_error("Failed to allocate memory for TCP connection state");
     uv_close((uv_handle_t*)new_tcp_handle, on_close);
@@ -282,7 +283,6 @@ int tcp_init_with_send(ct_connection_t* connection, const ct_connection_callback
     }
   }
 
-  uv_connect_t* connect_req = malloc(sizeof(uv_connect_t));
   rc = uv_tcp_connect(connect_req,
                  new_tcp_handle,
                  (const struct sockaddr*)remote_endpoint_get_resolved_address(ct_connection_get_remote_endpoint(connection)),
@@ -330,7 +330,9 @@ int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
     free(new_tcp_handle);
     return rc;
   }
-  new_tcp_handle->data = tcp_connection_state_new(connection, NULL, NULL, NULL);
+
+  uv_connect_t* connect_req = malloc(sizeof(uv_connect_t));
+  new_tcp_handle->data = tcp_connection_state_new(connection, NULL, NULL, NULL, connect_req);
   if (!new_tcp_handle->data) {
     log_error("Failed to allocate memory for TCP connection state");
     uv_close((uv_handle_t*)new_tcp_handle, on_close);
@@ -346,7 +348,6 @@ int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
     }
   }
 
-  uv_connect_t* connect_req = malloc(sizeof(uv_connect_t));
   rc = uv_tcp_connect(connect_req,
                  new_tcp_handle,
                  (const struct sockaddr*)remote_endpoint_get_resolved_address(ct_connection_get_remote_endpoint(connection)),
@@ -412,8 +413,6 @@ int tcp_send(ct_connection_t* connection, ct_message_t* message, ct_message_cont
   if (rc < 0) {
     log_error("Error sending message over TCP: %s", uv_strerror(rc));
     free(req);
-    ct_message_free(message);
-    ct_message_context_free(ctx);
     return rc;
   }
   return 0;
@@ -455,7 +454,7 @@ int tcp_listen(ct_socket_manager_t* socket_manager) {
 
   socket_manager_increment_ref(socket_manager);
   socket_manager->internal_socket_manager_state = (uv_handle_t*)new_tcp_handle;
-  new_tcp_handle->data = tcp_connection_state_new(NULL, listener, NULL, NULL);
+  new_tcp_handle->data = tcp_connection_state_new(NULL, listener, NULL, NULL, NULL);
 
   return 0;
 }
@@ -496,7 +495,7 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
     return;
   }
 
-  client->data = tcp_connection_state_new(connection, NULL, NULL, NULL);
+  client->data = tcp_connection_state_new(connection, NULL, NULL, NULL, NULL);
 
   rc = uv_read_start((uv_stream_t*)client, alloc_cb, tcp_on_read);
   if (rc < 0) {
@@ -567,7 +566,8 @@ int tcp_clone_connection(const struct ct_connection_s* source_connection,
   }
 
   target_connection->internal_connection_state = (uv_handle_t*)new_tcp_handle;
-  new_tcp_handle->data = tcp_connection_state_new(target_connection, NULL, NULL, NULL);
+  uv_connect_t* connect_req = malloc(sizeof(uv_connect_t));
+  new_tcp_handle->data = tcp_connection_state_new(target_connection, NULL, NULL, NULL, connect_req);
 
   // Copy TCP keepalive settings
   uint32_t keepalive_timeout = target_connection->transport_properties
@@ -581,8 +581,6 @@ int tcp_clone_connection(const struct ct_connection_s* source_connection,
     }
   }
 
-  // Initiate async connection to same remote endpoint
-  uv_connect_t* connect_req = malloc(sizeof(uv_connect_t));
   if (!connect_req) {
     log_error("Failed to allocate connect request");
     uv_close((uv_handle_t*)new_tcp_handle, on_close);
@@ -617,10 +615,11 @@ int tcp_free_state(ct_connection_t* connection) {
     }
     return -EINVAL;
   }
-
-  tcp_connection_state_t* conn_state = (tcp_connection_state_t*)connection->internal_connection_state;
+  uv_handle_t* handle = (uv_handle_t*)connection->internal_connection_state;
+  tcp_connection_state_t* conn_state = (tcp_connection_state_t*)handle->data;
 
   tcp_connection_state_free(conn_state);
+  free(handle);
   connection->internal_connection_state = NULL;
 
   return 0;
