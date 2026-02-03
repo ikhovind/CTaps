@@ -52,8 +52,7 @@ const ct_protocol_impl_t udp_protocol_interface = {
     .close = udp_close,
     .abort = udp_abort,
     .clone_connection = udp_clone_connection,
-    .remote_endpoint_from_peer = udp_remote_endpoint_from_peer,
-    .retarget_protocol_connection = udp_retarget_protocol_connection
+    .remote_endpoint_from_peer = udp_remote_endpoint_from_peer
 };
 
 // Used to free data in send callbac
@@ -389,15 +388,6 @@ int udp_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* resol
     return rc;
   }
   return 0;
-}
-
-void udp_retarget_protocol_connection(ct_connection_t* from_connection, ct_connection_t* to_connection) {
-  // For UDP, internal_connection_state is the uv_udp_t handle directly
-  // Update the handle's data pointer to reference the new connection
-  if (from_connection->internal_connection_state) {
-    uv_handle_t* handle = (uv_handle_t*)from_connection->internal_connection_state;
-    handle->data = to_connection;
-  }
 }
 
 int udp_clone_connection(const struct ct_connection_s* source_connection, struct ct_connection_s* target_connection) {
