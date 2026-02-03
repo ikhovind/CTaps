@@ -55,6 +55,7 @@ protected:
     ct_connection_build_with_new_connection_group(&connection);
     connection.protocol = udp_protocol_interface;
     connection.local_endpoint = *local_endpoint;
+    free(local_endpoint);
     connection.connection_callbacks.closed = mock_closed_cb;
     connection.connection_callbacks.connection_error = mock_connection_error;
     log_debug("Initializing first connection");
@@ -65,16 +66,17 @@ protected:
     ct_local_endpoint_t* local_endpoint2 = ct_local_endpoint_new();
     connection2.protocol = udp_protocol_interface;
     connection2.local_endpoint = *local_endpoint2;
+    free(local_endpoint2);
     connection2.connection_callbacks.closed = mock_closed_cb;
     connection2.connection_callbacks.connection_error = mock_connection_error;
     log_debug("Initializing second connection");
     rc = connection2.protocol.init(&connection2, nullptr);
     ASSERT_EQ(rc, 0);
-    
   }
 
   void TearDown() override {
     ct_connection_free_content(&connection);
+    ct_connection_free_content(&connection2);
     ct_close();
   }
 
