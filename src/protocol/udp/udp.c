@@ -52,7 +52,8 @@ const ct_protocol_impl_t udp_protocol_interface = {
     .close = udp_close,
     .abort = udp_abort,
     .clone_connection = udp_clone_connection,
-    .remote_endpoint_from_peer = udp_remote_endpoint_from_peer
+    .remote_endpoint_from_peer = udp_remote_endpoint_from_peer,
+    .free_state = udp_free_state
 };
 
 // Used to free data in send callbac
@@ -170,7 +171,6 @@ void closed_handle_cb(uv_handle_t* handle) {
     log_trace("Invoking UDP connection closed callback");
     connection->connection_callbacks.closed(connection);
   }
-  free(handle);
 }
 
 int udp_init_with_send(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks, ct_message_t* initial_message, ct_message_context_t* initial_message_context) {
@@ -413,5 +413,20 @@ int udp_clone_connection(const struct ct_connection_s* source_connection, struct
     target_connection->connection_callbacks.ready(target_connection);
   }
 
+  return 0;
+}
+
+int udp_free_state(ct_connection_t* connection) {
+  log_trace("Freeing UDP connection resources");
+  if (!connection || !connection->internal_connection_state) {
+    log_warn("UDP connection or internal state is NULL during free_state");
+    log_debug("Connection pointer: %p", (void*)connection);
+    if (connection) {
+      log_debug("Internal connection state pointer: %p", (void*)connection->internal_connection_state);
+    }
+    return -EINVAL;
+  }
+  uv_udp_t* handle = (uv_udp_t*)connection->internal_connection_state;
+  free(handle);
   return 0;
 }

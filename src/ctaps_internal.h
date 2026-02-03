@@ -315,6 +315,9 @@ typedef struct ct_protocol_impl_s {
   /** @brief Extract remote endpoint information from a connected peer handle. */
   int (*remote_endpoint_from_peer)(uv_handle_t* peer, ct_remote_endpoint_t* resolved_peer);
 
+  /** @brief Free protocol-specific state in a connection. */
+  int (*free_state)(ct_connection_t* connection);
+
 } ct_protocol_impl_t;
 
 bool ct_protocol_supports_alpn(const ct_protocol_impl_t* protocol_impl);

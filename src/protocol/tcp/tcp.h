@@ -15,6 +15,7 @@ int tcp_stop_listen(struct ct_socket_manager_s* socket_manager);
 int tcp_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* resolved_peer);
 int tcp_clone_connection(const struct ct_connection_s* source_connection,
                          struct ct_connection_s* target_connection);
+int tcp_free_state(ct_connection_t* connection);
 
 // Protocol interface (definition in tcp.c)
 extern const ct_protocol_impl_t tcp_protocol_interface;

@@ -15,6 +15,7 @@ int udp_listen(struct ct_socket_manager_s* socket_manager);
 int udp_stop_listen(struct ct_socket_manager_s* socket_manager);
 int udp_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* resolved_peer);
 int udp_clone_connection(const struct ct_connection_s* source_connection, struct ct_connection_s* target_connection);
+int udp_free_state(ct_connection_t* connection);
 
 // Protocol interface (definition in udp.c)
 extern const ct_protocol_impl_t udp_protocol_interface;

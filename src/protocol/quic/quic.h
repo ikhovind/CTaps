@@ -62,6 +62,7 @@ int quic_listen(struct ct_socket_manager_s* socket_manager);
 int quic_stop_listen(struct ct_socket_manager_s* socket_manager);
 int quic_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* resolved_peer);
 int quic_clone_connection(const struct ct_connection_s* source_connection, struct ct_connection_s* target_connection);
+int quic_free_state(ct_connection_t* connection);
 
 // Helper functions but also used in tests, so declared here
 ct_quic_group_state_t* ct_connection_get_quic_group_state(const ct_connection_t* connection);
