@@ -57,7 +57,8 @@ const ct_protocol_impl_t quic_protocol_interface = {
     .close = quic_close,
     .abort = quic_abort,
     .clone_connection = quic_clone_connection,
-    .remote_endpoint_from_peer = quic_remote_endpoint_from_peer
+    .remote_endpoint_from_peer = quic_remote_endpoint_from_peer,
+    .free_state = quic_free_state
 };
 
 int picoquic_callback(picoquic_cnx_t* cnx,
@@ -1667,4 +1668,19 @@ int quic_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* reso
   (void)peer;
   (void)resolved_peer;
   return -ENOSYS;
+}
+
+int quic_free_state(ct_connection_t *connection) {
+  log_trace("Freeing QUIC connection resources");
+  if (!connection || !connection->internal_connection_state) {
+    log_warn("QUIC connection or internal state is NULL during free_state");
+    log_debug("Connection pointer: %p", (void*)connection);
+    if (connection) {
+      log_debug("Internal connection state pointer: %p", (void*)connection->internal_connection_state);
+    }
+    return -EINVAL;
+  }
+  ct_quic_stream_state_t* stream_state = (ct_quic_stream_state_t*)connection->internal_connection_state;
+  free(stream_state);
+  return 0;
 }

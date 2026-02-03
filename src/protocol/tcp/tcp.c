@@ -55,6 +55,7 @@ const ct_protocol_impl_t tcp_protocol_interface = {
     .abort = tcp_abort,
     .clone_connection = tcp_clone_connection,
     .remote_endpoint_from_peer = tcp_remote_endpoint_from_peer,
+    .free_state = tcp_free_state
 };
 
 typedef struct tcp_connection_state_s {
@@ -76,6 +77,19 @@ tcp_connection_state_t* tcp_connection_state_new(ct_connection_t* connection, ct
   state->initial_message = initial_message;
   state->initial_message_context = initial_message_context;
   return state;
+}
+
+void tcp_connection_state_free(tcp_connection_state_t* state) {
+  if (!state) {
+    log_warn("Attempted to free NULL TCP connection state");
+  }
+  if (state->initial_message) {
+    ct_message_free(state->initial_message);
+  }
+  if (state->initial_message_context) {
+    ct_message_context_free(state->initial_message_context);
+  }
+  free(state);
 }
 
 static void alloc_cb(uv_handle_t* handle, size_t size, uv_buf_t* buf) {
@@ -590,5 +604,24 @@ int tcp_clone_connection(const struct ct_connection_s* source_connection,
   }
 
   log_info("TCP clone connection initiated, establishing asynchronously");
+  return 0;
+}
+
+int tcp_free_state(ct_connection_t* connection) {
+  log_trace("Freeing TCP connection resources");
+  if (!connection || !connection->internal_connection_state) {
+    log_warn("TCP connection or internal state is NULL during free_state");
+    log_debug("Connection pointer: %p", (void*)connection);
+    if (connection) {
+      log_debug("Internal connection state pointer: %p", (void*)connection->internal_connection_state);
+    }
+    return -EINVAL;
+  }
+
+  tcp_connection_state_t* conn_state = (tcp_connection_state_t*)connection->internal_connection_state;
+
+  tcp_connection_state_free(conn_state);
+  connection->internal_connection_state = NULL;
+
   return 0;
 }
