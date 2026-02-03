@@ -57,8 +57,7 @@ const ct_protocol_impl_t quic_protocol_interface = {
     .close = quic_close,
     .abort = quic_abort,
     .clone_connection = quic_clone_connection,
-    .remote_endpoint_from_peer = quic_remote_endpoint_from_peer,
-    .retarget_protocol_connection = quic_retarget_protocol_connection
+    .remote_endpoint_from_peer = quic_remote_endpoint_from_peer
 };
 
 int picoquic_callback(picoquic_cnx_t* cnx,
@@ -1668,29 +1667,4 @@ int quic_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* reso
   (void)peer;
   (void)resolved_peer;
   return -ENOSYS;
-}
-
-void quic_retarget_protocol_connection(ct_connection_t* from_connection, ct_connection_t* to_connection) {
-  // For QUIC, connection_group_state contains the shared UDP handle and picoquic connection
-  if (from_connection->connection_group && from_connection->connection_group->connection_group_state) {
-    ct_quic_group_state_t* group_state = (ct_quic_group_state_t*)from_connection->connection_group->connection_group_state;
-
-    // Update the UDP handle's data pointer
-    if (group_state->udp_handle) {
-      group_state->udp_handle->data = to_connection;
-    }
-
-    // Update picoquic connection's callback context to point to new connection's group
-    if (group_state->picoquic_connection) {
-      picoquic_set_callback(group_state->picoquic_connection, picoquic_callback, to_connection->connection_group);
-    }
-
-    // Update the connection group's hash table to point to the new connection
-    // Remove the old connection pointer and insert the new one
-    if (to_connection->connection_group && to_connection->connection_group->connections) {
-      log_debug("Updating connection group hash table from %p to %p", (void*)from_connection, (void*)to_connection);
-      g_hash_table_remove(to_connection->connection_group->connections, from_connection->uuid);
-      g_hash_table_insert(to_connection->connection_group->connections, to_connection->uuid, to_connection);
-    }
-  }
 }
