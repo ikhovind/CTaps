@@ -2,6 +2,7 @@
 #define TCP_H
 
 #include "ctaps.h"
+#include "ctaps_internal.h"
 
 struct ct_socket_manager_s;
 
@@ -16,6 +17,10 @@ int tcp_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* resol
 int tcp_clone_connection(const struct ct_connection_s* source_connection,
                          struct ct_connection_s* target_connection);
 int tcp_free_state(ct_connection_t* connection);
+/**
+  * @brief No-op, TCP is not multiplexed and therefore has no shared state across cloned connections.
+  */
+int tcp_free_connection_group_state(ct_connection_group_t* connection_group);
 
 // Protocol interface (definition in tcp.c)
 extern const ct_protocol_impl_t tcp_protocol_interface;
