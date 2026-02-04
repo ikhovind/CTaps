@@ -4,6 +4,7 @@
 
 extern "C" {
 #include "connection/connection.h"
+#include "security_parameter/security_parameters.h"
 #include "ctaps.h"
 #include "ctaps_internal.h"
 #include "logging/log.h"
@@ -135,7 +136,7 @@ protected:
     connection2 = create_empty_connection_with_uuid();
     ct_connection_build_with_new_connection_group(connection2);
     ct_local_endpoint_t* local_endpoint2 = ct_local_endpoint_new();
-    connection2->security_parameters = security_parameters;
+    connection2->security_parameters = ct_security_parameters_deep_copy(security_parameters);
     connection2->protocol = quic_protocol_interface;
     connection2->local_endpoint = *local_endpoint2;
     connection2->remote_endpoint = *remote_endpoint;
@@ -153,11 +154,14 @@ protected:
     ct_connection_group_free(connection2->connection_group);
     connection2->connection_group = nullptr;
 
-
+    free(local_endpoint);
+    free(local_endpoint2);
+    free(remote_endpoint);
   }
 
   void TearDown() override {
-    // TODO add connection free for connection and connection2
+    ct_connection_free(connection);
+    ct_connection_free(connection2);
   }
 
   ct_connection_t* connection;

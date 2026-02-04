@@ -15,15 +15,16 @@ int ct_connection_group_add_connection(ct_connection_group_t* group, ct_connecti
     return -EINVAL;
   }
 
+  if (connection->connection_group) {
+    log_error("Connection with UUID %s already belonged to a connection group", connection->uuid);
+    return -EEXIST;
+  }
+
   log_debug("Adding connection with UUID %s connection group", connection->uuid);
   int rc = g_hash_table_insert(group->connections, connection->uuid, connection);
   if (!rc) {
     log_error("Connection with UUID %s already exists in group", connection->uuid);
     return -EEXIST; // Connection already in group
-  }
-  if (connection->connection_group) {
-    log_error("Connection with UUID %s already belonged to a connection group, overwriting", connection->uuid);
-    return -EEXIST;
   }
   connection->connection_group = group;
   group->num_active_connections++;
@@ -132,8 +133,6 @@ void ct_connection_group_free(ct_connection_group_t* group) {
     g_hash_table_destroy(group->connections);
     group->connections = NULL;
   }
-
-  // TODO: maybe we have to free connection_group_state in protocol interface?
 
   free(group);
 }

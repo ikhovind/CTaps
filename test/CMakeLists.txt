@@ -246,7 +246,6 @@ add_gtest(udp_close_callback_test
   WRAP_FUNCTIONS
     uv_close
     uv_udp_recv_stop
-  ASAN_ENABLED
 )
 
 add_gtest(tcp_close_callback_test
@@ -256,7 +255,6 @@ add_gtest(tcp_close_callback_test
   WRAP_FUNCTIONS
     uv_close
     uv_tcp_close_reset
-  ASAN_ENABLED
 )
 
 add_gtest(quic_close_callback_test
@@ -273,5 +271,4 @@ add_gtest(quic_close_callback_test
     picoquic_reset_stream
     picoquic_get_application_error
     picoquic_get_remote_error
-  ASAN_ENABLED
 )
