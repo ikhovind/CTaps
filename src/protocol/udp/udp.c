@@ -83,8 +83,7 @@ void udp_multiplex_received_message(ct_socket_manager_t* socket_manager, char* b
   log_trace("UDP listener received message, demultiplexing to connection");
 
   bool was_new = false;
-  ct_connection_group_t* connection_group = socket_manager_get_or_create_connection_group(
-      socket_manager, remote_addr, &was_new);
+  ct_connection_group_t* connection_group = socket_manager_get_connection_group(socket_manager, remote_addr);
 
   if (connection_group == NULL) {
     log_error("Failed to get or create connection group for UDP message");
@@ -152,14 +151,13 @@ void abort_handle_cb(uv_handle_t* handle) {
   log_info("UDP handle abort callback invoked with handle: %p", handle);
   ct_connection_t* connection = (ct_connection_t*)handle->data;
   log_info("Connection pointer in abort callback: %p", connection);
-  if (connection && connection->connection_callbacks.connection_error) {
-    connection->connection_callbacks.connection_error(connection);
-  }
-  else {
-    log_warn("No connection error callback set for UDP connection");
-    log_debug("Connection pointer: %p", (void*)connection);
-    if (connection) {
-      log_debug("Connection callbacks pointer: %p", (void*)&connection->connection_callbacks);
+  if (connection) {
+    ct_connection_mark_as_closed(connection);
+    if (connection->connection_callbacks.connection_error) {
+      connection->connection_callbacks.connection_error(connection);
+    }
+    else {
+      log_warn("No connection error callback set for UDP connection");
     }
   }
   free(handle);
@@ -168,9 +166,12 @@ void abort_handle_cb(uv_handle_t* handle) {
 void closed_handle_cb(uv_handle_t* handle) {
   log_info("UDP handle closed callback invoked with handle: %p", handle);
   ct_connection_t* connection = (ct_connection_t*)handle->data;
-  if (connection && connection->connection_callbacks.closed) {
-    log_trace("Invoking UDP connection closed callback");
-    connection->connection_callbacks.closed(connection);
+  if (connection) {
+    ct_connection_mark_as_closed(connection);
+    if (connection->connection_callbacks.closed) {
+      log_trace("Invoking UDP connection closed callback");
+      connection->connection_callbacks.closed(connection);
+    }
   }
 }
 
@@ -178,7 +179,7 @@ int udp_init_with_send(ct_connection_t* connection, const ct_connection_callback
   (void)connection_callbacks;
   log_debug("Initiating UDP connection\n");
 
-  uv_udp_t* new_udp_handle = create_udp_listening_on_local(&connection->local_endpoint, alloc_buffer, on_read);
+  uv_udp_t* new_udp_handle = create_udp_listening_on_local(connection->local_endpoint, alloc_buffer, on_read);
   if (!new_udp_handle) {
     log_error("Failed to create UDP handle for connection");
     return -EIO;
@@ -220,38 +221,10 @@ int udp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
 int udp_close(ct_connection_t* connection) {
   log_info("Closing UDP connection");
 
-  if (connection->socket_type == CONNECTION_SOCKET_TYPE_MULTIPLEXED) {
-    log_debug("Closing multiplexed UDP connection");
-
-    ct_connection_group_t* connection_group = connection->connection_group;
-
-    // Decrement active connection counter and mark as closed
-    ct_connection_group_decrement_active(connection_group);
-    ct_connection_mark_as_closed(connection);
-
-    // If no more active connections in group, remove group from socket manager
-    if (ct_connection_group_get_num_active_connections(connection_group) == 0) {
-      log_info("No more active connections in group, removing from socket manager");
-      int rc = socket_manager_remove_connection_group(
-          connection->socket_manager,
-          &connection->remote_endpoint.data.resolved_address);
-      if (rc < 0) {
-        log_error("Could not find connection group in socket manager: %d", rc);
-        return rc;
-      }
-    }
-  } else {
-    log_debug("Closing standalone UDP connection");
-    // Standalone connection - close the UDP handle
-    if (connection->internal_connection_state) {
-      log_debug("Stopping UDP receive and closing handle");
-      uv_udp_recv_stop((uv_udp_t*)connection->internal_connection_state);
-      uv_close(connection->internal_connection_state, closed_handle_cb);
-    }
-    else {
-      log_warn("UDP connection internal state is NULL during close");
-    }
-    ct_connection_mark_as_closed(connection);
+  if (connection->internal_connection_state) {
+    log_debug("Stopping UDP receive and closing handle");
+    uv_udp_recv_stop((uv_udp_t*)connection->internal_connection_state);
+    uv_close(connection->internal_connection_state, closed_handle_cb);
   }
 
   return 0;
@@ -260,30 +233,10 @@ int udp_close(ct_connection_t* connection) {
 void udp_abort(ct_connection_t* connection) {
   log_info("Aborting UDP connection");
 
-  if (connection->socket_type == CONNECTION_SOCKET_TYPE_MULTIPLEXED) {
-    log_info("Aborting multiplexed UDP connection");
-
-    ct_connection_group_t* connection_group = connection->connection_group;
-
-    // Decrement active connection counter and mark as closed
-    ct_connection_group_decrement_active(connection_group);
-    ct_connection_mark_as_closed(connection);
-
-    // If no more active connections in group, remove group from socket manager
-    if (ct_connection_group_get_num_active_connections(connection_group) == 0) {
-      log_info("No more active connections in group, removing from socket manager");
-      int rc = socket_manager_remove_connection_group(
-          connection->socket_manager,
-          &connection->remote_endpoint.data.resolved_address);
-      if (rc < 0) {
-        log_error("Could not find connection group in socket manager: %d", rc);
-      }
-    }
-  } else {
-    // Standalone connection - close the UDP handle
+  if (connection->internal_connection_state) {
+    log_debug("Stopping UDP receive and aborting handle");
     uv_udp_recv_stop((uv_udp_t*)connection->internal_connection_state);
     uv_close(connection->internal_connection_state, abort_handle_cb);
-    ct_connection_mark_as_closed(connection);
   }
 }
 
@@ -316,7 +269,7 @@ int udp_send(ct_connection_t* connection, ct_message_t* message, ct_message_cont
 
   int rc = uv_udp_send(
       send_req, (uv_udp_t*)connection->internal_connection_state, &buffer, 1,
-      (const struct sockaddr*)&connection->remote_endpoint.data.resolved_address,
+      (const struct sockaddr*)&connection->remote_endpoint->data.resolved_address,
       on_send);
 
   if (rc < 0) {
