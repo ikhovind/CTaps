@@ -276,6 +276,16 @@ typedef struct ct_message_context_s {
 } ct_message_context_t;
 
 /**
+ * @brief Connection group for managing related connections.
+ */
+typedef struct ct_connection_group_s {
+  char connection_group_id[37];           ///< Unique identifier for this group
+  GHashTable* connections;                ///< Map of UUID string → ct_connection_t*
+  void* connection_group_state;           ///< Protocol-specific shared state
+  uint64_t num_active_connections;        ///< Number of active connections in this group
+} ct_connection_group_t;
+
+/**
  * @brief Protocol implementation interface.
  *
  * This interface defines the contract that all transport protocol implementations
@@ -318,6 +328,9 @@ typedef struct ct_protocol_impl_s {
   /** @brief Free protocol-specific state in a connection. */
   int (*free_state)(ct_connection_t* connection);
 
+  /** @brief Free protocol-specific shared state in a connection group, useful for multiplexing */
+  int (*free_connection_group_state)(ct_connection_group_t* connection_group);
+
 } ct_protocol_impl_t;
 
 bool ct_protocol_supports_alpn(const ct_protocol_impl_t* protocol_impl);
@@ -331,15 +344,6 @@ typedef struct ct_listener_s {
   struct ct_socket_manager_s* socket_manager;         ///< Socket manager handling listening sockets
 } ct_listener_t;
 
-/**
- * @brief Connection group for managing related connections.
- */
-typedef struct ct_connection_group_s {
-  char connection_group_id[37];           ///< Unique identifier for this group
-  GHashTable* connections;                ///< Map of UUID string → ct_connection_t*
-  void* connection_group_state;           ///< Protocol-specific shared state
-  uint64_t num_active_connections;        ///< Number of active connections in this group
-} ct_connection_group_t;
 
 /**
  * Definition of data structures used in ctaps.h

@@ -55,7 +55,8 @@ const ct_protocol_impl_t tcp_protocol_interface = {
     .abort = tcp_abort,
     .clone_connection = tcp_clone_connection,
     .remote_endpoint_from_peer = tcp_remote_endpoint_from_peer,
-    .free_state = tcp_free_state
+    .free_state = tcp_free_state,
+    .free_connection_group_state = tcp_free_connection_group_state,
 };
 
 typedef struct tcp_connection_state_s {
@@ -622,5 +623,10 @@ int tcp_free_state(ct_connection_t* connection) {
   free(handle);
   connection->internal_connection_state = NULL;
 
+  return 0;
+}
+
+int tcp_free_connection_group_state(ct_connection_group_t* connection_group) {
+  (void)connection_group;
   return 0;
 }
