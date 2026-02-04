@@ -283,6 +283,8 @@ typedef struct ct_connection_group_s {
   GHashTable* connections;                ///< Map of UUID string → ct_connection_t*
   void* connection_group_state;           ///< Protocol-specific shared state
   uint64_t num_active_connections;        ///< Number of active connections in this group
+  struct ct_socket_manager_s* socket_manager;                 ///< Socket manager
+  size_t ref_count;                       ///< Reference count for this connection group
 } ct_connection_group_t;
 
 /**
@@ -370,9 +372,9 @@ typedef struct ct_preconnection_s {
 
 typedef struct ct_socket_manager_s {
   void* internal_socket_manager_state;
-  int ref_count; // Number of objects using this socket (ct_listener_t + Connections)
+  int ref_count;                 // Number of objects using this socket (ct_listener_t + Connections)
   GHashTable* connection_groups; // remote_endpoint → ct_connection_group_t*
-  ct_protocol_impl_t protocol_impl;
+  const ct_protocol_impl_t* protocol_impl;
   struct ct_listener_s* listener;
 } ct_socket_manager_t;
 
@@ -402,16 +404,14 @@ typedef struct ct_connection_s {
   ct_connection_group_t* connection_group;             ///< Connection group (never NULL)
   ct_transport_properties_t transport_properties;      ///< Transport and connection properties
   ct_security_parameters_t* security_parameters;       ///< Security configuration (TLS/QUIC, owned copy)
-  ct_local_endpoint_t local_endpoint;                  ///< Local endpoint (bound address/port)
-  ct_remote_endpoint_t remote_endpoint;                ///< Remote endpoint (peer address/port)
-  ct_protocol_impl_t protocol;                         ///< Protocol implementation in use
+  ct_local_endpoint_t *local_endpoint;                  ///< Local endpoint (bound address/port)
+  ct_remote_endpoint_t *remote_endpoint;                ///< Remote endpoint (peer address/port)
+
   void* internal_connection_state;                     ///< Protocol-specific per-connection state (opaque)
   ct_framer_impl_t* framer_impl;                       ///< Optional message framer (NULL = no framing)
-  ct_connection_socket_type_t socket_type;             ///< Socket type (standalone vs multiplexed)
-  ct_connection_role_t role;                           ///< Connection role (client vs server)
+  ct_connection_role_t role;                             ///< Connection role (client/server)
 
   ct_connection_callbacks_t connection_callbacks;      ///< User-provided callbacks for events
-  struct ct_socket_manager_s* socket_manager;          ///< Socket manager (for listeners/mux)
 
   GQueue* received_callbacks;                          ///< Queue of pending receive callbacks
   GQueue* received_messages;                           ///< Queue of received messages

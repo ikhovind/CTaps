@@ -4,7 +4,10 @@
 
 extern "C" {
 #include "connection/connection.h"
+#include "connection/socket_manager/socket_manager.h"
 #include "security_parameter/security_parameters.h"
+#include "endpoint/remote_endpoint.h"
+#include "endpoint/local_endpoint.h"
 #include "ctaps.h"
 #include "ctaps_internal.h"
 #include "logging/log.h"
@@ -115,17 +118,18 @@ protected:
     ct_remote_endpoint_with_ipv4(remote_endpoint, INADDR_LOOPBACK);
     ct_remote_endpoint_with_port(remote_endpoint, 8080);
 
-    connection = create_empty_connection_with_uuid();
+    connection = ct_connection_create_empty_with_uuid();
     ct_connection_build_with_new_connection_group(connection);
 
+    connection->connection_group->socket_manager = ct_socket_manager_new(&quic_protocol_interface, nullptr);
+
     connection->security_parameters = security_parameters;
-    connection->protocol = quic_protocol_interface;
-    connection->local_endpoint = *local_endpoint;
-    connection->remote_endpoint = *remote_endpoint;
+    connection->local_endpoint = ct_local_endpoint_deep_copy(local_endpoint);
+    connection->remote_endpoint = ct_remote_endpoint_deep_copy(remote_endpoint);
     connection->connection_callbacks.closed = mock_closed_cb;
     connection->connection_callbacks.connection_error = mock_connection_error;
     log_debug("Initializing first connection");
-    int rc = connection->protocol.init(connection, nullptr);
+    int rc = connection->connection_group->socket_manager->protocol_impl->init(connection, nullptr);
     ASSERT_EQ(rc, 0);
     ct_quic_stream_state_t* stream_state = ct_connection_get_stream_state(connection);
     stream_state->stream_initialized = true;
@@ -133,17 +137,17 @@ protected:
     stream_state->stream_id = 0;
 
 
-    connection2 = create_empty_connection_with_uuid();
+    connection2 = ct_connection_create_empty_with_uuid();
     ct_connection_build_with_new_connection_group(connection2);
     ct_local_endpoint_t* local_endpoint2 = ct_local_endpoint_new();
     connection2->security_parameters = ct_security_parameters_deep_copy(security_parameters);
-    connection2->protocol = quic_protocol_interface;
-    connection2->local_endpoint = *local_endpoint2;
-    connection2->remote_endpoint = *remote_endpoint;
+    connection2->local_endpoint = ct_local_endpoint_new();
+    connection2->remote_endpoint = ct_remote_endpoint_deep_copy(remote_endpoint);
     connection2->connection_callbacks.closed = mock_closed_cb;
     connection2->connection_callbacks.connection_error = mock_connection_error;
     log_debug("Initializing second connection");
-    rc = connection2->protocol.init(connection2, nullptr);
+    connection2->connection_group->socket_manager = ct_socket_manager_new(&quic_protocol_interface, nullptr);
+    rc = connection2->connection_group->socket_manager->protocol_impl->init(connection2, nullptr);
     ASSERT_EQ(rc, 0);
     stream_state = ct_connection_get_stream_state(connection2);
     stream_state->stream_initialized = true;
@@ -181,13 +185,12 @@ TEST_F(QuicCloseTest, PicoquicRemoteClose_WithoutError_InvokesClosedCallbackOnSi
       nullptr
   );
 
-  // get connection ct_quic_group_state_s
-  ct_quic_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
+  ct_quic_socket_state_t* socket_state = ct_connection_get_quic_socket_state(connection);
 
   // Close timer and udp socket
   ASSERT_EQ(faked_uv_close_fake.call_count, 2);
-  ASSERT_TRUE(closed_handles.count((uv_handle_t*)group_state->udp_handle) == 1);
-  ASSERT_TRUE(closed_handles.count((uv_handle_t*)group_state->quic_context->timer_handle) == 1);
+  ASSERT_TRUE(closed_handles.count((uv_handle_t*)socket_state->udp_handle) == 1);
+  ASSERT_TRUE(closed_handles.count((uv_handle_t*)socket_state->timer_handle) == 1);
 
   ASSERT_EQ(mock_closed_cb_fake.call_count, 1);
   ASSERT_EQ(mock_closed_cb_fake.arg0_val, connection);
@@ -207,13 +210,12 @@ TEST_F(QuicCloseTest, PicoquicRemoteClose_WithError_InvokesErrorCallbackOnSingle
       nullptr
   );
 
-  // get connection ct_quic_group_state_s
-  ct_quic_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
+  ct_quic_socket_state_t* socket_state = ct_connection_get_quic_socket_state(connection);
 
   // Close timer and udp socket
   ASSERT_EQ(faked_uv_close_fake.call_count, 2);
-  ASSERT_TRUE(closed_handles.count((uv_handle_t*)group_state->udp_handle) == 1);
-  ASSERT_TRUE(closed_handles.count((uv_handle_t*)group_state->quic_context->timer_handle) == 1);
+  ASSERT_TRUE(closed_handles.count((uv_handle_t*)socket_state->udp_handle) == 1);
+  ASSERT_TRUE(closed_handles.count((uv_handle_t*)socket_state->timer_handle) == 1);
 
   ASSERT_EQ(mock_connection_error_fake.call_count, 1);
   ASSERT_EQ(mock_connection_error_fake.arg0_val, connection);
@@ -223,6 +225,7 @@ TEST_F(QuicCloseTest, PicoquicRemoteClose_WithError_InvokesErrorCallbackOnSingle
 TEST_F(QuicCloseTest, PicoquicRemoteClose_WithoutError_InvokesClosedCallbackOnConnectionGroup) {
   faked_picoquic_get_remote_error_fake.return_val = 0;
   ct_connection_group_add_connection(connection->connection_group, connection2);
+  connection2->connection_group->socket_manager->protocol_impl->init(connection2, nullptr);
 
   // Simulate picoquic detecting remote close
   picoquic_callback(
@@ -235,13 +238,12 @@ TEST_F(QuicCloseTest, PicoquicRemoteClose_WithoutError_InvokesClosedCallbackOnCo
       nullptr
   );
 
-  // get connection ct_quic_group_state_s
-  ct_quic_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
+  ct_quic_socket_state_t* socket_state = ct_connection_get_quic_socket_state(connection);
 
   // Close timer and udp socket
   ASSERT_EQ(faked_uv_close_fake.call_count, 2);
-  ASSERT_TRUE(closed_handles.count((uv_handle_t*)group_state->udp_handle) == 1);
-  ASSERT_TRUE(closed_handles.count((uv_handle_t*)group_state->quic_context->timer_handle) == 1);
+  ASSERT_TRUE(closed_handles.count((uv_handle_t*)socket_state->udp_handle) == 1);
+  ASSERT_TRUE(closed_handles.count((uv_handle_t*)socket_state->timer_handle) == 1);
 
   ASSERT_EQ(mock_closed_cb_fake.call_count, 2);
 
@@ -259,6 +261,7 @@ TEST_F(QuicCloseTest, PicoquicRemoteClose_WithoutError_InvokesClosedCallbackOnCo
 TEST_F(QuicCloseTest, PicoquicRemoteClose_WithError_InvokesErrorCallbackOnConnectionGroup) {
   faked_picoquic_get_remote_error_fake.return_val = 2849;
   ct_connection_group_add_connection(connection->connection_group, connection2);
+  connection2->connection_group->socket_manager->protocol_impl->init(connection2, nullptr);
 
   // Simulate picoquic detecting remote close
   picoquic_callback(
@@ -271,13 +274,12 @@ TEST_F(QuicCloseTest, PicoquicRemoteClose_WithError_InvokesErrorCallbackOnConnec
       nullptr
   );
 
-  // get connection ct_quic_group_state_s
-  ct_quic_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
+  ct_quic_socket_state_t* socket_state = ct_connection_get_quic_socket_state(connection);
 
   // Close timer and udp socket
   ASSERT_EQ(faked_uv_close_fake.call_count, 2);
-  ASSERT_TRUE(closed_handles.count((uv_handle_t*)group_state->udp_handle) == 1);
-  ASSERT_TRUE(closed_handles.count((uv_handle_t*)group_state->quic_context->timer_handle) == 1);
+  ASSERT_TRUE(closed_handles.count((uv_handle_t*)socket_state->udp_handle) == 1);
+  ASSERT_TRUE(closed_handles.count((uv_handle_t*)socket_state->timer_handle) == 1);
 
   ASSERT_EQ(mock_connection_error_fake.call_count, 2);
 
@@ -306,13 +308,12 @@ TEST_F(QuicCloseTest, PicoquicApplicationClose_WithoutError_InvokesClosedCallbac
       nullptr
   );
 
-  // get connection ct_quic_group_state_s
-  ct_quic_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
+  ct_quic_socket_state_t* socket_state = ct_connection_get_quic_socket_state(connection);
 
   // Close timer and udp socket
   ASSERT_EQ(faked_uv_close_fake.call_count, 2);
-  ASSERT_TRUE(closed_handles.find((uv_handle_t*)group_state->udp_handle) != closed_handles.end());
-  ASSERT_TRUE(closed_handles.find((uv_handle_t*)group_state->quic_context->timer_handle) != closed_handles.end());
+  ASSERT_TRUE(closed_handles.count((uv_handle_t*)socket_state->udp_handle) == 1);
+  ASSERT_TRUE(closed_handles.count((uv_handle_t*)socket_state->timer_handle) == 1);
 
   ASSERT_EQ(mock_closed_cb_fake.call_count, 1);
   ASSERT_EQ(mock_closed_cb_fake.arg0_val, connection);
@@ -332,13 +333,12 @@ TEST_F(QuicCloseTest, PicoquicApplicationClose_WithError_InvokesErrorCallbackOnS
       nullptr
   );
 
-  // get connection ct_quic_group_state_s
-  ct_quic_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
+  ct_quic_socket_state_t* socket_state = ct_connection_get_quic_socket_state(connection);
 
   // Close timer and udp socket
   ASSERT_EQ(faked_uv_close_fake.call_count, 2);
-  ASSERT_TRUE(closed_handles.find((uv_handle_t*)group_state->udp_handle) != closed_handles.end());
-  ASSERT_TRUE(closed_handles.find((uv_handle_t*)group_state->quic_context->timer_handle) != closed_handles.end());
+  ASSERT_TRUE(closed_handles.count((uv_handle_t*)socket_state->udp_handle) == 1);
+  ASSERT_TRUE(closed_handles.count((uv_handle_t*)socket_state->timer_handle) == 1);
 
   ASSERT_EQ(mock_connection_error_fake.call_count, 1);
   ASSERT_EQ(mock_connection_error_fake.arg0_val, connection);
@@ -348,6 +348,7 @@ TEST_F(QuicCloseTest, PicoquicApplicationClose_WithError_InvokesErrorCallbackOnS
 TEST_F(QuicCloseTest, PicoquicApplicationClose_WithoutError_InvokesClosedCallbackOnConnectionGroup) {
   faked_picoquic_get_application_error_fake.return_val = 0;
   ct_connection_group_add_connection(connection->connection_group, connection2);
+  connection2->connection_group->socket_manager->protocol_impl->init(connection2, nullptr);
 
   // Simulate picoquic detecting remote close
   picoquic_callback(
@@ -360,13 +361,12 @@ TEST_F(QuicCloseTest, PicoquicApplicationClose_WithoutError_InvokesClosedCallbac
       nullptr
   );
 
-  // get connection ct_quic_group_state_s
-  ct_quic_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
+  ct_quic_socket_state_t* socket_state = ct_connection_get_quic_socket_state(connection);
 
   // Close timer and udp socket
   ASSERT_EQ(faked_uv_close_fake.call_count, 2);
-  ASSERT_TRUE(closed_handles.count((uv_handle_t*)group_state->udp_handle) == 1);
-  ASSERT_TRUE(closed_handles.count((uv_handle_t*)group_state->quic_context->timer_handle) == 1);
+  ASSERT_TRUE(closed_handles.count((uv_handle_t*)socket_state->udp_handle) == 1);
+  ASSERT_TRUE(closed_handles.count((uv_handle_t*)socket_state->timer_handle) == 1);
 
   ASSERT_EQ(mock_closed_cb_fake.call_count, 2);
 
@@ -385,6 +385,7 @@ TEST_F(QuicCloseTest, PicoquicApplicationClose_WithoutError_InvokesClosedCallbac
 TEST_F(QuicCloseTest, PicoquicApplicationClose_WithError_InvokesErrorCallbackOnConnectionGroup) {
   faked_picoquic_get_application_error_fake.return_val = 999;
   ct_connection_group_add_connection(connection->connection_group, connection2);
+  connection2->connection_group->socket_manager->protocol_impl->init(connection2, nullptr);
 
   // Simulate picoquic detecting remote close
   picoquic_callback(
@@ -397,13 +398,12 @@ TEST_F(QuicCloseTest, PicoquicApplicationClose_WithError_InvokesErrorCallbackOnC
       nullptr
   );
 
-  // get connection ct_quic_group_state_s
-  ct_quic_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
+  ct_quic_socket_state_t* socket_state = ct_connection_get_quic_socket_state(connection);
 
   // Close timer and udp socket
   ASSERT_EQ(faked_uv_close_fake.call_count, 2);
-  ASSERT_TRUE(closed_handles.count((uv_handle_t*)group_state->udp_handle) == 1);
-  ASSERT_TRUE(closed_handles.count((uv_handle_t*)group_state->quic_context->timer_handle) == 1);
+  ASSERT_TRUE(closed_handles.count((uv_handle_t*)socket_state->udp_handle) == 1);
+  ASSERT_TRUE(closed_handles.count((uv_handle_t*)socket_state->timer_handle) == 1);
 
   ASSERT_EQ(mock_connection_error_fake.call_count, 2);
 
@@ -420,6 +420,7 @@ TEST_F(QuicCloseTest, PicoquicApplicationClose_WithError_InvokesErrorCallbackOnC
 
 TEST_F(QuicCloseTest, StreamFinInvokedOnCanSendConnectionGroupDoesNotInvokeCloseCb) {
   ct_connection_group_add_connection(connection->connection_group, connection2);
+  connection2->connection_group->socket_manager->protocol_impl->init(connection2, nullptr);
 
   ct_quic_stream_state_t* stream_state = ct_connection_get_stream_state(connection2);
   // Simulate picoquic detecting remote close
@@ -441,6 +442,8 @@ TEST_F(QuicCloseTest, StreamFinInvokedOnCanSendConnectionGroupDoesNotInvokeClose
 
 TEST_F(QuicCloseTest, StreamFinInvokedOnCantSendConnectionGroupOnDoesInvokeCloseCb) {
   ct_connection_group_add_connection(connection->connection_group, connection2);
+  connection2->connection_group->socket_manager->protocol_impl->init(connection2, nullptr);
+
   ct_connection_set_can_send(connection2, false);
 
   ct_quic_stream_state_t* stream_state = ct_connection_get_stream_state(connection2);
@@ -456,7 +459,7 @@ TEST_F(QuicCloseTest, StreamFinInvokedOnCantSendConnectionGroupOnDoesInvokeClose
   );
 
   // get connection ct_quic_group_state_s
-  ct_quic_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
+  ct_quic_connection_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
 
   ASSERT_FALSE(ct_connection_can_receive(connection2));
   ASSERT_FALSE(ct_connection_can_send(connection2));
@@ -467,6 +470,7 @@ TEST_F(QuicCloseTest, StreamFinInvokedOnCantSendConnectionGroupOnDoesInvokeClose
 
 TEST_F(QuicCloseTest, PicoquicStreamReset_ClosesAndInvokesErrorCb) {
   ct_connection_group_add_connection(connection->connection_group, connection2);
+  connection2->connection_group->socket_manager->protocol_impl->init(connection2, nullptr);
 
   ct_quic_stream_state_t* stream_state = ct_connection_get_stream_state(connection2);
 
@@ -481,7 +485,7 @@ TEST_F(QuicCloseTest, PicoquicStreamReset_ClosesAndInvokesErrorCb) {
   );
 
   // get connection ct_quic_group_state_s
-  ct_quic_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
+  ct_quic_connection_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
 
   ASSERT_TRUE(ct_connection_is_closed(connection2));
   ASSERT_EQ(mock_connection_error_fake.call_count, 1);
@@ -490,14 +494,14 @@ TEST_F(QuicCloseTest, PicoquicStreamReset_ClosesAndInvokesErrorCb) {
 }
 
 TEST_F(QuicCloseTest, CloseCallsPicoquicCloseForConnection) {
-  connection->protocol.close(connection);
+  connection->connection_group->socket_manager->protocol_impl->close(connection);
 
   ASSERT_EQ(faked_picoquic_close_fake.call_count, 1);
   ASSERT_EQ(ct_connection_group_get_num_active_connections(connection->connection_group), 0);
 }
 
 TEST_F(QuicCloseTest, AbortCallsPicoquicCloseImmediateForLastConnection) {
-  connection->protocol.abort(connection);
+  connection->connection_group->socket_manager->protocol_impl->abort(connection);
 
   ASSERT_EQ(faked_picoquic_close_immediate_fake.call_count, 1);
   ASSERT_EQ(ct_connection_group_get_num_active_connections(connection->connection_group), 0);
@@ -505,10 +509,11 @@ TEST_F(QuicCloseTest, AbortCallsPicoquicCloseImmediateForLastConnection) {
 
 TEST_F(QuicCloseTest, CloseCallsPicoquicAddToStreamForConnectionGroup) {
   ct_connection_group_add_connection(connection->connection_group, connection2);
+  connection2->connection_group->socket_manager->protocol_impl->init(connection2, nullptr);
 
-  connection->protocol.close(connection);
+  connection->connection_group->socket_manager->protocol_impl->close(connection);
 
-  ct_quic_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
+  ct_quic_connection_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
 
   ASSERT_EQ(faked_picoquic_add_to_stream_fake.call_count, 1);
   ASSERT_EQ(ct_connection_group_get_num_active_connections(connection->connection_group), 1);
@@ -518,10 +523,11 @@ TEST_F(QuicCloseTest, CloseCallsPicoquicAddToStreamForConnectionGroup) {
 
 TEST_F(QuicCloseTest, AbortCallsPicoquicResetStreamForConnectionGroup) {
   ct_connection_group_add_connection(connection->connection_group, connection2);
+  connection2->connection_group->socket_manager->protocol_impl->init(connection2, nullptr);
 
-  connection->protocol.abort(connection);
+  connection->connection_group->socket_manager->protocol_impl->abort(connection);
 
-  ct_quic_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
+  ct_quic_connection_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
 
   ASSERT_EQ(faked_picoquic_reset_stream_fake.call_count, 1);
   ASSERT_EQ(ct_connection_group_get_num_active_connections(connection->connection_group), 1);
@@ -541,7 +547,7 @@ TEST_F(QuicCloseTest, StatelessResetInvokesErrorCb) {
   ASSERT_EQ(mock_connection_error_fake.call_count, 1);
   ASSERT_EQ(mock_connection_error_fake.arg0_val, connection);
 
-  ct_quic_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
+  ct_quic_connection_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
   ASSERT_EQ(mock_connection_error_fake.call_count, 1);
   ASSERT_EQ(mock_connection_error_fake.arg0_val, connection);
   ASSERT_EQ(faked_uv_close_fake.call_count, 2);  // Timer + UDP

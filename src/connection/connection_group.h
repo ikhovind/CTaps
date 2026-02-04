@@ -39,6 +39,8 @@ void ct_connection_group_decrement_active(ct_connection_group_t* group);
  */
 uint64_t ct_connection_group_get_num_active_connections(ct_connection_group_t* group);
 
+void ct_connection_group_mark_all_as_closed(ct_connection_group_t* group);
+
 /**
  * @brief Remove a connection from a connection group.
  *
@@ -92,6 +94,12 @@ void ct_connection_group_abort_all(ct_connection_group_t* connection_group);
  * @note Internal function - used by protocol implementations
  */
 uint64_t ct_connection_group_get_num_active_connections(ct_connection_group_t* group);
+
+ct_connection_group_t* ct_connection_group_ref(ct_connection_group_t* group);
+
+void ct_connection_group_unref(ct_connection_group_t* group);
+
+ct_connection_group_t* ct_connection_group_new(ct_socket_manager_t* socket_manager, const ct_remote_endpoint_t* remote_endpoint);
 
 
 #endif // CT_CONNECTION_GROUP_H

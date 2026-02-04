@@ -85,31 +85,28 @@ ct_preconnection_t* ct_preconnection_new(
 
 int ct_preconnection_listen(ct_preconnection_t* preconnection, ct_listener_t* listener, ct_listener_callbacks_t listener_callbacks) {
   log_info("Listening from preconnection");
-  ct_socket_manager_t* socket_manager = malloc(sizeof(ct_socket_manager_t));
-  if (socket_manager == NULL) {
-    return -errno;
-  }
-  memset(socket_manager, 0, sizeof(ct_socket_manager_t));
   GArray* candidate_nodes = get_ordered_candidate_nodes(preconnection);
   if (candidate_nodes->len > 0) {
     const ct_candidate_node_t first_node = g_array_index(candidate_nodes, ct_candidate_node_t, 0);
 
+
+    ct_socket_manager_t* socket_manager = ct_socket_manager_new(first_node.protocol_candidate->protocol_impl, listener);
+    if (socket_manager == NULL) {
+      return -errno;
+    }
     *listener = (ct_listener_t){
       .listener_callbacks = listener_callbacks,
       .local_endpoint = *first_node.local_endpoint,
       .num_local_endpoints = 1,
-      .socket_manager = socket_manager,
+      .socket_manager = ct_socket_manager_ref(socket_manager),
       .transport_properties = preconnection->transport_properties,
       .security_parameters = preconnection->security_parameters,
     };
-    socket_manager->protocol_impl = *first_node.protocol_candidate->protocol_impl;
 
-    socket_manager_build(socket_manager, listener);
-    log_info("Starting to listen on ct_listener_t using protocol: %s on port: %d", socket_manager->protocol_impl.name, listener->local_endpoint.port);
-    return socket_manager->protocol_impl.listen(socket_manager);
+    log_info("Starting to listen on ct_listener_t using protocol: %s on port: %d", socket_manager->protocol_impl->name, listener->local_endpoint.port);
+    return socket_manager->protocol_impl->listen(socket_manager);
   }
   g_array_free(candidate_nodes, true);
-  free(socket_manager);
   log_error("No candidate node for ct_listener_t found");
   return -EINVAL;
 }

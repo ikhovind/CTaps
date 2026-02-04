@@ -465,6 +465,7 @@ int tcp_listen(ct_socket_manager_t* socket_manager) {
   return 0;
 }
 
+// TODO - fix this
 void new_stream_connection_cb(uv_stream_t *server, int status) {
   log_debug("New TCP connection received for ct_listener_t");
   if (status < 0) {
@@ -493,7 +494,20 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
     return;
   }
 
-  ct_connection_t* connection = ct_connection_build_from_received_handle(listener, (uv_stream_t*)client);
+  struct sockaddr_storage addr;
+  int namelen = sizeof(addr);
+  rc = uv_tcp_getpeername(client, (struct sockaddr*)&addr, &namelen);
+  ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
+  ct_remote_endpoint_from_sockaddr(remote_endpoint, &addr);
+
+  ct_socket_manager_t* socket_manager = ct_socket_manager_new(&tcp_protocol_interface, listener);
+
+  ct_connection_t* connection = ct_connection_create_server_connection(
+      socket_manager,
+      remote_endpoint,
+      listener->security_parameters,
+      NULL
+  );
 
   if (!connection) {
     log_error("Failed to build connection from received handle");
@@ -501,7 +515,7 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
     return;
   }
 
-  client->data = tcp_connection_state_new(connection, NULL, NULL, NULL, NULL);
+  client->data = tcp_connection_state_new(connection, listener, NULL, NULL, NULL);
 
   rc = uv_read_start((uv_stream_t*)client, alloc_cb, tcp_on_read);
   if (rc < 0) {

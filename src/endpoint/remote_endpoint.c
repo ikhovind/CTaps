@@ -186,7 +186,7 @@ ct_remote_endpoint_t ct_remote_endpoint_copy_content(const ct_remote_endpoint_t*
   return res;
 }
 
-ct_remote_endpoint_t* remote_endpoint_copy(const ct_remote_endpoint_t* remote_endpoint) {
+ct_remote_endpoint_t* ct_remote_endpoint_deep_copy(const ct_remote_endpoint_t* remote_endpoint) {
   ct_remote_endpoint_t* res = malloc(sizeof(ct_remote_endpoint_t));
   *res = ct_remote_endpoint_copy_content(remote_endpoint);
   return res;

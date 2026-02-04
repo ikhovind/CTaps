@@ -4,7 +4,10 @@
 extern "C" {
 #include "ctaps.h"
 #include "ctaps_internal.h"
+#include "endpoint/remote_endpoint.h"
+#include "endpoint/local_endpoint.h"
 #include "connection/connection.h"
+#include "connection/socket_manager/socket_manager.h"
 #include <protocol/tcp/tcp.h>
 #include <uv.h>
 #include "logging/log.h"
@@ -57,34 +60,30 @@ protected:
     captured_close_cb = nullptr;
     captured_handle = nullptr;
 
-    ct_local_endpoint_t* local_endpoint = ct_local_endpoint_new();
     ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
     ct_remote_endpoint_with_ipv4(remote_endpoint, INADDR_LOOPBACK);
     ct_remote_endpoint_with_port(remote_endpoint, 8080);
+    ct_local_endpoint_t* local_endpoint = ct_local_endpoint_new();
 
     memset(&connection, 0, sizeof(ct_connection_t));
     ct_connection_build_with_new_connection_group(&connection);
-    connection.protocol = tcp_protocol_interface;
-    connection.local_endpoint = *local_endpoint;
-    connection.remote_endpoint = *remote_endpoint;
+    connection.connection_group->socket_manager = ct_socket_manager_new(&tcp_protocol_interface, nullptr);
+    connection.local_endpoint = ct_local_endpoint_new();
+    connection.remote_endpoint = ct_remote_endpoint_deep_copy(remote_endpoint);
     connection.connection_callbacks.closed = mock_closed_cb;
     connection.connection_callbacks.connection_error = mock_connection_error;
     log_debug("Initializing first connection");
-    connection.protocol.init(&connection, nullptr);
+    connection.connection_group->socket_manager->protocol_impl->init(&connection, nullptr);
 
     memset(&connection2, 0, sizeof(ct_connection_t));
     ct_local_endpoint_t* local_endpoint2 = ct_local_endpoint_new();
-    connection2.protocol = tcp_protocol_interface;
-    connection2.local_endpoint = *local_endpoint2;
-    connection2.remote_endpoint = *remote_endpoint;
+    
+    connection2.connection_group->socket_manager = ct_socket_manager_new(&tcp_protocol_interface, nullptr);
+    connection2.local_endpoint = ct_local_endpoint_new();
+    connection2.remote_endpoint = ct_remote_endpoint_deep_copy(remote_endpoint);
     connection2.connection_callbacks.closed = mock_closed_cb;
     connection2.connection_callbacks.connection_error = mock_connection_error;
     log_debug("Initializing second connection");
-    connection2.protocol.init(&connection2, nullptr);
-
-    free(local_endpoint);
-    free(local_endpoint2);
-    free(remote_endpoint);
   }
 
   void TearDown() override {
@@ -99,7 +98,7 @@ protected:
 
 TEST_F(TcpCloseCallbackTest, ClosedCallbackInvokedOnConnectionClose) {
   // Act: close the TCP connection
-  connection.protocol.close(&connection);
+  connection.connection_group->socket_manager->protocol_impl->close(&connection);
 
   // Verify uv_close was called
   ASSERT_EQ(faked_uv_close_fake.call_count, 1);
@@ -123,6 +122,7 @@ TEST_F(TcpCloseCallbackTest, ConnectionErrorCallbackInvokedOnConnectionAbort) {
 TEST_F(TcpCloseCallbackTest, ClosedCallbackInvokedOnGroupClose) {
   // Arrange: set up a connection group with two connections
   ct_connection_group_add_connection(connection.connection_group, &connection2);
+  connection2.connection_group->socket_manager->protocol_impl->init(&connection2, nullptr);
 
   // Act: close the TCP connection
   ct_connection_close_group(&connection2);
@@ -138,6 +138,7 @@ TEST_F(TcpCloseCallbackTest, ClosedCallbackInvokedOnGroupClose) {
 TEST_F(TcpCloseCallbackTest, ConnectionErrorCallbackInvokedOnGroupAbort) {
   // Arrange: set up a connection group with two connections
   ct_connection_group_add_connection(connection.connection_group, &connection2);
+  connection2.connection_group->socket_manager->protocol_impl->init(&connection2, nullptr);
 
   // Act: close the TCP connection
   ct_connection_abort_group(&connection);

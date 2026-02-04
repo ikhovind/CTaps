@@ -5,6 +5,7 @@ extern "C" {
 #include "ctaps.h"
 #include "logging/log.h"
 #include "ctaps_internal.h"
+#include "connection/socket_manager/socket_manager.h"
 #include <protocol/udp/udp.h>
 #include "connection/connection.h"
 #include <uv.h>
@@ -53,24 +54,22 @@ protected:
 
     memset(&connection, 0, sizeof(ct_connection_t));
     ct_connection_build_with_new_connection_group(&connection);
-    connection.protocol = udp_protocol_interface;
-    connection.local_endpoint = *local_endpoint;
+    connection.connection_group->socket_manager = ct_socket_manager_new(&udp_protocol_interface, nullptr);
+    connection.local_endpoint = ct_local_endpoint_new();
     free(local_endpoint);
     connection.connection_callbacks.closed = mock_closed_cb;
     connection.connection_callbacks.connection_error = mock_connection_error;
     log_debug("Initializing first connection");
-    int rc = connection.protocol.init(&connection, nullptr);
+    int rc = connection.connection_group->socket_manager->protocol_impl->init(&connection, nullptr);
     ASSERT_EQ(rc, 0);
 
     memset(&connection2, 0, sizeof(ct_connection_t));
-    ct_local_endpoint_t* local_endpoint2 = ct_local_endpoint_new();
-    connection2.protocol = udp_protocol_interface;
-    connection2.local_endpoint = *local_endpoint2;
+    ct_local_endpoint_t* local_endpoint2 = 
+    connection2.local_endpoint = ct_local_endpoint_new();
     free(local_endpoint2);
     connection2.connection_callbacks.closed = mock_closed_cb;
     connection2.connection_callbacks.connection_error = mock_connection_error;
     log_debug("Initializing second connection");
-    rc = connection2.protocol.init(&connection2, nullptr);
     ASSERT_EQ(rc, 0);
   }
 
@@ -86,7 +85,7 @@ protected:
 
 TEST_F(UdpCloseCallbackTest, closedCallbackInvokedOnConnectionClose) {
   // Act: close the UDP connection
-  connection.protocol.close(&connection);
+  connection.connection_group->socket_manager->protocol_impl->close(&connection);
 
   // Verify uv_close was called
   ASSERT_EQ(faked_uv_close_fake.call_count, 1);
@@ -111,6 +110,7 @@ TEST_F(UdpCloseCallbackTest, ConnectionErrorCallbackInvokedOnConnectionAbort) {
 TEST_F(UdpCloseCallbackTest, ClosedCallbackInvokedOnGroupClose) {
   // Arrange: set up a connection group with two connections
   ct_connection_group_add_connection(connection.connection_group, &connection2);
+  connection2.connection_group->socket_manager->protocol_impl->init(&connection2, nullptr);
 
   // Act: close the UDP connection
   ct_connection_close_group(&connection2);
@@ -126,6 +126,7 @@ TEST_F(UdpCloseCallbackTest, ClosedCallbackInvokedOnGroupClose) {
 TEST_F(UdpCloseCallbackTest, ConnectionErrorCallbackInvokedOnGroupAbort) {
   // Arrange: set up a connection group with two connections
   ct_connection_group_add_connection(connection.connection_group, &connection2);
+  connection2.connection_group->socket_manager->protocol_impl->init(&connection2, nullptr);
 
   // Act: close the UDP connection
   ct_connection_abort_group(&connection);
