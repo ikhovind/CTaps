@@ -8,9 +8,9 @@ extern "C" {
 #include "fixtures/awaiting_fixture.cpp"
 }
 
-class UdpGenericTests : public CTapsGenericFixture {};
+class UdpPingTests : public CTapsGenericFixture {};
 
-TEST_F(UdpGenericTests, sendsSingleUdpPacket) {
+TEST_F(UdpPingTests, sendsSingleUdpPacket) {
   log_info("Starting test: sendsSingleUdpPacket");
   // --- Setup ---
   ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
@@ -52,7 +52,7 @@ TEST_F(UdpGenericTests, sendsSingleUdpPacket) {
   ct_transport_properties_free(transport_properties);
 }
 
-TEST_F(UdpGenericTests, packetsAreReadInOrder) {
+TEST_F(UdpPingTests, packetsAreReadInOrder) {
   // --- Setup ---
   ct_initialize();
   ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
@@ -96,7 +96,7 @@ TEST_F(UdpGenericTests, packetsAreReadInOrder) {
   ct_transport_properties_free(transport_properties);
 }
 
-TEST_F(UdpGenericTests, canPingArbitraryBytes) {
+TEST_F(UdpPingTests, canPingArbitraryBytes) {
   log_info("Starting test: canPingArbitraryBytes");
   // --- Setup ---
   ct_initialize();
@@ -142,7 +142,7 @@ TEST_F(UdpGenericTests, canPingArbitraryBytes) {
   ct_transport_properties_free(transport_properties);
 }
 
-TEST_F(UdpGenericTests, sendsSingleUdpPacketWithInitiateWithSend) {
+TEST_F(UdpPingTests, sendsSingleUdpPacketWithInitiateWithSend) {
   log_info("Starting test: sendsSingleUdpPacketWithInitiateWithSend");
   // --- Setup ---
   ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
