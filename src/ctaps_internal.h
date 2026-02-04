@@ -364,6 +364,18 @@ typedef struct ct_preconnection_s {
   ct_framer_impl_t* framer_impl;                      ///< Optional message framer
 } ct_preconnection_t;
 
+// ===================================
+// Socket manager
+// ===================================
+
+typedef struct ct_socket_manager_s {
+  void* internal_socket_manager_state;
+  int ref_count; // Number of objects using this socket (ct_listener_t + Connections)
+  GHashTable* connection_groups; // remote_endpoint → ct_connection_group_t*
+  ct_protocol_impl_t protocol_impl;
+  struct ct_listener_s* listener;
+} ct_socket_manager_t;
+
 
 // =============================================================================
 // Connections
