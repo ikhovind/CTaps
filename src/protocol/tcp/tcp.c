@@ -125,6 +125,11 @@ void on_stop_listen(uv_handle_t* handle) {
 
 void on_close(uv_handle_t* handle) {
   tcp_connection_state_t* conn_state = (tcp_connection_state_t*)handle->data;
+  if (!conn_state || !conn_state->connection) {
+    // TODO - this protects a double free, need to investigate why it happens
+    log_warn("TCP on_close called with NULL connection state");
+    return;
+  }
   if (conn_state->connection->connection_callbacks.closed) {
     log_debug("Invoking connection closed callback on close");
     conn_state->connection->connection_callbacks.closed(conn_state->connection);
@@ -607,6 +612,7 @@ int tcp_clone_connection(const struct ct_connection_s* source_connection,
 }
 
 int tcp_free_state(ct_connection_t* connection) {
+  return 0; // Fix after ownership refactor
   log_trace("Freeing TCP connection resources");
   if (!connection || !connection->internal_connection_state) {
     log_warn("TCP connection or internal state is NULL during free_state");

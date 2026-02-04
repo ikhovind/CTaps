@@ -298,8 +298,6 @@ static int on_attempt_establishment_error(ct_connection_t* connection) {
     }
 
     // Mark the user connection as closed since all attempts failed
-    log_debug("Setting user connection state to CLOSED after all attempts failed");
-
     if (context->user_callbacks.establishment_error) {
       rc = context->user_callbacks.establishment_error(NULL);
     }
