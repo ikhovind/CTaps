@@ -56,6 +56,7 @@ ct_connection_t* ct_connection_create_server_connection(ct_socket_manager_t* soc
   connection->transport_properties = socket_manager->listener->transport_properties;
   connection->local_endpoint = ct_local_endpoint_deep_copy(&socket_manager->listener->local_endpoint);
   connection->remote_endpoint = ct_remote_endpoint_deep_copy(remote_endpoint);
+  connection->role = CONNECTION_ROLE_SERVER;
 
   connection->security_parameters = ct_security_parameters_deep_copy(security_parameters);
   connection->framer_impl = framer_impl; // TODO - ownership here?
@@ -100,7 +101,8 @@ ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_
 }
 
 ct_connection_t* ct_connection_create_clone(const ct_connection_t* source_connection,
-                                            ct_framer_impl_t* framer_impl
+                                            ct_framer_impl_t* framer_impl,
+                                            void* internal_connection_state
                                             ) {
   ct_connection_t* clone = ct_connection_create_empty_with_uuid();
   if (!clone) {
@@ -113,12 +115,14 @@ ct_connection_t* ct_connection_create_clone(const ct_connection_t* source_connec
   clone->security_parameters = ct_security_parameters_deep_copy(source_connection->security_parameters);
   clone->local_endpoint = ct_local_endpoint_deep_copy(source_connection->local_endpoint);
   clone->remote_endpoint = ct_remote_endpoint_deep_copy(source_connection->remote_endpoint);
+  clone->role = source_connection->role;
   if (framer_impl) {
     clone->framer_impl = framer_impl;
   } else {
     clone->framer_impl = source_connection->framer_impl; // TODO - ownership here?
   }
   clone->connection_callbacks = source_connection->connection_callbacks;
+  clone->internal_connection_state = internal_connection_state;
 
   ct_connection_group_add_connection(source_connection->connection_group, clone);
   return clone;
@@ -453,7 +457,7 @@ int ct_connection_clone_full(
   log_debug("Creating clone from connection: %s", source_connection->uuid);
   (void)connection_properties; // TODO - apply any overridden properties to the clone
 
-  ct_connection_t* new_connection = ct_connection_create_clone(source_connection, framer);
+  ct_connection_t* new_connection = ct_connection_create_clone(source_connection, framer, NULL);
   int rc = new_connection->connection_group->socket_manager->protocol_impl->clone_connection(source_connection, new_connection);
   if (rc < 0) {
     log_error("Failed to initialize protocol state for cloned connection: %d", rc);

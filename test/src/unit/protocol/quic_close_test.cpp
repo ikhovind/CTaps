@@ -11,6 +11,7 @@ extern "C" {
 #include "ctaps.h"
 #include "ctaps_internal.h"
 #include "logging/log.h"
+#include "util/uuid_util.h"
 #include <picoquic.h>
 #include <protocol/quic/quic.h>
 #include <uv.h>
@@ -137,29 +138,21 @@ protected:
     stream_state->stream_id = 0;
 
 
-    connection2 = ct_connection_create_empty_with_uuid();
-    ct_connection_build_with_new_connection_group(connection2);
-    ct_local_endpoint_t* local_endpoint2 = ct_local_endpoint_new();
+    // connection2 is set up minimally - it will be added to connection's group in group tests
+    connection2 = (ct_connection_t*)malloc(sizeof(ct_connection_t));
+    memset(connection2, 0, sizeof(ct_connection_t));
+    generate_uuid_string(connection2->uuid);
     connection2->security_parameters = ct_security_parameters_deep_copy(security_parameters);
     connection2->local_endpoint = ct_local_endpoint_new();
     connection2->remote_endpoint = ct_remote_endpoint_deep_copy(remote_endpoint);
+    connection2->received_callbacks = g_queue_new();
+    connection2->received_messages = g_queue_new();
     connection2->connection_callbacks.closed = mock_closed_cb;
     connection2->connection_callbacks.connection_error = mock_connection_error;
-    log_debug("Initializing second connection");
-    connection2->connection_group->socket_manager = ct_socket_manager_new(&quic_protocol_interface, nullptr);
-    rc = connection2->connection_group->socket_manager->protocol_impl->init(connection2, nullptr);
-    ASSERT_EQ(rc, 0);
-    stream_state = ct_connection_get_stream_state(connection2);
-    stream_state->stream_initialized = true;
-    stream_state->stream_id = 4;
-
-    ct_connection_set_can_send(connection2, true);
-
-    ct_connection_group_free(connection2->connection_group);
-    connection2->connection_group = nullptr;
+    // connection2 has no connection_group - it will be added to connection's group in tests
+    log_debug("Initialized second connection (minimal setup)");
 
     free(local_endpoint);
-    free(local_endpoint2);
     free(remote_endpoint);
   }
 
@@ -421,6 +414,7 @@ TEST_F(QuicCloseTest, PicoquicApplicationClose_WithError_InvokesErrorCallbackOnC
 TEST_F(QuicCloseTest, StreamFinInvokedOnCanSendConnectionGroupDoesNotInvokeCloseCb) {
   ct_connection_group_add_connection(connection->connection_group, connection2);
   connection2->connection_group->socket_manager->protocol_impl->init(connection2, nullptr);
+  ct_connection_set_can_send(connection2, true);
 
   ct_quic_stream_state_t* stream_state = ct_connection_get_stream_state(connection2);
   // Simulate picoquic detecting remote close

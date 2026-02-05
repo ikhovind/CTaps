@@ -107,6 +107,7 @@ static void alloc_cb(uv_handle_t* handle, size_t size, uv_buf_t* buf) {
 
 void on_abort(uv_handle_t* handle) {
   tcp_connection_state_t* conn_state = (tcp_connection_state_t*)handle->data;
+  ct_connection_mark_as_closed(conn_state->connection);
   if (conn_state->connection->connection_callbacks.connection_error) {
     log_debug("Invoking connection connection error callback due to abort");
     conn_state->connection->connection_callbacks.connection_error(conn_state->connection);
@@ -114,12 +115,13 @@ void on_abort(uv_handle_t* handle) {
   else {
     log_debug("Connection error callback not set, on abort");
   }
+  // TCP connections are standalone - decrement socket_manager ref to allow cleanup
+  socket_manager_decrement_ref(conn_state->connection->connection_group->socket_manager);
 }
 
 void on_stop_listen(uv_handle_t* handle) {
   tcp_connection_state_t* conn_state = (tcp_connection_state_t*)handle->data;
-  ct_listener_t* listener = conn_state->listener;
-  ct_listener_close(listener);
+  tcp_connection_state_free(conn_state);
   free(handle);
 }
 
@@ -130,6 +132,7 @@ void on_close(uv_handle_t* handle) {
     log_warn("TCP on_close called with NULL connection state");
     return;
   }
+  ct_connection_mark_as_closed(conn_state->connection);
   if (conn_state->connection->connection_callbacks.closed) {
     log_debug("Invoking connection closed callback on close");
     conn_state->connection->connection_callbacks.closed(conn_state->connection);
@@ -137,7 +140,8 @@ void on_close(uv_handle_t* handle) {
   else {
     log_debug("Connection closed callback not set, when closing");
   }
-  ct_connection_mark_as_closed(conn_state->connection);
+  // TCP connections are standalone - decrement socket_manager ref to allow cleanup
+  socket_manager_decrement_ref(conn_state->connection->connection_group->socket_manager);
 }
 
 void tcp_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
@@ -458,7 +462,6 @@ int tcp_listen(ct_socket_manager_t* socket_manager) {
     return rc;
   }
 
-  socket_manager_increment_ref(socket_manager);
   socket_manager->internal_socket_manager_state = (uv_handle_t*)new_tcp_handle;
   new_tcp_handle->data = tcp_connection_state_new(NULL, listener, NULL, NULL, NULL);
 
@@ -516,6 +519,7 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
   }
 
   client->data = tcp_connection_state_new(connection, listener, NULL, NULL, NULL);
+  connection->internal_connection_state = (uv_handle_t*)client;
 
   rc = uv_read_start((uv_stream_t*)client, alloc_cb, tcp_on_read);
   if (rc < 0) {
