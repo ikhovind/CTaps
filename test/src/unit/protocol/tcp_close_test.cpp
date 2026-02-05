@@ -11,6 +11,7 @@ extern "C" {
 #include <protocol/tcp/tcp.h>
 #include <uv.h>
 #include "logging/log.h"
+#include "util/uuid_util.h"
 
 // Declare internal function for testing
 void tcp_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf);
@@ -75,15 +76,19 @@ protected:
     log_debug("Initializing first connection");
     connection.connection_group->socket_manager->protocol_impl->init(&connection, nullptr);
 
+    // connection2 is set up minimally - it will be added to connection's group in group tests
     memset(&connection2, 0, sizeof(ct_connection_t));
-    ct_local_endpoint_t* local_endpoint2 = ct_local_endpoint_new();
-    
-    connection2.connection_group->socket_manager = ct_socket_manager_new(&tcp_protocol_interface, nullptr);
+    generate_uuid_string(connection2.uuid);
     connection2.local_endpoint = ct_local_endpoint_new();
     connection2.remote_endpoint = ct_remote_endpoint_deep_copy(remote_endpoint);
+    connection2.received_callbacks = g_queue_new();
+    connection2.received_messages = g_queue_new();
     connection2.connection_callbacks.closed = mock_closed_cb;
     connection2.connection_callbacks.connection_error = mock_connection_error;
     log_debug("Initializing second connection");
+
+    ct_remote_endpoint_free(remote_endpoint);
+    free(local_endpoint);
   }
 
   void TearDown() override {
@@ -131,8 +136,13 @@ TEST_F(TcpCloseCallbackTest, ClosedCallbackInvokedOnGroupClose) {
   ASSERT_EQ(faked_uv_close_fake.call_count, 2);
   ASSERT_NE(captured_close_cb, nullptr);
   ASSERT_EQ(mock_closed_cb_fake.call_count, 2);
-  ASSERT_EQ(mock_closed_cb_fake.arg0_history[0], &connection);
-  ASSERT_EQ(mock_closed_cb_fake.arg0_history[1], &connection2);
+  // Check both connections received closed callback (order not guaranteed due to hash table iteration)
+  bool conn1_found = (mock_closed_cb_fake.arg0_history[0] == &connection ||
+                      mock_closed_cb_fake.arg0_history[1] == &connection);
+  bool conn2_found = (mock_closed_cb_fake.arg0_history[0] == &connection2 ||
+                      mock_closed_cb_fake.arg0_history[1] == &connection2);
+  ASSERT_TRUE(conn1_found);
+  ASSERT_TRUE(conn2_found);
 }
 
 TEST_F(TcpCloseCallbackTest, ConnectionErrorCallbackInvokedOnGroupAbort) {
@@ -146,8 +156,13 @@ TEST_F(TcpCloseCallbackTest, ConnectionErrorCallbackInvokedOnGroupAbort) {
   ASSERT_EQ(faked_uv_tcp_close_reset_fake.call_count, 2);
   ASSERT_NE(captured_close_cb, nullptr);
   ASSERT_EQ(mock_connection_error_fake.call_count, 2);
-  ASSERT_EQ(mock_connection_error_fake.arg0_history[0], &connection);
-  ASSERT_EQ(mock_connection_error_fake.arg0_history[1], &connection2);
+  // Check both connections received error callback (order not guaranteed due to hash table iteration)
+  bool conn1_found = (mock_connection_error_fake.arg0_history[0] == &connection ||
+                      mock_connection_error_fake.arg0_history[1] == &connection);
+  bool conn2_found = (mock_connection_error_fake.arg0_history[0] == &connection2 ||
+                      mock_connection_error_fake.arg0_history[1] == &connection2);
+  ASSERT_TRUE(conn1_found);
+  ASSERT_TRUE(conn2_found);
 }
 
 TEST_F(TcpCloseCallbackTest, ConnectionErrorInvokedOnAbortByPeer) {
