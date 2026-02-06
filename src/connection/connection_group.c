@@ -132,7 +132,6 @@ void ct_connection_group_free(ct_connection_group_t* group) {
   ct_socket_manager_unref(group->socket_manager);
 
   log_debug("Freeing connection group %s", group->connection_group_id);
-
   if (group->connections) {
     g_hash_table_destroy(group->connections);
     group->connections = NULL;

@@ -56,12 +56,12 @@ int ct_remote_endpoint_from_sockaddr(ct_remote_endpoint_t* remote_endpoint, cons
   if (addr->ss_family == AF_INET) {
     struct sockaddr_in* in_addr = (struct sockaddr_in*)addr;
     remote_endpoint->port = ntohs(in_addr->sin_port);
-    remote_endpoint->data.resolved_address = *((struct sockaddr_storage*)addr);
+    memcpy(&remote_endpoint->data.resolved_address, in_addr, sizeof(struct sockaddr_in));
   }
   else if (addr->ss_family == AF_INET6) {
     struct sockaddr_in6* in6_addr = (struct sockaddr_in6*)addr;
     remote_endpoint->port = ntohs(in6_addr->sin6_port);
-    remote_endpoint->data.resolved_address = *((struct sockaddr_storage*)addr);
+    memcpy(&remote_endpoint->data.resolved_address, in6_addr, sizeof(struct sockaddr_in6));
   }
   else {
     log_error("Unsupported resolved_address family: %d\n", addr->ss_family);
@@ -202,6 +202,7 @@ const char* ct_remote_endpoint_get_service(const ct_remote_endpoint_t* remote_en
 
 const struct sockaddr_storage* remote_endpoint_get_resolved_address(const ct_remote_endpoint_t* remote_endpoint) {
   if (!remote_endpoint) {
+    log_error("remote_endpoint_get_resolved_address called with NULL parameter");
     return NULL;
   }
   return &remote_endpoint->data.resolved_address;

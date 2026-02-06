@@ -256,6 +256,7 @@ add_gtest(tcp_close_callback_test
   WRAP_FUNCTIONS
     uv_close
     uv_tcp_close_reset
+  ASAN_ENABLED
 )
 
 add_gtest(quic_close_callback_test

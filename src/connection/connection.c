@@ -546,6 +546,10 @@ const char* ct_connection_get_protocol_name(const ct_connection_t* connection) {
 }
 
 const ct_remote_endpoint_t* ct_connection_get_remote_endpoint(const ct_connection_t* connection) {
+  if (!connection) {
+    log_error("ct_connection_get_remote_endpoint called with NULL connection");
+    return NULL;
+  }
   return connection->remote_endpoint;
 }
 
