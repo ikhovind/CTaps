@@ -107,7 +107,9 @@ ct_connection_group_t* socket_manager_get_connection_group(ct_socket_manager_t* 
   }
 
   // Look up connection group by remote endpoint
-  return g_hash_table_lookup(socket_manager->connection_groups, addr_bytes);
+  ct_connection_group_t* group =  g_hash_table_lookup(socket_manager->connection_groups, addr_bytes);
+  g_bytes_unref(addr_bytes);
+  return group;
 }
 
 ct_socket_manager_t* ct_socket_manager_ref(ct_socket_manager_t* socket_manager) {

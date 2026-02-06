@@ -384,14 +384,6 @@ typedef struct ct_socket_manager_s {
 // =============================================================================
 
 /**
- * @brief Connection socket type classification.
- */
-typedef enum {
-  CONNECTION_SOCKET_TYPE_STANDALONE = 0,    ///< Independent connection
-  CONNECTION_SOCKET_TYPE_MULTIPLEXED,       ///< Multiplexed connection (e.g., QUIC stream)
-} ct_connection_socket_type_t;
-
-/**
  * @brief Connection role classification.
  */
 typedef enum {
