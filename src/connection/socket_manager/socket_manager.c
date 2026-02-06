@@ -134,10 +134,10 @@ void ct_socket_manager_unref(ct_socket_manager_t* socket_manager) {
     log_warn("Attempted to unreference NULL socket manager");
     return;
   }
+  log_debug("Decrementing socket manager reference count with count: %d", socket_manager->ref_count);
   socket_manager->ref_count--;
-  log_debug("Decremented socket manager reference count, updated count: %d", socket_manager->ref_count);
   if (socket_manager->ref_count == 0) {
-    int rc = socket_manager->protocol_impl->stop_listen(socket_manager);
+    int rc = socket_manager->protocol_impl->free_state(socket_manager);
     if (rc < 0) {
       log_error("Error stopping socket manager listen: %d", rc);
       return;
