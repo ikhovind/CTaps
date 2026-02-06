@@ -1,8 +1,9 @@
 #include "connection_group.h"
 
-#include <errno.h>
-#include "connection/socket_manager/socket_manager.h"
 #include "connection/connection.h"
+#include "connection/socket_manager/socket_manager.h"
+#include "util/uuid_util.h"
+#include <errno.h>
 #include <glib.h>
 #include <logging/log.h>
 #include <stddef.h>
@@ -260,7 +261,14 @@ ct_connection_group_t* ct_connection_group_new(ct_socket_manager_t* socket_manag
     return NULL;
   }
   memset(group, 0, sizeof(ct_connection_group_t));
-  socket_manager_insert_connection_group(socket_manager, remote_endpoint, group);
+  generate_uuid_string(group->connection_group_id);
+
+  int rc = socket_manager_insert_connection_group(socket_manager, remote_endpoint, group);
+  if (rc < 0) {
+    log_error("Failed to insert connection group into socket manager: %d", rc);
+    free(group);
+    return NULL;
+  }
   group->connections = g_hash_table_new(g_str_hash, g_str_equal);
 
   return group;

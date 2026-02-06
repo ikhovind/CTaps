@@ -45,7 +45,7 @@ typedef struct ct_quic_stream_state_s {
 
 
 // QUIC context management
-ct_quic_socket_state_t* ct_create_quic_socket_state(const char* cert_file, 
+ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file, 
                                           const char* key_file, 
                                           ct_socket_manager_t* socket_manager,
                                           const ct_security_parameters_t* security_parameters,
