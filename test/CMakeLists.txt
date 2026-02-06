@@ -246,6 +246,7 @@ add_gtest(udp_close_callback_test
   WRAP_FUNCTIONS
     uv_close
     uv_udp_recv_stop
+  ASAN_ENABLED
 )
 
 add_gtest(tcp_close_callback_test
