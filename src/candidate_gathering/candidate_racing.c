@@ -19,7 +19,7 @@ static void on_stagger_timer(uv_timer_t* handle);
 static int racing_on_attempt_ready(struct ct_connection_s* connection);
 static int on_attempt_establishment_error(ct_connection_t* connection);
 static void cancel_all_other_attempts(ct_racing_context_t* context, size_t winning_index);
-static int start_connection_attempt(ct_racing_context_t* context, size_t attempt_index);
+static int start_specific_connection_attempt(ct_racing_context_t* context, size_t attempt_index);
 
 static void on_timer_close_free_context(uv_handle_t* handle) {
   ct_racing_context_t* context = (ct_racing_context_t*)handle->data;
@@ -118,7 +118,7 @@ static ct_racing_context_t* racing_context_create(GArray* candidate_nodes,
 /**
  * @brief Starts a single connection attempt.
  */
-static int start_connection_attempt(ct_racing_context_t* context, size_t attempt_index) {
+static int start_specific_connection_attempt(ct_racing_context_t* context, size_t attempt_index) {
   log_info("Starting connection attempt %zu/%zu", attempt_index + 1, context->num_attempts);
 
   if (attempt_index >= context->num_attempts) {
@@ -131,12 +131,20 @@ static int start_connection_attempt(ct_racing_context_t* context, size_t attempt
 
   log_debug("Attempting connection with protocol: %s", candidate->protocol_candidate->protocol_impl->name);
 
+  // Wrap callbacks so that we can intercept the succesful/failing attempts
+  ct_connection_callbacks_t attempt_callbacks = {
+    .ready = racing_on_attempt_ready,
+    .establishment_error = on_attempt_establishment_error,
+    .user_connection_context = attempt,
+  };
+
   // Allocate connection for this attempt
   attempt->connection = ct_connection_create_client(
     candidate->protocol_candidate->protocol_impl,
     candidate->local_endpoint,
     candidate->remote_endpoint,
     context->preconnection->security_parameters,
+    &attempt_callbacks,
     context->preconnection->framer_impl
   );
   if (attempt->connection == NULL) {
@@ -154,14 +162,6 @@ static int start_connection_attempt(ct_racing_context_t* context, size_t attempt
     ct_sec_param_set_property_string_array(attempt->connection->security_parameters, ALPN, (const char**)&attempt->candidate.protocol_candidate->alpn, 1);
   }
 
-  // Setup wrapped callbacks that point back to this attempt
-  ct_connection_callbacks_t attempt_callbacks = {
-    .ready = racing_on_attempt_ready,
-    .establishment_error = on_attempt_establishment_error,
-    .user_connection_context = attempt,
-  };
-
-  attempt->connection->connection_callbacks = attempt_callbacks;
   attempt->state = ATTEMPT_STATE_CONNECTING;
 
   int rc = 0;
@@ -347,7 +347,7 @@ static void initiate_next_attempt(ct_racing_context_t* context) {
     return;
   }
 
-  int rc = start_connection_attempt(context, context->next_attempt_index);
+  int rc = start_specific_connection_attempt(context, context->next_attempt_index);
   if (rc != 0) {
     log_warn("Failed to start attempt %zu: %d", context->next_attempt_index, rc);
   }

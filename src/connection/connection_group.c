@@ -248,6 +248,7 @@ void ct_connection_group_unref(ct_connection_group_t* group) {
     log_error("ct_connection_group_unref called with NULL parameter");
     return;
   }
+  log_trace("Unrefing connection group %s with ref count: %u", group->connection_group_id, group->ref_count);
   group->ref_count--;
   if (group->ref_count == 0) {
     ct_connection_group_free(group);
