@@ -18,6 +18,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <uv.h>
 
 ct_connection_t* ct_connection_create_empty_with_uuid() {
@@ -68,10 +69,17 @@ ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_
                                              const ct_local_endpoint_t* local_endpoint,
                                              const ct_remote_endpoint_t* remote_endpoint,
                                              const ct_security_parameters_t* security_parameters,
+                                             const ct_connection_callbacks_t* connection_callbacks,
                                              ct_framer_impl_t* framer_impl) {
   ct_connection_t* connection = ct_connection_create_empty_with_uuid();
   if (!connection) {
     log_error("Failed to create empty connection");
+    return NULL;
+  }
+  if (remote_endpoint->data.resolved_address.ss_family != AF_INET6 &&
+      remote_endpoint->data.resolved_address.ss_family != AF_INET) {
+    log_error("Remote endpoint has unsupported address family");
+    ct_connection_free(connection);
     return NULL;
   }
   ct_socket_manager_t* socket_manager = ct_socket_manager_new(protocol_impl, NULL);
@@ -95,6 +103,12 @@ ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_
   connection->local_endpoint = ct_local_endpoint_deep_copy(local_endpoint);
   connection->remote_endpoint = ct_remote_endpoint_deep_copy(remote_endpoint);
   connection->security_parameters = ct_security_parameters_deep_copy(security_parameters);
+  if (connection_callbacks) {
+    connection->connection_callbacks = *connection_callbacks;
+  }
+  else {
+    log_debug("No connection callbacks provided for client connection, using empty callbacks");
+  }
   connection->framer_impl = framer_impl; // TODO - ownership here?
 
   return connection;

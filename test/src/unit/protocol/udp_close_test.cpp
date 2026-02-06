@@ -39,115 +39,136 @@ extern "C" {
   }
 }
 
+
 class UdpCloseCallbackTest : public ::testing::Test {
 protected:
   void SetUp() override {
     ct_initialize();
-    ct_set_log_level(CT_LOG_DEBUG);
+    ct_set_log_level(CT_LOG_TRACE);
     RESET_FAKE(faked_uv_close);
     RESET_FAKE(faked_uv_udp_recv_stop);
     RESET_FAKE(mock_closed_cb);
+    RESET_FAKE(mock_connection_error);
     FFF_RESET_HISTORY();
     captured_close_cb = nullptr;
     captured_handle = nullptr;
 
     ct_local_endpoint_t* local_endpoint = ct_local_endpoint_new();
+    ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
 
-    memset(&connection, 0, sizeof(ct_connection_t));
-    ct_connection_build_with_new_connection_group(&connection);
-    connection.connection_group->socket_manager = ct_socket_manager_new(&udp_protocol_interface, nullptr);
-    connection.local_endpoint = ct_local_endpoint_new();
+    struct sockaddr_in sa = {
+        .sin_family = AF_INET,
+        .sin_port   = htons(12345),                 /* port in network byte order */
+        .sin_addr   = { .s_addr = htonl(INADDR_LOOPBACK) } /* 127.0.0.1 */
+    };
+
+    ct_remote_endpoint_from_sockaddr(remote_endpoint, (struct sockaddr_storage*)&sa);
+
+    ct_connection_callbacks_t attempt_callbacks = {
+      .connection_error = mock_connection_error,
+      .closed = mock_closed_cb,
+    };
+
+    connection = ct_connection_create_client(
+      &udp_protocol_interface,
+      local_endpoint,
+      remote_endpoint,
+      NULL,
+      &attempt_callbacks,
+      NULL
+    );
     free(local_endpoint);
-    connection.connection_callbacks.closed = mock_closed_cb;
-    connection.connection_callbacks.connection_error = mock_connection_error;
+    free(remote_endpoint);
+
     log_debug("Initializing first connection");
-    int rc = connection.connection_group->socket_manager->protocol_impl->init(&connection, nullptr);
+    log_debug("Connection group %p", (void*)connection->connection_group);
+    log_debug("Conneciton group's socket manager %p", (void*)connection->connection_group->socket_manager);
+    int rc = connection->connection_group->socket_manager->protocol_impl->init(connection, nullptr);
     ASSERT_EQ(rc, 0);
 
     // connection2 is set up minimally - it will be added to connection's group in group tests
-    memset(&connection2, 0, sizeof(ct_connection_t));
-    generate_uuid_string(connection2.uuid);
-    connection2.local_endpoint = ct_local_endpoint_new();
-    connection2.received_callbacks = g_queue_new();
-    connection2.received_messages = g_queue_new();
-    connection2.connection_callbacks.closed = mock_closed_cb;
-    connection2.connection_callbacks.connection_error = mock_connection_error;
+    connection2 = (ct_connection_t*)calloc(1, sizeof(ct_connection_t));
+    generate_uuid_string(connection2->uuid);
+    connection2->local_endpoint = ct_local_endpoint_new();
+    connection2->connection_callbacks = attempt_callbacks;
+    connection2->received_callbacks = g_queue_new();
+    connection2->received_messages = g_queue_new();
     log_debug("Initializing second connection");
     ASSERT_EQ(rc, 0);
   }
 
   void TearDown() override {
-    ct_connection_free_content(&connection);
-    ct_connection_free_content(&connection2);
+    ct_connection_free(connection);
+    ct_connection_free(connection2);
     ct_close();
   }
 
-  ct_connection_t connection;
-  ct_connection_t connection2;
+  ct_connection_t* connection;
+  ct_connection_t* connection2;
 };
 
 TEST_F(UdpCloseCallbackTest, closedCallbackInvokedOnConnectionClose) {
   // Act: close the UDP connection
-  connection.connection_group->socket_manager->protocol_impl->close(&connection);
+  connection->connection_group->socket_manager->protocol_impl->close(connection);
 
   // Verify uv_close was called
   ASSERT_EQ(faked_uv_close_fake.call_count, 1);
   ASSERT_NE(captured_close_cb, nullptr);
   ASSERT_EQ(mock_closed_cb_fake.call_count, 1);
-  ASSERT_EQ(mock_closed_cb_fake.arg0_val, &connection);
-  ASSERT_TRUE(ct_connection_is_closed(&connection));
+  ASSERT_EQ(mock_closed_cb_fake.arg0_val, connection);
+  ASSERT_TRUE(ct_connection_is_closed(connection));
 }
 
 TEST_F(UdpCloseCallbackTest, ConnectionErrorCallbackInvokedOnConnectionAbort) {
   // Act: abort the UDP connection
-  ct_connection_abort(&connection);
+  ct_connection_abort(connection);
 
   // Verify uv_close was called
   ASSERT_EQ(faked_uv_close_fake.call_count, 1);
   ASSERT_NE(captured_close_cb, nullptr);
   ASSERT_EQ(mock_closed_cb_fake.call_count, 0);
   ASSERT_EQ(mock_connection_error_fake.call_count, 1);
-  ASSERT_EQ(mock_connection_error_fake.arg0_val, &connection);
+  ASSERT_EQ(mock_connection_error_fake.arg0_val, connection);
 }
 
 TEST_F(UdpCloseCallbackTest, ClosedCallbackInvokedOnGroupClose) {
   // Arrange: set up a connection group with two connections
-  ct_connection_group_add_connection(connection.connection_group, &connection2);
-  connection2.connection_group->socket_manager->protocol_impl->init(&connection2, nullptr);
+  ct_connection_group_add_connection(connection->connection_group, connection2);
+  connection2->connection_group->socket_manager->protocol_impl->init(connection2, nullptr);
 
   // Act: close the UDP connection
-  ct_connection_close_group(&connection2);
+  ct_connection_close_group(connection2);
 
   // Verify uv_close was called
   ASSERT_EQ(faked_uv_close_fake.call_count, 2);
   ASSERT_NE(captured_close_cb, nullptr);
   ASSERT_EQ(mock_closed_cb_fake.call_count, 2);
   // Check both connections received closed callback (order not guaranteed due to hash table iteration)
-  bool conn1_found = (mock_closed_cb_fake.arg0_history[0] == &connection ||
-                      mock_closed_cb_fake.arg0_history[1] == &connection);
-  bool conn2_found = (mock_closed_cb_fake.arg0_history[0] == &connection2 ||
-                      mock_closed_cb_fake.arg0_history[1] == &connection2);
+  bool conn1_found = (mock_closed_cb_fake.arg0_history[0] == connection ||
+                      mock_closed_cb_fake.arg0_history[1] == connection);
+  bool conn2_found = (mock_closed_cb_fake.arg0_history[0] == connection2 ||
+                      mock_closed_cb_fake.arg0_history[1] == connection2);
   ASSERT_TRUE(conn1_found);
   ASSERT_TRUE(conn2_found);
 }
 
 TEST_F(UdpCloseCallbackTest, ConnectionErrorCallbackInvokedOnGroupAbort) {
   // Arrange: set up a connection group with two connections
-  ct_connection_group_add_connection(connection.connection_group, &connection2);
-  connection2.connection_group->socket_manager->protocol_impl->init(&connection2, nullptr);
+  ct_connection_group_add_connection(connection->connection_group, connection2);
+  connection2->connection_group->socket_manager->protocol_impl->init(connection2, nullptr);
 
   // Act: close the UDP connection
-  ct_connection_abort_group(&connection);
+  ct_connection_abort_group(connection);
 
   // Verify uv_close was called
   ASSERT_EQ(faked_uv_close_fake.call_count, 2);
   ASSERT_NE(captured_close_cb, nullptr);
   ASSERT_EQ(mock_connection_error_fake.call_count, 2);
   // Check both connections received error callback (order not guaranteed due to hash table iteration)
-  bool conn1_found = (mock_connection_error_fake.arg0_history[0] == &connection ||
-                      mock_connection_error_fake.arg0_history[1] == &connection);
-  bool conn2_found = (mock_connection_error_fake.arg0_history[0] == &connection2 ||
-                      mock_connection_error_fake.arg0_history[1] == &connection2);
+  bool conn1_found = (mock_connection_error_fake.arg0_history[0] == connection ||
+                      mock_connection_error_fake.arg0_history[1] == connection);
+  bool conn2_found = (mock_connection_error_fake.arg0_history[0] == connection2 ||
+                      mock_connection_error_fake.arg0_history[1] == connection2);
   ASSERT_TRUE(conn1_found);
   ASSERT_TRUE(conn2_found);
 }
