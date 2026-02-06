@@ -117,14 +117,11 @@ void on_abort(uv_handle_t* handle) {
   else {
     log_debug("Connection error callback not set, on abort");
   }
-  // TCP connections are standalone - decrement socket_manager ref to allow cleanup
-  socket_manager_decrement_ref(conn_state->connection->connection_group->socket_manager);
 }
 
 void on_stop_listen(uv_handle_t* handle) {
-  ct_tcp_socket_state_t* conn_state = (ct_tcp_socket_state_t*)handle->data;
-  tcp_connection_state_free(conn_state);
-  free(handle);
+  // TODO - invoke stopped callback for listener
+  (void)handle;
 }
 
 void on_close(uv_handle_t* handle) {
@@ -137,8 +134,6 @@ void on_close(uv_handle_t* handle) {
   else {
     log_debug("Connection closed callback not set, when closing");
   }
-  // TCP connections are standalone - decrement socket_manager ref to allow cleanup
-  socket_manager_decrement_ref(conn_state->connection->connection_group->socket_manager);
 }
 
 void tcp_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
@@ -542,7 +537,6 @@ int tcp_stop_listen(ct_socket_manager_t* socket_manager) {
 
   if (socket_manager->internal_socket_manager_state) {
     uv_close((uv_handle_t*)socket_manager->internal_socket_manager_state, on_stop_listen);
-    socket_manager->internal_socket_manager_state = NULL;
   }
   return 0;
 }
