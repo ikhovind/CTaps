@@ -117,6 +117,7 @@ void on_send(uv_udp_send_t* req, int status) {
     udp_send_data_t* send_data = (udp_send_data_t*)req->data;
     ct_message_free(send_data->message);
     ct_message_context_free(send_data->message_context);
+    free(send_data);
   }
   free(req);
 }

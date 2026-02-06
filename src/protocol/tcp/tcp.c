@@ -59,26 +59,28 @@ const ct_protocol_impl_t tcp_protocol_interface = {
     .free_connection_group_state = tcp_free_connection_group_state,
 };
 
-typedef struct tcp_connection_state_s {
+// Per-socket TCP state
+// Since every TCP connection has its own socket, tcp has no other protocol state
+typedef struct ct_tcp_socket_state_s {
   ct_connection_t* connection;
   ct_listener_t* listener;
   ct_message_t* initial_message;
   ct_message_context_t* initial_message_context;
   uv_connect_t* connect_req; // To be freed in tests etc. when we don't run the full connect flow
-} tcp_connection_state_t;
+} ct_tcp_socket_state_t;
 
-tcp_connection_state_t* tcp_connection_state_new(ct_connection_t* connection,
+ct_tcp_socket_state_t* ct_tcp_socket_state_new(ct_connection_t* connection,
                                                  ct_listener_t* listener,
                                                  ct_message_t* initial_message,
                                                  ct_message_context_t* initial_message_context,
                                                  uv_connect_t* connect_req
                                                  ) {
-  tcp_connection_state_t* state = malloc(sizeof(tcp_connection_state_t));
+  ct_tcp_socket_state_t* state = malloc(sizeof(ct_tcp_socket_state_t));
   if (!state) {
     log_error("Failed to allocate memory for TCP connection state");
     return NULL;
   }
-  memset(state, 0, sizeof(tcp_connection_state_t));
+  memset(state, 0, sizeof(ct_tcp_socket_state_t));
   state->connection = connection;
   state->listener = listener;
   state->initial_message = initial_message;
@@ -87,7 +89,7 @@ tcp_connection_state_t* tcp_connection_state_new(ct_connection_t* connection,
   return state;
 }
 
-void tcp_connection_state_free(tcp_connection_state_t* state) {
+void tcp_connection_state_free(ct_tcp_socket_state_t* state) {
   if (!state) {
     log_warn("Attempted to free NULL TCP connection state");
   }
@@ -106,7 +108,7 @@ static void alloc_cb(uv_handle_t* handle, size_t size, uv_buf_t* buf) {
 }
 
 void on_abort(uv_handle_t* handle) {
-  tcp_connection_state_t* conn_state = (tcp_connection_state_t*)handle->data;
+  ct_tcp_socket_state_t* conn_state = (ct_tcp_socket_state_t*)handle->data;
   ct_connection_mark_as_closed(conn_state->connection);
   if (conn_state->connection->connection_callbacks.connection_error) {
     log_debug("Invoking connection connection error callback due to abort");
@@ -120,18 +122,13 @@ void on_abort(uv_handle_t* handle) {
 }
 
 void on_stop_listen(uv_handle_t* handle) {
-  tcp_connection_state_t* conn_state = (tcp_connection_state_t*)handle->data;
+  ct_tcp_socket_state_t* conn_state = (ct_tcp_socket_state_t*)handle->data;
   tcp_connection_state_free(conn_state);
   free(handle);
 }
 
 void on_close(uv_handle_t* handle) {
-  tcp_connection_state_t* conn_state = (tcp_connection_state_t*)handle->data;
-  if (!conn_state || !conn_state->connection) {
-    // TODO - this protects a double free, need to investigate why it happens
-    log_warn("TCP on_close called with NULL connection state");
-    return;
-  }
+  ct_tcp_socket_state_t* conn_state = (ct_tcp_socket_state_t*)handle->data;
   ct_connection_mark_as_closed(conn_state->connection);
   if (conn_state->connection->connection_callbacks.closed) {
     log_debug("Invoking connection closed callback on close");
@@ -145,7 +142,7 @@ void on_close(uv_handle_t* handle) {
 }
 
 void tcp_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
-  tcp_connection_state_t* conn_state = (tcp_connection_state_t*)handle->data;
+  ct_tcp_socket_state_t* conn_state = (ct_tcp_socket_state_t*)handle->data;
   ct_connection_t* connection = conn_state->connection;
   if (nread == UV_EOF) {
     log_info("TCP connection closed by peer");
@@ -173,7 +170,7 @@ void tcp_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
 }
 
 void on_clone_connect(struct uv_connect_s *req, int status) {
-  tcp_connection_state_t* conn_state = (tcp_connection_state_t*)req->handle->data;
+  ct_tcp_socket_state_t* conn_state = (ct_tcp_socket_state_t*)req->handle->data;
   ct_connection_t* connection = conn_state->connection;
 
   if (status < 0) {
@@ -203,7 +200,7 @@ void on_clone_connect(struct uv_connect_s *req, int status) {
 }
 
 void on_connect(struct uv_connect_s *req, int status) {
-  tcp_connection_state_t* conn_state = (tcp_connection_state_t*)req->handle->data;
+  ct_tcp_socket_state_t* conn_state = (ct_tcp_socket_state_t*)req->handle->data;
   ct_connection_t* connection = conn_state->connection;
   if (status < 0) {
     log_error("ct_connection_t error: %s", uv_strerror(status));
@@ -226,7 +223,7 @@ void on_connect(struct uv_connect_s *req, int status) {
 }
 
 void on_write(uv_write_t* req, int status) {
-  tcp_connection_state_t* conn_state = (tcp_connection_state_t*)req->handle->data;
+  ct_tcp_socket_state_t* conn_state = (ct_tcp_socket_state_t*)req->handle->data;
   ct_connection_t* connection = conn_state->connection;
   ct_message_t* message = (ct_message_t*)req->data;
 
@@ -275,7 +272,7 @@ int tcp_init_with_send(ct_connection_t* connection, const ct_connection_callback
   }
 
   uv_connect_t* connect_req = malloc(sizeof(uv_connect_t));
-  tcp_connection_state_t* conn_state = tcp_connection_state_new(connection, NULL, initial_message, initial_message_context, connect_req);
+  ct_tcp_socket_state_t* conn_state = ct_tcp_socket_state_new(connection, NULL, initial_message, initial_message_context, connect_req);
   if (!conn_state) {
     log_error("Failed to allocate memory for TCP connection state");
     uv_close((uv_handle_t*)new_tcp_handle, on_close);
@@ -342,7 +339,7 @@ int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
   }
 
   uv_connect_t* connect_req = malloc(sizeof(uv_connect_t));
-  new_tcp_handle->data = tcp_connection_state_new(connection, NULL, NULL, NULL, connect_req);
+  new_tcp_handle->data = ct_tcp_socket_state_new(connection, NULL, NULL, NULL, connect_req);
   if (!new_tcp_handle->data) {
     log_error("Failed to allocate memory for TCP connection state");
     uv_close((uv_handle_t*)new_tcp_handle, on_close);
@@ -463,7 +460,7 @@ int tcp_listen(ct_socket_manager_t* socket_manager) {
   }
 
   socket_manager->internal_socket_manager_state = (uv_handle_t*)new_tcp_handle;
-  new_tcp_handle->data = tcp_connection_state_new(NULL, listener, NULL, NULL, NULL);
+  new_tcp_handle->data = ct_tcp_socket_state_new(NULL, listener, NULL, NULL, NULL);
 
   return 0;
 }
@@ -487,7 +484,7 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
     return;
   }
 
-  tcp_connection_state_t* conn_state = server->data;
+  ct_tcp_socket_state_t* conn_state = server->data;
   ct_listener_t* listener = conn_state->listener;
 
   rc = uv_accept(server, (uv_stream_t*)client);
@@ -518,7 +515,7 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
     return;
   }
 
-  client->data = tcp_connection_state_new(connection, listener, NULL, NULL, NULL);
+  client->data = ct_tcp_socket_state_new(connection, listener, NULL, NULL, NULL);
   connection->internal_connection_state = (uv_handle_t*)client;
 
   rc = uv_read_start((uv_stream_t*)client, alloc_cb, tcp_on_read);
@@ -591,7 +588,7 @@ int tcp_clone_connection(const struct ct_connection_s* source_connection,
 
   target_connection->internal_connection_state = (uv_handle_t*)new_tcp_handle;
   uv_connect_t* connect_req = malloc(sizeof(uv_connect_t));
-  new_tcp_handle->data = tcp_connection_state_new(target_connection, NULL, NULL, NULL, connect_req);
+  new_tcp_handle->data = ct_tcp_socket_state_new(target_connection, NULL, NULL, NULL, connect_req);
 
   // Copy TCP keepalive settings
   uint32_t keepalive_timeout = target_connection->transport_properties
@@ -641,7 +638,7 @@ int tcp_free_state(ct_connection_t* connection) {
     return -EINVAL;
   }
   uv_handle_t* handle = (uv_handle_t*)connection->internal_connection_state;
-  tcp_connection_state_t* conn_state = (tcp_connection_state_t*)handle->data;
+  ct_tcp_socket_state_t* conn_state = (ct_tcp_socket_state_t*)handle->data;
 
   tcp_connection_state_free(conn_state);
   free(handle);

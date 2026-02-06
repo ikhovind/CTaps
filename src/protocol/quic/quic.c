@@ -108,7 +108,7 @@ static void quic_context_timer_close_cb(uv_handle_t* handle) {
   }
 }
 
-ct_quic_socket_state_t* ct_create_quic_socket_state(const char* cert_file,
+ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
                                           const char* key_file,
                                           ct_socket_manager_t* socket_manager,
                                           const ct_security_parameters_t* security_parameters,
@@ -122,50 +122,50 @@ ct_quic_socket_state_t* ct_create_quic_socket_state(const char* cert_file,
 
   const char* ticket_store_path = ct_sec_param_get_ticket_store_path(security_parameters);
 
-  ct_quic_socket_state_t* quic_ctx = malloc(sizeof(ct_quic_socket_state_t));
-  if (!quic_ctx) {
+  ct_quic_socket_state_t* socket_state = malloc(sizeof(ct_quic_socket_state_t));
+  if (!socket_state) {
     log_error("Failed to allocate memory for QUIC context");
     return NULL;
   }
-  memset(quic_ctx, 0, sizeof(ct_quic_socket_state_t));
+  memset(socket_state, 0, sizeof(ct_quic_socket_state_t));
 
-  quic_ctx->initial_message = initial_message;
-  quic_ctx->initial_message_context = initial_message_context;
+  socket_state->initial_message = initial_message;
+  socket_state->initial_message_context = initial_message_context;
 
   // Store certificate file names (deep copy)
-  quic_ctx->cert_file_name = strdup(cert_file);
-  if (!quic_ctx->cert_file_name) {
+  socket_state->cert_file_name = strdup(cert_file);
+  if (!socket_state->cert_file_name) {
     log_error("Failed to duplicate certificate file name");
-    free(quic_ctx);
+    free(socket_state);
     return NULL;
   }
 
-  quic_ctx->key_file_name = strdup(key_file);
-  if (!quic_ctx->key_file_name) {
+  socket_state->key_file_name = strdup(key_file);
+  if (!socket_state->key_file_name) {
     log_error("Failed to duplicate key file name");
-    free(quic_ctx->cert_file_name);
-    free(quic_ctx);
+    free(socket_state->cert_file_name);
+    free(socket_state);
     return NULL;
   }
 
-  quic_ctx->socket_manager = ct_socket_manager_ref(socket_manager);
-  socket_manager->internal_socket_manager_state = quic_ctx;
+  socket_state->socket_manager = ct_socket_manager_ref(socket_manager);
+  socket_manager->internal_socket_manager_state = socket_state;
 
   // Store ticket store path for 0-RTT session persistence
   if (ticket_store_path) {
     log_trace("Setting ticket store path to %s for QUIC context", ticket_store_path);
-    quic_ctx->ticket_store_path = strdup(ticket_store_path);
-    if (!quic_ctx->ticket_store_path) {
+    socket_state->ticket_store_path = strdup(ticket_store_path);
+    if (!socket_state->ticket_store_path) {
       log_error("Failed to duplicate ticket store path");
-      ct_socket_manager_unref(quic_ctx->socket_manager);
-      free(quic_ctx->key_file_name);
-      free(quic_ctx->cert_file_name);
-      free(quic_ctx);
+      ct_socket_manager_unref(socket_state->socket_manager);
+      free(socket_state->key_file_name);
+      free(socket_state->cert_file_name);
+      free(socket_state);
       return NULL;
     }
   } else {
     log_trace("Ticket store path not specified in security parameters for QUIC context");
-    quic_ctx->ticket_store_path = NULL;
+    socket_state->ticket_store_path = NULL;
   }
 
   size_t out_num_alpns = 0;
@@ -173,16 +173,16 @@ ct_quic_socket_state_t* ct_create_quic_socket_state(const char* cert_file,
   const char** alpn_strings = ct_sec_param_get_alpn_strings(security_parameters, &out_num_alpns);
   if (!alpn_strings) {
     log_error("No ALPN strings specified in security parameters for QUIC context");
-    free(quic_ctx->ticket_store_path);
-    free(quic_ctx->key_file_name);
-    free(quic_ctx->cert_file_name);
+    free(socket_state->ticket_store_path);
+    free(socket_state->key_file_name);
+    free(socket_state->cert_file_name);
     return NULL;
   }
   if (out_num_alpns == 0) {
     log_error("ALPN string array is empty in security parameters for QUIC context");
-    free(quic_ctx->ticket_store_path);
-    free(quic_ctx->key_file_name);
-    free(quic_ctx->cert_file_name);
+    free(socket_state->ticket_store_path);
+    free(socket_state->key_file_name);
+    free(socket_state->cert_file_name);
     return NULL;
   }
 
@@ -198,14 +198,14 @@ ct_quic_socket_state_t* ct_create_quic_socket_state(const char* cert_file,
   }
 
   // Create picoquic context
-  quic_ctx->picoquic_ctx = picoquic_create(
+  socket_state->picoquic_ctx = picoquic_create(
       MAX_CONCURRENT_QUIC_CONNECTIONS,
-      quic_ctx->cert_file_name,
-      quic_ctx->key_file_name,
+      socket_state->cert_file_name,
+      socket_state->key_file_name,
       NULL,
       alpn_strings[0],
       picoquic_callback,
-      quic_ctx,   // Default callback context is the quic_context
+      socket_state,   // Default callback context is the quic_context
       NULL,
       NULL,
       NULL,
@@ -216,44 +216,44 @@ ct_quic_socket_state_t* ct_create_quic_socket_state(const char* cert_file,
       ticket_key_length
   );
 
-  if (!quic_ctx->picoquic_ctx) {
+  if (!socket_state->picoquic_ctx) {
     log_error("Failed to create picoquic context");
-    free(quic_ctx->ticket_store_path);
-    free(quic_ctx->key_file_name);
-    free(quic_ctx->cert_file_name);
-    free(quic_ctx);
+    free(socket_state->ticket_store_path);
+    free(socket_state->key_file_name);
+    free(socket_state->cert_file_name);
+    free(socket_state);
     return NULL;
   }
 
   // Set up timer handle for this context
-  quic_ctx->timer_handle = malloc(sizeof(uv_timer_t));
-  if (!quic_ctx->timer_handle) {
+  socket_state->timer_handle = malloc(sizeof(uv_timer_t));
+  if (!socket_state->timer_handle) {
     log_error("Failed to allocate memory for QUIC context timer");
-    picoquic_free(quic_ctx->picoquic_ctx);
-    free(quic_ctx->ticket_store_path);
-    free(quic_ctx->key_file_name);
-    free(quic_ctx->cert_file_name);
-    free(quic_ctx);
+    picoquic_free(socket_state->picoquic_ctx);
+    free(socket_state->ticket_store_path);
+    free(socket_state->key_file_name);
+    free(socket_state->cert_file_name);
+    free(socket_state);
     return NULL;
   }
 
-  int rc = uv_timer_init(event_loop, quic_ctx->timer_handle);
+  int rc = uv_timer_init(event_loop, socket_state->timer_handle);
   if (rc < 0) {
     log_error("Error initializing QUIC context timer: %s", uv_strerror(rc));
-    free(quic_ctx->timer_handle);
-    picoquic_free(quic_ctx->picoquic_ctx);
-    free(quic_ctx->ticket_store_path);
-    free(quic_ctx->key_file_name);
-    free(quic_ctx->cert_file_name);
-    free(quic_ctx);
+    free(socket_state->timer_handle);
+    picoquic_free(socket_state->picoquic_ctx);
+    free(socket_state->ticket_store_path);
+    free(socket_state->key_file_name);
+    free(socket_state->cert_file_name);
+    free(socket_state);
     return NULL;
   }
 
   // Store context pointer in timer for access in callback
-  quic_ctx->timer_handle->data = quic_ctx;
+  socket_state->timer_handle->data = socket_state;
 
   log_debug("Created QUIC context with cert=%s, key=%s", cert_file, key_file);
-  return quic_ctx;
+  return socket_state;
 }
 
 void ct_close_quic_context(ct_quic_socket_state_t* quic_ctx) {
@@ -1121,7 +1121,7 @@ int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbac
     return -EINVAL;
   }
 
-  ct_quic_socket_state_t* quic_context = ct_create_quic_socket_state(
+  ct_quic_socket_state_t* quic_context = ct_quic_socket_state_new(
     cert_file,
     key_file,
     connection->connection_group->socket_manager,
@@ -1266,7 +1266,7 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
     return -EINVAL;
   }
 
-  ct_quic_socket_state_t* quic_context = ct_create_quic_socket_state(
+  ct_quic_socket_state_t* quic_context = ct_quic_socket_state_new(
     cert_file,
     key_file,
     connection->connection_group->socket_manager,
@@ -1534,7 +1534,7 @@ int quic_listen(ct_socket_manager_t* socket_manager) {
   }
 
   // Create QUIC context for this listener
-  ct_quic_socket_state_t* socket_state = ct_create_quic_socket_state(
+  ct_quic_socket_state_t* socket_state = ct_quic_socket_state_new(
     cert_file,
     key_file,
     listener->socket_manager,
