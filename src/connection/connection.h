@@ -4,6 +4,19 @@
 #include "ctaps.h"
 #include "connection_group.h"
 
+ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_impl,
+                                             const ct_local_endpoint_t* local_endpoint,
+                                             const ct_remote_endpoint_t* remote_endpoint,
+                                             const ct_security_parameters_t* security_parameters,
+                                             const ct_connection_callbacks_t* connection_callbacks,
+                                             ct_framer_impl_t* framer_impl);
+
+ct_connection_t* ct_connection_create_server_connection(ct_socket_manager_t* socket_manager,
+                                             const ct_remote_endpoint_t* remote_endpoint,
+                                             const ct_security_parameters_t* security_parameters,
+                                             ct_framer_impl_t* framer_impl
+                                             );
+
 /**
  * @brief Initialize a connection with zeroed memory and generate a UUID.
  *
@@ -36,7 +49,7 @@ void ct_connection_on_protocol_receive(ct_connection_t* connection,
   *
   * @return Pointer to newly created empty connection, or NULL on error
   */
-ct_connection_t* create_empty_connection_with_uuid();
+ct_connection_t* ct_connection_create_empty_with_uuid();
 
 /**
  * @brief Mark a connection as established.
@@ -74,9 +87,14 @@ void ct_connection_free_content(ct_connection_t* connection);
  * This is used for creating additional streams in QUIC or cloning UDP connections.
  *
  * @param[in] src_clone Source connection to clone from
+ * @param[in] framer_impl Optional framer, if not set it will copy the framer from the source connection
+ * @param[in] internal_connection_state Optional protocol-specific internal state for the new connection, if not set internal state will be NULL
  * @return Pointer to newly created connection, or NULL on error
  */
-ct_connection_t* ct_connection_create_clone(const ct_connection_t* src_clone);
+ct_connection_t* ct_connection_create_clone(const ct_connection_t* src_clone,
+                                            ct_framer_impl_t* framer_impl,
+                                            void* internal_connection_state
+                                            );
 
 /**
  * @brief Set the can send connection property

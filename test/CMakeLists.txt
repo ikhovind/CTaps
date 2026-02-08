@@ -241,11 +241,12 @@ add_gtest(message_unit_test
 
 add_gtest(udp_close_callback_test
   SOURCES
-    src/unit/protocol/udp_close_test.cpp
+    src/unit/protocol/udp_close_callback_test.cpp
     ${CTAPS_SOURCES}
   WRAP_FUNCTIONS
     uv_close
     uv_udp_recv_stop
+  ASAN_ENABLED
 )
 
 add_gtest(tcp_close_callback_test
@@ -255,6 +256,7 @@ add_gtest(tcp_close_callback_test
   WRAP_FUNCTIONS
     uv_close
     uv_tcp_close_reset
+  ASAN_ENABLED
 )
 
 add_gtest(quic_close_callback_test

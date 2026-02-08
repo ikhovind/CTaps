@@ -1310,7 +1310,7 @@ CT_EXTERN int ct_remote_endpoint_resolve(const ct_remote_endpoint_t* remote_endp
  * @param[in] remote_endpoint Source endpoint
  * @return Pointer to newly allocated copy, or NULL on error
  */
-ct_remote_endpoint_t* remote_endpoint_copy(const ct_remote_endpoint_t* remote_endpoint);
+ct_remote_endpoint_t* ct_remote_endpoint_deep_copy(const ct_remote_endpoint_t* remote_endpoint);
 
 /**
  * @brief Create a stack copy of a remote endpoint's content.

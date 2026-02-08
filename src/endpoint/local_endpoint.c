@@ -141,7 +141,7 @@ ct_local_endpoint_t ct_local_endpoint_copy_content(const ct_local_endpoint_t* lo
   return res;
 }
 
-ct_local_endpoint_t* local_endpoint_copy(const ct_local_endpoint_t* local_endpoint) {
+ct_local_endpoint_t* ct_local_endpoint_deep_copy(const ct_local_endpoint_t* local_endpoint) {
   ct_local_endpoint_t* res = malloc(sizeof(ct_local_endpoint_t));
   *res = ct_local_endpoint_copy_content(local_endpoint);
   return res;
@@ -191,4 +191,3 @@ void local_endpoint_set_resolved_address(ct_local_endpoint_t* local_endpoint, co
   }
   local_endpoint->data.resolved_address = *resolved_address;
 }
-
