@@ -361,7 +361,8 @@ picoquic_cnx_t* ct_connection_get_picoquic_connection(const ct_connection_t* con
 
 ct_quic_socket_state_t* ct_connection_get_quic_socket_state(const ct_connection_t* connection) {
   if (!connection || !connection->socket_manager) {
-    log_error("Cannot get QUIC context, connection or socket manager is NULL");
+    log_error("Cannot get QUIC socket state, connection or socket manager is NULL");
+    log_debug("Connection: %p, connection->socket_manager: %p", connection, connection ? connection->socket_manager : NULL);
     return NULL;
   }
   return (ct_quic_socket_state_t*)connection->socket_manager->internal_socket_manager_state;
@@ -698,7 +699,7 @@ int picoquic_callback(picoquic_cnx_t* cnx,
               return rc;
             }
 
-            ct_quic_socket_state_t* socket_state = ct_connection_get_quic_socket_state(connection);
+            ct_quic_socket_state_t* socket_state = ct_connection_get_quic_socket_state(first_connection);
             ct_listener_t* listener = socket_state->socket_manager->listener;
             if (listener) {
               ct_connection_mark_as_established(new_stream_connection);

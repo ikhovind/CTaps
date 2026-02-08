@@ -142,6 +142,7 @@ TEST_F(TcpCloseCallbackTest, ConnectionErrorCallbackInvokedOnConnectionAbort) {
 TEST_F(TcpCloseCallbackTest, ClosedCallbackInvokedOnGroupClose) {
   // Arrange: set up a connection group with two connections
   ct_connection_group_add_connection(connection->connection_group, connection2);
+  connection2->socket_manager = ct_socket_manager_ref(connection->socket_manager);
   connection2->socket_manager->protocol_impl->init(connection2, nullptr);
 
   // Act: close the TCP connection
@@ -163,6 +164,7 @@ TEST_F(TcpCloseCallbackTest, ClosedCallbackInvokedOnGroupClose) {
 TEST_F(TcpCloseCallbackTest, ConnectionErrorCallbackInvokedOnGroupAbort) {
   // Arrange: set up a connection group with two connections
   ct_connection_group_add_connection(connection->connection_group, connection2);
+  connection2->socket_manager = ct_socket_manager_ref(connection->socket_manager);
   connection2->socket_manager->protocol_impl->init(connection2, nullptr);
 
   // Act: close the TCP connection

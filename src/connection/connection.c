@@ -54,6 +54,7 @@ ct_connection_t* ct_connection_create_server_connection(ct_socket_manager_t* soc
 
   ct_connection_group_add_connection(group, connection);
   connection->transport_properties = socket_manager->listener->transport_properties;
+  connection->socket_manager = ct_socket_manager_ref(socket_manager);
   connection->local_endpoint = ct_local_endpoint_deep_copy(&socket_manager->listener->local_endpoint);
   connection->remote_endpoint = ct_remote_endpoint_deep_copy(remote_endpoint);
   connection->role = CONNECTION_ROLE_SERVER;
