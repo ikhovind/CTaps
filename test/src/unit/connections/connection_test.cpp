@@ -65,7 +65,7 @@ TEST(ConnectionUnitTests, SendMessageWithFinalSetsCanSendToFalse) {
     ct_connection_build_with_new_connection_group(&connection);
     ct_connection_set_can_send(&connection, true);
 
-    connection.connection_group->socket_manager = &socket_manager;
+    connection.socket_manager = &socket_manager;
 
     // Create message with FINAL property
     ct_message_t* message = ct_message_new_with_content("final message", 14);
