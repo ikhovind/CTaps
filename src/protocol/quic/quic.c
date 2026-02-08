@@ -60,7 +60,7 @@ const ct_protocol_impl_t quic_protocol_interface = {
     .abort = quic_abort,
     .clone_connection = quic_clone_connection,
     .remote_endpoint_from_peer = quic_remote_endpoint_from_peer,
-    .free_state = quic_free_state
+    .free_connection_state = quic_free_state
 };
 
 int picoquic_callback(picoquic_cnx_t* cnx,
@@ -263,7 +263,6 @@ void ct_close_quic_context(ct_quic_socket_state_t* quic_ctx) {
   log_trace("Closing QUIC context");
   if (quic_ctx->timer_handle) {
     uv_timer_stop(quic_ctx->timer_handle);
-    // Callback will handle freeing
     uv_close((uv_handle_t*)quic_ctx->timer_handle, quic_context_timer_close_cb);
   }
   if (quic_ctx->udp_handle) {
@@ -449,7 +448,9 @@ int handle_closed_picoquic_connection(ct_connection_group_t* connection_group) {
     log_error("Cannot handle closed picoquic connection: connection group is NULL");
     return -EINVAL;
   }
+  log_debug("Handling closed picoquic connection for connection group %s", connection_group->connection_group_id);
 
+  ct_socket_manager_t* socket_manager = NULL;
   // Mark all connections as closed and invoke their closed callbacks
   GHashTableIter iter;
   gpointer key, value;
@@ -457,14 +458,23 @@ int handle_closed_picoquic_connection(ct_connection_group_t* connection_group) {
   while (g_hash_table_iter_next(&iter, &key, &value)) {
     ct_connection_t* connection = (ct_connection_t*)value;
     ct_connection_mark_as_closed(connection);
+    socket_manager = connection->socket_manager;
+    // hvodan vet man når man skal lukke en socket manager
     if (connection->connection_callbacks.closed) {
       connection->connection_callbacks.closed(connection);
     }
   }
 
-  ct_quic_connection_group_state_t* group_state = (ct_quic_connection_group_state_t*)connection_group->connection_group_state;
-
-  ct_free_quic_connection_group_state(group_state);
+  // For QUIC we know that a connection group always shares a single
+  // socket manager, so it is safe to perform this check outside the
+  // loop closing socket managers.
+  if (socket_manager && ct_socket_manager_get_num_open_connections(socket_manager) == 0) {
+    ct_quic_socket_state_t* socket_state = socket_manager->internal_socket_manager_state;
+    ct_close_quic_context(socket_state);
+  }
+  // ct_quic_connection_group_state_t* group_state = (ct_quic_connection_group_state_t*)connection_group->connection_group_state;
+  //
+  // ct_free_quic_connection_group_state(group_state);
   return 0;
 }
 
@@ -474,20 +484,27 @@ int handle_aborted_picoquic_connection_group(ct_connection_group_t* connection_g
     return -EINVAL;
   }
 
-  // Mark all connections as closed and invoke their error callbacks
+  ct_socket_manager_t* socket_manager = NULL;
+
   GHashTableIter iter;
   gpointer key, value;
   g_hash_table_iter_init(&iter, connection_group->connections);
   while (g_hash_table_iter_next(&iter, &key, &value)) {
     ct_connection_t* connection = (ct_connection_t*)value;
+    socket_manager = connection->socket_manager;
     ct_connection_mark_as_closed(connection);
     if (connection->connection_callbacks.connection_error) {
       connection->connection_callbacks.connection_error(connection);
     }
   }
 
-  // Close the QUIC context (timer handle)
-  ct_free_quic_connection_group_state((ct_quic_connection_group_state_t*)connection_group->connection_group_state);
+  // For QUIC we know that a connection group always shares a single
+  // socket manager, so it is safe to perform this check outside the
+  // loop closing socket managers.
+  if (socket_manager && ct_socket_manager_get_num_open_connections(socket_manager) == 0) {
+    ct_quic_socket_state_t* socket_state = socket_manager->internal_socket_manager_state;
+    ct_close_quic_context(socket_state);
+  }
 
   return 0;
 }
@@ -681,6 +698,7 @@ int picoquic_callback(picoquic_cnx_t* cnx,
               return rc;
             }
 
+            ct_quic_socket_state_t* socket_state = ct_connection_get_quic_socket_state(connection);
             ct_listener_t* listener = socket_state->socket_manager->listener;
             if (listener) {
               ct_connection_mark_as_established(new_stream_connection);
@@ -1630,6 +1648,6 @@ void ct_free_quic_connection_group_state(ct_quic_connection_group_state_t* group
     log_warn("QUIC group state is NULL in close function");
     return;
   }
-  picoquic_delete_cnx(group_state->picoquic_connection);
+  // TODO - do we need to do anything with cnx?
   free(group_state);
 }

@@ -49,7 +49,6 @@ ct_connection_t* ct_connection_create_server_connection(ct_socket_manager_t* soc
   if (!group) {
     log_error("Failed to get or create connection group for new server connection");
     ct_connection_free(connection);
-    ct_socket_manager_unref(socket_manager);
     return NULL;
   }
 
@@ -100,6 +99,7 @@ ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_
     return NULL;
   }
 
+  connection->socket_manager = ct_socket_manager_ref(socket_manager);
   connection->local_endpoint = ct_local_endpoint_deep_copy(local_endpoint);
   connection->remote_endpoint = ct_remote_endpoint_deep_copy(remote_endpoint);
   connection->security_parameters = ct_security_parameters_deep_copy(security_parameters);
@@ -129,6 +129,7 @@ ct_connection_t* ct_connection_create_clone(const ct_connection_t* source_connec
   clone->security_parameters = ct_security_parameters_deep_copy(source_connection->security_parameters);
   clone->local_endpoint = ct_local_endpoint_deep_copy(source_connection->local_endpoint);
   clone->remote_endpoint = ct_remote_endpoint_deep_copy(source_connection->remote_endpoint);
+  clone->socket_manager = ct_socket_manager_ref(source_connection->socket_manager);
   clone->role = source_connection->role;
   if (framer_impl) {
     clone->framer_impl = framer_impl;
@@ -387,6 +388,7 @@ void ct_connection_free_content(ct_connection_t* connection) {
     ct_sec_param_free(connection->security_parameters);
     connection->security_parameters = NULL;
   }
+  ct_socket_manager_unref(connection->socket_manager);
   // TODO - The connection group needs to know which connections are unreffing it so they can be removed
   ct_connection_group_unref(connection->connection_group);
 }

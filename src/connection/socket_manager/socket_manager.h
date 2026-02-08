@@ -25,4 +25,6 @@ int socket_manager_insert_connection(ct_socket_manager_t* socket_manager, const 
 
 ct_socket_manager_t* ct_socket_manager_new(const ct_protocol_impl_t* protocol_impl, ct_listener_t* listener);
 
+int ct_socket_manager_get_num_open_connections(const ct_socket_manager_t* socket_manager);
+
 #endif //SOCKET_MANAGER_H

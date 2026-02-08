@@ -95,13 +95,19 @@ protected:
     ct_initialize();
     ct_set_log_level(CT_LOG_TRACE);
     RESET_FAKE(faked_socket_manager_remove_connection_group);
-    RESET_FAKE(mock_closed_cb);
-    RESET_FAKE(faked_picoquic_close);
-    RESET_FAKE(faked_picoquic_close_immediate);
     RESET_FAKE(faked_uv_close);
     RESET_FAKE(faked_uv_udp_recv_stop);
+    RESET_FAKE(faked_picoquic_close);
+    RESET_FAKE(faked_picoquic_close_immediate);
+    RESET_FAKE(faked_picoquic_add_to_stream);
+    RESET_FAKE(faked_picoquic_reset_stream);
     RESET_FAKE(faked_picoquic_get_remote_error);
     RESET_FAKE(faked_picoquic_get_application_error);
+    RESET_FAKE(mock_closed_cb);
+    RESET_FAKE(mock_connection_error);
+
+
+
     FFF_RESET_HISTORY();
 
     ct_security_parameters_t* security_parameters = ct_security_parameters_new();
@@ -122,7 +128,7 @@ protected:
     connection = ct_connection_create_empty_with_uuid();
     ct_connection_build_with_new_connection_group(connection);
 
-    connection->connection_group->socket_manager = ct_socket_manager_new(&quic_protocol_interface, nullptr);
+    connection->socket_manager = ct_socket_manager_new(&quic_protocol_interface, nullptr);
 
     connection->security_parameters = security_parameters;
     connection->local_endpoint = ct_local_endpoint_deep_copy(local_endpoint);
@@ -130,7 +136,7 @@ protected:
     connection->connection_callbacks.closed = mock_closed_cb;
     connection->connection_callbacks.connection_error = mock_connection_error;
     log_debug("Initializing first connection");
-    int rc = connection->connection_group->socket_manager->protocol_impl->init(connection, nullptr);
+    int rc = connection->socket_manager->protocol_impl->init(connection, nullptr);
     ASSERT_EQ(rc, 0);
     ct_quic_stream_state_t* stream_state = ct_connection_get_stream_state(connection);
     stream_state->stream_initialized = true;
@@ -218,7 +224,8 @@ TEST_F(QuicCloseTest, PicoquicRemoteClose_WithError_InvokesErrorCallbackOnSingle
 TEST_F(QuicCloseTest, PicoquicRemoteClose_WithoutError_InvokesClosedCallbackOnConnectionGroup) {
   faked_picoquic_get_remote_error_fake.return_val = 0;
   ct_connection_group_add_connection(connection->connection_group, connection2);
-  connection2->connection_group->socket_manager->protocol_impl->init(connection2, nullptr);
+  connection2->socket_manager = ct_socket_manager_ref(connection->socket_manager);
+  connection2->socket_manager->protocol_impl->init(connection2, nullptr);
 
   // Simulate picoquic detecting remote close
   picoquic_callback(
@@ -254,7 +261,8 @@ TEST_F(QuicCloseTest, PicoquicRemoteClose_WithoutError_InvokesClosedCallbackOnCo
 TEST_F(QuicCloseTest, PicoquicRemoteClose_WithError_InvokesErrorCallbackOnConnectionGroup) {
   faked_picoquic_get_remote_error_fake.return_val = 2849;
   ct_connection_group_add_connection(connection->connection_group, connection2);
-  connection2->connection_group->socket_manager->protocol_impl->init(connection2, nullptr);
+  connection2->socket_manager = ct_socket_manager_ref(connection->socket_manager);
+  connection2->socket_manager->protocol_impl->init(connection2, nullptr);
 
   // Simulate picoquic detecting remote close
   picoquic_callback(
@@ -341,7 +349,8 @@ TEST_F(QuicCloseTest, PicoquicApplicationClose_WithError_InvokesErrorCallbackOnS
 TEST_F(QuicCloseTest, PicoquicApplicationClose_WithoutError_InvokesClosedCallbackOnConnectionGroup) {
   faked_picoquic_get_application_error_fake.return_val = 0;
   ct_connection_group_add_connection(connection->connection_group, connection2);
-  connection2->connection_group->socket_manager->protocol_impl->init(connection2, nullptr);
+  connection2->socket_manager = ct_socket_manager_ref(connection->socket_manager);
+  connection2->socket_manager->protocol_impl->init(connection2, nullptr);
 
   // Simulate picoquic detecting remote close
   picoquic_callback(
@@ -378,7 +387,8 @@ TEST_F(QuicCloseTest, PicoquicApplicationClose_WithoutError_InvokesClosedCallbac
 TEST_F(QuicCloseTest, PicoquicApplicationClose_WithError_InvokesErrorCallbackOnConnectionGroup) {
   faked_picoquic_get_application_error_fake.return_val = 999;
   ct_connection_group_add_connection(connection->connection_group, connection2);
-  connection2->connection_group->socket_manager->protocol_impl->init(connection2, nullptr);
+  connection2->socket_manager = ct_socket_manager_ref(connection->socket_manager);
+  connection2->socket_manager->protocol_impl->init(connection2, nullptr);
 
   // Simulate picoquic detecting remote close
   picoquic_callback(
@@ -413,7 +423,8 @@ TEST_F(QuicCloseTest, PicoquicApplicationClose_WithError_InvokesErrorCallbackOnC
 
 TEST_F(QuicCloseTest, StreamFinInvokedOnCanSendConnectionGroupDoesNotInvokeCloseCb) {
   ct_connection_group_add_connection(connection->connection_group, connection2);
-  connection2->connection_group->socket_manager->protocol_impl->init(connection2, nullptr);
+  connection2->socket_manager = ct_socket_manager_ref(connection->socket_manager);
+  connection2->socket_manager->protocol_impl->init(connection2, nullptr);
   ct_connection_set_can_send(connection2, true);
 
   ct_quic_stream_state_t* stream_state = ct_connection_get_stream_state(connection2);
@@ -436,7 +447,8 @@ TEST_F(QuicCloseTest, StreamFinInvokedOnCanSendConnectionGroupDoesNotInvokeClose
 
 TEST_F(QuicCloseTest, StreamFinInvokedOnCantSendConnectionGroupOnDoesInvokeCloseCb) {
   ct_connection_group_add_connection(connection->connection_group, connection2);
-  connection2->connection_group->socket_manager->protocol_impl->init(connection2, nullptr);
+  connection2->socket_manager = ct_socket_manager_ref(connection->socket_manager);
+  connection2->socket_manager->protocol_impl->init(connection2, nullptr);
 
   ct_connection_set_can_send(connection2, false);
 
@@ -464,7 +476,8 @@ TEST_F(QuicCloseTest, StreamFinInvokedOnCantSendConnectionGroupOnDoesInvokeClose
 
 TEST_F(QuicCloseTest, PicoquicStreamReset_ClosesAndInvokesErrorCb) {
   ct_connection_group_add_connection(connection->connection_group, connection2);
-  connection2->connection_group->socket_manager->protocol_impl->init(connection2, nullptr);
+  connection2->socket_manager = ct_socket_manager_ref(connection->socket_manager);
+  connection2->socket_manager->protocol_impl->init(connection2, nullptr);
 
   ct_quic_stream_state_t* stream_state = ct_connection_get_stream_state(connection2);
 
@@ -488,14 +501,14 @@ TEST_F(QuicCloseTest, PicoquicStreamReset_ClosesAndInvokesErrorCb) {
 }
 
 TEST_F(QuicCloseTest, CloseCallsPicoquicCloseForConnection) {
-  connection->connection_group->socket_manager->protocol_impl->close(connection);
+  connection->socket_manager->protocol_impl->close(connection);
 
   ASSERT_EQ(faked_picoquic_close_fake.call_count, 1);
   ASSERT_EQ(ct_connection_group_get_num_active_connections(connection->connection_group), 0);
 }
 
 TEST_F(QuicCloseTest, AbortCallsPicoquicCloseImmediateForLastConnection) {
-  connection->connection_group->socket_manager->protocol_impl->abort(connection);
+  connection->socket_manager->protocol_impl->abort(connection);
 
   ASSERT_EQ(faked_picoquic_close_immediate_fake.call_count, 1);
   ASSERT_EQ(ct_connection_group_get_num_active_connections(connection->connection_group), 0);
@@ -503,9 +516,10 @@ TEST_F(QuicCloseTest, AbortCallsPicoquicCloseImmediateForLastConnection) {
 
 TEST_F(QuicCloseTest, CloseCallsPicoquicAddToStreamForConnectionGroup) {
   ct_connection_group_add_connection(connection->connection_group, connection2);
-  connection2->connection_group->socket_manager->protocol_impl->init(connection2, nullptr);
+  connection2->socket_manager = ct_socket_manager_ref(connection->socket_manager);
+  connection2->socket_manager->protocol_impl->init(connection2, nullptr);
 
-  connection->connection_group->socket_manager->protocol_impl->close(connection);
+  connection->socket_manager->protocol_impl->close(connection);
 
   ct_quic_connection_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
 
@@ -517,9 +531,10 @@ TEST_F(QuicCloseTest, CloseCallsPicoquicAddToStreamForConnectionGroup) {
 
 TEST_F(QuicCloseTest, AbortCallsPicoquicResetStreamForConnectionGroup) {
   ct_connection_group_add_connection(connection->connection_group, connection2);
-  connection2->connection_group->socket_manager->protocol_impl->init(connection2, nullptr);
+  connection2->socket_manager = ct_socket_manager_ref(connection->socket_manager);
+  connection2->socket_manager->protocol_impl->init(connection2, nullptr);
 
-  connection->connection_group->socket_manager->protocol_impl->abort(connection);
+  connection->socket_manager->protocol_impl->abort(connection);
 
   ct_quic_connection_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
 

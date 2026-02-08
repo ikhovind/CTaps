@@ -90,11 +90,7 @@ protected:
     log_debug("Connection remote endpoint resolved address: %p", (void*)remote_endpoint_get_resolved_address(ct_connection_get_remote_endpoint(connection)));
 
     log_debug("Initializing first connection");
-    log_debug("Connection ptr: %p", (void*)connection);
-    log_debug("Connection group %p", (void*)connection->connection_group);
-    log_debug("Connection group's socket manager %p", (void*)connection->connection_group->socket_manager);
-    log_debug("protocl impl %p", (void*)connection->connection_group->socket_manager->protocol_impl);
-    connection->connection_group->socket_manager->protocol_impl->init(connection, nullptr);
+    connection->socket_manager->protocol_impl->init(connection, nullptr);
 
     // connection2 is set up minimally - it will be added to connection's group in group tests
     connection2 = (ct_connection_t*)calloc(1, sizeof(ct_connection_t));
@@ -122,7 +118,7 @@ protected:
 
 TEST_F(TcpCloseCallbackTest, ClosedCallbackInvokedOnConnectionClose) {
   // Act: close the TCP connection
-  connection->connection_group->socket_manager->protocol_impl->close(connection);
+  connection->socket_manager->protocol_impl->close(connection);
 
   // Verify uv_close was called
   ASSERT_EQ(faked_uv_close_fake.call_count, 1);
@@ -146,7 +142,7 @@ TEST_F(TcpCloseCallbackTest, ConnectionErrorCallbackInvokedOnConnectionAbort) {
 TEST_F(TcpCloseCallbackTest, ClosedCallbackInvokedOnGroupClose) {
   // Arrange: set up a connection group with two connections
   ct_connection_group_add_connection(connection->connection_group, connection2);
-  connection2->connection_group->socket_manager->protocol_impl->init(connection2, nullptr);
+  connection2->socket_manager->protocol_impl->init(connection2, nullptr);
 
   // Act: close the TCP connection
   ct_connection_close_group(connection2);
@@ -167,7 +163,7 @@ TEST_F(TcpCloseCallbackTest, ClosedCallbackInvokedOnGroupClose) {
 TEST_F(TcpCloseCallbackTest, ConnectionErrorCallbackInvokedOnGroupAbort) {
   // Arrange: set up a connection group with two connections
   ct_connection_group_add_connection(connection->connection_group, connection2);
-  connection2->connection_group->socket_manager->protocol_impl->init(connection2, nullptr);
+  connection2->socket_manager->protocol_impl->init(connection2, nullptr);
 
   // Act: close the TCP connection
   ct_connection_abort_group(connection);
