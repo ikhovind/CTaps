@@ -99,7 +99,7 @@ ct_connection_group_t* ct_connection_group_ref(ct_connection_group_t* group);
 
 void ct_connection_group_unref(ct_connection_group_t* group);
 
-ct_connection_group_t* ct_connection_group_new(ct_socket_manager_t* socket_manager, const ct_remote_endpoint_t* remote_endpoint);
+ct_connection_group_t* ct_connection_group_new();
 
 
 #endif // CT_CONNECTION_GROUP_H

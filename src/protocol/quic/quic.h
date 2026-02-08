@@ -31,7 +31,7 @@ typedef struct ct_quic_socket_state_s {
 
 // Shared state across all streams in a QUIC connection group
 // Gotten through connection group internal state
-typedef struct ct_quic_group_state_s {
+typedef struct ct_connection_quic_group_state_s {
   picoquic_cnx_t* picoquic_connection;
   bool attempted_early_data;
 } ct_quic_connection_group_state_t;
@@ -53,6 +53,7 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
                                           ct_message_context_t* initial_message_context
                                           );
 void ct_close_quic_context(ct_quic_socket_state_t* ctx);
+void ct_free_quic_connection_group_state(ct_quic_connection_group_state_t* group_state);
 
 ct_quic_stream_state_t* ct_quic_stream_state_new();
 
