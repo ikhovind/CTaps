@@ -327,7 +327,10 @@ typedef struct ct_protocol_impl_s {
   int (*remote_endpoint_from_peer)(uv_handle_t* peer, ct_remote_endpoint_t* resolved_peer);
 
   /** @brief Free protocol-specific state in a connection. */
-  int (*free_state)(ct_connection_t* connection);
+  int (*free_connection_state)(ct_connection_t* connection);
+
+  /** @brief Free socket-specific state in a connection. */
+  int (*free_socket_state)(struct ct_socket_manager_s* socket_manager);
 
   /** @brief Free protocol-specific shared state in a connection group, useful for multiplexing */
   int (*free_connection_group_state)(ct_connection_group_t* connection_group);
@@ -372,7 +375,7 @@ typedef struct ct_preconnection_s {
 typedef struct ct_socket_manager_s {
   void* internal_socket_manager_state;
   int ref_count;                 // Number of objects using this socket (ct_listener_t + Connections)
-  GHashTable* connections; // remote_endpoint → ct_connection_t*
+  GHashTable* connections; // remote_endpoint → ct_connection_t* (open and closed)
   const ct_protocol_impl_t* protocol_impl;
   struct ct_listener_s* listener;
 } ct_socket_manager_t;

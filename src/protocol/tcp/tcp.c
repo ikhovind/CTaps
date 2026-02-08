@@ -55,7 +55,7 @@ const ct_protocol_impl_t tcp_protocol_interface = {
     .abort = tcp_abort,
     .clone_connection = tcp_clone_connection,
     .remote_endpoint_from_peer = tcp_remote_endpoint_from_peer,
-    .free_state = tcp_free_state,
+    .free_connection_state = tcp_free_state,
     .free_connection_group_state = tcp_free_connection_group_state,
 };
 

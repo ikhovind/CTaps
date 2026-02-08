@@ -135,3 +135,18 @@ int socket_manager_insert_connection(ct_socket_manager_t* socket_manager, const 
   connection->socket_manager = ct_socket_manager_ref(socket_manager);
   return 0;
 }
+
+
+int ct_socket_manager_get_num_open_connections(const ct_socket_manager_t* socket_manager) {
+  int counter = 0;
+  GHashTableIter iter;
+  gpointer key, value;
+  g_hash_table_iter_init(&iter, socket_manager->connections);
+  while (g_hash_table_iter_next(&iter, &key, &value)) {
+    ct_connection_t* connection = (ct_connection_t*)value;
+    if (!ct_connection_is_closed(connection)) {
+      counter++;
+    }
+  }
+  return counter;
+}

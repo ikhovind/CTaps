@@ -81,9 +81,7 @@ protected:
     free(remote_endpoint);
 
     log_debug("Initializing first connection");
-    log_debug("Connection group %p", (void*)connection->connection_group);
-    log_debug("Conneciton group's socket manager %p", (void*)connection->connection_group->socket_manager);
-    int rc = connection->connection_group->socket_manager->protocol_impl->init(connection, nullptr);
+    int rc = connection->socket_manager->protocol_impl->init(connection, nullptr);
     ASSERT_EQ(rc, 0);
 
     // connection2 is set up minimally - it will be added to connection's group in group tests
@@ -109,7 +107,7 @@ protected:
 
 TEST_F(UdpCloseCallbackTest, closedCallbackInvokedOnConnectionClose) {
   // Act: close the UDP connection
-  connection->connection_group->socket_manager->protocol_impl->close(connection);
+  connection->socket_manager->protocol_impl->close(connection);
 
   // Verify uv_close was called
   ASSERT_EQ(faked_uv_close_fake.call_count, 1);
@@ -134,7 +132,8 @@ TEST_F(UdpCloseCallbackTest, ConnectionErrorCallbackInvokedOnConnectionAbort) {
 TEST_F(UdpCloseCallbackTest, ClosedCallbackInvokedOnGroupClose) {
   // Arrange: set up a connection group with two connections
   ct_connection_group_add_connection(connection->connection_group, connection2);
-  connection2->connection_group->socket_manager->protocol_impl->init(connection2, nullptr);
+  connection2->socket_manager = ct_socket_manager_ref(connection->socket_manager);
+  connection2->socket_manager->protocol_impl->init(connection2, nullptr);
 
   // Act: close the UDP connection
   ct_connection_close_group(connection2);
@@ -155,7 +154,8 @@ TEST_F(UdpCloseCallbackTest, ClosedCallbackInvokedOnGroupClose) {
 TEST_F(UdpCloseCallbackTest, ConnectionErrorCallbackInvokedOnGroupAbort) {
   // Arrange: set up a connection group with two connections
   ct_connection_group_add_connection(connection->connection_group, connection2);
-  connection2->connection_group->socket_manager->protocol_impl->init(connection2, nullptr);
+  connection2->socket_manager = ct_socket_manager_ref(connection->socket_manager);
+  connection2->socket_manager->protocol_impl->init(connection2, nullptr);
 
   // Act: close the UDP connection
   ct_connection_abort_group(connection);

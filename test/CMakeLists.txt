@@ -241,7 +241,7 @@ add_gtest(message_unit_test
 
 add_gtest(udp_close_callback_test
   SOURCES
-    src/unit/protocol/udp_close_test.cpp
+    src/unit/protocol/udp_close_callback_test.cpp
     ${CTAPS_SOURCES}
   WRAP_FUNCTIONS
     uv_close

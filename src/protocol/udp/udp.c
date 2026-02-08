@@ -53,7 +53,7 @@ const ct_protocol_impl_t udp_protocol_interface = {
     .abort = udp_abort,
     .clone_connection = udp_clone_connection,
     .remote_endpoint_from_peer = udp_remote_endpoint_from_peer,
-    .free_state = udp_free_state,
+    .free_connection_state = udp_free_state,
     .free_connection_group_state = udp_free_connection_group_state,
 };
 
