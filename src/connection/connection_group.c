@@ -129,8 +129,6 @@ void ct_connection_group_free(ct_connection_group_t* group) {
   if (!group) {
     return;
   }
-  ct_socket_manager_unref(group->socket_manager);
-
   log_debug("Freeing connection group %s", group->connection_group_id);
   if (group->connections) {
     g_hash_table_destroy(group->connections);
@@ -254,7 +252,7 @@ void ct_connection_group_unref(ct_connection_group_t* group) {
   }
 }
 
-ct_connection_group_t* ct_connection_group_new(ct_socket_manager_t* socket_manager, const ct_remote_endpoint_t* remote_endpoint) {
+ct_connection_group_t* ct_connection_group_new() {
   ct_connection_group_t* group = malloc(sizeof(ct_connection_group_t));
   if (!group) {
     log_error("Failed to allocate memory for connection group");
@@ -262,13 +260,6 @@ ct_connection_group_t* ct_connection_group_new(ct_socket_manager_t* socket_manag
   }
   memset(group, 0, sizeof(ct_connection_group_t));
   generate_uuid_string(group->connection_group_id);
-
-  int rc = socket_manager_insert_connection_group(socket_manager, remote_endpoint, group);
-  if (rc < 0) {
-    log_error("Failed to insert connection group into socket manager: %d", rc);
-    free(group);
-    return NULL;
-  }
   group->connections = g_hash_table_new(g_str_hash, g_str_equal);
 
   return group;

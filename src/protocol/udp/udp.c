@@ -82,22 +82,16 @@ void alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
 void udp_multiplex_received_message(ct_socket_manager_t* socket_manager, char* buf, size_t len, const struct sockaddr_storage* remote_addr) {
   log_trace("UDP listener received message, demultiplexing to connection");
 
+  ct_connection_t* connection = socket_manager_get_connection(socket_manager, remote_addr);
+
   bool was_new = false;
-  ct_connection_group_t* connection_group = socket_manager_get_connection_group(socket_manager, remote_addr);
-
-  if (connection_group == NULL) {
-    log_error("Failed to get or create connection group for UDP message");
-    return;
-  }
-
-  // For UDP, get the first (and typically only) connection in the group
-  ct_connection_t* connection = ct_connection_group_get_first(connection_group);
-  if (connection == NULL) {
-    log_error("Connection group exists but has no connections");
-    return;
+  if (!connection) {
+    log_debug("Could not find connection from endpoint, creating a new one");
+    was_new = true;
   }
 
   if (was_new) {
+    // TODO - actually create new connection
     log_debug("UDP listener invoking callback for new connection from remote endpoint");
 
     int rc = resolve_local_endpoint_from_handle((uv_handle_t*)socket_manager->internal_socket_manager_state, connection);

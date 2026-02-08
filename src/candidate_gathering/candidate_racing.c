@@ -167,10 +167,10 @@ static int start_specific_connection_attempt(ct_racing_context_t* context, size_
   int rc = 0;
   if (context->should_try_early_data) {
     log_debug("Initiating racing connection attempt %zu with early data", attempt_index);
-    rc = attempt->connection->connection_group->socket_manager->protocol_impl->init_with_send(attempt->connection, &attempt->connection->connection_callbacks, context->initial_message, context->initial_message_context);
+    rc = attempt->connection->socket_manager->protocol_impl->init_with_send(attempt->connection, &attempt->connection->connection_callbacks, context->initial_message, context->initial_message_context);
   }
   else {
-    rc = attempt->connection->connection_group->socket_manager->protocol_impl->init(attempt->connection, &attempt->connection->connection_callbacks);
+    rc = attempt->connection->socket_manager->protocol_impl->init(attempt->connection, &attempt->connection->connection_callbacks);
   }
   if (rc != 0) {
     log_error("Failed to initiate connection attempt %zu: %d", attempt_index, rc);

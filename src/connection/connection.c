@@ -45,7 +45,7 @@ ct_connection_t* ct_connection_create_server_connection(ct_socket_manager_t* soc
     log_error("Failed to create empty connection");
     return NULL;
   }
-  ct_connection_group_t* group = ct_connection_group_new(socket_manager, remote_endpoint);
+  ct_connection_group_t* group = ct_connection_group_new();
   if (!group) {
     log_error("Failed to get or create connection group for new server connection");
     ct_connection_free(connection);
@@ -84,7 +84,7 @@ ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_
   }
   ct_socket_manager_t* socket_manager = ct_socket_manager_new(protocol_impl, NULL);
 
-  ct_connection_group_t* group = ct_connection_group_new(socket_manager, remote_endpoint);
+  ct_connection_group_t* group = ct_connection_group_new();
   if (!group) {
     log_error("Failed to create new connection group for client connection");
     ct_connection_free(connection);
@@ -346,7 +346,7 @@ void ct_connection_close(ct_connection_t* connection) {
     ct_connection_mark_as_closing(connection);
     ct_connection_set_can_send(connection, false);
 
-    int rc = connection->connection_group->socket_manager->protocol_impl->close(connection);
+    int rc = connection->socket_manager->protocol_impl->close(connection);
     if (rc < 0) {
         log_error("Error closing connection: %d", rc);
     }
@@ -399,7 +399,7 @@ void ct_connection_free(ct_connection_t* connection) {
 int ct_connection_send_to_protocol(ct_connection_t* connection,
                                    ct_message_t* message,
                                    ct_message_context_t* context) {
-  int rc = connection->connection_group->socket_manager->protocol_impl->send(connection, message, context);
+  int rc = connection->socket_manager->protocol_impl->send(connection, message, context);
   if (rc < 0) {
     log_error("Error sending message to protocol: %d", rc);
   }
@@ -461,7 +461,7 @@ void ct_connection_on_protocol_receive(ct_connection_t* connection,
 
 void ct_connection_abort(ct_connection_t* connection) {
   log_info("Aborting connection: %s", connection->uuid);
-  connection->connection_group->socket_manager->protocol_impl->abort(connection);
+  connection->socket_manager->protocol_impl->abort(connection);
 }
 
 int ct_connection_clone_full(
@@ -472,7 +472,7 @@ int ct_connection_clone_full(
   (void)connection_properties; // TODO - apply any overridden properties to the clone
 
   ct_connection_t* new_connection = ct_connection_create_clone(source_connection, framer, NULL);
-  int rc = new_connection->connection_group->socket_manager->protocol_impl->clone_connection(source_connection, new_connection);
+  int rc = new_connection->socket_manager->protocol_impl->clone_connection(source_connection, new_connection);
   if (rc < 0) {
     log_error("Failed to initialize protocol state for cloned connection: %d", rc);
     ct_connection_free(new_connection);
@@ -542,7 +542,7 @@ const char* ct_connection_get_protocol_name(const ct_connection_t* connection) {
   if (!connection) {
     return NULL;
   }
-  return connection->connection_group->socket_manager->protocol_impl->name;
+  return connection->socket_manager->protocol_impl->name;
 }
 
 const ct_remote_endpoint_t* ct_connection_get_remote_endpoint(const ct_connection_t* connection) {
@@ -582,7 +582,7 @@ ct_protocol_enum_t ct_connection_get_transport_protocol(const ct_connection_t* c
     log_error("ct_connection_get_transport_protocol called with NULL connection");
     return CT_PROTOCOL_ERROR;
   }
-  return connection->connection_group->socket_manager->protocol_impl->protocol_enum;
+  return connection->socket_manager->protocol_impl->protocol_enum;
 }
 
 bool ct_connection_sent_early_data(const ct_connection_t* connection) {

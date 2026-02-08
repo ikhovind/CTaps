@@ -361,11 +361,11 @@ picoquic_cnx_t* ct_connection_get_picoquic_connection(const ct_connection_t* con
 }
 
 ct_quic_socket_state_t* ct_connection_get_quic_socket_state(const ct_connection_t* connection) {
-  if (!connection || !connection->connection_group || !connection->connection_group->socket_manager) {
+  if (!connection || !connection->socket_manager) {
     log_error("Cannot get QUIC context, connection or socket manager is NULL");
     return NULL;
   }
-  return (ct_quic_socket_state_t*)connection->connection_group->socket_manager->internal_socket_manager_state;
+  return (ct_quic_socket_state_t*)connection->socket_manager->internal_socket_manager_state;
 }
 
 
@@ -421,11 +421,11 @@ void quic_aborted_udp_handle_cb(uv_handle_t* handle) {
   ct_socket_manager_t* socket_manager = quic_ctx->socket_manager;
   gpointer key, value;
   GHashTableIter iter;
-  g_hash_table_iter_init(&iter, socket_manager->connection_groups);
+  g_hash_table_iter_init(&iter, socket_manager->connections);
   while (g_hash_table_iter_next(&iter, &key, &value)) {
-    ct_connection_group_t* group = (ct_connection_group_t*)value;
+    ct_connection_t* connection = (ct_connection_t*)value;
     // TODO is this really needed, or are they already closed when we get here? Shouldn't be, should be "closing"
-    ct_connection_group_mark_all_as_closed(group);
+    ct_connection_mark_as_closed(connection);
   }
 }
 
@@ -436,11 +436,11 @@ void quic_closed_udp_handle_cb(uv_handle_t* handle) {
   ct_socket_manager_t* socket_manager = quic_ctx->socket_manager;
   gpointer key, value;
   GHashTableIter iter;
-  g_hash_table_iter_init(&iter, socket_manager->connection_groups);
+  g_hash_table_iter_init(&iter, socket_manager->connections);
   while (g_hash_table_iter_next(&iter, &key, &value)) {
-    ct_connection_group_t* group = (ct_connection_group_t*)value;
+    ct_connection_t* connection = (ct_connection_t*)value;
     // TODO is this really needed, or are they already closed when we get here? Shouldn't be, should be "closing"
-    ct_connection_group_mark_all_as_closed(group);
+    ct_connection_mark_as_closed(connection);
   }
 }
 
@@ -462,10 +462,9 @@ int handle_closed_picoquic_connection(ct_connection_group_t* connection_group) {
     }
   }
 
-  // Close the QUIC context (timer handle)
-  ct_quic_socket_state_t* socket_state = (ct_quic_socket_state_t*)connection_group->socket_manager->internal_socket_manager_state;
-  ct_close_quic_context(socket_state);
+  ct_quic_connection_group_state_t* group_state = (ct_quic_connection_group_state_t*)connection_group->connection_group_state;
 
+  ct_free_quic_connection_group_state(group_state);
   return 0;
 }
 
@@ -488,8 +487,7 @@ int handle_aborted_picoquic_connection_group(ct_connection_group_t* connection_g
   }
 
   // Close the QUIC context (timer handle)
-  ct_quic_socket_state_t* socket_state = (ct_quic_socket_state_t*)connection_group->socket_manager->internal_socket_manager_state;
-  ct_close_quic_context(socket_state);
+  ct_free_quic_connection_group_state((ct_quic_connection_group_state_t*)connection_group->connection_group_state);
 
   return 0;
 }
@@ -575,7 +573,6 @@ int picoquic_callback(picoquic_cnx_t* cnx,
   ct_connection_t* connection = NULL;
   log_trace("ct_callback_t event with connection group: %s", connection_group->connection_group_id);
   log_trace("Received callback event: %d", fin_or_event);
-  ct_quic_socket_state_t* socket_state = (ct_quic_socket_state_t*)connection_group->socket_manager->internal_socket_manager_state;
 
   if (!connection_group) {
     log_error("Connection group is NULL in picoquic callback");
@@ -595,14 +592,14 @@ int picoquic_callback(picoquic_cnx_t* cnx,
         return -EINVAL;
       }
 
-      ct_quic_socket_state_t* quic_context = ct_connection_get_quic_socket_state(connection);
-      if (quic_context->initial_message) {
-        ct_message_free(quic_context->initial_message);
-        quic_context->initial_message = NULL;
+      ct_quic_socket_state_t* socket_state = ct_connection_get_quic_socket_state(connection);
+      if (socket_state->initial_message) {
+        ct_message_free(socket_state->initial_message);
+        socket_state->initial_message = NULL;
       }
-      if (quic_context->initial_message_context) {
-        ct_message_context_free(quic_context->initial_message_context);
-        quic_context->initial_message_context = NULL;
+      if (socket_state->initial_message_context) {
+        ct_message_context_free(socket_state->initial_message_context);
+        socket_state->initial_message_context = NULL;
       }
 
       if (ct_connection_is_server(connection)) {
@@ -1124,7 +1121,7 @@ int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbac
   ct_quic_socket_state_t* quic_context = ct_quic_socket_state_new(
     cert_file,
     key_file,
-    connection->connection_group->socket_manager,
+    connection->socket_manager,
     connection->security_parameters,
     initial_message,
     initial_message_context
@@ -1269,7 +1266,7 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
   ct_quic_socket_state_t* quic_context = ct_quic_socket_state_new(
     cert_file,
     key_file,
-    connection->connection_group->socket_manager,
+    connection->socket_manager,
     connection->security_parameters,
     NULL,
     NULL
@@ -1426,7 +1423,7 @@ void quic_abort(ct_connection_t* connection) {
     picoquic_close_immediate(group_state->picoquic_connection);
   }
 
-  reset_quic_timer((ct_quic_socket_state_t*)connection_group->socket_manager->internal_socket_manager_state);
+  reset_quic_timer((ct_quic_socket_state_t*)connection->socket_manager->internal_socket_manager_state);
 }
 
 int quic_clone_connection(const struct ct_connection_s* source_connection, struct ct_connection_s* target_connection) {
@@ -1626,4 +1623,13 @@ ct_quic_stream_state_t* ct_quic_stream_state_new() {
   }
   memset(stream_state, 0, sizeof(ct_quic_stream_state_t));
   return stream_state;
+}
+
+void ct_free_quic_connection_group_state(ct_quic_connection_group_state_t* group_state) {
+  if (!group_state) {
+    log_warn("QUIC group state is NULL in close function");
+    return;
+  }
+  picoquic_delete_cnx(group_state->picoquic_connection);
+  free(group_state);
 }
