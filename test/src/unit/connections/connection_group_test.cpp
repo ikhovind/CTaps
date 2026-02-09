@@ -8,6 +8,7 @@ extern "C" {
 #include <connection/connection.h>
 #include <logging/log.h>
 #include <connection/connection_group.h>
+#include <connection/socket_manager/socket_manager.h>
 #include <util/uuid_util.h>
 }
 
@@ -29,16 +30,15 @@ TEST(ConnectionGroupUnitTests, CloseAllClosesOnlyOpenConnections) {
     group.num_active_connections = 0;
     group.connection_group_state = NULL;
 
-    ct_socket_manager_t socket_manager;
-
     ct_protocol_impl_t protocol_impl;
     protocol_impl.close = fake_protocol_close;
-    socket_manager.protocol_impl = &protocol_impl;
+
+    ct_socket_manager_t* socket_manager = ct_socket_manager_new(&protocol_impl, NULL);
 
     // Connection 1: Established (should be closed)
     ct_connection_t conn1;
     memset(&conn1, 0, sizeof(ct_connection_t));
-    conn1.socket_manager = &socket_manager;
+    conn1.socket_manager = socket_manager;
     generate_uuid_string(conn1.uuid);
     ct_connection_mark_as_established(&conn1);
     ct_connection_group_add_connection(&group, &conn1);
@@ -46,7 +46,7 @@ TEST(ConnectionGroupUnitTests, CloseAllClosesOnlyOpenConnections) {
     // Connection 2: Already closing (should be skipped)
     ct_connection_t conn2;
     memset(&conn2, 0, sizeof(ct_connection_t));
-    conn2.socket_manager = &socket_manager;
+    conn2.socket_manager = socket_manager;
     generate_uuid_string(conn2.uuid);
     ct_connection_mark_as_closing(&conn2);
     ct_connection_group_add_connection(&group, &conn2);
@@ -54,7 +54,7 @@ TEST(ConnectionGroupUnitTests, CloseAllClosesOnlyOpenConnections) {
     // Connection 3: Established (should be closed)
     ct_connection_t conn3;
     memset(&conn3, 0, sizeof(ct_connection_t));
-    conn3.socket_manager = &socket_manager;
+    conn3.socket_manager = socket_manager;
     generate_uuid_string(conn3.uuid);
     ct_connection_mark_as_established(&conn3);
     ct_connection_group_add_connection(&group, &conn3);
@@ -62,7 +62,7 @@ TEST(ConnectionGroupUnitTests, CloseAllClosesOnlyOpenConnections) {
     // Connection 4: closing
     ct_connection_t conn4;
     memset(&conn4, 0, sizeof(ct_connection_t));
-    conn4.socket_manager = &socket_manager;
+    conn4.socket_manager = socket_manager;
     generate_uuid_string(conn4.uuid);
     ct_connection_mark_as_closed(&conn4);
     ct_connection_group_add_connection(&group, &conn4);
@@ -96,11 +96,11 @@ TEST(ConnectionGroupUnitTests, CloseAllClosesOnlyOpenConnections) {
 TEST(ConnectionGroupUnitTests, abortAllabortsOnlyOpenOrClosingConnections) {
     RESET_FAKE(fake_protocol_abort);
 
-    ct_socket_manager_t socket_manager;
 
     ct_protocol_impl_t protocol_impl;
-    socket_manager.protocol_impl = &protocol_impl;
     protocol_impl.abort = fake_protocol_abort;
+
+    ct_socket_manager_t* socket_manager = ct_socket_manager_new(&protocol_impl, NULL);
 
     // Create a shared connection group
     // Connection 1: Established (should be abortd)
@@ -108,25 +108,25 @@ TEST(ConnectionGroupUnitTests, abortAllabortsOnlyOpenOrClosingConnections) {
     ct_connection_build_with_new_connection_group(conn1);
     ct_connection_mark_as_established(conn1);
 
-    conn1->socket_manager = &socket_manager;
+    conn1->socket_manager = socket_manager;
 
     ct_connection_group_t* group = conn1->connection_group;
 
     // Connection 2: Already closed (should be skipped)
     ct_connection_t* conn2 = ct_connection_create_empty_with_uuid();;
-    conn2->socket_manager = &socket_manager;
+    conn2->socket_manager = socket_manager;
     ct_connection_mark_as_closed(conn2);
     ct_connection_group_add_connection(group, conn2);
 
     // Connection 3: Established (should be abortd)
     ct_connection_t* conn3 = ct_connection_create_empty_with_uuid();
-    conn3->socket_manager = &socket_manager;
+    conn3->socket_manager = socket_manager;
     ct_connection_mark_as_established(conn3);
     ct_connection_group_add_connection(group, conn3);
 
     // Connection 4: closing, should be aborted
     ct_connection_t* conn4 = ct_connection_create_empty_with_uuid();
-    conn4->socket_manager = &socket_manager;
+    conn4->socket_manager = socket_manager;
     ct_connection_mark_as_closing(conn4);
     ct_connection_group_add_connection(group, conn4);
 

@@ -83,6 +83,7 @@ ct_socket_manager_t* ct_socket_manager_ref(ct_socket_manager_t* socket_manager) 
     log_warn("Attempted to reference NULL socket manager");
     return NULL;
   }
+  log_trace("Referencing socket manager with current count: %d", socket_manager->ref_count);
   socket_manager->ref_count++;
   return socket_manager;
 }
@@ -92,7 +93,9 @@ void ct_socket_manager_free(ct_socket_manager_t* socket_manager) {
     log_warn("Attempted to free NULL socket manager");
     return;
   }
-  // TODO - free socket manager state
+
+  socket_manager->protocol_impl->free_socket_state(socket_manager);
+  g_hash_table_destroy(socket_manager->connections);
   free(socket_manager);
 }
 
@@ -104,6 +107,7 @@ void ct_socket_manager_unref(ct_socket_manager_t* socket_manager) {
   log_debug("Decrementing socket manager reference count with count: %d", socket_manager->ref_count);
   socket_manager->ref_count--;
   if (socket_manager->ref_count == 0) {
+    log_trace("Socket manager reference count is zero, freeing socket manager");
     ct_socket_manager_free(socket_manager);
   }
 }
