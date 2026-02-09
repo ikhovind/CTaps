@@ -96,7 +96,9 @@ protected:
   }
 
   void TearDown() override {
+    log_info("Freeing first connection");
     ct_connection_free(connection);
+    log_info("Freeing second connection");
     ct_connection_free(connection2);
     ct_close();
   }
