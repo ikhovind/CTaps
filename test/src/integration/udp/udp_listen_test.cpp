@@ -7,7 +7,9 @@ extern "C" {
 }
 #include "fixtures/awaiting_fixture.cpp"
 
-TEST_F(CTapsGenericFixture, ClosingListenerDoesNotAffectExistingConnections) {
+class UdpListenTests : public CTapsGenericFixture {};
+
+TEST_F(UdpListenTests, ClosingListenerDoesNotAffectExistingConnections) {
     ct_listener_t listener;
 
     ct_local_endpoint_t* listener_endpoint = ct_local_endpoint_new();
@@ -83,7 +85,7 @@ TEST_F(CTapsGenericFixture, ClosingListenerDoesNotAffectExistingConnections) {
     ct_transport_properties_free(listener_props);
 }
 
-TEST_F(CTapsGenericFixture, ClosingListenerWithNoConnectionsClosesSocketManager) {
+TEST_F(UdpListenTests, ClosingListenerWithNoConnectionsClosesSocketManager) {
     ct_listener_t listener;
     ct_connection_t client_connection;
 

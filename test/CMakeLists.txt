@@ -176,7 +176,7 @@ add_gtest(remote_endpoint_integration_test
             uv_freeaddrinfo
             get_service_port
 )
-#add_gtest(udp_listener_test SOURCES src/integration/listener_test.cpp ${CTAPS_SOURCES})
+add_gtest(udp_listener_test SOURCES src/integration/udp/udp_listen_test.cpp ${CTAPS_SOURCES})
 add_gtest(tcp_listener_test SOURCES src/integration/tcp/tcp_listen_test.cpp ${CTAPS_SOURCES})
 add_gtest(selection_property_test
   SOURCES
