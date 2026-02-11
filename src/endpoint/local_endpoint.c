@@ -143,6 +143,11 @@ ct_local_endpoint_t ct_local_endpoint_copy_content(const ct_local_endpoint_t* lo
 
 ct_local_endpoint_t* ct_local_endpoint_deep_copy(const ct_local_endpoint_t* local_endpoint) {
   ct_local_endpoint_t* res = malloc(sizeof(ct_local_endpoint_t));
+  if (!res) {
+    log_error("Failed to allocate memory for local endpoint copy");
+    return NULL;
+  }
+  memset(res, 0, sizeof(ct_local_endpoint_t));
   *res = ct_local_endpoint_copy_content(local_endpoint);
   return res;
 }

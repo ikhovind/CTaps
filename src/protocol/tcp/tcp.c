@@ -52,6 +52,7 @@ const ct_protocol_impl_t tcp_protocol_interface = {
     .listen = tcp_listen,
     .stop_listen = tcp_stop_listen,
     .close = tcp_close,
+    .close_socket = tcp_close_socket,
     .abort = tcp_abort,
     .clone_connection = tcp_clone_connection,
     .remote_endpoint_from_peer = tcp_remote_endpoint_from_peer,
@@ -67,6 +68,7 @@ typedef struct ct_tcp_socket_state_s {
   ct_message_t* initial_message;
   ct_message_context_t* initial_message_context;
   uv_connect_t* connect_req; // To be freed in tests etc. when we don't run the full connect flow
+  ct_on_connection_close_cb close_cb; // not a pointer because the typedef is for a pointer
 } ct_tcp_socket_state_t;
 
 ct_tcp_socket_state_t* ct_tcp_socket_state_new(ct_connection_t* connection,
@@ -124,7 +126,7 @@ void on_stop_listen(uv_handle_t* handle) {
   (void)handle;
 }
 
-void on_close(uv_handle_t* handle) {
+void on_libuv_close(uv_handle_t* handle) {
   ct_tcp_socket_state_t* sock_state = (ct_tcp_socket_state_t*)handle->data;
   ct_connection_mark_as_closed(sock_state->connection);
   if (sock_state->connection->connection_callbacks.closed) {
@@ -270,13 +272,13 @@ int tcp_init_with_send(ct_connection_t* connection, const ct_connection_callback
   ct_tcp_socket_state_t* sock_state = ct_tcp_socket_state_new(connection, NULL, initial_message, initial_message_context, connect_req);
   if (!sock_state) {
     log_error("Failed to allocate memory for TCP connection state");
-    uv_close((uv_handle_t*)new_tcp_handle, on_close);
+    uv_close((uv_handle_t*)new_tcp_handle, on_libuv_close);
     return -ENOMEM;
   }
 
   new_tcp_handle->data = sock_state;
 
-  uint32_t keepalive_timeout = connection->transport_properties.connection_properties.list[KEEP_ALIVE_TIMEOUT].value.uint32_val;
+  uint32_t keepalive_timeout = connection->transport_properties->connection_properties.list[KEEP_ALIVE_TIMEOUT].value.uint32_val;
   if (keepalive_timeout != CONN_TIMEOUT_DISABLED) {
     log_info("Setting TCP keepalive with timeout: %u seconds", keepalive_timeout);
     rc = uv_tcp_keepalive(new_tcp_handle, true, keepalive_timeout);
@@ -337,11 +339,11 @@ int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
   new_tcp_handle->data = ct_tcp_socket_state_new(connection, NULL, NULL, NULL, connect_req);
   if (!new_tcp_handle->data) {
     log_error("Failed to allocate memory for TCP connection state");
-    uv_close((uv_handle_t*)new_tcp_handle, on_close);
+    uv_close((uv_handle_t*)new_tcp_handle, on_libuv_close);
     return -ENOMEM;
   }
 
-  uint32_t keepalive_timeout = connection->transport_properties.connection_properties.list[KEEP_ALIVE_TIMEOUT].value.uint32_val;
+  uint32_t keepalive_timeout = connection->transport_properties->connection_properties.list[KEEP_ALIVE_TIMEOUT].value.uint32_val;
   if (keepalive_timeout != CONN_TIMEOUT_DISABLED) {
     log_info("Setting TCP keepalive with timeout: %u seconds", keepalive_timeout);
     rc = uv_tcp_keepalive(new_tcp_handle, true, keepalive_timeout);
@@ -376,12 +378,13 @@ int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
   return 0;
 }
 
-int tcp_close(ct_connection_t* connection) {
+int tcp_close(ct_connection_t* connection, ct_on_connection_close_cb on_connection_close) {
   log_info("Closing TCP connection: %s", connection->uuid);
 
-  // TCP connections are always STANDALONE
+  (void)on_connection_close;
+  // TODO - how to pass on_close
   if (connection->internal_connection_state) {
-    uv_close((uv_handle_t*)connection->internal_connection_state, on_close);
+    uv_close((uv_handle_t*)connection->internal_connection_state, on_libuv_close);
   }
 
   return 0;
@@ -460,7 +463,6 @@ int tcp_listen(ct_socket_manager_t* socket_manager) {
   return 0;
 }
 
-// TODO - fix this
 void new_stream_connection_cb(uv_stream_t *server, int status) {
   log_debug("New TCP connection received for ct_listener_t");
   if (status < 0) {
@@ -485,7 +487,7 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
   rc = uv_accept(server, (uv_stream_t*)client);
   if (rc < 0) {
     log_error("Error accepting new TCP connection: %s", uv_strerror(rc));
-    uv_close((uv_handle_t*)client, on_close);
+    uv_close((uv_handle_t*)client, on_libuv_close);
     return;
   }
 
@@ -506,7 +508,7 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
 
   if (!connection) {
     log_error("Failed to build connection from received handle");
-    uv_close((uv_handle_t*)client, on_close);
+    uv_close((uv_handle_t*)client, on_libuv_close);
     return;
   }
 
@@ -516,7 +518,7 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
   rc = uv_read_start((uv_stream_t*)client, alloc_cb, tcp_on_read);
   if (rc < 0) {
     log_error("Could not start reading from TCP connection: %s", uv_strerror(rc));
-    uv_close((uv_handle_t*)client, on_close);
+    uv_close((uv_handle_t*)client, on_libuv_close);
     ct_connection_close(connection);
     free(connection);
     return;
@@ -586,7 +588,7 @@ int tcp_clone_connection(const struct ct_connection_s* source_connection,
 
   // Copy TCP keepalive settings
   uint32_t keepalive_timeout = target_connection->transport_properties
-      .connection_properties.list[KEEP_ALIVE_TIMEOUT].value.uint32_val;
+      ->connection_properties.list[KEEP_ALIVE_TIMEOUT].value.uint32_val;
 
   if (keepalive_timeout != CONN_TIMEOUT_DISABLED) {
     log_info("Setting TCP keepalive with timeout: %u seconds", keepalive_timeout);
@@ -598,7 +600,7 @@ int tcp_clone_connection(const struct ct_connection_s* source_connection,
 
   if (!connect_req) {
     log_error("Failed to allocate connect request");
-    uv_close((uv_handle_t*)new_tcp_handle, on_close);
+    uv_close((uv_handle_t*)new_tcp_handle, on_libuv_close);
     return -ENOMEM;
   }
 
@@ -612,7 +614,7 @@ int tcp_clone_connection(const struct ct_connection_s* source_connection,
   if (rc < 0) {
     log_error("Error initiating TCP clone connection: %s", uv_strerror(rc));
     free(connect_req);
-    uv_close((uv_handle_t*)new_tcp_handle, on_close);
+    uv_close((uv_handle_t*)new_tcp_handle, on_libuv_close);
     return rc;
   }
 
@@ -643,5 +645,11 @@ int tcp_free_state(ct_connection_t* connection) {
 
 int tcp_free_connection_group_state(ct_connection_group_t* connection_group) {
   (void)connection_group;
+  return 0;
+}
+
+int tcp_close_socket(ct_socket_manager_t* socket_manager) {
+  (void)socket_manager;
+  // TODO implement
   return 0;
 }

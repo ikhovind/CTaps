@@ -57,6 +57,7 @@ const ct_protocol_impl_t quic_protocol_interface = {
     .listen = quic_listen,
     .stop_listen = quic_stop_listen,
     .close = quic_close,
+    .close_socket = quic_close_socket,
     .abort = quic_abort,
     .clone_connection = quic_clone_connection,
     .remote_endpoint_from_peer = quic_remote_endpoint_from_peer,
@@ -699,7 +700,7 @@ int picoquic_callback(picoquic_cnx_t* cnx,
               return rc;
             }
 
-            ct_quic_socket_state_t* socket_state = ct_connection_get_quic_socket_state(first_connection);
+            ct_quic_socket_state_t* socket_state = ct_connection_get_quic_socket_state(connection);
             ct_listener_t* listener = socket_state->socket_manager->listener;
             if (listener) {
               ct_connection_mark_as_established(new_stream_connection);
@@ -1378,7 +1379,8 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
   return 0;
 }
 
-int quic_close(ct_connection_t* connection) {
+int quic_close(ct_connection_t* connection, void(*on_connection_close)(ct_connection_t*)) {
+    (void)on_connection_close;
     log_debug("Closing QUIC connection: %s", connection->uuid);
     ct_quic_socket_state_t* socket_state = ct_connection_get_quic_socket_state(connection);
     ct_quic_connection_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
@@ -1634,7 +1636,7 @@ int quic_free_state(ct_connection_t *connection) {
   return 0;
 }
 
-ct_quic_stream_state_t* ct_quic_stream_state_new() {
+ct_quic_stream_state_t* ct_quic_stream_state_new(void) {
   ct_quic_stream_state_t* stream_state = malloc(sizeof(ct_quic_stream_state_t));
   if (!stream_state) {
     log_error("Failed to allocate memory for QUIC stream state");
@@ -1651,4 +1653,10 @@ void ct_free_quic_connection_group_state(ct_quic_connection_group_state_t* group
   }
   // TODO - do we need to do anything with cnx?
   free(group_state);
+}
+
+int quic_close_socket(ct_socket_manager_t* socket_manager) {
+  // TODO implement
+  (void)socket_manager;
+  return 0;
 }

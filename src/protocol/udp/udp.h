@@ -5,11 +5,15 @@
 #include "ctaps.h"
 #include "ctaps_internal.h"
 
-struct ct_socket_manager_s;
+typedef struct ct_udp_socket_state_s {
+  uv_udp_t* udp_handle;
+} ct_udp_socket_state_t;
 
+ct_udp_socket_state_t* ct_udp_socket_state_new(uv_udp_t* udp_handle);
 int udp_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks);
 int udp_init_with_send(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks, ct_message_t* initial_message, ct_message_context_t* initial_message_context);
-int udp_close(ct_connection_t* connection);
+int udp_close(ct_connection_t* connection, void(*on_close)(ct_connection_t* connection));
+int udp_close_socket(ct_socket_manager_t*);
 void udp_abort(ct_connection_t* connection);
 int udp_send(ct_connection_t* connection, ct_message_t* message, ct_message_context_t*);
 int udp_listen(struct ct_socket_manager_s* socket_manager);

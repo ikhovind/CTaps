@@ -16,6 +16,7 @@ struct ct_listener_s;
 
 // Per-socket QUIC state
 // Gotten through socket_manager internal state
+// 1-1 with socket manager, so freed when socket manager is freed.
 typedef struct ct_quic_socket_state_s {
   uv_udp_t* udp_handle;
   picoquic_quic_t* picoquic_ctx;
@@ -26,7 +27,6 @@ typedef struct ct_quic_socket_state_s {
   char* ticket_store_path;             // Path for 0-RTT session ticket persistence
   ct_message_t* initial_message;          // For freeing when a client connection is done
   ct_message_context_t* initial_message_context; // For freeing when a client connection is done
-  size_t ref_count;
 } ct_quic_socket_state_t;
 
 // Shared state across all streams in a QUIC connection group
@@ -55,11 +55,12 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
 void ct_close_quic_context(ct_quic_socket_state_t* ctx);
 void ct_free_quic_connection_group_state(ct_quic_connection_group_state_t* group_state);
 
-ct_quic_stream_state_t* ct_quic_stream_state_new();
+ct_quic_stream_state_t* ct_quic_stream_state_new(void);
 
 int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks);
 int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks, ct_message_t* initial_message, ct_message_context_t* initial_message_context);
-int quic_close(ct_connection_t* connection);
+int quic_close(ct_connection_t*, void(*on_connection_close)(ct_connection_t* connection));
+int quic_close_socket(ct_socket_manager_t*);
 void quic_abort(ct_connection_t* connection);
 int quic_send(ct_connection_t* connection, ct_message_t* message, ct_message_context_t*);
 int quic_listen(struct ct_socket_manager_s* socket_manager);

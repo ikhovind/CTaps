@@ -131,6 +131,7 @@ int respond_on_message_received_inline(ct_connection_t* connection, ct_message_t
     ct_message_t* message = ct_message_new_with_content("pong", strlen("pong") + 1);
     ct_send_message(connection, message);
     ct_message_free(message);
+    ct_connection_close(connection);
     return 0;
 }
 
@@ -180,7 +181,7 @@ int receive_message_and_respond_on_connection_received(ct_listener_t* listener, 
 }
 
 int receive_message_respond_and_close_listener_on_connection_received(ct_listener_t* listener, ct_connection_t* new_connection) {
-    log_trace("ct_connection_t received callback from listener");
+    log_trace("ct_connection_t received callback from listener with new connection: %s", ct_connection_get_uuid(new_connection));
     auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
     context->server_connections.push_back(new_connection);
 
@@ -210,7 +211,6 @@ int send_message_and_receive(struct ct_connection_s* connection) {
       .user_receive_context = ct_connection_get_callback_context(connection),
     };
 
-    log_trace("Adding receive callback from ct_connection_t");
     ct_receive_message(connection, receive_message_request);
     return 0;
 }

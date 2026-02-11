@@ -9,53 +9,47 @@ extern "C" {
 
 class UdpListenTests : public CTapsGenericFixture {};
 
-TEST_F(UdpListenTests, ClosingListenerDoesNotAffectExistingConnections) {
-    ct_listener_t listener;
-
+TEST_F(UdpListenTests, ReceivesConnectionFromListenerAndExchangesMessages) {
     ct_local_endpoint_t* listener_endpoint = ct_local_endpoint_new();
-    ASSERT_NE(listener_endpoint, nullptr);
 
     ct_local_endpoint_with_interface(listener_endpoint, "lo");
-    ct_local_endpoint_with_port(listener_endpoint, 6234);
+    ct_local_endpoint_with_port(listener_endpoint, 1239);
 
-    ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
-    ASSERT_NE(remote_endpoint, nullptr);
-    ct_remote_endpoint_with_ipv4(remote_endpoint, inet_addr("127.0.0.1"));
+    ct_remote_endpoint_t* listener_remote = ct_remote_endpoint_new();
+    ct_remote_endpoint_with_hostname(listener_remote, "127.0.0.1");
 
-    ct_transport_properties_t* listener_props = ct_transport_properties_new();
-    ASSERT_NE(listener_props, nullptr);
-    // Allocated with ct_transport_properties_new()
+    ct_transport_properties_t* udp_props = ct_transport_properties_new();
 
-    ct_tp_set_sel_prop_preference(listener_props, RELIABILITY, PROHIBIT);
+    ct_tp_set_sel_prop_preference(udp_props, RELIABILITY, PROHIBIT);
+    ct_tp_set_sel_prop_preference(udp_props, PRESERVE_ORDER, PROHIBIT);
+    ct_tp_set_sel_prop_preference(udp_props, CONGESTION_CONTROL, PROHIBIT);
 
-    ct_preconnection_t* listener_precon = ct_preconnection_new(remote_endpoint, 1, listener_props, NULL);
-    ASSERT_NE(listener_precon, nullptr);
+    ct_preconnection_t* listener_precon = ct_preconnection_new(listener_remote, 1, udp_props, NULL);
     ct_preconnection_set_local_endpoint(listener_precon, listener_endpoint);
 
     ct_listener_callbacks_t listener_callbacks = {
-        .connection_received = on_connection_received_receive_message_close_listener_and_send_new_message,
+        .connection_received = receive_message_respond_and_close_listener_on_connection_received,
         .user_listener_context = &test_context
     };
 
-    ct_preconnection_listen(listener_precon, &listener, listener_callbacks);
+    ct_listener_t listener;
+    int listen_res = ct_preconnection_listen(listener_precon, &listener, listener_callbacks);
+
+    ASSERT_EQ(listen_res, 0);
 
     // --- SETUP CLIENT ---
     ct_remote_endpoint_t* client_remote = ct_remote_endpoint_new();
-    ASSERT_NE(client_remote, nullptr);
-    ct_remote_endpoint_with_ipv4(client_remote, inet_addr("127.0.0.1"));
-    ct_remote_endpoint_with_port(client_remote, 6234); // Point to the listener
+    ct_remote_endpoint_with_hostname(client_remote, "127.0.0.1");
+    ct_remote_endpoint_with_port(client_remote, 1239);
 
-    ct_transport_properties_t* client_props = ct_transport_properties_new();
-    ASSERT_NE(client_props, nullptr);
-    // Allocated with ct_transport_properties_new()
 
-    ct_tp_set_sel_prop_preference(client_props, RELIABILITY, PROHIBIT);
-
-    ct_preconnection_t* client_precon = ct_preconnection_new(client_remote, 1, client_props, NULL);
+    ct_preconnection_t* client_precon = ct_preconnection_new(client_remote, 1, udp_props, NULL);
     ASSERT_NE(client_precon, nullptr);
 
-    ct_connection_callbacks_t client_callbacks = {
-        .ready = send_message_on_connection_ready,
+    // Custom ready callback that saves connection and calls original ready
+
+    ct_connection_callbacks_t client_callbacks {
+        .ready = send_message_and_receive,
         .user_connection_context = &test_context
     };
 
@@ -65,61 +59,28 @@ TEST_F(UdpListenTests, ClosingListenerDoesNotAffectExistingConnections) {
     // This will block until the callbacks close the handles
     ct_start_event_loop();
 
+    ct_connection_t* client_connection = test_context.client_connections[0];
+
     // --- ASSERTIONS ---
+    ASSERT_EQ(per_connection_messages.size(), 2); // Both client and server connections
+
+    // Client receives "pong"
+    ASSERT_EQ(per_connection_messages[client_connection].size(), 1);
+    ASSERT_EQ(per_connection_messages[client_connection][0]->length, 5);
+    ASSERT_STREQ(per_connection_messages[client_connection][0]->content, "pong");
+
+    // Server receives "ping"
     ASSERT_EQ(test_context.server_connections.size(), 1);
-    ASSERT_EQ(test_context.per_connection_messages[test_context.server_connections[0]]->size(), 1);
-    ASSERT_EQ(test_context.per_connection_messages[test_context.server_connections[0]][0]->length, 5);
-    ASSERT_EQ(test_context.per_connection_messages[test_context.server_connections[0]][0]->content, "ping");
+    ct_connection_t* server_connection = test_context.server_connections[0];
+    ASSERT_EQ(per_connection_messages[server_connection].size(), 1);
+    ASSERT_EQ(per_connection_messages[server_connection][0]->length, 5);
+    ASSERT_STREQ(per_connection_messages[server_connection][0]->content, "ping");
 
-
-    ASSERT_EQ(test_context.per_connection_messages[test_context.server_connections[1]]->size(), 1);
-    ASSERT_EQ(test_context.per_connection_messages[test_context.server_connections[1]][0]->length, 6);
-    ASSERT_EQ(test_context.per_connection_messages[test_context.server_connections[1]][0]->content, "ping2");
-
+    // Cleanup
     ct_local_endpoint_free(listener_endpoint);
-    ct_remote_endpoint_free(remote_endpoint);
+    ct_remote_endpoint_free(listener_remote);
     ct_remote_endpoint_free(client_remote);
+    ct_preconnection_free(listener_precon);
+    ct_transport_properties_free(udp_props);
     ct_preconnection_free(client_precon);
-    ct_transport_properties_free(client_props);
-    ct_preconnection_free(listener_precon);
-    ct_transport_properties_free(listener_props);
-}
-
-TEST_F(UdpListenTests, ClosingListenerWithNoConnectionsClosesSocketManager) {
-    ct_listener_t listener;
-    ct_connection_t client_connection;
-
-    test_context.client_connections.push_back(&client_connection);
-
-    ct_local_endpoint_t* listener_endpoint = ct_local_endpoint_new();
-    ASSERT_NE(listener_endpoint, nullptr);
-
-    ct_local_endpoint_with_interface(listener_endpoint, "lo");
-    ct_local_endpoint_with_port(listener_endpoint, 6235);
-
-    ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
-    ASSERT_NE(remote_endpoint, nullptr);
-    ct_remote_endpoint_with_ipv4(remote_endpoint, inet_addr("127.0.0.1"));
-
-    ct_transport_properties_t* listener_props = ct_transport_properties_new();
-    ASSERT_NE(listener_props, nullptr);
-    // Allocated with ct_transport_properties_new()
-
-    ct_tp_set_sel_prop_preference(listener_props, RELIABILITY, PROHIBIT);
-
-    ct_preconnection_t* listener_precon = ct_preconnection_new(remote_endpoint, 1, listener_props, NULL);
-    ASSERT_NE(listener_precon, nullptr);
-    ct_preconnection_set_local_endpoint(listener_precon, listener_endpoint);
-
-    ct_preconnection_listen(listener_precon, &listener, on_connection_received_receive_message_close_listener_and_send_new_message);
-
-    ct_listener_close(&listener);
-    // --- RUN EVENT LOOP ---
-    // This will block until the callbacks close the handles
-    ct_start_event_loop();
-
-    ct_local_endpoint_free(listener_endpoint);
-    ct_remote_endpoint_free(remote_endpoint);
-    ct_preconnection_free(listener_precon);
-    ct_transport_properties_free(listener_props);
 }

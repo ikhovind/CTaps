@@ -7,7 +7,8 @@
 void ct_listener_close(ct_listener_t* listener) {
   log_debug("Closing listener");
   listener->socket_manager->listener = NULL;
-  socket_manager_decrement_ref(listener->socket_manager);
+  listener->socket_manager->protocol_impl->stop_listen(listener->socket_manager);
+  ct_socket_manager_unref(listener->socket_manager);
   if (listener->listener_callbacks.stopped) {
     log_debug("Invoking listener stopped callback");
     listener->listener_callbacks.stopped(listener);
