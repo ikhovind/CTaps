@@ -92,6 +92,7 @@ int ct_preconnection_listen(ct_preconnection_t* preconnection, ct_listener_t* li
 
     ct_socket_manager_t* socket_manager = ct_socket_manager_new(first_node.protocol_candidate->protocol_impl, listener);
     if (socket_manager == NULL) {
+      log_error("Failed to create socket manager for listener");
       return -errno;
     }
     *listener = (ct_listener_t){

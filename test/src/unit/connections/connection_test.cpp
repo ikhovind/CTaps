@@ -15,7 +15,7 @@ TEST(ConnectionUnitTests, connectionCanSendReturnsCorrectRes) {
 
     ASSERT_FALSE(ct_connection_can_send(&connection));
 
-    connection.transport_properties.connection_properties.list[CAN_SEND].value.bool_val = true;
+    connection->transport_properties.connection_properties.list[CAN_SEND].value.bool_val = true;
     ASSERT_TRUE(ct_connection_can_send(&connection));
 }
 
@@ -25,7 +25,7 @@ TEST(ConnectionUnitTests, connectionCanReceiveReturnsCorrectRes) {
 
     ASSERT_FALSE(ct_connection_can_receive(&connection));
 
-    connection.transport_properties.connection_properties.list[CAN_RECEIVE].value.bool_val = true;
+    connection->transport_properties.connection_properties.list[CAN_RECEIVE].value.bool_val = true;
     ASSERT_TRUE(ct_connection_can_receive(&connection));
 }
 
@@ -99,13 +99,13 @@ TEST(ConnectionUnitTests, connectionPropertyGetterGetsConnectionProperty) {
 
     transport_properties->connection_properties.list[CAN_SEND].value.bool_val = true;
 
-    connection->transport_properties = *transport_properties;
+    connection->transport_properties = transport_properties;
 
     const ct_connection_properties_t* gotten_props = ct_connection_get_connection_properties(connection);
 
     ASSERT_NE(gotten_props, nullptr);
     ASSERT_EQ(gotten_props->list[CAN_SEND].value.bool_val, true);
-    ASSERT_EQ((void*)gotten_props, (void*)&connection->transport_properties.connection_properties);
+    ASSERT_EQ((void*)gotten_props, (void*)&connection->transport_properties->connection_properties);
 }
 
 TEST(ConnectionUnitTests, connectionPropertyGetterHandlesNullParam) {

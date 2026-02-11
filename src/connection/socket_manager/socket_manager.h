@@ -9,11 +9,9 @@ int socket_manager_build(ct_socket_manager_t* socket_manager, struct ct_listener
 
 int socket_manager_decrement_ref(ct_socket_manager_t* socket_manager);
 
-void socket_manager_increment_ref(ct_socket_manager_t* socket_manager);
+ct_socket_manager_t* ct_socket_manager_ref(ct_socket_manager_t* socket_manager);
 
 void socket_manager_free(ct_socket_manager_t* socket_manager);
-
-ct_socket_manager_t* ct_socket_manager_ref(ct_socket_manager_t* socket_manager);
 
 void ct_socket_manager_unref(ct_socket_manager_t* socket_manager);
 
@@ -26,5 +24,9 @@ int socket_manager_insert_connection(ct_socket_manager_t* socket_manager, const 
 ct_socket_manager_t* ct_socket_manager_new(const ct_protocol_impl_t* protocol_impl, ct_listener_t* listener);
 
 int ct_socket_manager_get_num_open_connections(const ct_socket_manager_t* socket_manager);
+
+void ct_socket_manager_close(ct_socket_manager_t* socket_manager);
+
+int ct_socket_manager_close_connection(ct_socket_manager_t*, ct_connection_t*);
 
 #endif //SOCKET_MANAGER_H

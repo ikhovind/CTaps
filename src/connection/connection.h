@@ -7,6 +7,7 @@
 ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_impl,
                                              const ct_local_endpoint_t* local_endpoint,
                                              const ct_remote_endpoint_t* remote_endpoint,
+                                             const ct_transport_properties_t* transport_properties,
                                              const ct_security_parameters_t* security_parameters,
                                              const ct_connection_callbacks_t* connection_callbacks,
                                              ct_framer_impl_t* framer_impl);
@@ -143,5 +144,9 @@ ct_connection_group_t* ct_connection_get_connection_group(const ct_connection_t*
 void connection_set_resolved_local_address(ct_connection_t* connection, const struct sockaddr_storage* addr);
 
 void ct_connection_set_sent_early_data(ct_connection_t* connection, bool used_0rtt);
+
+void ct_connection_set_socket_state(ct_connection_t* connection, void* socket_state);
+
+void* ct_connection_get_socket_state(ct_connection_t* connection);
 
 #endif // CONNECTION_H

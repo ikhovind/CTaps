@@ -143,6 +143,7 @@ static int start_specific_connection_attempt(ct_racing_context_t* context, size_
     candidate->protocol_candidate->protocol_impl,
     candidate->local_endpoint,
     candidate->remote_endpoint,
+    &context->preconnection->transport_properties,
     context->preconnection->security_parameters,
     &attempt_callbacks,
     context->preconnection->framer_impl

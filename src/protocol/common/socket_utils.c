@@ -73,8 +73,14 @@ uv_udp_t* create_udp_listening_on_ephemeral(uv_alloc_cb alloc_cb, uv_udp_recv_cb
 
 
 int resolve_local_endpoint_from_handle(uv_handle_t* handle, ct_connection_t* connection) {
+  if (!handle || !connection) {
+    log_error("Handle or connection is NULL in resolve_local_endpoint_from_handle");
+    log_debug("Handle pointer: %p, connection pointer: %p", (void*)handle, (void*)connection);
+    return -EINVAL;
+  }
   switch (handle->type) {
     case UV_UDP: {
+      log_debug("Resolving local endpoint from UDP handle");
       uv_udp_t* udp_handle = (uv_udp_t*)handle;
       struct sockaddr_storage addr;
       int namelen = sizeof(addr);
@@ -87,6 +93,7 @@ int resolve_local_endpoint_from_handle(uv_handle_t* handle, ct_connection_t* con
       return 0;
     }
     case UV_TCP: {
+      log_debug("Resolving local endpoint from TCP handle");
       uv_tcp_t* tcp_handle = (uv_tcp_t*)handle;
       struct sockaddr_storage addr;
       int namelen = sizeof(addr);

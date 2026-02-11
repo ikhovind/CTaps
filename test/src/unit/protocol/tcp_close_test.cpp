@@ -77,14 +77,19 @@ protected:
       .closed = mock_closed_cb,
     };
 
+    ct_transport_properties_t* transport_properties = ct_transport_properties_new();
+
     connection = ct_connection_create_client(
       &tcp_protocol_interface,
       local_endpoint,
       remote_endpoint,
+      transport_properties,
       NULL,
       &attempt_callbacks,
       NULL
     );
+
+    ct_transport_properties_free(transport_properties);
 
     log_debug("Conenction remote endpoint: %p", (void*)ct_connection_get_remote_endpoint(connection));
     log_debug("Connection remote endpoint resolved address: %p", (void*)remote_endpoint_get_resolved_address(ct_connection_get_remote_endpoint(connection)));
