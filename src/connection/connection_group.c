@@ -61,8 +61,9 @@ void ct_connection_group_close_all(ct_connection_group_t* connection_group) {
   g_hash_table_iter_init(&iter, connection_group->connections);
   while (g_hash_table_iter_next(&iter, &key, &value)) {
     ct_connection_t* connection = (ct_connection_t*)value;
+    log_debug("Checking member connection: %s in connection group for close", connection->uuid);
     if (!ct_connection_is_closed_or_closing(connection)) {
-      log_trace("Closing member in connection group: %s", connection->uuid);
+      log_debug("Closing member in connection group: %s", connection->uuid);
       ct_connection_close(connection);
     }
     else {

@@ -95,6 +95,7 @@ int on_message_received(ct_connection_t* connection, ct_message_t** received_mes
 
 int close_on_message_received(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
     log_info("ct_callback_t: close_on_message_received.\n");
+    log_info("closing connection: %s", ct_connection_get_uuid(connection));
     auto* ctx = static_cast<CallbackContext*>(message_context->user_receive_context);
 
     (*ctx->per_connection_messages)[connection].push_back(*received_message);
@@ -123,9 +124,10 @@ int close_on_expected_num_messages_received(ct_connection_t* connection, ct_mess
 }
 
 // Callback that stores received message and sends "pong" response (for listener tests)
-int respond_on_message_received_inline(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
-    log_info("ct_callback_t: respond_on_message_received.\n");
+int respond_and_close_on_message_received(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
+    log_info("ct_callback_t: respond_and_close_on_message_received.\n");
     auto* ctx = static_cast<CallbackContext*>(message_context->user_receive_context);
+    log_debug("received on connection: %s", ct_connection_get_uuid(connection));
     (*ctx->per_connection_messages)[connection].push_back(*received_message);
 
     ct_message_t* message = ct_message_new_with_content("pong", strlen("pong") + 1);
@@ -136,7 +138,7 @@ int respond_on_message_received_inline(ct_connection_t* connection, ct_message_t
 }
 
 int respond_and_verify_server_message_context_remote_context_on_message_received(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
-    log_info("ct_callback_t: respond_on_message_received.\n");
+    log_info("ct_callback_t: respond_and_verify_server_message_context_remote_context_on_message_received.\n");
     auto* ctx = static_cast<CallbackContext*>(message_context->user_receive_context);
     (*ctx->per_connection_messages)[connection].push_back(*received_message);
 
@@ -172,7 +174,7 @@ int receive_message_and_respond_on_connection_received(ct_listener_t* listener, 
     context->server_connections.push_back(new_connection);
 
     ct_receive_callbacks_t receive_message_request = {
-      .receive_callback = respond_on_message_received_inline,
+      .receive_callback = respond_and_close_on_message_received,
       .user_receive_context = ct_connection_get_callback_context(new_connection),
     };
 
@@ -186,13 +188,13 @@ int receive_message_respond_and_close_listener_on_connection_received(ct_listene
     context->server_connections.push_back(new_connection);
 
     ct_receive_callbacks_t receive_message_request = {
-      .receive_callback = respond_on_message_received_inline,
+      .receive_callback = respond_and_close_on_message_received,
       .user_receive_context = listener->listener_callbacks.user_listener_context,
     };
 
     ct_listener_close(listener);
 
-    log_trace("Adding receive callback from ct_listener_t");
+    log_debug("Receiving on connection: %s", ct_connection_get_uuid(new_connection));
     ct_receive_message(new_connection, receive_message_request);
     return 0;
 }
@@ -459,13 +461,15 @@ int clone_send_and_setup_receive_on_both(ct_connection_t* connection) {
     auto* ctx = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
     ctx->client_connections.push_back(connection);
 
+
     // Check connection group size to determine if this is original or cloned connection
     uint64_t num_grouped = ct_connection_get_total_num_grouped_connections(connection);
 
     const char* message_content;
     if (num_grouped == 1) {
         // This is the original connection - clone it
-        log_info("Original connection %p ready, cloning", (void*)connection);
+        log_info("Original connection %s ready, cloning", connection->uuid);
+        log_debug("original client connection: %s socket manager %p", ct_connection_get_uuid(connection), (void*)connection->socket_manager);
 
         int rc = ct_connection_clone(connection);
         if (rc < 0) {
@@ -478,7 +482,8 @@ int clone_send_and_setup_receive_on_both(ct_connection_t* connection) {
         message_content = "ping-original";
     } else {
         // This is the cloned connection
-        log_info("Cloned connection %p ready", (void*)connection);
+        log_info("Cloned connection %s ready", connection->uuid);
+        log_debug("cloned client connection: %s socket manager %p", ct_connection_get_uuid(connection), (void*)connection->socket_manager);
         message_content = "ping-cloned";
     }
 
@@ -493,7 +498,7 @@ int clone_send_and_setup_receive_on_both(ct_connection_t* connection) {
     };
     ct_receive_message(connection, receive_req);
 
-    log_info("Sent message '%s' and set up receive on connection %p", message_content, (void*)connection);
+    log_info("Sent message '%s' and set up receive on connection %s", message_content, connection->uuid);
     return 0;
 }
 

@@ -1809,6 +1809,8 @@ CT_EXTERN void ct_listener_close(ct_listener_t* listener);
  */
 CT_EXTERN void ct_listener_free(ct_listener_t* listener);
 
+CT_EXTERN ct_listener_t* ct_listener_new(void);
+
 /**
  * @brief Get the local endpoint a listener is bound to.
  * @param[in] listener The listener

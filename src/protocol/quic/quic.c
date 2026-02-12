@@ -685,7 +685,7 @@ int picoquic_callback(picoquic_cnx_t* cnx,
             log_info("Received new remote-initiated stream on server connection");
 
             // Create new connection for this stream by cloning the first connection
-            ct_connection_t* new_stream_connection = ct_connection_create_clone(first_connection, NULL, ct_quic_stream_state_new());
+            ct_connection_t* new_stream_connection = ct_connection_create_clone(first_connection, first_connection->socket_manager, NULL, ct_quic_stream_state_new());
             if (!new_stream_connection) {
               log_error("Failed to create cloned connection for new stream");
               return -ENOMEM;

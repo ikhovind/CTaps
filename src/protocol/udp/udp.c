@@ -143,6 +143,7 @@ void on_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
 
   log_info("Received message over UDP handle");
   ct_socket_manager_t* socket_manager = (ct_socket_manager_t*)handle->data;
+  log_debug("Socket manager %p received UDP message", socket_manager);
   ct_connection_t* connection = socket_manager_get_connection(socket_manager, (const struct sockaddr_storage*)addr);
   if (!connection) {
     log_error("Received UDP message from unknown remote endpoint, dropping");
@@ -378,10 +379,6 @@ int udp_clone_connection(const struct ct_connection_s* source_connection, struct
     log_error("Source or target connection is NULL in udp_clone_connection");
     return -EINVAL;
   }
-  ct_socket_manager_t* socket_manager = ct_socket_manager_new(source_connection->socket_manager->protocol_impl, NULL);
-  ct_socket_manager_unref(target_connection->socket_manager); // This is by default a ref to the source connection's socket manager
-  target_connection->socket_manager = ct_socket_manager_ref(socket_manager);
-
   // Create ephemeral local port
   uv_udp_t* new_udp_handle = create_udp_listening_on_ephemeral(alloc_buffer, on_read);
   ct_udp_socket_state_t* socket_state = ct_udp_socket_state_new(new_udp_handle);

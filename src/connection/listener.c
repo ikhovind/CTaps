@@ -5,20 +5,13 @@
 #include <stdio.h>
 
 void ct_listener_close(ct_listener_t* listener) {
-  log_debug("Closing listener");
-  listener->socket_manager->listener = NULL;
-  listener->socket_manager->protocol_impl->stop_listen(listener->socket_manager);
-  ct_socket_manager_unref(listener->socket_manager);
-  if (listener->listener_callbacks.stopped) {
-    log_debug("Invoking listener stopped callback");
-    listener->listener_callbacks.stopped(listener);
-  }
-  else {
-    log_debug("No listener stopped callback registered");
+  int rc = ct_socket_manager_listener_stop(listener->socket_manager); 
+  if (rc) {
+    log_error("Error in stopping listener: %d", rc);
   }
 }
 
-ct_listener_t* ct_listener_new() {
+ct_listener_t* ct_listener_new(void) {
   ct_listener_t* listener = malloc(sizeof(ct_listener_t));
   if (listener == NULL) {
     log_error("Could not allocate memory for ct_listener_t: %s", strerror(errno));

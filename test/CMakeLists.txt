@@ -118,7 +118,7 @@ add_gtest(
 )
 add_gtest(remote_endpoint_unit_test SOURCES src/unit/endpoint/remote.cpp ${CTAPS_SOURCES})
 add_gtest(preconnection_unit_test SOURCES src/unit/connections/preconnection.cpp ${CTAPS_SOURCES})
-add_gtest(connection_unit_test SOURCES src/unit/connections/connection_test.cpp ${CTAPS_SOURCES})
+add_gtest(connection_unit_test SOURCES src/unit/connections/connection_unit_test.cpp ${CTAPS_SOURCES})
 add_gtest(connection_group_unit_test SOURCES src/unit/connections/connection_group_test.cpp ${CTAPS_SOURCES})
 add_gtest(candidate_gathering_test
         SOURCES
@@ -176,8 +176,8 @@ add_gtest(remote_endpoint_integration_test
             uv_freeaddrinfo
             get_service_port
 )
-add_gtest(udp_listener_test SOURCES src/integration/udp/udp_listen_test.cpp ${CTAPS_SOURCES})
-add_gtest(tcp_listener_test SOURCES src/integration/tcp/tcp_listen_test.cpp ${CTAPS_SOURCES})
+add_gtest(udp_listen_test SOURCES src/integration/udp/udp_listen_test.cpp ${CTAPS_SOURCES})
+add_gtest(tcp_listen_test SOURCES src/integration/tcp/tcp_listen_test.cpp ${CTAPS_SOURCES})
 add_gtest(selection_property_test
   SOURCES
     src/unit/transport_properties/selection_properties/selection_properties_test.cpp
@@ -256,6 +256,7 @@ add_gtest(tcp_close_callback_test
   WRAP_FUNCTIONS
     uv_close
     uv_tcp_close_reset
+    uv_is_closing
   ASAN_ENABLED
 )
 
