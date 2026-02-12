@@ -19,7 +19,7 @@ static void on_stagger_timer(uv_timer_t* handle);
 static int racing_on_attempt_ready(struct ct_connection_s* connection);
 static int on_attempt_establishment_error(ct_connection_t* connection);
 static void cancel_all_other_attempts(ct_racing_context_t* context, size_t winning_index);
-static int start_connection_attempt(ct_racing_context_t* context, size_t attempt_index);
+static int start_specific_connection_attempt(ct_racing_context_t* context, size_t attempt_index);
 
 static void on_timer_close_free_context(uv_handle_t* handle) {
   ct_racing_context_t* context = (ct_racing_context_t*)handle->data;
@@ -118,7 +118,7 @@ static ct_racing_context_t* racing_context_create(GArray* candidate_nodes,
 /**
  * @brief Starts a single connection attempt.
  */
-static int start_connection_attempt(ct_racing_context_t* context, size_t attempt_index) {
+static int start_specific_connection_attempt(ct_racing_context_t* context, size_t attempt_index) {
   log_info("Starting connection attempt %zu/%zu", attempt_index + 1, context->num_attempts);
 
   if (attempt_index >= context->num_attempts) {
@@ -131,38 +131,30 @@ static int start_connection_attempt(ct_racing_context_t* context, size_t attempt
 
   log_debug("Attempting connection with protocol: %s", candidate->protocol_candidate->protocol_impl->name);
 
+  // Wrap callbacks so that we can intercept the succesful/failing attempts
+  ct_connection_callbacks_t attempt_callbacks = {
+    .ready = racing_on_attempt_ready,
+    .establishment_error = on_attempt_establishment_error,
+    .user_connection_context = attempt,
+  };
+
   // Allocate connection for this attempt
-  attempt->connection = malloc(sizeof(ct_connection_t));
+  attempt->connection = ct_connection_create_client(
+    candidate->protocol_candidate->protocol_impl,
+    candidate->local_endpoint,
+    candidate->remote_endpoint,
+    &context->preconnection->transport_properties,
+    context->preconnection->security_parameters,
+    &attempt_callbacks,
+    context->preconnection->framer_impl
+  );
   if (attempt->connection == NULL) {
     log_error("Failed to allocate connection for attempt %zu", attempt_index);
     attempt->state = ATTEMPT_STATE_FAILED;
     return -ENOMEM;
   }
-  int rc = ct_connection_build_with_new_connection_group(attempt->connection);
-  if (rc < 0) {
-    log_error("Failed to build connection for attempt %zu: %d", attempt_index, rc);
-    free(attempt->connection);
-    attempt->connection = NULL;
-    attempt->state = ATTEMPT_STATE_FAILED;
-    return rc;
-  }
 
-  // TODO - create a connection_from_candidate function to encapsulate this logic
-  // Setup connection with candidate parameters
-  attempt->connection->protocol = *candidate->protocol_candidate->protocol_impl;
-  // Deep copy endpoints so connection owns its own copies
-  attempt->connection->remote_endpoint = ct_remote_endpoint_copy_content(candidate->remote_endpoint);
-  attempt->connection->local_endpoint = ct_local_endpoint_copy_content(candidate->local_endpoint);
-  attempt->connection->socket_type = CONNECTION_SOCKET_TYPE_STANDALONE;
-  attempt->connection->role = CONNECTION_ROLE_CLIENT;
-  // Deep copy security parameters so connection owns its own copy
   if (context->preconnection->security_parameters) {
-    attempt->connection->security_parameters = ct_security_parameters_deep_copy(context->preconnection->security_parameters);
-    if (!attempt->connection->security_parameters) {
-      log_error("Failed to deep copy security parameters for attempt %zu", attempt_index);
-      return -ENOMEM;
-    }
-    log_info("Setting alpn to: %s", candidate->protocol_candidate->alpn);
     // When branching we assign a single ALPN to each node (if the protocol supports ALPN)
     // However the security parameters contain all the original ALPNs from the preconnection
     // So to make sure that this connection attempt uses the ALPN from the candidate node
@@ -171,30 +163,20 @@ static int start_connection_attempt(ct_racing_context_t* context, size_t attempt
     ct_sec_param_set_property_string_array(attempt->connection->security_parameters, ALPN, (const char**)&attempt->candidate.protocol_candidate->alpn, 1);
   }
 
-  attempt->connection->framer_impl = context->preconnection->framer_impl;
-
-  // Setup wrapped callbacks that point back to this attempt
-  ct_connection_callbacks_t attempt_callbacks = {
-    .ready = racing_on_attempt_ready,
-    .establishment_error = on_attempt_establishment_error,
-    .user_connection_context = attempt,
-  };
-
-  attempt->connection->connection_callbacks = attempt_callbacks;
   attempt->state = ATTEMPT_STATE_CONNECTING;
 
+  int rc = 0;
   if (context->should_try_early_data) {
     log_debug("Initiating racing connection attempt %zu with early data", attempt_index);
-    rc = attempt->connection->protocol.init_with_send(attempt->connection, &attempt->connection->connection_callbacks, context->initial_message, context->initial_message_context);
+    rc = attempt->connection->socket_manager->protocol_impl->init_with_send(attempt->connection, &attempt->connection->connection_callbacks, context->initial_message, context->initial_message_context);
   }
   else {
-    rc = attempt->connection->protocol.init(attempt->connection, &attempt->connection->connection_callbacks);
+    rc = attempt->connection->socket_manager->protocol_impl->init(attempt->connection, &attempt->connection->connection_callbacks);
   }
   if (rc != 0) {
     log_error("Failed to initiate connection attempt %zu: %d", attempt_index, rc);
     attempt->state = ATTEMPT_STATE_FAILED;
-    ct_connection_free(attempt->connection);
-    attempt->connection = NULL;
+    // The connection is freed alongside all failed attempts
     return rc;
   }
 
@@ -366,7 +348,7 @@ static void initiate_next_attempt(ct_racing_context_t* context) {
     return;
   }
 
-  int rc = start_connection_attempt(context, context->next_attempt_index);
+  int rc = start_specific_connection_attempt(context, context->next_attempt_index);
   if (rc != 0) {
     log_warn("Failed to start attempt %zu: %d", context->next_attempt_index, rc);
   }

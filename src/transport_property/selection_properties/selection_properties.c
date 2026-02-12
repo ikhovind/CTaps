@@ -37,11 +37,10 @@ void ct_selection_properties_deep_copy(ct_selection_properties_t* dest, const ct
     return;
   }
 
-  // First do a shallow copy of the entire structure
   memcpy(dest, src, sizeof(ct_selection_properties_t));
 
-  // Now deep copy the interface preference map if it exists
-  if (src->selection_property[INTERFACE].value.preference_map != NULL) {
+  // // Now deep copy the interface preference map if it exists
+  if (src->selection_property[INTERFACE].value.preference_map) {
     GHashTable* src_map = (GHashTable*)src->selection_property[INTERFACE].value.preference_map;
     GHashTable* dest_map = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
 

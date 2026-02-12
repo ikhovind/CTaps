@@ -1,15 +1,17 @@
 #include "ctaps.h"
 #include "ctaps_internal.h"
-#include <stdbool.h>
-#include <stdlib.h>
+#include "logging/log.h"
 #include "transport_property/selection_properties/selection_properties.h"
 #include "transport_property/transport_properties.h"
+#include <stdbool.h>
+#include <stdlib.h>
 
 ct_transport_properties_t* ct_transport_properties_new(void) {
   ct_transport_properties_t* props = malloc(sizeof(ct_transport_properties_t));
   if (!props) {
     return NULL;
   }
+  memset(props, 0, sizeof(ct_transport_properties_t));
 
   // Initialize with default values (inlined from removed _build function)
   memcpy(&props->selection_properties, &DEFAULT_SELECTION_PROPERTIES, sizeof(ct_selection_properties_t));
@@ -20,14 +22,13 @@ ct_transport_properties_t* ct_transport_properties_new(void) {
 
 void ct_transport_properties_free(ct_transport_properties_t* props) {
   if (!props) {
+    log_warn("Attempted to free NULL transport properties");
     return;
   }
 
   // Clean up selection properties (frees GHashTable if created)
   ct_selection_properties_cleanup(&props->selection_properties);
-
   // connection_properties has no dynamic allocations, no cleanup needed
-
   free(props);
 }
 
@@ -41,7 +42,6 @@ ct_transport_properties_t* ct_transport_properties_deep_copy(const ct_transport_
     return NULL;
   }
 
-  // Deep copy selection properties (handles GHashTable properly)
   ct_selection_properties_deep_copy(&dest->selection_properties, &src->selection_properties);
 
   // Shallow copy connection properties (no dynamic allocations)

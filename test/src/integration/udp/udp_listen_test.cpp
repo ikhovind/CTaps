@@ -7,14 +7,9 @@ extern "C" {
 }
 #include "fixtures/awaiting_fixture.cpp"
 
-class TcpListenTests : public CTapsGenericFixture {};
+class UdpListenTests : public CTapsGenericFixture {};
 
-// TODO - this fails, but setting up a TCP ping server works, so there may just be something
-// weird about the test itself. Should test TCP ping test and see if there are issues there
-// as well
-TEST_F(TcpListenTests, ReceivesConnectionFromListenerAndExchangesMessages) {
-    ct_listener_t listener = {0};
-
+TEST_F(UdpListenTests, ReceivesConnectionFromListenerAndExchangesMessages) {
     ct_local_endpoint_t* listener_endpoint = ct_local_endpoint_new();
 
     ct_local_endpoint_with_interface(listener_endpoint, "lo");
@@ -23,13 +18,13 @@ TEST_F(TcpListenTests, ReceivesConnectionFromListenerAndExchangesMessages) {
     ct_remote_endpoint_t* listener_remote = ct_remote_endpoint_new();
     ct_remote_endpoint_with_hostname(listener_remote, "127.0.0.1");
 
-    ct_transport_properties_t* listener_props = ct_transport_properties_new();
+    ct_transport_properties_t* udp_props = ct_transport_properties_new();
 
-    ct_tp_set_sel_prop_preference(listener_props, RELIABILITY, REQUIRE);
-    ct_tp_set_sel_prop_preference(listener_props, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
-    ct_tp_set_sel_prop_preference(listener_props, MULTISTREAMING, PROHIBIT);
+    ct_tp_set_sel_prop_preference(udp_props, RELIABILITY, PROHIBIT);
+    ct_tp_set_sel_prop_preference(udp_props, PRESERVE_ORDER, PROHIBIT);
+    ct_tp_set_sel_prop_preference(udp_props, CONGESTION_CONTROL, PROHIBIT);
 
-    ct_preconnection_t* listener_precon = ct_preconnection_new(listener_remote, 1, listener_props, NULL);
+    ct_preconnection_t* listener_precon = ct_preconnection_new(listener_remote, 1, udp_props, NULL);
     ct_preconnection_set_local_endpoint(listener_precon, listener_endpoint);
 
     ct_listener_callbacks_t listener_callbacks = {
@@ -37,24 +32,18 @@ TEST_F(TcpListenTests, ReceivesConnectionFromListenerAndExchangesMessages) {
         .user_listener_context = &test_context
     };
 
+    ct_listener_t listener;
     int listen_res = ct_preconnection_listen(listener_precon, &listener, listener_callbacks);
 
     ASSERT_EQ(listen_res, 0);
 
     // --- SETUP CLIENT ---
     ct_remote_endpoint_t* client_remote = ct_remote_endpoint_new();
-    ASSERT_NE(client_remote, nullptr);
     ct_remote_endpoint_with_hostname(client_remote, "127.0.0.1");
     ct_remote_endpoint_with_port(client_remote, 1239);
 
-    ct_transport_properties_t* client_props = ct_transport_properties_new();
-    ASSERT_NE(client_props, nullptr);
 
-    ct_tp_set_sel_prop_preference(client_props, RELIABILITY, REQUIRE);
-    ct_tp_set_sel_prop_preference(client_props, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
-    ct_tp_set_sel_prop_preference(client_props, MULTISTREAMING, PROHIBIT);
-
-    ct_preconnection_t* client_precon = ct_preconnection_new(client_remote, 1, client_props, NULL);
+    ct_preconnection_t* client_precon = ct_preconnection_new(client_remote, 1, udp_props, NULL);
     ASSERT_NE(client_precon, nullptr);
 
     // Custom ready callback that saves connection and calls original ready
@@ -92,7 +81,6 @@ TEST_F(TcpListenTests, ReceivesConnectionFromListenerAndExchangesMessages) {
     ct_remote_endpoint_free(listener_remote);
     ct_remote_endpoint_free(client_remote);
     ct_preconnection_free(listener_precon);
-    ct_transport_properties_free(listener_props);
+    ct_transport_properties_free(udp_props);
     ct_preconnection_free(client_precon);
-    ct_transport_properties_free(client_props);
 }

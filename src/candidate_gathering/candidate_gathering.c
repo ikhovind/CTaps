@@ -337,7 +337,7 @@ struct ct_candidate_node_t* candidate_node_new(ct_node_type_t type,
   node->type = type;
   node->score = 0;
   if (local_ep) {
-    node->local_endpoint = local_endpoint_copy(local_ep);
+    node->local_endpoint = ct_local_endpoint_deep_copy(local_ep);
     if (node->local_endpoint == NULL) {
       log_error("Could not copy local endpoint for ct_candidate_node_t");
       free(node);
@@ -346,7 +346,7 @@ struct ct_candidate_node_t* candidate_node_new(ct_node_type_t type,
   }
 
   if (remote_ep) {
-    node->remote_endpoint = remote_endpoint_copy(remote_ep);
+    node->remote_endpoint = ct_remote_endpoint_deep_copy(remote_ep);
     if (node->remote_endpoint == NULL) {
       log_error("Could not allocate memory for remote_endpoint");
       ct_local_endpoint_free(node->local_endpoint);

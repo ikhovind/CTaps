@@ -12,7 +12,7 @@
 
 uv_loop_t* event_loop;
 
-int ct_initialize() {
+int ct_initialize(void) {
   // Set default log level to INFO
   log_set_level(LOG_INFO);
 

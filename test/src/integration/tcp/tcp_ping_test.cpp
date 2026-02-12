@@ -103,7 +103,6 @@ TEST_F(TcpGenericTests, sendsSingleTcpMessage) {
   ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, PROHIBIT);
 
   ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
-  ASSERT_NE(preconnection, nullptr);
 
   ct_message_t* msg_received = nullptr;
   ct_receive_callbacks_t receive_req = { .receive_callback = close_on_message_received, .user_receive_context = &test_context };

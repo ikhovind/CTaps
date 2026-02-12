@@ -1,5 +1,8 @@
 #include "connection_group.h"
 
+#include "connection/connection.h"
+#include "connection/socket_manager/socket_manager.h"
+#include "util/uuid_util.h"
 #include <errno.h>
 #include <glib.h>
 #include <logging/log.h>
@@ -26,7 +29,7 @@ int ct_connection_group_add_connection(ct_connection_group_t* group, ct_connecti
     log_error("Connection with UUID %s already exists in group", connection->uuid);
     return -EEXIST; // Connection already in group
   }
-  connection->connection_group = group;
+  connection->connection_group = ct_connection_group_ref(group);
   group->num_active_connections++;
   return 0;
 }
@@ -58,8 +61,9 @@ void ct_connection_group_close_all(ct_connection_group_t* connection_group) {
   g_hash_table_iter_init(&iter, connection_group->connections);
   while (g_hash_table_iter_next(&iter, &key, &value)) {
     ct_connection_t* connection = (ct_connection_t*)value;
+    log_debug("Checking member connection: %s in connection group for close", connection->uuid);
     if (!ct_connection_is_closed_or_closing(connection)) {
-      log_trace("Closing member in connection group: %s", connection->uuid);
+      log_debug("Closing member in connection group: %s", connection->uuid);
       ct_connection_close(connection);
     }
     else {
@@ -126,9 +130,7 @@ void ct_connection_group_free(ct_connection_group_t* group) {
   if (!group) {
     return;
   }
-
   log_debug("Freeing connection group %s", group->connection_group_id);
-
   if (group->connections) {
     g_hash_table_destroy(group->connections);
     group->connections = NULL;
@@ -228,4 +230,54 @@ void ct_connection_abort_group(ct_connection_t* connection) {
 
   log_info("Aborting all connections in group via connection %s", connection->uuid);
   ct_connection_group_abort_all(group);
+}
+
+ct_connection_group_t* ct_connection_group_ref(ct_connection_group_t* group) {
+  if (!group) {
+    log_error("ct_connection_group_ref called with NULL parameter");
+    return NULL;
+  }
+  group->ref_count++;
+  return group;
+}
+
+void ct_connection_group_unref(ct_connection_group_t* group) {
+  if (!group) {
+    log_error("ct_connection_group_unref called with NULL parameter");
+    return;
+  }
+  log_trace("Unrefing connection group %s with ref count: %u", group->connection_group_id, group->ref_count);
+  group->ref_count--;
+  if (group->ref_count == 0) {
+    ct_connection_group_free(group);
+  }
+}
+
+ct_connection_group_t* ct_connection_group_new() {
+  ct_connection_group_t* group = malloc(sizeof(ct_connection_group_t));
+  if (!group) {
+    log_error("Failed to allocate memory for connection group");
+    return NULL;
+  }
+  memset(group, 0, sizeof(ct_connection_group_t));
+  generate_uuid_string(group->connection_group_id);
+  group->connections = g_hash_table_new(g_str_hash, g_str_equal);
+
+  return group;
+}
+
+void ct_connection_group_mark_all_as_closed(ct_connection_group_t* group) {
+  if (!group || !group->connections) {
+    log_error("ct_connection_group_mark_all_as_closed called with NULL parameter");
+    return;
+  }
+
+  GHashTableIter iter;
+  gpointer key = NULL;
+  gpointer value = NULL;
+  g_hash_table_iter_init(&iter, group->connections);
+  while (g_hash_table_iter_next(&iter, &key, &value)) {
+    ct_connection_t* connection = (ct_connection_t*)value;
+    ct_connection_mark_as_closed(connection);
+  }
 }

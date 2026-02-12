@@ -3,6 +3,10 @@
 
 #include "connection/connection_group.h"
 #include "connection/socket_manager/socket_manager.h"
+#include "transport_property/transport_properties.h"
+#include "endpoint/local_endpoint.h"
+#include "endpoint/remote_endpoint.h"
+#include "connection/socket_manager/socket_manager.h"
 #include "message/message_context.h"
 #include "ctaps.h"
 #include "ctaps_internal.h"
@@ -15,7 +19,178 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <uv.h>
+
+ct_connection_t* ct_connection_create_empty_with_uuid() {
+  ct_connection_t* connection = malloc(sizeof(ct_connection_t));
+  if (!connection) {
+    log_error("Failed to allocate memory for ct_connection_t");
+    return NULL;
+  }
+  memset(connection, 0, sizeof(ct_connection_t));
+  generate_uuid_string(connection->uuid);
+
+  connection->received_callbacks = g_queue_new();
+  connection->received_messages = g_queue_new();
+  connection->transport_properties = ct_transport_properties_new();
+  return connection;
+}
+
+ct_connection_t* ct_connection_create_server_connection(ct_socket_manager_t* socket_manager,
+                                             const ct_remote_endpoint_t* remote_endpoint,
+                                             const ct_security_parameters_t* security_parameters,
+                                             ct_framer_impl_t* framer_impl
+                                             ) {
+  ct_connection_t* connection = ct_connection_create_empty_with_uuid();
+  if (!connection) {
+    log_error("Failed to create empty connection");
+    return NULL;
+  }
+  ct_connection_group_t* group = ct_connection_group_new();
+  if (!group) {
+    log_error("Failed to get or create connection group for new server connection");
+    ct_connection_free(connection);
+    return NULL;
+  }
+
+  ct_connection_group_add_connection(group, connection);
+  // > Connection Properties can be set on Connections and Preconnections; 
+  // > when set on Preconnections, they act as an initial default for the resulting Connections
+  connection->transport_properties = ct_transport_properties_deep_copy(&socket_manager->listener->transport_properties);
+  connection->socket_manager = ct_socket_manager_ref(socket_manager);
+  connection->local_endpoint = ct_local_endpoint_deep_copy(&socket_manager->listener->local_endpoint);
+  connection->remote_endpoint = ct_remote_endpoint_deep_copy(remote_endpoint);
+  connection->role = CONNECTION_ROLE_SERVER;
+
+  connection->security_parameters = ct_security_parameters_deep_copy(security_parameters);
+  connection->framer_impl = framer_impl; // TODO - ownership here?
+
+  log_debug("Created new server connection: %s", connection->uuid);
+
+  return connection;
+}
+
+ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_impl,
+                                             const ct_local_endpoint_t* local_endpoint,
+                                             const ct_remote_endpoint_t* remote_endpoint,
+                                             const ct_transport_properties_t* transport_properties,
+                                             const ct_security_parameters_t* security_parameters,
+                                             const ct_connection_callbacks_t* connection_callbacks,
+                                             ct_framer_impl_t* framer_impl) {
+  log_debug("Creating client connection to remote endpoint");
+  ct_connection_t* connection = ct_connection_create_empty_with_uuid();
+  if (!connection) {
+    log_error("Failed to create empty connection");
+    return NULL;
+  }
+  if (remote_endpoint->data.resolved_address.ss_family != AF_INET6 &&
+      remote_endpoint->data.resolved_address.ss_family != AF_INET) {
+    log_error("Remote endpoint has unsupported address family");
+    ct_connection_free(connection);
+    return NULL;
+  }
+  ct_socket_manager_t* socket_manager = ct_socket_manager_new(protocol_impl, NULL);
+
+  ct_connection_group_t* group = ct_connection_group_new();
+  if (!group) {
+    log_error("Failed to create new connection group for client connection");
+    ct_connection_free(connection);
+    ct_socket_manager_unref(socket_manager);
+    return NULL;
+  }
+  int rc = ct_connection_group_add_connection(group, connection);
+  if (rc < 0) {
+    log_error("Failed to add connection to new connection group: %d", rc);
+    ct_connection_group_free(group);
+    ct_connection_free(connection);
+    ct_socket_manager_unref(socket_manager);
+    return NULL;
+  }
+
+  if (transport_properties) {
+    log_debug("Copying provided transport properties for client connection");
+    ct_transport_properties_free(connection->transport_properties);
+    connection->transport_properties = ct_transport_properties_deep_copy(transport_properties);
+  }
+  if (!connection->transport_properties) {
+    log_error("Failed to copy transport properties for client connection");
+    ct_connection_group_free(group);
+    ct_connection_free(connection);
+    ct_socket_manager_unref(socket_manager);
+    return NULL;
+  }
+  connection->socket_manager = ct_socket_manager_ref(socket_manager);
+  rc = socket_manager_insert_connection(socket_manager, remote_endpoint, connection);
+  if (rc < 0) {
+    log_error("Failed to insert connection into socket manager: %d", rc);
+    ct_connection_group_free(group);
+    ct_connection_free(connection);
+    ct_socket_manager_unref(socket_manager);
+    return NULL;
+  }
+
+  
+  connection->local_endpoint = ct_local_endpoint_deep_copy(local_endpoint);
+  connection->remote_endpoint = ct_remote_endpoint_deep_copy(remote_endpoint);
+  connection->security_parameters = ct_security_parameters_deep_copy(security_parameters);
+  if (connection_callbacks) {
+    connection->connection_callbacks = *connection_callbacks;
+  }
+  else {
+    log_debug("No connection callbacks provided for client connection, using empty callbacks");
+  }
+  connection->framer_impl = framer_impl; // TODO - ownership here?
+
+  return connection;
+}
+
+ct_connection_t* ct_connection_create_clone(const ct_connection_t* source_connection,
+                                            ct_socket_manager_t* socket_manager,
+                                            ct_framer_impl_t* framer_impl,
+                                            void* internal_connection_state
+                                            ) {
+  ct_connection_t* clone = ct_connection_create_empty_with_uuid();
+  if (!clone) {
+    log_error("Failed to create empty connection for clone");
+    return NULL;
+  }
+
+  clone->transport_properties = ct_transport_properties_deep_copy(source_connection->transport_properties); // TODO - some of these should be shared
+  clone->transport_properties->connection_properties.list[STATE].value.enum_val = CONN_STATE_ESTABLISHING;
+  clone->security_parameters = ct_security_parameters_deep_copy(source_connection->security_parameters);
+  clone->local_endpoint = ct_local_endpoint_deep_copy(source_connection->local_endpoint);
+  clone->remote_endpoint = ct_remote_endpoint_deep_copy(source_connection->remote_endpoint);
+  if (socket_manager) {
+    log_debug("Using provided socket manager for cloned connection");
+    clone->socket_manager = ct_socket_manager_ref(socket_manager);
+  }
+  else {
+    log_debug("No socket manager provided for cloned connection, creating new socket manager with same protocol implementation");
+    ct_socket_manager_t* new_socket_manager = ct_socket_manager_new(source_connection->socket_manager->protocol_impl, NULL);
+    clone->socket_manager = ct_socket_manager_ref(new_socket_manager);
+  }
+  log_debug("Clone socket manager pointer: %p", (void*)clone->socket_manager);
+
+  int rc = socket_manager_insert_connection(clone->socket_manager, clone->remote_endpoint, clone);
+  if (rc < 0) {
+    log_error("Failed to insert cloned connection into socket manager: %d", rc);
+    ct_connection_free(clone);
+    return NULL;
+  }
+
+  clone->role = source_connection->role;
+  if (framer_impl) {
+    clone->framer_impl = framer_impl;
+  } else {
+    clone->framer_impl = source_connection->framer_impl; // TODO - ownership here?
+  }
+  clone->connection_callbacks = source_connection->connection_callbacks;
+  clone->internal_connection_state = internal_connection_state;
+
+  ct_connection_group_add_connection(source_connection->connection_group, clone);
+  return clone;
+}
 
 int ct_connection_build_with_new_connection_group(ct_connection_t* connection) {
   memset(connection, 0, sizeof(ct_connection_t));
@@ -44,46 +219,53 @@ int ct_connection_build_with_new_connection_group(ct_connection_t* connection) {
   connection->connection_group = group;
   connection->received_messages = g_queue_new();
   connection->received_callbacks = g_queue_new();
+  connection->transport_properties = ct_transport_properties_new();
   return 0;
 }
 
-ct_connection_t* create_empty_connection_with_uuid() {
-  ct_connection_t* connection = malloc(sizeof(ct_connection_t));
-  if (!connection) {
-    log_error("Failed to allocate memory for ct_connection_t");
-    return NULL;
-  }
-  memset(connection, 0, sizeof(ct_connection_t));
-  generate_uuid_string(connection->uuid);
-
-  connection->received_callbacks = g_queue_new();
-  connection->received_messages = g_queue_new();
-
-  return connection;
-}
 
 void ct_connection_set_can_receive(ct_connection_t* connection, bool can_receive) {
-  connection->transport_properties.connection_properties.list[CAN_RECEIVE].value.enum_val = can_receive;
+  connection->transport_properties->connection_properties.list[CAN_RECEIVE].value.enum_val = can_receive;
 }
 
 void ct_connection_set_can_send(ct_connection_t* connection, bool can_send) {
-  connection->transport_properties.connection_properties.list[CAN_SEND].value.enum_val = can_send;
+  if (!connection || !connection->transport_properties) {
+    log_error("Connection or transport properties is NULL in ct_connection_set_can_send");
+    log_debug("Connection: %p, connection->transport_properties: %p", (void*)connection, (void*)(connection ? connection->transport_properties : NULL));
+    return;
+  }
+  connection->transport_properties->connection_properties.list[CAN_SEND].value.enum_val = can_send;
 }
 
 void ct_connection_mark_as_established(ct_connection_t* connection) {
-  connection->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_ESTABLISHED;
+  if (!connection || !connection->transport_properties) {
+    log_error("Connection or transport properties is NULL in ct_connection_mark_as_established");
+    log_debug("Connection: %p, connection->transport_properties: %p", (void*)connection, (void*)(connection ? connection->transport_properties : NULL));
+    return;
+  }
+  connection->transport_properties->connection_properties.list[STATE].value.enum_val = CONN_STATE_ESTABLISHED;
   ct_connection_set_can_send(connection, true);
   ct_connection_set_can_receive(connection, true);
   log_trace("Marked connection %s as established", connection->uuid);
 }
 
 void ct_connection_mark_as_closing(ct_connection_t* connection) {
-  connection->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSING;
+  if (!connection || !connection->transport_properties) {
+    log_error("Connection or transport properties is NULL in ct_connection_mark_as_closing");
+    log_debug("Connection: %p, connection->transport_properties: %p", (void*)connection, (void*)(connection ? connection->transport_properties : NULL));
+    return;
+  }
+  connection->transport_properties->connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSING;
   log_trace("Marked connection %s as closing", connection->uuid);
 }
 
 void ct_connection_mark_as_closed(ct_connection_t* connection) {
-  connection->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSED;
+  if (!connection || !connection->transport_properties) {
+    log_error("Connection or transport properties is NULL in ct_connection_mark_as_closed");
+    log_debug("Connection: %p, connection->transport_properties: %p", (void*)connection, (void*)(connection ? connection->transport_properties : NULL));
+    return;
+  }
+  connection->transport_properties->connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSED;
   log_trace("Marked connection %s as closed", connection->uuid);
 }
 
@@ -91,21 +273,21 @@ bool ct_connection_is_closing(const ct_connection_t* connection) {
   if (!connection) {
     return false;
   }
-  return connection->transport_properties.connection_properties.list[STATE].value.enum_val == CONN_STATE_CLOSING;
+  return connection->transport_properties->connection_properties.list[STATE].value.enum_val == CONN_STATE_CLOSING;
 }
 
 bool ct_connection_is_closed(const ct_connection_t* connection) {
   if (!connection) {
     return false;
   }
-  return connection->transport_properties.connection_properties.list[STATE].value.enum_val == CONN_STATE_CLOSED;
+  return connection->transport_properties->connection_properties.list[STATE].value.enum_val == CONN_STATE_CLOSED;
 }
 
 bool ct_connection_is_established(const ct_connection_t* connection) {
   if (!connection) {
     return false;
   }
-  return connection->transport_properties.connection_properties.list[STATE].value.enum_val == CONN_STATE_ESTABLISHED;
+  return connection->transport_properties->connection_properties.list[STATE].value.enum_val == CONN_STATE_ESTABLISHED;
 }
 
 bool ct_connection_is_closed_or_closing(const ct_connection_t* connection) {
@@ -130,17 +312,19 @@ bool ct_connection_is_server(const ct_connection_t* connection) {
 }
 
 bool ct_connection_can_send(const ct_connection_t* connection) {
-  if (!connection) {
+  if (!connection || !connection->transport_properties) {
+    log_error("Connection or transport properties is NULL in ct_connection_can_send");
+    log_debug("Connection: %p, connection->transport_properties: %p", (void*)connection, (void*)(connection ? connection->transport_properties : NULL));
     return false;
   }
-  return connection->transport_properties.connection_properties.list[CAN_SEND].value.enum_val;
+  return connection->transport_properties->connection_properties.list[CAN_SEND].value.enum_val;
 }
 
 bool ct_connection_can_receive(const ct_connection_t* connection) {
   if (!connection) {
     return false;
   }
-  return connection->transport_properties.connection_properties.list[CAN_RECEIVE].value.enum_val;
+  return connection->transport_properties->connection_properties.list[CAN_RECEIVE].value.enum_val;
 }
 
 // Passed as callbacks to framer implementations
@@ -224,113 +408,15 @@ int ct_receive_message(ct_connection_t* connection,
   return 0;
 }
 
-int ct_connection_build_multiplexed(ct_connection_t* connection, const ct_listener_t* listener, const ct_remote_endpoint_t* remote_endpoint) {
-  int rc = ct_connection_build_with_new_connection_group(connection);
-  if (rc < 0) {
-    log_error("Failed to build connection with connection group, error code: %d", rc);
-    return rc;
-  }
-
-  connection->local_endpoint = listener->local_endpoint;
-  connection->transport_properties = listener->transport_properties;
-  connection->remote_endpoint = *remote_endpoint;
-  connection->internal_connection_state = listener->socket_manager->internal_socket_manager_state;
-  connection->protocol = listener->socket_manager->protocol_impl;
-  connection->socket_manager = listener->socket_manager;
-  connection->security_parameters = ct_security_parameters_deep_copy(listener->security_parameters);
-  connection->socket_type = CONNECTION_SOCKET_TYPE_MULTIPLEXED;
-  connection->role = CONNECTION_ROLE_SERVER;
-  return 0;
-}
-
-ct_connection_t* ct_connection_create_clone(const ct_connection_t* src_clone) {
-  log_debug("Creating cloned connection from source: %s", src_clone->uuid);
-
-  // Allocate new connection with UUID
-  ct_connection_t* dest_clone = create_empty_connection_with_uuid();
-  if (!dest_clone) {
-    log_error("Failed to allocate memory for cloned connection");
-    return NULL;
-  }
-
-  // Copy properties from source, connection group is not added here but in the group_add_connection call below
-  dest_clone->local_endpoint = src_clone->local_endpoint;
-  dest_clone->remote_endpoint = src_clone->remote_endpoint;
-  dest_clone->transport_properties = src_clone->transport_properties;
-  dest_clone->security_parameters = ct_security_parameters_deep_copy(src_clone->security_parameters);
-  dest_clone->protocol = src_clone->protocol;
-  dest_clone->framer_impl = src_clone->framer_impl;
-  dest_clone->socket_manager = src_clone->socket_manager;
-  dest_clone->socket_type = src_clone->socket_type;
-  dest_clone->role = src_clone->role;
-
-  // Initialize new queues for this connection
-  dest_clone->received_callbacks = g_queue_new();
-  dest_clone->received_messages = g_queue_new();
-
-  // Add to the connection group
-  int rc = ct_connection_group_add_connection(src_clone->connection_group, dest_clone);
-  if (rc < 0) {
-    log_error("Failed to add cloned connection to group: %d", rc);
-    ct_connection_free(dest_clone);
-    return NULL;
-  }
-
-  // Initialize protocol-specific state (e.g., QUIC stream state)
-  if (src_clone->protocol.clone_connection) {
-    rc = src_clone->protocol.clone_connection(src_clone, dest_clone);
-    if (rc < 0) {
-      log_error("Failed to initialize protocol state for cloned connection: %d", rc);
-      ct_connection_free(dest_clone);
-      return NULL;
-    }
-  }
-
-  log_debug("Successfully created cloned connection: %s", dest_clone->uuid);
-  return dest_clone;
-}
-
 void ct_connection_close(ct_connection_t* connection) {
     log_info("Closing connection: %s", connection->uuid);
-
     if (ct_connection_is_closed_or_closing(connection)) {
         log_warn("Trying to close closing or closed connection: %s, ignoring", connection->uuid);
         return;
     }
-
     ct_connection_mark_as_closing(connection);
     ct_connection_set_can_send(connection, false);
-
-    int rc = connection->protocol.close(connection);
-    if (rc < 0) {
-        log_error("Error closing connection: %d", rc);
-    }
-}
-
-ct_connection_t* ct_connection_build_from_received_handle(const struct ct_listener_s* listener, uv_stream_t* received_handle) {
-  log_debug("Building ct_connection_t from received handle");
-  ct_connection_t* connection = malloc(sizeof(ct_connection_t));
-  if (!connection) {
-    log_error("Failed to allocate memory for ct_connection_t");
-    return NULL;
-  }
-  ct_connection_build_with_new_connection_group(connection);
-
-  connection->transport_properties = listener->transport_properties;
-  connection->local_endpoint = listener->local_endpoint;
-  int rc = listener->socket_manager->protocol_impl.remote_endpoint_from_peer((uv_handle_t*)received_handle, &connection->remote_endpoint);
-  if (rc < 0) {
-    log_error("Could not build remote endpoint from received handle's remote address");
-    free(connection);
-    return NULL;
-  }
-
-  connection->protocol = listener->socket_manager->protocol_impl;
-  connection->socket_type = CONNECTION_SOCKET_TYPE_STANDALONE;
-  connection->role = CONNECTION_ROLE_SERVER;
-  connection->internal_connection_state = (uv_handle_t*)received_handle;
-
-  return connection;
+    ct_socket_manager_close_connection(connection->socket_manager, connection);
 }
 
 void ct_connection_free_content(ct_connection_t* connection) {
@@ -360,33 +446,22 @@ void ct_connection_free_content(ct_connection_t* connection) {
     connection->received_messages = NULL;
   }
 
-  ct_local_endpoint_free_strings(&connection->local_endpoint);
-  ct_remote_endpoint_free_strings(&connection->remote_endpoint);
+  if (connection->transport_properties) {
+    ct_transport_properties_free(connection->transport_properties);
+    connection->transport_properties = NULL;
+  }
+
+  ct_local_endpoint_free(connection->local_endpoint);
+  ct_remote_endpoint_free(connection->remote_endpoint);
 
   // Free security parameters (connection owns a deep copy)
   if (connection->security_parameters) {
     ct_sec_param_free(connection->security_parameters);
     connection->security_parameters = NULL;
   }
-
-  if (connection->protocol.free_state) {
-    connection->protocol.free_state(connection);
-  }
-
-  // Remove connection from its group and free the group if this was the last connection
-  ct_connection_group_t* group = ct_connection_get_connection_group(connection);
-  if (group) {
-    // Remove this connection from the group
-    ct_connection_group_remove_connection(group, connection);
-
-    // If the group is now empty, free it
-    if (ct_connection_group_is_empty(group)) {
-      log_debug("Connection group %s is now empty, freeing it", group->connection_group_id);
-      ct_connection_group_free(group);
-    }
-
-    connection->connection_group = NULL;
-  }
+  ct_socket_manager_unref(connection->socket_manager);
+  // TODO - The connection group needs to know which connections are unreffing it so they can be removed
+  ct_connection_group_unref(connection->connection_group);
 }
 
 void ct_connection_free(ct_connection_t* connection) {
@@ -397,7 +472,7 @@ void ct_connection_free(ct_connection_t* connection) {
 int ct_connection_send_to_protocol(ct_connection_t* connection,
                                    ct_message_t* message,
                                    ct_message_context_t* context) {
-  int rc = connection->protocol.send(connection, message, context);
+  int rc = connection->socket_manager->protocol_impl->send(connection, message, context);
   if (rc < 0) {
     log_error("Error sending message to protocol: %d", rc);
   }
@@ -413,7 +488,7 @@ void ct_connection_deliver_to_app(ct_connection_t* connection,
     ct_queued_message_t* queued_message = ct_queued_message_new(message, context);
     g_queue_push_tail(connection->received_messages, queued_message);
   } else {
-    log_debug("Receive callback ready, calling it");
+    log_debug("Receive callback ready for connection: %s, calling it", connection->uuid);
     ct_receive_callbacks_t* receive_callback = g_queue_pop_head(connection->received_callbacks);
 
     if (!context) {
@@ -459,7 +534,7 @@ void ct_connection_on_protocol_receive(ct_connection_t* connection,
 
 void ct_connection_abort(ct_connection_t* connection) {
   log_info("Aborting connection: %s", connection->uuid);
-  connection->protocol.abort(connection);
+  connection->socket_manager->protocol_impl->abort(connection);
 }
 
 int ct_connection_clone_full(
@@ -467,52 +542,32 @@ int ct_connection_clone_full(
   ct_framer_impl_t* framer,
   const ct_transport_properties_t* connection_properties) {
   log_debug("Creating clone from connection: %s", source_connection->uuid);
+  (void)connection_properties; // TODO - apply any overridden properties to the clone
 
-  ct_connection_t* new_connection = create_empty_connection_with_uuid();
-  if (!new_connection) {
-    log_error("Failed to allocate memory for cloned connection");
-    return -ENOMEM;
+  ct_connection_t* new_connection = ct_connection_create_clone(source_connection, NULL, framer, NULL);
+  // todo print
+  log_debug("Checking connection create clone socket manager: %p", new_connection->socket_manager);
+  GHashTableIter iter;
+  gpointer key = NULL;
+  gpointer value = NULL;
+  g_hash_table_iter_init(&iter,new_connection->socket_manager->connections);
+  while (g_hash_table_iter_next(&iter, &key, &value)) {
+    ct_connection_t* connection = (ct_connection_t*)value;
+    int port = 0;
+    if (connection->remote_endpoint->data.resolved_address.ss_family == AF_INET) {
+      struct sockaddr_in* addr_in = (struct sockaddr_in*)&connection->remote_endpoint->data.resolved_address;
+      port = ntohs(addr_in->sin_port);
+    }
+    else if (connection->remote_endpoint->data.resolved_address.ss_family == AF_INET6) {
+      struct sockaddr_in6* addr_in6 = (struct sockaddr_in6*)&connection->remote_endpoint->data.resolved_address;
+      port = ntohs(addr_in6->sin6_port);
+    }
+    log_debug("clone connection socket manager contains port: %d", port);
   }
 
-  if (framer != NULL) {
-    log_error("Cloning with custom framer not implemented yet");
-    return -ENOSYS;
-  }
-  if (connection_properties != NULL) {
-    log_error("Cloning with custom transport properties not implemented yet");
-    return -ENOSYS;
-  }
 
-  ct_connection_group_t* connection_group = source_connection->connection_group;
-  int rc = ct_connection_group_add_connection(connection_group, new_connection);
-  if (rc < 0) {
-    log_error("Failed to add cloned connection to connection group: %d", rc);
-    ct_connection_free(new_connection);
-    return rc;
-  }
 
-  new_connection->transport_properties = source_connection->transport_properties;
-  new_connection->transport_properties.connection_properties.list[STATE].value.enum_val = CONN_STATE_ESTABLISHING;
-  new_connection->security_parameters = ct_security_parameters_deep_copy(source_connection->security_parameters);
-  new_connection->local_endpoint = source_connection->local_endpoint;
-  new_connection->remote_endpoint = source_connection->remote_endpoint;
-  new_connection->protocol = source_connection->protocol;
-  new_connection->framer_impl = source_connection->framer_impl;
-  new_connection->socket_type = source_connection->socket_type;
-  new_connection->role = source_connection->role;
-  new_connection->connection_callbacks = source_connection->connection_callbacks;
-
-  if (source_connection->socket_manager) {
-    log_error("TODO: Figure out how to clone with socket manager");
-    return -ENOSYS;
-  }
-
-  if (new_connection->protocol.clone_connection == NULL) {
-    log_error("Protocol has not implemented connection cloning");
-    ct_connection_free(new_connection);
-    return -ENOSYS;
-  }
-  rc = new_connection->protocol.clone_connection(source_connection, new_connection);
+  int rc = new_connection->socket_manager->protocol_impl->clone_connection(source_connection, new_connection);
   if (rc < 0) {
     log_error("Failed to initialize protocol state for cloned connection: %d", rc);
     ct_connection_free(new_connection);
@@ -582,11 +637,15 @@ const char* ct_connection_get_protocol_name(const ct_connection_t* connection) {
   if (!connection) {
     return NULL;
   }
-  return connection->protocol.name;
+  return connection->socket_manager->protocol_impl->name;
 }
 
 const ct_remote_endpoint_t* ct_connection_get_remote_endpoint(const ct_connection_t* connection) {
-  return &connection->remote_endpoint;
+  if (!connection) {
+    log_error("ct_connection_get_remote_endpoint called with NULL connection");
+    return NULL;
+  }
+  return connection->remote_endpoint;
 }
 
 ct_connection_group_t* ct_connection_get_connection_group(const ct_connection_t* connection) {
@@ -606,11 +665,11 @@ const ct_connection_properties_t* ct_connection_get_connection_properties(const 
     log_error("ct_get_connection_properties called with NULL connection");
     return NULL;
   }
-  return &connection->transport_properties.connection_properties;
+  return &connection->transport_properties->connection_properties;
 }
 
 void connection_set_resolved_local_address(ct_connection_t* connection, const struct sockaddr_storage* addr) {
-  memcpy(&connection->local_endpoint.data.resolved_address, addr, sizeof(struct sockaddr_storage));
+  memcpy(&connection->local_endpoint->data.resolved_address, addr, sizeof(struct sockaddr_storage));
 }
 
 ct_protocol_enum_t ct_connection_get_transport_protocol(const ct_connection_t* connection) {
@@ -618,7 +677,7 @@ ct_protocol_enum_t ct_connection_get_transport_protocol(const ct_connection_t* c
     log_error("ct_connection_get_transport_protocol called with NULL connection");
     return CT_PROTOCOL_ERROR;
   }
-  return connection->protocol.protocol_enum;
+  return connection->socket_manager->protocol_impl->protocol_enum;
 }
 
 bool ct_connection_sent_early_data(const ct_connection_t* connection) {
@@ -635,4 +694,22 @@ void ct_connection_set_sent_early_data(ct_connection_t* connection, bool used_0r
     return;
   }
   connection->sent_early_data = used_0rtt;
+}
+
+void ct_connection_set_socket_state(ct_connection_t* connection, void* socket_state) {
+  if (!connection || !connection->socket_manager) {
+    log_error("ct_connection_set_socket_state called with NULL connection");
+    log_debug("Connection pointer: %p, socket manager pointer: %p", (void*)connection, (void*)(connection ? connection->socket_manager : NULL));
+    return;
+  }
+  connection->socket_manager->internal_socket_manager_state = socket_state;
+}
+
+void* ct_connection_get_socket_state(ct_connection_t* connection) {
+  if (!connection || !connection->socket_manager) {
+    log_error("ct_connection_get_socket_state called with NULL connection");
+    log_debug("Connection pointer: %p, socket manager pointer: %p", (void*)connection, (void*)(connection ? connection->socket_manager : NULL));
+    return NULL;
+  }
+  return connection->socket_manager->internal_socket_manager_state;
 }
