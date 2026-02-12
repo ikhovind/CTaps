@@ -36,19 +36,43 @@ ct_socket_manager_t* ct_socket_manager_new(const ct_protocol_impl_t* protocol_im
 
 ct_connection_t* socket_manager_get_connection(ct_socket_manager_t* socket_manager, const struct sockaddr_storage* remote_addr) {
   log_info("Trying to get connection group for remote endpoint in socket manager");
+  log_info("Socket manager listener: %p", socket_manager->listener);
   GBytes* addr_bytes = NULL;
   if (remote_addr->ss_family == AF_INET) {
     log_trace("Getting connection group by IPv4 address");
+    log_debug("Looking for port: %d", ntohs(((struct sockaddr_in*)remote_addr)->sin_port));
     addr_bytes = g_bytes_new(remote_addr, sizeof(struct sockaddr_in));
   }
   else if (remote_addr->ss_family == AF_INET6) {
     log_trace("Getting connection group by IPv6 address");
+    log_debug("Looking for port: %d", ntohs(((struct sockaddr_in6*)remote_addr)->sin6_port));
     addr_bytes = g_bytes_new(remote_addr, sizeof(struct sockaddr_in6));
   }
   else {
     log_error("Cannot get connection group by unknown address family: %d", remote_addr->ss_family);
     return NULL;
   }
+
+
+  // print all ports in the hash table for debugging
+  GHashTableIter iter;
+  gpointer key = NULL;
+  gpointer value = NULL;
+  g_hash_table_iter_init(&iter,socket_manager->connections);
+  while (g_hash_table_iter_next(&iter, &key, &value)) {
+    ct_connection_t* connection = (ct_connection_t*)value;
+    int port = 0;
+    if (connection->remote_endpoint->data.resolved_address.ss_family == AF_INET) {
+      struct sockaddr_in* addr_in = (struct sockaddr_in*)&connection->remote_endpoint->data.resolved_address;
+      port = ntohs(addr_in->sin_port);
+    }
+    else if (connection->remote_endpoint->data.resolved_address.ss_family == AF_INET6) {
+      struct sockaddr_in6* addr_in6 = (struct sockaddr_in6*)&connection->remote_endpoint->data.resolved_address;
+      port = ntohs(addr_in6->sin6_port);
+    }
+    log_debug("On of the ports in the socket manager array is: %d", port);
+  }
+
 
   ct_connection_t* connection =  g_hash_table_lookup(socket_manager->connections, addr_bytes);
   g_bytes_unref(addr_bytes);
@@ -73,6 +97,9 @@ void ct_socket_manager_free(ct_socket_manager_t* socket_manager) {
 
   if (socket_manager->protocol_impl->free_socket_state) {
     socket_manager->protocol_impl->free_socket_state(socket_manager);
+  }
+  else {
+    log_debug("No protocol-specific socket state to free for protocol: %s in socket manager", socket_manager->protocol_impl->name);
   }
   g_hash_table_destroy(socket_manager->connections);
   free(socket_manager);
@@ -158,12 +185,12 @@ void ct_socket_manager_close(ct_socket_manager_t* socket_manager) {
 
 void ct_socket_manager_closed_connection_cb(ct_connection_t* connection) {
   ct_socket_manager_t* socket_manager = connection->socket_manager;
+  log_debug("Socket manager closed connection callback invoked for connection: %s", connection->uuid);
   ct_connection_mark_as_closed(connection);
 
   if (!socket_manager->listener) {
     log_debug("socket manager has no attched listener, checking num open connections");
     int num_open = ct_socket_manager_get_num_open_connections(socket_manager);
-    // TODO this fails since connection is "closing" not "closed"
     if (num_open == 0) {
       log_debug("Socket manager now has no open connections, closing entire socket manager");
       ct_socket_manager_close(socket_manager);
@@ -172,13 +199,17 @@ void ct_socket_manager_closed_connection_cb(ct_connection_t* connection) {
       log_debug("Socket manager has %d open connections, not closing socket manager", num_open);
     }
   }
+  else {
+    log_debug("Socket manager %p has attached listener, not closing socket manager", socket_manager);
+    log_debug("%p", socket_manager->listener);
+  }
   if (connection->connection_callbacks.closed) {
     connection->connection_callbacks.closed(connection);
   }
 }
 
 int ct_socket_manager_close_connection(ct_socket_manager_t* socket_manager, ct_connection_t* connection) {
-  log_debug("Socket manager: Closing attached connection");
+  log_debug("Socket manager: Closing attached connection: %s", connection->uuid);
   if (!socket_manager || !connection) {
     log_error("NULL parameter passed to socket manager close connection");
     log_debug("socket mangager: %p, connection: %p", socket_manager, connection); 
@@ -187,6 +218,25 @@ int ct_socket_manager_close_connection(ct_socket_manager_t* socket_manager, ct_c
   if (rc) {
     log_error("Error from protocol when closing connection: %s", connection->uuid);
     return rc;
+  }
+  return 0;
+}
+
+int ct_socket_manager_listener_stop(ct_socket_manager_t* socket_manager) {
+  log_debug("Socket manager, closing attached listener");
+  ct_listener_t* listener = socket_manager->listener;
+  // TODO - only invoke this if no connection are oppen
+  socket_manager->protocol_impl->stop_listen(socket_manager);
+  ct_socket_manager_unref(listener->socket_manager);
+  socket_manager->listener = NULL;
+  log_debug("Set listener to NULL for socket_manager: %p", socket_manager);
+  listener->socket_manager = NULL;
+  if (listener->listener_callbacks.stopped) {
+    log_debug("Invoking listener stopped callback");
+    listener->listener_callbacks.stopped(listener);
+  }
+  else {
+    log_debug("No listener stopped callback registered");
   }
   return 0;
 }

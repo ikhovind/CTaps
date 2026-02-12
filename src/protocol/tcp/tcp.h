@@ -6,10 +6,23 @@
 
 struct ct_socket_manager_s;
 
+// Per-socket TCP state
+// Since every TCP connection has its own socket, tcp has no other protocol state
+typedef struct ct_tcp_socket_state_s {
+  ct_connection_t* connection;
+  ct_listener_t* listener;
+  ct_message_t* initial_message;
+  ct_message_context_t* initial_message_context;
+  uv_connect_t* connect_req; // To be freed in tests etc. when we don't run the full connect flow
+  ct_on_connection_close_cb close_cb; // not a pointer because the typedef is for a pointer
+  uv_tcp_t* tcp_handle;
+} ct_tcp_socket_state_t;
+
 int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks);
 int tcp_init_with_send(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks, ct_message_t* initial_message, ct_message_context_t* initial_message_context);
 int tcp_close(ct_connection_t* connection, void(*on_connection_close)(ct_connection_t* connection));
 int tcp_close_socket(ct_socket_manager_t*);
+int tcp_free_socket_state(ct_socket_manager_t* socket_manager);
 void tcp_abort(ct_connection_t* connection);
 int tcp_send(ct_connection_t* connection, ct_message_t* message, ct_message_context_t*);
 int tcp_listen(struct ct_socket_manager_s* socket_manager);

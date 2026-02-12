@@ -39,7 +39,7 @@ int close_on_message_received(ct_connection_t* connection, ct_message_t** receiv
 int send_message_and_receive(struct ct_connection_s* connection) {
     ct_message_t* message = ct_message_new_with_content("ping", strlen("ping") + 1);
     ct_send_message(connection, message); // CTaps takes a deep copy of the passed content, so the message can be freed after this returns
-    ct_message_free_all(message);
+    ct_message_free(message);
 
     ct_receive_callbacks_t receive_message_request = {
       .receive_callback = close_on_message_received,

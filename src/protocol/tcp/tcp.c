@@ -57,20 +57,10 @@ const ct_protocol_impl_t tcp_protocol_interface = {
     .clone_connection = tcp_clone_connection,
     .remote_endpoint_from_peer = tcp_remote_endpoint_from_peer,
     .free_connection_state = tcp_free_state,
+    .free_socket_state = tcp_free_socket_state,
     .free_connection_group_state = tcp_free_connection_group_state,
 };
 
-// Per-socket TCP state
-// Since every TCP connection has its own socket, tcp has no other protocol state
-typedef struct ct_tcp_socket_state_s {
-  ct_connection_t* connection;
-  ct_listener_t* listener;
-  ct_message_t* initial_message;
-  ct_message_context_t* initial_message_context;
-  uv_connect_t* connect_req; // To be freed in tests etc. when we don't run the full connect flow
-  ct_on_connection_close_cb close_cb; // not a pointer because the typedef is for a pointer
-  uv_tcp_t* tcp_handle;
-} ct_tcp_socket_state_t;
 
 ct_tcp_socket_state_t* ct_tcp_socket_state_new(ct_connection_t* connection,
                                                  ct_listener_t* listener,
@@ -94,9 +84,10 @@ ct_tcp_socket_state_t* ct_tcp_socket_state_new(ct_connection_t* connection,
   return socket_state;
 }
 
-void tcp_connection_state_free(ct_tcp_socket_state_t* socket_state) {
+void ct_tcp_socket_state_free(ct_tcp_socket_state_t* socket_state) {
   if (!socket_state) {
     log_warn("Attempted to free NULL TCP connection state");
+    return;
   }
   if (socket_state->connect_req) {
     free(socket_state->connect_req);
@@ -118,7 +109,7 @@ static void alloc_cb(uv_handle_t* handle, size_t size, uv_buf_t* buf) {
 void on_abort(uv_handle_t* handle) {
   ct_socket_manager_t* socket_manager = handle->data;
   ct_tcp_socket_state_t* socket_state = socket_manager->internal_socket_manager_state;
-  ct_connection_mark_as_closed(socket_state->connection);
+  //ct_connection_mark_as_closed(socket_state->connection); // TODO - move to callback here as well
   if (socket_state->connection->connection_callbacks.connection_error) {
     log_debug("Invoking connection connection error callback due to abort");
     socket_state->connection->connection_callbacks.connection_error(socket_state->connection);
@@ -156,6 +147,9 @@ void tcp_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
       log_debug("Closing tcp handle: %p", (void*)socket_state->tcp_handle);
       uv_close((uv_handle_t*)socket_state->tcp_handle, on_abort);
     }
+    else {
+      log_debug("TCP handle already closing, not invoking uv_close again");
+    }
 
     // Quote from libuv docs:
     // When nread < 0, the buf parameter might not point to a valid buffer; in that case buf.len and buf.base are both set to 0
@@ -186,7 +180,6 @@ void on_clone_connect(struct uv_connect_s *req, int status) {
   }
 
   log_info("Cloned TCP connection established successfully");
-
   int rc = uv_read_start((uv_stream_t*)socket_state->tcp_handle,
                          alloc_cb, tcp_on_read);
   if (rc < 0) {
@@ -208,7 +201,8 @@ void on_connect(struct uv_connect_s *req, int status) {
   ct_connection_t* connection = socket_state->connection;
   if (status < 0) {
     log_error("ct_connection_t error: %s", uv_strerror(status));
-    ct_connection_close(connection);
+    // ct_connection_close(connection);
+    ct_connection_mark_as_closed(connection); // TODO - replace with callbacks to socket manager
     if (connection->connection_callbacks.establishment_error) {
       connection->connection_callbacks.establishment_error(connection);
     }
@@ -407,7 +401,6 @@ void tcp_abort(ct_connection_t* connection) {
   log_info("Aborting TCP connection: %s", connection->uuid);
   ct_tcp_socket_state_t* socket_state = connection->socket_manager->internal_socket_manager_state;
 
-  // TCP connections are always STANDALONE - abort with RST flag
   uv_tcp_close_reset(socket_state->tcp_handle, on_abort);
   ct_connection_mark_as_closed(connection);
 }
@@ -621,8 +614,10 @@ int tcp_clone_connection(const struct ct_connection_s* source_connection,
   target_connection->socket_manager = ct_socket_manager_ref(socket_manager);
 
   uv_connect_t* connect_req = malloc(sizeof(uv_connect_t));
+  memset(connect_req, 0, sizeof(uv_connect_t));
 
   socket_manager->internal_socket_manager_state = ct_tcp_socket_state_new(target_connection, NULL, NULL, NULL, connect_req, new_tcp_handle);
+  new_tcp_handle->data = ct_socket_manager_ref(socket_manager);
 
   // Copy TCP keepalive settings
   uint32_t keepalive_timeout = target_connection->transport_properties
@@ -663,22 +658,8 @@ int tcp_clone_connection(const struct ct_connection_s* source_connection,
 }
 
 int tcp_free_state(ct_connection_t* connection) {
-  return 0; // Fix after ownership refactor
-  log_trace("Freeing TCP connection resources");
-  if (!connection || !connection->internal_connection_state) {
-    log_warn("TCP connection or internal state is NULL during free_state");
-    log_debug("Connection pointer: %p", (void*)connection);
-    if (connection) {
-      log_debug("Internal connection state pointer: %p", (void*)connection->internal_connection_state);
-    }
-    return -EINVAL;
-  }
-  ct_tcp_socket_state_t* socket_state = ct_connection_get_socket_state(connection);
-
-  tcp_connection_state_free(socket_state);
-  connection->internal_connection_state = NULL;
-
-  return 0;
+  (void)connection;
+  return 0; // No-op since TCP has no per-connection state
 }
 
 int tcp_free_connection_group_state(ct_connection_group_t* connection_group) {
@@ -689,5 +670,15 @@ int tcp_free_connection_group_state(ct_connection_group_t* connection_group) {
 int tcp_close_socket(ct_socket_manager_t* socket_manager) {
   (void)socket_manager;
   // TODO implement
+  return 0;
+}
+
+int tcp_free_socket_state(ct_socket_manager_t* socket_manager) {
+  log_trace("Freeing TCP socket manager state");
+  ct_tcp_socket_state_t* socket_state = socket_manager->internal_socket_manager_state;
+  if (socket_state) {
+    ct_tcp_socket_state_free(socket_state);
+  }
+  socket_manager->internal_socket_manager_state = NULL;
   return 0;
 }

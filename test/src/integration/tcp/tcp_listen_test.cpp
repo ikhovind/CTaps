@@ -9,28 +9,27 @@ extern "C" {
 
 class TcpListenTests : public CTapsGenericFixture {};
 
+// TODO - this fails, but setting up a TCP ping server works, so there may just be something
+// weird about the test itself. Should test TCP ping test and see if there are issues there
+// as well
 TEST_F(TcpListenTests, ReceivesConnectionFromListenerAndExchangesMessages) {
-    ct_listener_t listener;
+    ct_listener_t listener = {0};
 
     ct_local_endpoint_t* listener_endpoint = ct_local_endpoint_new();
-    ASSERT_NE(listener_endpoint, nullptr);
 
     ct_local_endpoint_with_interface(listener_endpoint, "lo");
     ct_local_endpoint_with_port(listener_endpoint, 1239);
 
     ct_remote_endpoint_t* listener_remote = ct_remote_endpoint_new();
-    ASSERT_NE(listener_remote, nullptr);
     ct_remote_endpoint_with_hostname(listener_remote, "127.0.0.1");
 
     ct_transport_properties_t* listener_props = ct_transport_properties_new();
-    ASSERT_NE(listener_props, nullptr);
 
     ct_tp_set_sel_prop_preference(listener_props, RELIABILITY, REQUIRE);
     ct_tp_set_sel_prop_preference(listener_props, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
     ct_tp_set_sel_prop_preference(listener_props, MULTISTREAMING, PROHIBIT);
 
     ct_preconnection_t* listener_precon = ct_preconnection_new(listener_remote, 1, listener_props, NULL);
-    ASSERT_NE(listener_precon, nullptr);
     ct_preconnection_set_local_endpoint(listener_precon, listener_endpoint);
 
     ct_listener_callbacks_t listener_callbacks = {

@@ -88,11 +88,13 @@ void ct_connection_free_content(ct_connection_t* connection);
  * This is used for creating additional streams in QUIC or cloning UDP connections.
  *
  * @param[in] src_clone Source connection to clone from
+ * @param[in] socket_manager Socket manager to use for the new connection (if NULL, it will be assigned a new socket manager)
  * @param[in] framer_impl Optional framer, if not set it will copy the framer from the source connection
  * @param[in] internal_connection_state Optional protocol-specific internal state for the new connection, if not set internal state will be NULL
  * @return Pointer to newly created connection, or NULL on error
  */
 ct_connection_t* ct_connection_create_clone(const ct_connection_t* src_clone,
+                                            ct_socket_manager_t* socket_manager,
                                             ct_framer_impl_t* framer_impl,
                                             void* internal_connection_state
                                             );

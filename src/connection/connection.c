@@ -33,6 +33,7 @@ ct_connection_t* ct_connection_create_empty_with_uuid() {
 
   connection->received_callbacks = g_queue_new();
   connection->received_messages = g_queue_new();
+  connection->transport_properties = ct_transport_properties_new();
   return connection;
 }
 
@@ -64,6 +65,8 @@ ct_connection_t* ct_connection_create_server_connection(ct_socket_manager_t* soc
 
   connection->security_parameters = ct_security_parameters_deep_copy(security_parameters);
   connection->framer_impl = framer_impl; // TODO - ownership here?
+
+  log_debug("Created new server connection: %s", connection->uuid);
 
   return connection;
 }
@@ -106,10 +109,9 @@ ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_
   }
 
   if (transport_properties) {
+    log_debug("Copying provided transport properties for client connection");
+    ct_transport_properties_free(connection->transport_properties);
     connection->transport_properties = ct_transport_properties_deep_copy(transport_properties);
-  }
-  else {
-    connection->transport_properties = ct_transport_properties_new();
   }
   if (!connection->transport_properties) {
     log_error("Failed to copy transport properties for client connection");
@@ -144,6 +146,7 @@ ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_
 }
 
 ct_connection_t* ct_connection_create_clone(const ct_connection_t* source_connection,
+                                            ct_socket_manager_t* socket_manager,
                                             ct_framer_impl_t* framer_impl,
                                             void* internal_connection_state
                                             ) {
@@ -153,12 +156,29 @@ ct_connection_t* ct_connection_create_clone(const ct_connection_t* source_connec
     return NULL;
   }
 
-  clone->transport_properties = source_connection->transport_properties; // TODO which should be shared?
+  clone->transport_properties = ct_transport_properties_deep_copy(source_connection->transport_properties); // TODO - some of these should be shared
   clone->transport_properties->connection_properties.list[STATE].value.enum_val = CONN_STATE_ESTABLISHING;
   clone->security_parameters = ct_security_parameters_deep_copy(source_connection->security_parameters);
   clone->local_endpoint = ct_local_endpoint_deep_copy(source_connection->local_endpoint);
   clone->remote_endpoint = ct_remote_endpoint_deep_copy(source_connection->remote_endpoint);
-  clone->socket_manager = ct_socket_manager_ref(source_connection->socket_manager);
+  if (socket_manager) {
+    log_debug("Using provided socket manager for cloned connection");
+    clone->socket_manager = ct_socket_manager_ref(socket_manager);
+  }
+  else {
+    log_debug("No socket manager provided for cloned connection, creating new socket manager with same protocol implementation");
+    ct_socket_manager_t* new_socket_manager = ct_socket_manager_new(source_connection->socket_manager->protocol_impl, NULL);
+    clone->socket_manager = ct_socket_manager_ref(new_socket_manager);
+  }
+  log_debug("Clone socket manager pointer: %p", (void*)clone->socket_manager);
+
+  int rc = socket_manager_insert_connection(clone->socket_manager, clone->remote_endpoint, clone);
+  if (rc < 0) {
+    log_error("Failed to insert cloned connection into socket manager: %d", rc);
+    ct_connection_free(clone);
+    return NULL;
+  }
+
   clone->role = source_connection->role;
   if (framer_impl) {
     clone->framer_impl = framer_impl;
@@ -199,6 +219,7 @@ int ct_connection_build_with_new_connection_group(ct_connection_t* connection) {
   connection->connection_group = group;
   connection->received_messages = g_queue_new();
   connection->received_callbacks = g_queue_new();
+  connection->transport_properties = ct_transport_properties_new();
   return 0;
 }
 
@@ -208,6 +229,11 @@ void ct_connection_set_can_receive(ct_connection_t* connection, bool can_receive
 }
 
 void ct_connection_set_can_send(ct_connection_t* connection, bool can_send) {
+  if (!connection || !connection->transport_properties) {
+    log_error("Connection or transport properties is NULL in ct_connection_set_can_send");
+    log_debug("Connection: %p, connection->transport_properties: %p", (void*)connection, (void*)(connection ? connection->transport_properties : NULL));
+    return;
+  }
   connection->transport_properties->connection_properties.list[CAN_SEND].value.enum_val = can_send;
 }
 
@@ -224,11 +250,21 @@ void ct_connection_mark_as_established(ct_connection_t* connection) {
 }
 
 void ct_connection_mark_as_closing(ct_connection_t* connection) {
+  if (!connection || !connection->transport_properties) {
+    log_error("Connection or transport properties is NULL in ct_connection_mark_as_closing");
+    log_debug("Connection: %p, connection->transport_properties: %p", (void*)connection, (void*)(connection ? connection->transport_properties : NULL));
+    return;
+  }
   connection->transport_properties->connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSING;
   log_trace("Marked connection %s as closing", connection->uuid);
 }
 
 void ct_connection_mark_as_closed(ct_connection_t* connection) {
+  if (!connection || !connection->transport_properties) {
+    log_error("Connection or transport properties is NULL in ct_connection_mark_as_closed");
+    log_debug("Connection: %p, connection->transport_properties: %p", (void*)connection, (void*)(connection ? connection->transport_properties : NULL));
+    return;
+  }
   connection->transport_properties->connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSED;
   log_trace("Marked connection %s as closed", connection->uuid);
 }
@@ -374,7 +410,6 @@ int ct_receive_message(ct_connection_t* connection,
 
 void ct_connection_close(ct_connection_t* connection) {
     log_info("Closing connection: %s", connection->uuid);
-
     if (ct_connection_is_closed_or_closing(connection)) {
         log_warn("Trying to close closing or closed connection: %s, ignoring", connection->uuid);
         return;
@@ -409,6 +444,11 @@ void ct_connection_free_content(ct_connection_t* connection) {
     }
     g_queue_free(connection->received_messages);
     connection->received_messages = NULL;
+  }
+
+  if (connection->transport_properties) {
+    ct_transport_properties_free(connection->transport_properties);
+    connection->transport_properties = NULL;
   }
 
   ct_local_endpoint_free(connection->local_endpoint);
@@ -448,7 +488,7 @@ void ct_connection_deliver_to_app(ct_connection_t* connection,
     ct_queued_message_t* queued_message = ct_queued_message_new(message, context);
     g_queue_push_tail(connection->received_messages, queued_message);
   } else {
-    log_debug("Receive callback ready, calling it");
+    log_debug("Receive callback ready for connection: %s, calling it", connection->uuid);
     ct_receive_callbacks_t* receive_callback = g_queue_pop_head(connection->received_callbacks);
 
     if (!context) {
@@ -504,7 +544,29 @@ int ct_connection_clone_full(
   log_debug("Creating clone from connection: %s", source_connection->uuid);
   (void)connection_properties; // TODO - apply any overridden properties to the clone
 
-  ct_connection_t* new_connection = ct_connection_create_clone(source_connection, framer, NULL);
+  ct_connection_t* new_connection = ct_connection_create_clone(source_connection, NULL, framer, NULL);
+  // todo print
+  log_debug("Checking connection create clone socket manager: %p", new_connection->socket_manager);
+  GHashTableIter iter;
+  gpointer key = NULL;
+  gpointer value = NULL;
+  g_hash_table_iter_init(&iter,new_connection->socket_manager->connections);
+  while (g_hash_table_iter_next(&iter, &key, &value)) {
+    ct_connection_t* connection = (ct_connection_t*)value;
+    int port = 0;
+    if (connection->remote_endpoint->data.resolved_address.ss_family == AF_INET) {
+      struct sockaddr_in* addr_in = (struct sockaddr_in*)&connection->remote_endpoint->data.resolved_address;
+      port = ntohs(addr_in->sin_port);
+    }
+    else if (connection->remote_endpoint->data.resolved_address.ss_family == AF_INET6) {
+      struct sockaddr_in6* addr_in6 = (struct sockaddr_in6*)&connection->remote_endpoint->data.resolved_address;
+      port = ntohs(addr_in6->sin6_port);
+    }
+    log_debug("clone connection socket manager contains port: %d", port);
+  }
+
+
+
   int rc = new_connection->socket_manager->protocol_impl->clone_connection(source_connection, new_connection);
   if (rc < 0) {
     log_error("Failed to initialize protocol state for cloned connection: %d", rc);

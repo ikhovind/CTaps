@@ -125,5 +125,5 @@ add_subdirectory (test)
 add_subdirectory (benchmark)
 
 # Example picoquic client
-add_executable(picoquic_padding_error picoquic_padding_error.c)
-target_link_libraries(picoquic_padding_error PRIVATE picoquic-core)
+add_executable(ctaps_client test.c)
+target_link_libraries(ctaps_client PRIVATE CTaps)

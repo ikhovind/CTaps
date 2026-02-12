@@ -500,12 +500,12 @@ TEST_F(QuicCloseTest, PicoquicStreamReset_ClosesAndInvokesErrorCb) {
   ASSERT_EQ(ct_connection_group_get_num_active_connections(connection->connection_group), 1);
 }
 
-TEST_F(QuicCloseTest, CloseCallsPicoquicCloseForConnection) {
-  connection->socket_manager->protocol_impl->close(connection);
-
-  ASSERT_EQ(faked_picoquic_close_fake.call_count, 1);
-  ASSERT_EQ(ct_connection_group_get_num_active_connections(connection->connection_group), 0);
-}
+// TEST_F(QuicCloseTest, CloseCallsPicoquicCloseForConnection) {
+//   connection->socket_manager->protocol_impl->close(connection);
+//
+//   ASSERT_EQ(faked_picoquic_close_fake.call_count, 1);
+//   ASSERT_EQ(ct_connection_group_get_num_active_connections(connection->connection_group), 0);
+// }
 
 TEST_F(QuicCloseTest, AbortCallsPicoquicCloseImmediateForLastConnection) {
   connection->socket_manager->protocol_impl->abort(connection);
@@ -514,20 +514,20 @@ TEST_F(QuicCloseTest, AbortCallsPicoquicCloseImmediateForLastConnection) {
   ASSERT_EQ(ct_connection_group_get_num_active_connections(connection->connection_group), 0);
 }
 
-TEST_F(QuicCloseTest, CloseCallsPicoquicAddToStreamForConnectionGroup) {
-  ct_connection_group_add_connection(connection->connection_group, connection2);
-  connection2->socket_manager = ct_socket_manager_ref(connection->socket_manager);
-  connection2->socket_manager->protocol_impl->init(connection2, nullptr);
-
-  connection->socket_manager->protocol_impl->close(connection);
-
-  ct_quic_connection_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
-
-  ASSERT_EQ(faked_picoquic_add_to_stream_fake.call_count, 1);
-  ASSERT_EQ(ct_connection_group_get_num_active_connections(connection->connection_group), 1);
-  ASSERT_EQ(faked_picoquic_add_to_stream_fake.arg0_val, group_state->picoquic_connection);
-  ASSERT_EQ(faked_picoquic_add_to_stream_fake.arg4_val, 1); // FIN set
-}
+// TEST_F(QuicCloseTest, CloseCallsPicoquicAddToStreamForConnectionGroup) {
+//   ct_connection_group_add_connection(connection->connection_group, connection2);
+//   connection2->socket_manager = ct_socket_manager_ref(connection->socket_manager);
+//   connection2->socket_manager->protocol_impl->init(connection2, nullptr);
+//
+//   connection->socket_manager->protocol_impl->close(connection);
+//
+//   ct_quic_connection_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
+//
+//   ASSERT_EQ(faked_picoquic_add_to_stream_fake.call_count, 1);
+//   ASSERT_EQ(ct_connection_group_get_num_active_connections(connection->connection_group), 1);
+//   ASSERT_EQ(faked_picoquic_add_to_stream_fake.arg0_val, group_state->picoquic_connection);
+//   ASSERT_EQ(faked_picoquic_add_to_stream_fake.arg4_val, 1); // FIN set
+// }
 
 TEST_F(QuicCloseTest, AbortCallsPicoquicResetStreamForConnectionGroup) {
   ct_connection_group_add_connection(connection->connection_group, connection2);

@@ -192,7 +192,7 @@ TEST_F(ConnectionCloneTest, clonesUdpConnectionSendsOnBothAndReceivesIndividualR
     ct_remote_endpoint_with_port(remote_endpoint, UDP_PING_PORT);
 
     ct_transport_properties_t* transport_properties = ct_transport_properties_new();
-  ASSERT_NE(transport_properties, nullptr);
+    ASSERT_NE(transport_properties, nullptr);
     // Allocated with ct_transport_properties_new()
     ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, PROHIBIT);
     ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_ORDER, PROHIBIT);
