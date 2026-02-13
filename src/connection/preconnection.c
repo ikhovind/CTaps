@@ -100,6 +100,7 @@ int ct_preconnection_listen(ct_preconnection_t* preconnection, ct_listener_t* li
       .local_endpoint = *first_node.local_endpoint,
       .num_local_endpoints = 1,
       .socket_manager = ct_socket_manager_ref(socket_manager),
+      .state = CT_LISTENER_STATE_LISTENING,
       .transport_properties = preconnection->transport_properties,
       .security_parameters = preconnection->security_parameters,
     };

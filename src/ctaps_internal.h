@@ -348,7 +348,8 @@ typedef struct ct_listener_s {
   ct_local_endpoint_t local_endpoint;                 ///< Local endpoint (listening address/port)
   size_t num_local_endpoints;                         ///< Number of local endpoints
   ct_listener_callbacks_t listener_callbacks;         ///< User-provided callbacks for listener events
-  ct_security_parameters_t* security_parameters;       ///< Security configuration for accepted connections (owned copy)
+  ct_listener_state_enum_t state;                     ///< Current state of the listener
+  ct_security_parameters_t* security_parameters;      ///< Security configuration for accepted connections (owned copy)
   struct ct_socket_manager_s* socket_manager;         ///< Socket manager handling listening sockets
 } ct_listener_t;
 
