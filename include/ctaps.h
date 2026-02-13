@@ -336,6 +336,11 @@ typedef enum {
   CONN_STATE_CLOSED             ///< Connection is fully closed
 } ct_connection_state_enum_t;
 
+typedef enum {
+  CT_LISTENER_STATE_LISTENING = 0,  ///< Listener is active and accepting connections
+  CT_LISTENER_STATE_CLOSED            ///< Listener is closed and not accepting connections
+} ct_listener_state_enum_t;
+
 /**
  * @brief Connection scheduling algorithms for multipath.
  */
