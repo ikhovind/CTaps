@@ -282,7 +282,6 @@ typedef struct ct_connection_group_s {
   char connection_group_id[37];           ///< Unique identifier for this group
   GHashTable* connections;                ///< Map of UUID string → ct_connection_t*
   void* connection_group_state;           ///< Protocol-specific shared state
-  uint64_t num_active_connections;        ///< Number of active connections in this group
   size_t ref_count;                       ///< Reference count for this connection group
 } ct_connection_group_t;
 
@@ -377,12 +376,20 @@ typedef struct ct_preconnection_s {
 // Socket manager
 // ===================================
 
+typedef struct ct_socket_manager_callbacks_s {
+  void (*closed_connection)(ct_connection_t* connection);
+  void (*aborted_connection)(ct_connection_t* connection);
+} ct_socket_manager_callbacks_t;
+
+
 typedef struct ct_socket_manager_s {
   void* internal_socket_manager_state;
   int ref_count;                 // Number of objects using this socket (ct_listener_t + Connections)
-  GHashTable* connections; // remote_endpoint → ct_connection_t* (open and closed)
+  GSList* all_connections; // List of all ct_connection_t* using this socket manager
+  GHashTable* demux_table; // remote_endpoint → ct_connection_t* (Only used for UDP where demultiplexing is needed)
   const ct_protocol_impl_t* protocol_impl;
   struct ct_listener_s* listener;
+  ct_socket_manager_callbacks_t callbacks;
 } ct_socket_manager_t;
 
 

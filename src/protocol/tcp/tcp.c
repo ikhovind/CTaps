@@ -128,7 +128,10 @@ void on_libuv_close(uv_handle_t* handle) {
   log_debug("libuv TCP handle successfully closed");
   ct_socket_manager_t* socket_manager = handle->data;
   ct_tcp_socket_state_t* socket_state = socket_manager->internal_socket_manager_state;
-  socket_state->close_cb(socket_state->connection);
+  if (socket_state->close_cb) {
+    log_debug("Invoking TCP connection close callback");
+    socket_state->close_cb(socket_state->connection);
+  }
 }
 
 void tcp_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
@@ -668,8 +671,9 @@ int tcp_free_connection_group_state(ct_connection_group_t* connection_group) {
 }
 
 int tcp_close_socket(ct_socket_manager_t* socket_manager) {
+  // NO-op, since the socket is closed when the connection
+  // is closed
   (void)socket_manager;
-  // TODO implement
   return 0;
 }
 

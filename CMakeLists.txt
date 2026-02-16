@@ -124,6 +124,8 @@ add_subdirectory (test)
 
 add_subdirectory (benchmark)
 
-# Example picoquic client
 add_executable(ctaps_client test.c)
 target_link_libraries(ctaps_client PRIVATE CTaps)
+
+add_executable(ctaps_server test_server.c)
+target_link_libraries(ctaps_server PRIVATE CTaps)

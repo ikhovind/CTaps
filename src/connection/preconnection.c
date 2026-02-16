@@ -86,6 +86,7 @@ ct_preconnection_t* ct_preconnection_new(
 int ct_preconnection_listen(ct_preconnection_t* preconnection, ct_listener_t* listener, ct_listener_callbacks_t listener_callbacks) {
   log_info("Listening from preconnection");
   GArray* candidate_nodes = get_ordered_candidate_nodes(preconnection);
+  log_debug("Caniddate node ptr: %p", (void*)candidate_nodes);
   if (candidate_nodes->len > 0) {
     const ct_candidate_node_t first_node = g_array_index(candidate_nodes, ct_candidate_node_t, 0);
 
@@ -164,18 +165,14 @@ void ct_preconnection_free(ct_preconnection_t* preconnection) {
     preconnection->remote_endpoints = NULL;
   }
 
-  // Free local endpoint strings
   ct_local_endpoint_free_strings(&preconnection->local);
 
-  // Clean up embedded transport properties (frees GHashTable if created)
   ct_selection_properties_cleanup(&preconnection->transport_properties.selection_properties);
 
-  // Free security parameters (owns a deep copy)
   if (preconnection->security_parameters) {
     ct_sec_param_free(preconnection->security_parameters);
   }
 
-  // Free the preconnection struct itself
   free(preconnection);
 }
 

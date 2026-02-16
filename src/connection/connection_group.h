@@ -24,13 +24,6 @@ int ct_connection_group_add_connection(ct_connection_group_t* group, ct_connecti
 ct_connection_t* ct_connection_group_get_first(ct_connection_group_t* group);
 
 /**
- * @brief Decrement the active connection counter in a connection group.
- *
- * @param[in,out] group The connection group
- */
-void ct_connection_group_decrement_active(ct_connection_group_t* group);
-
-/**
  * @brief Get the number of active connections in a connection group.
  *
  * @param[in] group Connection group to query
