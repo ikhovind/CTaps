@@ -227,7 +227,7 @@ void on_write(uv_write_t* req, int status) {
   ct_socket_manager_t* socket_manager = req->handle->data;
   ct_tcp_socket_state_t* socket_state = socket_manager->internal_socket_manager_state;
   ct_connection_t* connection = socket_state->connection;
-  // ct_message_t* message = (ct_message_t*)req->data;
+  ct_message_t* message = (ct_message_t*)req->data;
 
   if (status < 0) {
     log_error("Write error: %s", uv_strerror(status));
@@ -242,11 +242,11 @@ void on_write(uv_write_t* req, int status) {
   }
 
   // Free the message after sending (or error)
-  // if (message) {
-  //   ct_message_free(message);
-  // }
-  // log_debug("Freeing write request");
-  // free(req);
+  if (message) {
+     ct_message_free(message);
+  }
+  log_debug("Freeing write request");
+  free(req);
 }
 
 int tcp_init_with_send(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks, ct_message_t* initial_message, ct_message_context_t* initial_message_context) {

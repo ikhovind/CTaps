@@ -34,25 +34,23 @@ TEST(ConnectionUnitTests, connectionCanReceiveReturnsCorrectRes) {
 }
 
 TEST(ConnectionUnitTests, SendMessageFullFailsWhenCanSendIsFalse) {
-    ct_connection_t connection;
-    ct_connection_build_with_new_connection_group(&connection);
-    connection.transport_properties = ct_transport_properties_new();
+    ct_connection_t* connection = ct_connection_create_empty_with_uuid();
 
     // Set canSend to false
-    ct_connection_set_can_send(&connection, false);
+    ct_connection_set_can_send(connection, false);
 
     // Try to send a message
     ct_message_t* message = ct_message_new_with_content("test", 5);
     ASSERT_NE(message, nullptr);
 
-    int rc = ct_send_message_full(&connection, message, NULL);
+    int rc = ct_send_message_full(connection, message, NULL);
 
     // Should fail with -EPIPE
     EXPECT_EQ(rc, -EPIPE);
 
     // Cleanup
     ct_message_free(message);
-    ct_connection_free_content(&connection);
+    ct_connection_free(connection);
 }
 
 DEFINE_FFF_GLOBALS;
@@ -66,12 +64,10 @@ TEST(ConnectionUnitTests, SendMessageWithFinalSetsCanSendToFalse) {
     socket_manager.protocol_impl = &protocol_impl;
     protocol_impl.send = fake_protocol_send;
 
-    ct_connection_t connection;
-    ct_connection_build_with_new_connection_group(&connection);
-    connection.transport_properties = ct_transport_properties_new();
-    ct_connection_set_can_send(&connection, true);
+    ct_connection_t* connection = ct_connection_create_empty_with_uuid();
+    ct_connection_set_can_send(connection, true);
 
-    connection.socket_manager = &socket_manager;
+    connection->socket_manager = &socket_manager;
 
     // Create message with FINAL property
     ct_message_t* message = ct_message_new_with_content("final message", 14);
@@ -82,7 +78,7 @@ TEST(ConnectionUnitTests, SendMessageWithFinalSetsCanSendToFalse) {
     ct_message_context_set_final(context, true);
 
     // Send message
-    int rc = ct_send_message_full(&connection, message, context);
+    int rc = ct_send_message_full(connection, message, context);
 
     // Verify send succeeded
     EXPECT_EQ(rc, 0);
@@ -91,12 +87,12 @@ TEST(ConnectionUnitTests, SendMessageWithFinalSetsCanSendToFalse) {
     EXPECT_EQ(fake_protocol_send_fake.call_count, 1);
 
     // Verify canSend is now false
-    EXPECT_FALSE(ct_connection_can_send(&connection));
+    EXPECT_FALSE(ct_connection_can_send(connection));
 
     // Cleanup
     ct_message_free(message);
     ct_message_context_free(context);
-    ct_connection_free_content(&connection);
+    ct_connection_free_content(connection);
 }
 
 TEST(ConnectionUnitTests, connectionPropertyGetterGetsConnectionProperty) {

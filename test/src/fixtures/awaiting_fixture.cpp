@@ -5,6 +5,8 @@ extern "C" {
 #include "ctaps.h"
 #include "ctaps_internal.h"
 #include "endpoint/local_endpoint.h"
+#include "connection/connection_group.h"
+#include "connection/connection.h"
 #include <logging/log.h>
 }
 
@@ -621,3 +623,13 @@ int receive_message_verify_and_close_listener_on_connection_received(ct_listener
     ct_receive_message(new_connection, receive_message_request);
     return 0;
 }
+
+ct_connection_group_t* generate_connection_group(int num_connections) {
+    ct_connection_group_t* group = ct_connection_group_new();
+    for (int i = 0; i < num_connections; i++) {
+        ct_connection_t* conn = ct_connection_create_empty_with_uuid();
+        ct_connection_group_add_connection(group, conn);
+    }
+    return group;
+}
+

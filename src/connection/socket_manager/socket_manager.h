@@ -27,4 +27,6 @@ int ct_socket_manager_close_connection(ct_socket_manager_t*, ct_connection_t*);
 
 int ct_socket_manager_listener_stop(ct_socket_manager_t* socket_manager);
 
+void ct_socket_manager_free(ct_socket_manager_t* socket_manager);
+
 #endif //SOCKET_MANAGER_H

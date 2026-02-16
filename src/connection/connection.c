@@ -22,7 +22,7 @@
 #include <sys/socket.h>
 #include <uv.h>
 
-ct_connection_t* ct_connection_create_empty_with_uuid() {
+ct_connection_t* ct_connection_create_empty_with_uuid(void) {
   ct_connection_t* connection = malloc(sizeof(ct_connection_t));
   if (!connection) {
     log_error("Failed to allocate memory for ct_connection_t");
@@ -97,7 +97,7 @@ ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_
   if (!group) {
     log_error("Failed to create new connection group for client connection");
     ct_connection_free(connection);
-    ct_socket_manager_unref(socket_manager);
+    ct_socket_manager_free(socket_manager);
     return NULL;
   }
   int rc = ct_connection_group_add_connection(group, connection);
@@ -105,7 +105,7 @@ ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_
     log_error("Failed to add connection to new connection group: %d", rc);
     ct_connection_group_free(group);
     ct_connection_free(connection);
-    ct_socket_manager_unref(socket_manager);
+    ct_socket_manager_free(socket_manager);
     return NULL;
   }
 
@@ -118,7 +118,7 @@ ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_
     log_error("Failed to copy transport properties for client connection");
     ct_connection_group_free(group);
     ct_connection_free(connection);
-    ct_socket_manager_unref(socket_manager);
+    ct_socket_manager_free(socket_manager);
     return NULL;
   }
   connection->socket_manager = ct_socket_manager_ref(socket_manager);
@@ -192,36 +192,6 @@ ct_connection_t* ct_connection_create_clone(const ct_connection_t* source_connec
   ct_connection_group_add_connection(source_connection->connection_group, clone);
   return clone;
 }
-
-int ct_connection_build_with_new_connection_group(ct_connection_t* connection) {
-  memset(connection, 0, sizeof(ct_connection_t));
-  generate_uuid_string(connection->uuid);
-
-  // Create connection group for this connection
-  ct_connection_group_t* group = malloc(sizeof(ct_connection_group_t));
-  if (!group) {
-    log_error("Failed to allocate connection group");
-    return -ENOMEM;
-  }
-
-  // Generate UUID for the connection group
-  generate_uuid_string(group->connection_group_id);
-
-  // Initialize connections hash table (keyed by connection UUID)
-  group->connections = g_hash_table_new(g_str_hash, g_str_equal);
-  group->connection_group_state = NULL; // Will be set by protocol implementation
-
-  // Add this connection to the group
-  g_hash_table_insert(group->connections, connection->uuid, connection);
-
-  connection->framer_impl = NULL;
-  connection->connection_group = group;
-  connection->received_messages = g_queue_new();
-  connection->received_callbacks = g_queue_new();
-  connection->transport_properties = ct_transport_properties_new();
-  return 0;
-}
-
 
 void ct_connection_set_can_receive(ct_connection_t* connection, bool can_receive) {
   if (!connection || !connection->transport_properties) {
@@ -483,7 +453,9 @@ void ct_connection_free_content(ct_connection_t* connection) {
 
     ct_socket_manager_unref(socket_manager);
   }
-  // TODO - The connection group needs to know which connections are unreffing it so they can be removed
+  if (connection->connection_group && connection->connection_group->connections) {
+    g_hash_table_remove(connection->connection_group->connections, connection->uuid);
+  }
   ct_connection_group_unref(connection->connection_group);
 }
 

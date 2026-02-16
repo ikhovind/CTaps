@@ -74,6 +74,16 @@ udp_send_data_t* udp_send_data_new(ct_message_t* message, ct_message_context_t* 
   return send_data;
 }
 
+void udp_send_data_free(udp_send_data_t* send_data) {
+  if (!send_data) {
+    log_debug("Attempted to free NULL UDP send data");
+    return;
+  }
+  ct_message_free(send_data->message);
+  ct_message_context_free(send_data->message_context);
+  free(send_data);
+}
+
 void alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
   (void)handle;
   *buf = uv_buf_init(malloc(suggested_size), suggested_size);
@@ -120,10 +130,7 @@ void on_send(uv_udp_send_t* req, int status) {
     log_error("Send error: %s\n", uv_strerror(status));
   }
   if (req && req->data) {
-    udp_send_data_t* send_data = (udp_send_data_t*)req->data;
-    ct_message_free(send_data->message);
-    ct_message_context_free(send_data->message_context);
-    free(send_data);
+    udp_send_data_free(req->data);
   }
   free(req);
 }
@@ -310,8 +317,7 @@ int udp_send(ct_connection_t* connection, ct_message_t* message, ct_message_cont
 
   if (rc < 0) {
     log_error("Error sending UDP message: %s", uv_strerror(rc));
-    ct_message_free(message);
-    free(send_req);
+    udp_send_data_free(send_req->data);
   }
 
   return rc;

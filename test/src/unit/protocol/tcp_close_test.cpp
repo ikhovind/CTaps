@@ -97,9 +97,6 @@ protected:
 
     ct_transport_properties_free(transport_properties);
 
-    log_debug("Conenction remote endpoint: %p", (void*)ct_connection_get_remote_endpoint(connection));
-    log_debug("Connection remote endpoint resolved address: %p", (void*)remote_endpoint_get_resolved_address(ct_connection_get_remote_endpoint(connection)));
-
     log_debug("Initializing first connection");
     connection->socket_manager->protocol_impl->init(connection, nullptr);
 
