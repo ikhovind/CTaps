@@ -8,13 +8,12 @@
 #ifndef CTAPS_H
 #define CTAPS_H
 
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <netinet/tcp.h>
 #include <sys/socket.h>
-#include <glib.h>
-#include <uv.h>
 
 // Symbol visibility control - only export public API functions
 #if defined(__GNUC__) || defined(__clang__)
@@ -28,8 +27,6 @@
 // =============================================================================
 
 typedef struct ct_config_s ct_config_t;
-
-extern uv_loop_t* event_loop;
 
 /**
  * @brief Active connection object.
@@ -1591,6 +1588,11 @@ CT_EXTERN int ct_receive_message(ct_connection_t* connection, ct_receive_callbac
  */
 CT_EXTERN bool ct_connection_is_closed(const ct_connection_t* connection);
 
+/**
+ * @brief Get the current state of a connection.
+ * @param[in] connection The connection to query
+ * @return connection lifecycle state, -1 if connection is NULL
+ */
 CT_EXTERN ct_connection_state_enum_t ct_connection_get_state(const ct_connection_t* connection);
 
 /**
@@ -1799,13 +1801,7 @@ CT_EXTERN void ct_connection_abort_group(ct_connection_t* connection);
 
 // Listener
 /**
- * @brief Stop a listener from accepting new connections.
- * @param[in] listener Listener to stop
- */
-CT_EXTERN void ct_listener_stop(ct_listener_t* listener);
-
-/**
- * @brief Close a listener - TODO - this is not useful with stop and free?
+ * @brief Close a listener and stop accepting new connections.
  * @param[in] listener Listener to close
  */
 CT_EXTERN void ct_listener_close(ct_listener_t* listener);
@@ -1816,6 +1812,10 @@ CT_EXTERN void ct_listener_close(ct_listener_t* listener);
  */
 CT_EXTERN void ct_listener_free(ct_listener_t* listener);
 
+/**
+ * @brief Create a new listener object on the heap.
+ * @return Pointer to newly allocated listener, or NULL on allocation failure
+ */
 CT_EXTERN ct_listener_t* ct_listener_new(void);
 
 /**

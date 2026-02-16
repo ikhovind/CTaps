@@ -96,27 +96,28 @@ target_include_directories(CTaps
           $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
 )
 
-# This is the only way I have managed to link against picotls
-target_include_directories(CTaps
-        PUBLIC
-        "${picotls_SOURCE_DIR}/include"
-)
-
-target_link_libraries(
-        CTaps
-        PUBLIC
-            uv
-        PRIVATE
-            picoquic-core
-)
-
 find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(GLIB REQUIRED glib-2.0)
 pkg_check_modules(UUID REQUIRED uuid)
 
-target_include_directories(CTaps PUBLIC ${GLIB_INCLUDE_DIRS} ${UUID_INCLUDE_DIRS})
-target_link_libraries(CTaps PUBLIC ${GLIB_LIBRARIES} ${UUID_LIBRARIES})
+
+# This is the only way I have managed to link against picotls
+target_include_directories(CTaps
+        PRIVATE 
+        "${picotls_SOURCE_DIR}/include"
+        ${GLIB_INCLUDE_DIRS}
+        ${UUID_INCLUDE_DIRS}
+)
+
+target_link_libraries(
+        CTaps
+        PRIVATE
+            uv
+            picoquic-core
+            ${GLIB_LIBRARIES}
+            ${UUID_LIBRARIES}
+)
 
 enable_testing()
 

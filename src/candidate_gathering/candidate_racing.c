@@ -19,12 +19,12 @@ static void on_stagger_timer(uv_timer_t* handle);
 static int racing_on_attempt_ready(struct ct_connection_s* connection);
 static int on_attempt_establishment_error(ct_connection_t* connection);
 static void cancel_all_other_attempts(ct_racing_context_t* context, size_t winning_index);
-static int start_specific_connection_attempt(ct_racing_context_t* context, size_t attempt_index);
+static int start_connection_attempt_by_index(ct_racing_context_t* context, size_t attempt_index);
 
 
 
-int failed_attempt_closed(ct_connection_t* connection) {
-  log_debug("Connection attempt failed and closed: %s", connection->uuid);
+int free_connection_on_close(ct_connection_t* connection) {
+  log_trace("Freeing failed connection: %s created in candidate racing", connection->uuid);
   ct_connection_free(connection);
   return 0;
 }
@@ -122,7 +122,7 @@ static ct_racing_context_t* racing_context_create(GArray* candidate_nodes,
 /**
  * @brief Starts a single connection attempt.
  */
-static int start_specific_connection_attempt(ct_racing_context_t* context, size_t attempt_index) {
+static int start_connection_attempt_by_index(ct_racing_context_t* context, size_t attempt_index) {
   log_info("Starting connection attempt %zu/%zu", attempt_index + 1, context->num_attempts);
 
   if (attempt_index >= context->num_attempts) {
@@ -310,7 +310,7 @@ static void cancel_all_other_attempts(ct_racing_context_t* context, size_t winni
       attempt->state = ATTEMPT_STATE_CANCELED;
 
       if (attempt->connection != NULL) {
-        attempt->connection->connection_callbacks.closed = failed_attempt_closed;
+        attempt->connection->connection_callbacks.closed = free_connection_on_close;
         ct_connection_close(attempt->connection);
       }
     }
@@ -357,7 +357,7 @@ static void initiate_next_attempt(ct_racing_context_t* context) {
     return;
   }
 
-  int rc = start_specific_connection_attempt(context, context->next_attempt_index);
+  int rc = start_connection_attempt_by_index(context, context->next_attempt_index);
   if (rc != 0) {
     log_warn("Failed to start attempt %zu: %d", context->next_attempt_index, rc);
   }
