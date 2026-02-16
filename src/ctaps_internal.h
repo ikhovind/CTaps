@@ -1,6 +1,10 @@
 #ifndef CT_CTAPS_INTERNAL_H
 #define CT_CTAPS_INTERNAL_H
+#include "glib.h"
 #include <ctaps.h>
+#include <uv.h>
+
+extern uv_loop_t* event_loop;
 
 struct ct_socket_manager_s;
 // =============================================================================

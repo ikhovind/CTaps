@@ -1,5 +1,6 @@
 project(CTapsTests)
 
+set_property(GLOBAL PROPERTY CTAPS_TEST_TARGETS "")
 
 enable_testing()
 include(GoogleTest)
@@ -90,7 +91,12 @@ function(add_gtest test_name)
             "${picotls_SOURCE_DIR}/include"
     )
 
-   gtest_discover_tests(${test_name})
+    gtest_discover_tests(${test_name})
+
+    get_property(all_tests GLOBAL PROPERTY CTAPS_TEST_TARGETS)
+    list(APPEND all_tests ${test_name})
+    set_property(GLOBAL PROPERTY CTAPS_TEST_TARGETS "${all_tests}")
+    message(STATUS "Added test target: ${test_name}")
 endfunction()
 
 # Get CTAPS_SOURCES from parent CMakeLists.txt
@@ -248,4 +254,10 @@ add_gtest(tcp_close_callback_test
     uv_tcp_close_reset
     uv_is_closing
   ASAN_ENABLED
+)
+
+get_property(all_tests GLOBAL PROPERTY CTAPS_TEST_TARGETS)
+add_custom_target(ctaps_tests
+    DEPENDS ${all_tests}
+    COMMENT "Building all CTaps tests"
 )

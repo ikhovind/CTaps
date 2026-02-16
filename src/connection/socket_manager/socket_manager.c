@@ -4,7 +4,6 @@
 #include "ctaps.h"
 #include "ctaps_internal.h"
 #include <endpoint/remote_endpoint.h>
-#include <errno.h>
 #include <glib.h>
 #include <logging/log.h>
 #include <netinet/in.h>
@@ -12,26 +11,28 @@
 #include <sys/socket.h>
 
 ct_connection_t* socket_manager_get_from_demux_table(ct_socket_manager_t* socket_manager, const struct sockaddr_storage* remote_addr) {
-  log_info("Trying to get connection group for remote endpoint in socket manager");
-  log_info("Socket manager listener: %p", socket_manager->listener);
+  log_trace("Trying to demux from remote endpoint to connection in socket manager");
   GBytes* addr_bytes = NULL;
   if (remote_addr->ss_family == AF_INET) {
     log_trace("Getting connection group by IPv4 address");
-    log_debug("Looking for port: %d", ntohs(((struct sockaddr_in*)remote_addr)->sin_port));
     addr_bytes = g_bytes_new(remote_addr, sizeof(struct sockaddr_in));
   }
   else if (remote_addr->ss_family == AF_INET6) {
     log_trace("Getting connection group by IPv6 address");
-    log_debug("Looking for port: %d", ntohs(((struct sockaddr_in6*)remote_addr)->sin6_port));
     addr_bytes = g_bytes_new(remote_addr, sizeof(struct sockaddr_in6));
   }
   else {
-    log_error("Cannot get connection group by unknown address family: %d", remote_addr->ss_family);
+    log_error("Cannot get connection by unknown address family: %d", remote_addr->ss_family);
     return NULL;
   }
-
   ct_connection_t* connection =  g_hash_table_lookup(socket_manager->demux_table, addr_bytes);
   g_bytes_unref(addr_bytes);
+  if (connection) {
+    log_trace("Found connection: %s in socket manager demux table for remote endpoint", connection->uuid);
+  }
+  else {
+    log_trace("No connection found in socket manager demux table for given remote endpoint");
+  }
   return connection;
 }
 
@@ -63,10 +64,11 @@ void ct_socket_manager_free(ct_socket_manager_t* socket_manager) {
 }
 
 int socket_manager_insert_connection(ct_socket_manager_t* socket_manager, const ct_remote_endpoint_t* remote, ct_connection_t* connection) {
-  log_info("Inserting connection into socket manager for remote endpoint");
+  log_trace("Inserting connection: %s into socket manager for remote endpoint", connection->uuid);
   struct sockaddr_storage remote_addr = remote->data.resolved_address;
 
   if (socket_manager->protocol_impl->protocol_enum == CT_PROTOCOL_UDP) {
+    log_trace("Inserting connection into socket manager demux table for UDP protocol");
     GBytes* addr_bytes = NULL;
     if (remote_addr.ss_family == AF_INET) {
       log_trace("Inserting connection for IPv4 remote endpoint");
@@ -88,7 +90,6 @@ int socket_manager_insert_connection(ct_socket_manager_t* socket_manager, const 
     g_hash_table_insert(socket_manager->demux_table, addr_bytes, connection);
   }
   socket_manager->all_connections = g_slist_prepend(socket_manager->all_connections, connection);
-
   connection->socket_manager = ct_socket_manager_ref(socket_manager);
   return 0;
 }
