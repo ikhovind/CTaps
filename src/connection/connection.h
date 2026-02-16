@@ -19,17 +19,6 @@ ct_connection_t* ct_connection_create_server_connection(ct_socket_manager_t* soc
                                              );
 
 /**
- * @brief Initialize a connection with zeroed memory and generate a UUID.
- *
- * This helper function should be called at the start of any connection
- * building function to ensure the connection starts in a clean state with
- * a unique identifier.
- *
- * @param[out] connection Connection to initialize
- */
-int ct_connection_build_with_new_connection_group(ct_connection_t* connection);
-
-/**
  * @brief Deliver received protocol data to the connection
  *
  * Used to deliver received data to the connection's framer and application callbacks.
