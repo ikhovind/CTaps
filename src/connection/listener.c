@@ -24,3 +24,10 @@ ct_listener_t* ct_listener_new(void) {
 ct_local_endpoint_t ct_listener_get_local_endpoint(const ct_listener_t* listener) {
   return listener->local_endpoint;
 }
+
+void ct_listener_free(ct_listener_t* listener) {
+  if (listener == NULL) {
+    return;
+  }
+  free(listener);
+}

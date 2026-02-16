@@ -1591,6 +1591,8 @@ CT_EXTERN int ct_receive_message(ct_connection_t* connection, ct_receive_callbac
  */
 CT_EXTERN bool ct_connection_is_closed(const ct_connection_t* connection);
 
+CT_EXTERN ct_connection_state_enum_t ct_connection_get_state(const ct_connection_t* connection);
+
 /**
  * @brief Get the connections callback context.
  * @param[in] connection connection to get callback context for
@@ -1803,7 +1805,7 @@ CT_EXTERN void ct_connection_abort_group(ct_connection_t* connection);
 CT_EXTERN void ct_listener_stop(ct_listener_t* listener);
 
 /**
- * @brief Close a listener and free its socket resources.
+ * @brief Close a listener - TODO - this is not useful with stop and free?
  * @param[in] listener Listener to close
  */
 CT_EXTERN void ct_listener_close(ct_listener_t* listener);

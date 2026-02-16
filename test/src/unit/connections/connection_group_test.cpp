@@ -28,7 +28,6 @@ TEST(ConnectionGroupUnitTests, CloseAllClosesOnlyOpenConnections) {
 
     generate_uuid_string(group.connection_group_id);
     group.connections = g_hash_table_new(g_str_hash, g_str_equal);
-    group.num_active_connections = 0;
     group.connection_group_state = NULL;
 
     ct_protocol_impl_t protocol_impl;

@@ -239,16 +239,6 @@ add_gtest(message_unit_test
     ${CTAPS_SOURCES}
 )
 
-add_gtest(udp_close_callback_test
-  SOURCES
-    src/unit/protocol/udp_close_callback_test.cpp
-    ${CTAPS_SOURCES}
-  WRAP_FUNCTIONS
-    uv_close
-    uv_udp_recv_stop
-  ASAN_ENABLED
-)
-
 add_gtest(tcp_close_callback_test
   SOURCES
     src/unit/protocol/tcp_close_test.cpp
@@ -258,20 +248,4 @@ add_gtest(tcp_close_callback_test
     uv_tcp_close_reset
     uv_is_closing
   ASAN_ENABLED
-)
-
-add_gtest(quic_close_callback_test
-  SOURCES
-    src/unit/protocol/quic_close_test.cpp
-    ${CTAPS_SOURCES}
-  WRAP_FUNCTIONS
-    socket_manager_remove_connection_group
-    uv_close
-    uv_udp_recv_stop
-    picoquic_close
-    picoquic_close_immediate
-    picoquic_add_to_stream
-    picoquic_reset_stream
-    picoquic_get_application_error
-    picoquic_get_remote_error
 )

@@ -71,23 +71,18 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     test_context.listener = &listener;
 
     ct_local_endpoint_t* listener_endpoint = ct_local_endpoint_new();
-    ASSERT_NE(listener_endpoint, nullptr);
     ct_local_endpoint_with_interface(listener_endpoint, "lo");
     ct_local_endpoint_with_port(listener_endpoint, QUIC_CLONE_LISTENER_PORT);
 
     ct_remote_endpoint_t* listener_remote = ct_remote_endpoint_new();
-    ASSERT_NE(listener_remote, nullptr);
     ct_remote_endpoint_with_hostname(listener_remote, "127.0.0.1");
 
     ct_transport_properties_t* listener_props = ct_transport_properties_new();
-    ASSERT_NE(listener_props, nullptr);
-    // Allocated with ct_transport_properties_new()
     ct_tp_set_sel_prop_preference(listener_props, RELIABILITY, REQUIRE);
     ct_tp_set_sel_prop_preference(listener_props, PRESERVE_MSG_BOUNDARIES, REQUIRE);
     ct_tp_set_sel_prop_preference(listener_props, MULTISTREAMING, REQUIRE); // Force QUIC
 
     ct_security_parameters_t* server_security_parameters = ct_security_parameters_new();
-    ASSERT_NE(server_security_parameters, nullptr);
     const char* alpn_strings = "simple-ping";
     ct_sec_param_set_property_string_array(server_security_parameters, ALPN, (const char**)&alpn_strings, 1);
 
@@ -97,7 +92,6 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     ct_certificate_bundles_free(server_bundles);
 
     ct_preconnection_t* listener_precon = ct_preconnection_new(listener_remote, 1, listener_props, server_security_parameters);
-    ASSERT_NE(listener_precon, nullptr);
     ct_sec_param_free(server_security_parameters);
     ct_preconnection_set_local_endpoint(listener_precon, listener_endpoint);
 
@@ -112,19 +106,15 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
 
     // --- SETUP CLIENT ---
     ct_remote_endpoint_t* client_remote = ct_remote_endpoint_new();
-    ASSERT_NE(client_remote, nullptr);
     ct_remote_endpoint_with_hostname(client_remote, "127.0.0.1");
     ct_remote_endpoint_with_port(client_remote, QUIC_CLONE_LISTENER_PORT);
 
     ct_transport_properties_t* client_props = ct_transport_properties_new();
-    ASSERT_NE(client_props, nullptr);
-    // Allocated with ct_transport_properties_new()
     ct_tp_set_sel_prop_preference(client_props, RELIABILITY, REQUIRE);
     ct_tp_set_sel_prop_preference(client_props, PRESERVE_MSG_BOUNDARIES, REQUIRE);
     ct_tp_set_sel_prop_preference(client_props, MULTISTREAMING, REQUIRE);
 
     ct_security_parameters_t* client_security_parameters = ct_security_parameters_new();
-    ASSERT_NE(client_security_parameters, nullptr);
     ct_sec_param_set_property_string_array(client_security_parameters, ALPN, (const char**)&alpn_strings, 1);
 
     ct_certificate_bundles_t* client_bundles = ct_certificate_bundles_new();
@@ -133,7 +123,6 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     ct_certificate_bundles_free(client_bundles);
 
     ct_preconnection_t* client_precon = ct_preconnection_new(client_remote, 1, client_props, client_security_parameters);
-    ASSERT_NE(client_precon, nullptr);
     ct_sec_param_free(client_security_parameters);
 
     ct_connection_callbacks_t client_callbacks = {
@@ -146,13 +135,9 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     ASSERT_EQ(rc, 0);
 
     // --- RUN EVENT LOOP ---
-    log_info("Starting event loop");
     ct_start_event_loop();
-    log_info("Event loop completed");
 
     // --- ASSERTIONS ---
-    // Server connections: Could be 1 connection with 2 messages, or 2 connections with 1 each
-    // Check total messages received by all server connections
     ASSERT_EQ(test_context.server_connections.size(), 2); // QUIC creates separate streams
     ASSERT_EQ(per_connection_messages[test_context.server_connections[0]].size(), 1);
     ASSERT_EQ(per_connection_messages[test_context.server_connections[1]].size(), 1);

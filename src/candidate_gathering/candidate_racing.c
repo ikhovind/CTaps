@@ -21,6 +21,15 @@ static int on_attempt_establishment_error(ct_connection_t* connection);
 static void cancel_all_other_attempts(ct_racing_context_t* context, size_t winning_index);
 static int start_specific_connection_attempt(ct_racing_context_t* context, size_t attempt_index);
 
+
+
+int failed_attempt_closed(ct_connection_t* connection) {
+  log_debug("Connection attempt failed and closed: %s", connection->uuid);
+  ct_connection_free(connection);
+  return 0;
+}
+
+
 static void on_timer_close_free_context(uv_handle_t* handle) {
   ct_racing_context_t* context = (ct_racing_context_t*)handle->data;
   free(handle);
@@ -36,11 +45,6 @@ static void on_timer_close_free_context(uv_handle_t* handle) {
         // Free candidate endpoints (they were copied)
         ct_local_endpoint_free(attempt->candidate.local_endpoint);
         ct_remote_endpoint_free(attempt->candidate.remote_endpoint);
-
-        // Free connection if it wasn't the winner
-        if (attempt->connection != NULL && i != (size_t)context->winning_attempt_index) {
-          ct_connection_free(attempt->connection);
-        }
       }
       free(context->attempts);
     }
@@ -206,7 +210,6 @@ int racing_on_attempt_ready(ct_connection_t* connection) {
 
   cancel_all_other_attempts(context, attempt->attempt_index);
 
-
   // Restore the user's original callbacks (connection has the wrapped racing callbacks)
   connection->connection_callbacks = context->user_callbacks;
 
@@ -307,7 +310,13 @@ static void cancel_all_other_attempts(ct_racing_context_t* context, size_t winni
       attempt->state = ATTEMPT_STATE_CANCELED;
 
       if (attempt->connection != NULL) {
+        attempt->connection->connection_callbacks.closed = failed_attempt_closed;
         ct_connection_close(attempt->connection);
+      }
+    }
+    else if (attempt->state != ATTEMPT_STATE_SUCCEEDED) {
+      if (attempt->connection) {
+        ct_connection_free(attempt->connection);
       }
     }
   }
@@ -448,15 +457,8 @@ void racing_context_free(ct_racing_context_t* context) {
 
   log_debug("Initiating racing context cleanup");
 
-  if (context->stagger_timer != NULL) {
-    // Pass context via timer->data so close callback can free it
-    context->stagger_timer->data = context;
-    // The context will be freed in the close callback to ensure no pending
-    // timer callbacks access freed memory
-    uv_timer_stop(context->stagger_timer);
-    uv_close((uv_handle_t*)context->stagger_timer, on_timer_close_free_context);
-  } else {
-    // No timer to wait for, free directly
-    on_timer_close_free_context((uv_handle_t*)context);
-  }
+  // Pass context via timer->data so close callback can free it
+  context->stagger_timer->data = context;
+  // Timer has already been stopped in the cancel function
+  uv_close((uv_handle_t*)context->stagger_timer, on_timer_close_free_context);
 }

@@ -11,30 +11,7 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 
-int socket_manager_build(ct_socket_manager_t* socket_manager, ct_listener_t* listener) {
-  log_debug("Building socket manager for listener");
-  // Hash connections by remote endpoint because incoming packets only provide
-  // the remote and local address - so in cases where we share a local address
-  // for multiple connections we must we demultiplex to the correct connection
-  socket_manager->connections = g_hash_table_new(g_bytes_hash, g_bytes_equal);
-  socket_manager->listener = listener;
-  return 0;
-}
-
-ct_socket_manager_t* ct_socket_manager_new(const ct_protocol_impl_t* protocol_impl, ct_listener_t* listener) {
-  ct_socket_manager_t* socket_manager = malloc(sizeof(ct_socket_manager_t));
-  if (!socket_manager) {
-    log_error("Failed to allocate memory for socket manager");
-    return NULL;
-  }
-  memset(socket_manager, 0, sizeof(ct_socket_manager_t));
-  socket_manager->protocol_impl = protocol_impl;
-  socket_manager->listener = listener;
-  socket_manager->connections = g_hash_table_new(g_bytes_hash, g_bytes_equal);
-  return socket_manager;
-}
-
-ct_connection_t* socket_manager_get_connection(ct_socket_manager_t* socket_manager, const struct sockaddr_storage* remote_addr) {
+ct_connection_t* socket_manager_get_from_demux_table(ct_socket_manager_t* socket_manager, const struct sockaddr_storage* remote_addr) {
   log_info("Trying to get connection group for remote endpoint in socket manager");
   log_info("Socket manager listener: %p", socket_manager->listener);
   GBytes* addr_bytes = NULL;
@@ -53,28 +30,7 @@ ct_connection_t* socket_manager_get_connection(ct_socket_manager_t* socket_manag
     return NULL;
   }
 
-
-  // print all ports in the hash table for debugging
-  GHashTableIter iter;
-  gpointer key = NULL;
-  gpointer value = NULL;
-  g_hash_table_iter_init(&iter,socket_manager->connections);
-  while (g_hash_table_iter_next(&iter, &key, &value)) {
-    ct_connection_t* connection = (ct_connection_t*)value;
-    int port = 0;
-    if (connection->remote_endpoint->data.resolved_address.ss_family == AF_INET) {
-      struct sockaddr_in* addr_in = (struct sockaddr_in*)&connection->remote_endpoint->data.resolved_address;
-      port = ntohs(addr_in->sin_port);
-    }
-    else if (connection->remote_endpoint->data.resolved_address.ss_family == AF_INET6) {
-      struct sockaddr_in6* addr_in6 = (struct sockaddr_in6*)&connection->remote_endpoint->data.resolved_address;
-      port = ntohs(addr_in6->sin6_port);
-    }
-    log_debug("On of the ports in the socket manager array is: %d", port);
-  }
-
-
-  ct_connection_t* connection =  g_hash_table_lookup(socket_manager->connections, addr_bytes);
+  ct_connection_t* connection =  g_hash_table_lookup(socket_manager->demux_table, addr_bytes);
   g_bytes_unref(addr_bytes);
   return connection;
 }
@@ -85,7 +41,7 @@ ct_socket_manager_t* ct_socket_manager_ref(ct_socket_manager_t* socket_manager) 
     return NULL;
   }
   socket_manager->ref_count++;
-  log_trace("Referenced socket manager, new count is: %d", socket_manager->ref_count);
+  log_debug("Incremented socket manager reference count, new count is: %d", socket_manager->ref_count);
   return socket_manager;
 }
 
@@ -101,7 +57,8 @@ void ct_socket_manager_free(ct_socket_manager_t* socket_manager) {
   else {
     log_debug("No protocol-specific socket state to free for protocol: %s in socket manager", socket_manager->protocol_impl->name);
   }
-  g_hash_table_destroy(socket_manager->connections);
+  g_hash_table_destroy(socket_manager->demux_table);
+  g_slist_free(socket_manager->all_connections);
   free(socket_manager);
 }
 
@@ -109,40 +66,40 @@ int socket_manager_insert_connection(ct_socket_manager_t* socket_manager, const 
   log_info("Inserting connection into socket manager for remote endpoint");
   struct sockaddr_storage remote_addr = remote->data.resolved_address;
 
-  GBytes* addr_bytes = NULL;
-  if (remote_addr.ss_family == AF_INET) {
-    log_trace("Inserting connection for IPv4 remote endpoint");
-    addr_bytes = g_bytes_new(&remote_addr, sizeof(struct sockaddr_in));
+  if (socket_manager->protocol_impl->protocol_enum == CT_PROTOCOL_UDP) {
+    GBytes* addr_bytes = NULL;
+    if (remote_addr.ss_family == AF_INET) {
+      log_trace("Inserting connection for IPv4 remote endpoint");
+      addr_bytes = g_bytes_new(&remote_addr, sizeof(struct sockaddr_in));
+    }
+    else if (remote_addr.ss_family == AF_INET6) {
+      log_trace("Inserting connection for IPv6 remote endpoint");
+      addr_bytes = g_bytes_new(&remote_addr, sizeof(struct sockaddr_in6));
+    }
+    else {
+      log_error("socket_manager_insert_connection encountered unknown address family: %d", remote_addr.ss_family);
+      return -EINVAL;
+    }
+    if (g_hash_table_contains(socket_manager->demux_table, addr_bytes)) {
+      log_error("Connection for given remote endpoint already exists in socket manager");
+      g_bytes_unref(addr_bytes);
+      return -EEXIST;
+    }
+    g_hash_table_insert(socket_manager->demux_table, addr_bytes, connection);
   }
-  else if (remote_addr.ss_family == AF_INET6) {
-    log_trace("Inserting connection for IPv6 remote endpoint");
-    addr_bytes = g_bytes_new(&remote_addr, sizeof(struct sockaddr_in6));
-  }
-  else {
-    log_error("socket_manager_insert_connection encountered unknown address family: %d", remote_addr.ss_family);
-    return -EINVAL;
-  }
-  if (g_hash_table_contains(socket_manager->connections, addr_bytes)) {
-    log_error("Connection for given remote endpoint already exists in socket manager");
-    g_bytes_unref(addr_bytes);
-    return -EEXIST;
-  }
+  socket_manager->all_connections = g_slist_prepend(socket_manager->all_connections, connection);
 
-  g_hash_table_insert(socket_manager->connections, addr_bytes, connection);
   connection->socket_manager = ct_socket_manager_ref(socket_manager);
   return 0;
 }
 
 
 int ct_socket_manager_get_num_open_connections(const ct_socket_manager_t* socket_manager) {
+  log_trace("Checking how many open connections socket manager has");
   int counter = 0;
-  GHashTableIter iter;
-  gpointer key, value;
-  g_hash_table_iter_init(&iter, socket_manager->connections);
-  while (g_hash_table_iter_next(&iter, &key, &value)) {
-    ct_connection_t* connection = (ct_connection_t*)value;
+  for (GSList* node = socket_manager->all_connections; node != NULL; node = node->next) {
+    ct_connection_t* connection = (ct_connection_t*)node->data;
     if (!ct_connection_is_closed(connection)) {
-      log_debug("Not counting connection: %s as closed, state is: %d", connection->uuid, connection->transport_properties->connection_properties.list[STATE].value.enum_val);
       counter++;
     }
   }
@@ -188,8 +145,8 @@ void ct_socket_manager_closed_connection_cb(ct_connection_t* connection) {
   log_debug("Socket manager closed connection callback invoked for connection: %s", connection->uuid);
   ct_connection_mark_as_closed(connection);
 
-  if (!socket_manager->listener) {
-    log_debug("socket manager has no attched listener, checking num open connections");
+  if (!socket_manager->listener || socket_manager->listener->state == CT_LISTENER_STATE_CLOSED) {
+    log_debug("socket manager has closed/no attched listener, checking num open connections");
     int num_open = ct_socket_manager_get_num_open_connections(socket_manager);
     if (num_open == 0) {
       log_debug("Socket manager now has no open connections, closing entire socket manager");
@@ -208,6 +165,31 @@ void ct_socket_manager_closed_connection_cb(ct_connection_t* connection) {
   }
 }
 
+void ct_socket_manager_aborted_connection_cb(ct_connection_t* connection) {
+  ct_socket_manager_t* socket_manager = connection->socket_manager;
+  log_debug("Socket manager aborted connection callback invoked for connection: %s", connection->uuid);
+  ct_connection_mark_as_closed(connection);
+
+  if (!socket_manager->listener || socket_manager->listener->state == CT_LISTENER_STATE_CLOSED) {
+    log_debug("socket manager has closed/no attched listener, checking num open connections");
+    int num_open = ct_socket_manager_get_num_open_connections(socket_manager);
+    if (num_open == 0) {
+      log_debug("Socket manager now has no open connections, closing entire socket manager");
+      ct_socket_manager_close(socket_manager);
+    }
+    else {
+      log_debug("Socket manager has %d open connections, not closing socket manager", num_open);
+    }
+  }
+  else {
+    log_debug("Socket manager %p has attached listener, not closing socket manager", socket_manager);
+    log_debug("%p", socket_manager->listener);
+  }
+  if (connection->connection_callbacks.connection_error) {
+    connection->connection_callbacks.connection_error(connection);
+  }
+}
+
 int ct_socket_manager_close_connection(ct_socket_manager_t* socket_manager, ct_connection_t* connection) {
   log_debug("Socket manager: Closing attached connection: %s", connection->uuid);
   if (!socket_manager || !connection) {
@@ -223,14 +205,21 @@ int ct_socket_manager_close_connection(ct_socket_manager_t* socket_manager, ct_c
 }
 
 int ct_socket_manager_listener_stop(ct_socket_manager_t* socket_manager) {
-  log_debug("Socket manager, closing attached listener");
+  log_debug("Socket manager: closing attached listener");
   ct_listener_t* listener = socket_manager->listener;
-  // TODO - only invoke this if no connection are oppen
+  listener->state = CT_LISTENER_STATE_CLOSED;
+
   socket_manager->protocol_impl->stop_listen(socket_manager);
-  ct_socket_manager_unref(listener->socket_manager);
-  socket_manager->listener = NULL;
-  log_debug("Set listener to NULL for socket_manager: %p", socket_manager);
-  listener->socket_manager = NULL;
+
+  int num_open = ct_socket_manager_get_num_open_connections(socket_manager);
+  if (num_open == 0) {
+    log_debug("Socket manager now has no open connections, closing entire socket manager");
+    ct_socket_manager_close(socket_manager);
+  }
+  else {
+    log_debug("Socket manager has %d open connections after stopping listener, not closing socket manager", num_open);
+  }
+
   if (listener->listener_callbacks.stopped) {
     log_debug("Invoking listener stopped callback");
     listener->listener_callbacks.stopped(listener);
@@ -240,3 +229,23 @@ int ct_socket_manager_listener_stop(ct_socket_manager_t* socket_manager) {
   }
   return 0;
 }
+
+ct_socket_manager_t* ct_socket_manager_new(const ct_protocol_impl_t* protocol_impl, ct_listener_t* listener) {
+  ct_socket_manager_t* socket_manager = malloc(sizeof(ct_socket_manager_t));
+  if (!socket_manager) {
+    log_error("Failed to allocate memory for socket manager");
+    return NULL;
+  }
+  memset(socket_manager, 0, sizeof(ct_socket_manager_t));
+  socket_manager->protocol_impl = protocol_impl;
+  socket_manager->listener = listener;
+
+  if (protocol_impl->protocol_enum == CT_PROTOCOL_UDP) {
+    socket_manager->demux_table = g_hash_table_new(g_bytes_hash, g_bytes_equal);
+  }
+  socket_manager->all_connections = NULL;
+  socket_manager->callbacks.closed_connection = ct_socket_manager_closed_connection_cb;
+  socket_manager->callbacks.aborted_connection = ct_socket_manager_aborted_connection_cb;
+  return socket_manager;
+}
+

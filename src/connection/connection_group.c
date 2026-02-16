@@ -30,7 +30,6 @@ int ct_connection_group_add_connection(ct_connection_group_t* group, ct_connecti
     return -EEXIST; // Connection already in group
   }
   connection->connection_group = ct_connection_group_ref(group);
-  group->num_active_connections++;
   return 0;
 }
 
@@ -90,17 +89,19 @@ void ct_connection_group_abort_all(ct_connection_group_t* connection_group) {
   }
 }
 
-
-
-void ct_connection_group_decrement_active(ct_connection_group_t* group) {
-  if (group->num_active_connections > 0) {
-    group->num_active_connections--;
-    log_info("Decremented active connections, remaining: %u", group->num_active_connections);
-  }
-}
-
 uint64_t ct_connection_group_get_num_active_connections(ct_connection_group_t* group) {
-  return group->num_active_connections;
+  uint64_t count = 0;
+  GHashTableIter iter;
+  gpointer key = NULL;
+  gpointer value = NULL;
+  g_hash_table_iter_init(&iter, group->connections);
+  while (g_hash_table_iter_next(&iter, &key, &value)) {
+    ct_connection_t* connection = (ct_connection_t*)value;
+    if (!ct_connection_is_closed(connection)) {
+      count++;
+    }
+  }
+  return count;
 }
 
 int ct_connection_group_remove_connection(ct_connection_group_t* group, ct_connection_t* connection) {
@@ -249,11 +250,12 @@ void ct_connection_group_unref(ct_connection_group_t* group) {
   log_trace("Unrefing connection group %s with ref count: %u", group->connection_group_id, group->ref_count);
   group->ref_count--;
   if (group->ref_count == 0) {
+    log_debug("Connection group %s ref count is zero, freeing connection group", group->connection_group_id);
     ct_connection_group_free(group);
   }
 }
 
-ct_connection_group_t* ct_connection_group_new() {
+ct_connection_group_t* ct_connection_group_new(void) {
   ct_connection_group_t* group = malloc(sizeof(ct_connection_group_t));
   if (!group) {
     log_error("Failed to allocate memory for connection group");

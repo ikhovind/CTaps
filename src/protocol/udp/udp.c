@@ -53,6 +53,7 @@ const ct_protocol_impl_t udp_protocol_interface = {
     .clone_connection = udp_clone_connection,
     .remote_endpoint_from_peer = udp_remote_endpoint_from_peer,
     .free_connection_state = udp_free_state,
+    .free_socket_state = udp_free_socket_state,
     .free_connection_group_state = udp_free_connection_group_state,
 };
 
@@ -81,10 +82,10 @@ void alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
 void udp_multiplex_received_message(ct_socket_manager_t* socket_manager, char* buf, size_t len, const struct sockaddr_storage* remote_addr) {
   log_trace("UDP listener received message, demultiplexing to connection");
 
-  ct_connection_t* connection = socket_manager_get_connection(socket_manager, remote_addr);
+  ct_connection_t* connection = socket_manager_get_from_demux_table(socket_manager, remote_addr);
 
   if (!connection) {
-    log_debug("UDP listener invoking callback for new connection from remote endpoint");
+    log_debug("Did not find remote endpoint in existing connections, creating new connection for received UDP message");
 
     ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
     ct_remote_endpoint_from_sockaddr(remote_endpoint, remote_addr);
@@ -105,6 +106,10 @@ void udp_multiplex_received_message(ct_socket_manager_t* socket_manager, char* b
     ct_connection_set_can_send(connection, true);
     ct_connection_set_can_receive(connection, true);
 
+    socket_manager_insert_connection(socket_manager, connection->remote_endpoint, connection);
+
+    ct_udp_socket_state_t* socket_state = (ct_udp_socket_state_t*)socket_manager->internal_socket_manager_state;
+    log_debug("Calling connection received for UDP connection with handle: %p", socket_state->udp_handle);
     socket_manager->listener->listener_callbacks.connection_received(socket_manager->listener, connection);
   }
   ct_connection_on_protocol_receive(connection, buf, len);
@@ -141,10 +146,9 @@ void on_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
     return;
   }
 
-  log_info("Received message over UDP handle");
+  log_trace("Received message over UDP handle: %p", handle);
   ct_socket_manager_t* socket_manager = (ct_socket_manager_t*)handle->data;
-  log_debug("Socket manager %p received UDP message", socket_manager);
-  ct_connection_t* connection = socket_manager_get_connection(socket_manager, (const struct sockaddr_storage*)addr);
+  ct_connection_t* connection = socket_manager_get_from_demux_table(socket_manager, (const struct sockaddr_storage*)addr);
   if (!connection) {
     log_error("Received UDP message from unknown remote endpoint, dropping");
     free(buf->base);
@@ -166,7 +170,7 @@ void abort_handle_cb(uv_handle_t* handle) {
   GHashTableIter iter;
   gpointer key = NULL;
   gpointer value = NULL;
-  g_hash_table_iter_init(&iter,socket_manager->connections);
+  g_hash_table_iter_init(&iter,socket_manager->demux_table);
   while (g_hash_table_iter_next(&iter, &key, &value)) {
     ct_connection_t* connection = (ct_connection_t*)value;
     if (!ct_connection_is_closed(connection)) {
@@ -191,7 +195,7 @@ void closed_handle_cb(uv_handle_t* handle) {
   GHashTableIter iter;
   gpointer key = NULL;
   gpointer value = NULL;
-  g_hash_table_iter_init(&iter,socket_manager->connections);
+  g_hash_table_iter_init(&iter,socket_manager->demux_table);
   while (g_hash_table_iter_next(&iter, &key, &value)) {
     ct_connection_t* connection = (ct_connection_t*)value;
     if (!ct_connection_is_closed(connection)) {
@@ -271,8 +275,8 @@ void udp_abort(ct_connection_t* connection) {
 }
 
 int udp_stop_listen(struct ct_socket_manager_s* socket_manager) {
-  log_debug("Stopping UDP listen");
   ct_udp_socket_state_t* socket_state = (ct_udp_socket_state_t*)socket_manager->internal_socket_manager_state;
+  log_debug("Stopping UDP listen on udp handle: %p", socket_state->udp_handle);
   int rc = uv_udp_recv_stop(socket_state->udp_handle);
   if (rc < 0) {
     log_error("Problem with stopping receive: %s\n", uv_strerror(rc));
@@ -325,6 +329,7 @@ void socket_listen_callback(uv_udp_t* handle,
     }
     return;
   }
+  log_debug("UDP listen callback invoked with nread: %zd", nread);
 
   if (nread < 0) {
     log_error("Read error in socket_listen_callback: %s\n", uv_strerror(nread));
@@ -431,6 +436,10 @@ ct_udp_socket_state_t* ct_udp_socket_state_new(uv_udp_t* udp_handle) {
   return state;
 }
 
+void ct_udp_socket_state_free(ct_udp_socket_state_t* socket_state) {
+  free(socket_state);
+}
+
 int udp_close_socket(ct_socket_manager_t* socket_manager) {
   if (!socket_manager) {
     log_error("NULL parameter passed to udp close socket");
@@ -442,3 +451,12 @@ int udp_close_socket(ct_socket_manager_t* socket_manager) {
   return 0;
 }
 
+
+int udp_free_socket_state(ct_socket_manager_t* socket_manager) {
+  if (!socket_manager) {
+    log_error("NULL parameter passed to udp free socket state");
+    return -EINVAL;
+  }
+  ct_udp_socket_state_free(socket_manager->internal_socket_manager_state);
+  return 0;
+}
