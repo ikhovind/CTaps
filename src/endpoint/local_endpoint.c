@@ -4,7 +4,6 @@
 
 #include "endpoint/util.h"
 #include <endpoint/port_util.h>
-#include <errno.h>
 #include <logging/log.h>
 #include <netinet/in.h>
 #include <stdint.h>

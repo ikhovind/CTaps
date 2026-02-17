@@ -3,19 +3,16 @@
 
 #include "connection/connection_group.h"
 #include "connection/socket_manager/socket_manager.h"
-#include "transport_property/transport_properties.h"
-#include "endpoint/local_endpoint.h"
-#include "endpoint/remote_endpoint.h"
-#include "connection/socket_manager/socket_manager.h"
-#include "message/message_context.h"
 #include "ctaps.h"
 #include "ctaps_internal.h"
+#include "endpoint/local_endpoint.h"
 #include "message/message.h"
+#include "message/message_context.h"
+#include "transport_property/transport_properties.h"
 #include "util/uuid_util.h"
-#include <security_parameter/security_parameters.h>
-#include <errno.h>
 #include <glib.h>
 #include <logging/log.h>
+#include <security_parameter/security_parameters.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -121,7 +118,6 @@ ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_
     ct_socket_manager_free(socket_manager);
     return NULL;
   }
-  connection->socket_manager = ct_socket_manager_ref(socket_manager);
   rc = socket_manager_insert_connection(socket_manager, remote_endpoint, connection);
   if (rc < 0) {
     log_error("Failed to insert connection into socket manager: %d", rc);

@@ -19,16 +19,25 @@ static void on_stagger_timer(uv_timer_t* handle);
 static int racing_on_attempt_ready(struct ct_connection_s* connection);
 static int on_attempt_establishment_error(ct_connection_t* connection);
 static void cancel_all_other_attempts(ct_racing_context_t* context, size_t winning_index);
-static int start_connection_attempt_by_index(ct_racing_context_t* context, size_t attempt_index);
+static int start_connection_attempt(ct_racing_context_t* context, ct_racing_attempt_t* attempt);
 
 
 
-int free_connection_on_close(ct_connection_t* connection) {
+
+int free_connection_on_close_cb(ct_connection_t* connection) {
   log_trace("Freeing failed connection: %s created in candidate racing", connection->uuid);
   ct_connection_free(connection);
   return 0;
 }
 
+bool all_attempts_failed(ct_racing_context_t* context) {
+  for (size_t i = 0; i < context->num_attempts; i++) {
+    if (context->attempts[i].state != ATTEMPT_STATE_FAILED) {
+      return false;
+    }
+  }
+  return true;
+}
 
 static void on_timer_close_free_context(uv_handle_t* handle) {
   ct_racing_context_t* context = (ct_racing_context_t*)handle->data;
@@ -41,6 +50,7 @@ static void on_timer_close_free_context(uv_handle_t* handle) {
     if (context->attempts != NULL) {
       for (size_t i = 0; i < context->num_attempts; i++) {
         ct_racing_attempt_t* attempt = &context->attempts[i];
+        ct_protocol_candidate_free(attempt->candidate.protocol_candidate);
 
         // Free candidate endpoints (they were copied)
         ct_local_endpoint_free(attempt->candidate.local_endpoint);
@@ -53,6 +63,32 @@ static void on_timer_close_free_context(uv_handle_t* handle) {
     free(context);
   }
 }
+
+void initiate_context_close(ct_racing_context_t* context) {
+  log_debug("Initiating racing context close");
+
+  // Pass context via timer->data so close callback can free it
+  context->stagger_timer->data = context;
+  uv_timer_stop(context->stagger_timer);
+  uv_close((uv_handle_t*)context->stagger_timer, on_timer_close_free_context);
+}
+
+void handle_all_attempts_failed(ct_racing_context_t* context) {
+  log_error("All connection attempts have failed");
+  context->race_complete = true;
+  if (context->user_callbacks.establishment_error) {
+    log_debug("Notifying user of establishment error via establishment_error callback");
+    context->user_callbacks.establishment_error(NULL);
+  }
+  initiate_context_close(context);
+}
+
+void register_failed_attempt(ct_racing_context_t* context, ct_racing_attempt_t* attempt) {
+  attempt->state = ATTEMPT_STATE_FAILED;
+  context->completed_attempts++;
+}
+
+
 
 /**
  * @brief Creates a new racing context from candidate nodes.
@@ -122,15 +158,7 @@ static ct_racing_context_t* racing_context_create(GArray* candidate_nodes,
 /**
  * @brief Starts a single connection attempt.
  */
-static int start_connection_attempt_by_index(ct_racing_context_t* context, size_t attempt_index) {
-  log_info("Starting connection attempt %zu/%zu", attempt_index + 1, context->num_attempts);
-
-  if (attempt_index >= context->num_attempts) {
-    log_error("Invalid attempt index: %zu", attempt_index);
-    return -EINVAL;
-  }
-
-  ct_racing_attempt_t* attempt = &context->attempts[attempt_index];
+static int start_connection_attempt(ct_racing_context_t* context, ct_racing_attempt_t* attempt) {
   ct_candidate_node_t* candidate = &attempt->candidate;
 
   log_debug("Attempting connection with protocol: %s", candidate->protocol_candidate->protocol_impl->name);
@@ -152,9 +180,9 @@ static int start_connection_attempt_by_index(ct_racing_context_t* context, size_
     &attempt_callbacks,
     context->preconnection->framer_impl
   );
+
   if (attempt->connection == NULL) {
-    log_error("Failed to allocate connection for attempt %zu", attempt_index);
-    attempt->state = ATTEMPT_STATE_FAILED;
+    log_error("Failed to allocate connection for connection attempt");
     return -ENOMEM;
   }
 
@@ -171,16 +199,15 @@ static int start_connection_attempt_by_index(ct_racing_context_t* context, size_
 
   int rc = 0;
   if (context->should_try_early_data) {
-    log_debug("Initiating racing connection attempt %zu with early data", attempt_index);
+    log_debug("Initiating racing connection attempt with early data");
     rc = attempt->connection->socket_manager->protocol_impl->init_with_send(attempt->connection, &attempt->connection->connection_callbacks, context->initial_message, context->initial_message_context);
   }
   else {
+    log_debug("Initiating racing connection attempt without early data");
     rc = attempt->connection->socket_manager->protocol_impl->init(attempt->connection, &attempt->connection->connection_callbacks);
   }
   if (rc != 0) {
-    log_error("Failed to initiate connection attempt %zu: %d", attempt_index, rc);
-    attempt->state = ATTEMPT_STATE_FAILED;
-    // The connection is freed alongside all failed attempts
+    log_error("Failed to initiate connection attempt: %d", rc);
     return rc;
   }
 
@@ -258,39 +285,12 @@ static int on_attempt_establishment_error(ct_connection_t* connection) {
     return 0;
   }
 
-  attempt->state = ATTEMPT_STATE_FAILED;
-  context->completed_attempts++;
-
-  // Check if all attempts have failed
-  size_t failed_count = 0;
-  for (size_t i = 0; i < context->num_attempts; i++) {
-    if (context->attempts[i].state >= ATTEMPT_STATE_FAILED) {
-      failed_count++;
-    }
-    else { // There's at least one attempt still pending or connecting
-      return 0;
-    }
+  register_failed_attempt(context, attempt);
+  if (all_attempts_failed(context)) {
+    log_error("All connection attempts have failed");
+    handle_all_attempts_failed(context);
   }
-
-  int rc = 0;
-  if (failed_count == context->num_attempts) {
-    log_error("All connection attempts failed");
-    context->race_complete = true;
-
-    // Stop the timer
-    if (context->stagger_timer != NULL) {
-      uv_timer_stop(context->stagger_timer);
-    }
-
-    // Mark the user connection as closed since all attempts failed
-    if (context->user_callbacks.establishment_error) {
-      rc = context->user_callbacks.establishment_error(NULL);
-    }
-    log_debug("Freeing race context from failure callback");
-    racing_context_free(context);
-  }
-
-  return rc;
+  return 0;
 }
 
 /**
@@ -310,7 +310,7 @@ static void cancel_all_other_attempts(ct_racing_context_t* context, size_t winni
       attempt->state = ATTEMPT_STATE_CANCELED;
 
       if (attempt->connection != NULL) {
-        attempt->connection->connection_callbacks.closed = free_connection_on_close;
+        attempt->connection->connection_callbacks.closed = free_connection_on_close_cb;
         ct_connection_close(attempt->connection);
       }
     }
@@ -357,9 +357,19 @@ static void initiate_next_attempt(ct_racing_context_t* context) {
     return;
   }
 
-  int rc = start_connection_attempt_by_index(context, context->next_attempt_index);
+  log_info("Starting connection attempt %zu/%zu", context->next_attempt_index + 1, context->num_attempts);
+
+  ct_racing_attempt_t* attempt = &context->attempts[context->next_attempt_index];
+
+  int rc = start_connection_attempt(context, attempt);
   if (rc != 0) {
     log_warn("Failed to start attempt %zu: %d", context->next_attempt_index, rc);
+    register_failed_attempt(context, attempt);
+    if (all_attempts_failed(context)) {
+      log_error("All connection attempts have failed");
+      handle_all_attempts_failed(context);
+      return;
+    }
   }
 
   context->next_attempt_index++;
@@ -384,11 +394,18 @@ int start_candidate_racing(ct_preconnection_t* preconnection,
                                        ) {
   // Get ordered candidate nodes
   GArray* candidate_nodes = get_ordered_candidate_nodes(preconnection);
-  // TODO - NULL vs 0 len are different, handle differently
-  if (candidate_nodes == NULL || candidate_nodes->len == 0) {
-    log_error("No candidates available for racing");
-    if (candidate_nodes != NULL) {
-      free_candidate_array(candidate_nodes);
+  if (!candidate_nodes) {
+    log_error("Could not allocate memory for candidate nodes");
+    if (connection_callbacks.establishment_error) {
+      connection_callbacks.establishment_error(NULL);
+    }
+    return -ENOMEM;
+  }
+  if (candidate_nodes->len == 0) {
+    log_error("No compatible candidates found for racing");
+    free_candidate_array(candidate_nodes);
+    if (connection_callbacks.establishment_error) {
+      connection_callbacks.establishment_error(NULL);
     }
     return -EINVAL;
   }
@@ -406,12 +423,15 @@ int start_candidate_racing(ct_preconnection_t* preconnection,
   if (context == NULL) {
     log_error("Failed to create racing context");
     free_candidate_array(candidate_nodes);
+    if (connection_callbacks.establishment_error) {
+      connection_callbacks.establishment_error(NULL);
+    }
     return -ENOMEM;
   }
 
   // Free the GArray structure but not the ct_candidate_node_t data (endpoints are already copied)
   // The racing context now owns the ct_candidate_node_t data
-  g_array_free(candidate_nodes, false);
+  g_array_free(candidate_nodes, true);
 
   // Start the first attempt immediately
   initiate_next_attempt(context);
@@ -419,7 +439,6 @@ int start_candidate_racing(ct_preconnection_t* preconnection,
   // The racing context manages the rest asynchronously via the event loop
   // The user will get notified via the ready/establishment_error callbacks
   // Note: We don't free the context here - it needs to live until racing completes
-  // TODO: Implement proper cleanup mechanism (perhaps via a close handle callback)
 
   return 0;
 }

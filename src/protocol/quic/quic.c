@@ -5,9 +5,7 @@
 #include "connection/socket_manager/socket_manager.h"
 #include "ctaps.h"
 #include "endpoint/local_endpoint.h"
-#include "endpoint/remote_endpoint.h"
 #include "protocol/common/socket_utils.h"
-#include <errno.h>
 #include <glib.h>
 #include <logging/log.h>
 #include <picoquic.h>
