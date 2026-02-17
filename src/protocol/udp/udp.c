@@ -235,7 +235,7 @@ int udp_init_with_send(ct_connection_t* connection, const ct_connection_callback
   ct_udp_socket_state_t* socket_state = ct_udp_socket_state_new(new_udp_handle);
 
   ct_connection_set_socket_state(connection, socket_state);
-  new_udp_handle->data = ct_socket_manager_ref(connection->socket_manager);
+  new_udp_handle->data = connection->socket_manager;
 
   ct_connection_mark_as_established(connection);
 
@@ -390,8 +390,11 @@ int udp_clone_connection(const struct ct_connection_s* source_connection, struct
   uv_udp_t* new_udp_handle = create_udp_listening_on_ephemeral(alloc_buffer, on_read);
   ct_udp_socket_state_t* socket_state = ct_udp_socket_state_new(new_udp_handle);
 
+  ct_socket_manager_t* clone_socket_manager = ct_socket_manager_new(source_connection->socket_manager->protocol_impl, NULL);
+  socket_manager_insert_connection(clone_socket_manager, target_connection->remote_endpoint, target_connection);
+
   ct_connection_set_socket_state(target_connection, socket_state);
-  new_udp_handle->data = ct_socket_manager_ref(target_connection->socket_manager);
+  new_udp_handle->data = target_connection->socket_manager;
 
   int rc = resolve_local_endpoint_from_handle((uv_handle_t*)new_udp_handle, target_connection);
   if (rc < 0) {
