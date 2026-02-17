@@ -76,7 +76,7 @@ int ct_remote_endpoint_with_hostname(ct_remote_endpoint_t* remote_endpoint, cons
     return -EINVAL;
   }
   remote_endpoint->hostname = (char*) malloc(strlen(hostname) + 1);
-  if (remote_endpoint->hostname == NULL) {
+  if (!remote_endpoint->hostname) {
     log_error("Could not allocate memory for hostname\n");
     return -errno;
   }
@@ -86,7 +86,7 @@ int ct_remote_endpoint_with_hostname(ct_remote_endpoint_t* remote_endpoint, cons
 
 int ct_remote_endpoint_with_service(ct_remote_endpoint_t* remote_endpoint, const char* service) {
   remote_endpoint->service = strdup(service);
-  if (remote_endpoint->service == NULL) {
+  if (!remote_endpoint->service) {
     log_error("Could not allocate memory for service\n");
     return -ENOMEM;
   }

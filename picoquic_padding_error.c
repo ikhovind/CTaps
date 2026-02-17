@@ -138,7 +138,7 @@ int main(void)
         0           // ticket_encryption_key_length
     );
 
-    if (quic == NULL) {
+    if (!quic) {
         fprintf(stderr, "Failed to create picoquic context\n");
         ret = 1;
         goto cleanup;
@@ -167,7 +167,7 @@ int main(void)
         1           // client mode
     );
 
-    if (client_cnx == NULL) {
+    if (!client_cnx) {
         fprintf(stderr, "Failed to create QUIC connection\n");
         ret = 1;
         goto cleanup;

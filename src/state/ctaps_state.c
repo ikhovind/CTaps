@@ -50,7 +50,7 @@ void ct_set_log_level(ct_log_level_t level) {
 
 int ct_add_log_file(const char* file_path, ct_log_level_t min_level) {
   FILE* fp = fopen(file_path, "ae");
-  if (fp == NULL) {
+  if (!fp) {
     return -1;
   }
   return log_add_fp(fp, min_level);

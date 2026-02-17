@@ -110,7 +110,7 @@ static int client_callback(picoquic_cnx_t *cnx, uint64_t stream_id,
 
 static int sample_client_loop_cb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode,
     void* callback_ctx, void * callback_arg) {
-    if (callback_ctx == NULL) {
+    if (!callback_ctx) {
         return PICOQUIC_ERROR_UNEXPECTED_ERROR;
     }
     client_ctx_t* cb_ctx = (client_ctx_t*)callback_ctx;

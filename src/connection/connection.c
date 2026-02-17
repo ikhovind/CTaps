@@ -249,6 +249,8 @@ bool ct_connection_is_closing(const ct_connection_t* connection) {
 
 bool ct_connection_is_closed(const ct_connection_t* connection) {
   if (!connection || !connection->transport_properties) {
+    log_error("Connection or transport properties is NULL in ct_connection_is_closed");
+    log_debug("Connection: %p, connection->transport_properties: %p", (void*)connection, (void*)(connection ? connection->transport_properties : NULL));
     return false;
   }
   return connection->transport_properties->connection_properties.list[STATE].value.enum_val == CONN_STATE_CLOSED;
@@ -674,7 +676,7 @@ void ct_connection_set_socket_state(ct_connection_t* connection, void* socket_st
   connection->socket_manager->internal_socket_manager_state = socket_state;
 }
 
-void* ct_connection_get_socket_state(ct_connection_t* connection) {
+void* ct_connection_get_socket_state(const ct_connection_t* connection) {
   if (!connection || !connection->socket_manager) {
     log_error("ct_connection_get_socket_state called with NULL connection");
     log_debug("Connection pointer: %p, socket manager pointer: %p", (void*)connection, (void*)(connection ? connection->socket_manager : NULL));

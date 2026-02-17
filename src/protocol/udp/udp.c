@@ -145,7 +145,7 @@ void on_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
     return;
   }
 
-  if (addr == NULL) {
+  if (!addr) {
     // No more data to read, or an empty packet.
     if (buf->base) {
       free(buf->base);
@@ -174,12 +174,8 @@ void abort_handle_cb(uv_handle_t* handle) {
   // If we aborted this handle, then any connection relying on this handle
   // is aborted as well. However we not unref the socket manager, since that
   // is related to freeing, not closing!
-  GHashTableIter iter;
-  gpointer key = NULL;
-  gpointer value = NULL;
-  g_hash_table_iter_init(&iter,socket_manager->demux_table);
-  while (g_hash_table_iter_next(&iter, &key, &value)) {
-    ct_connection_t* connection = (ct_connection_t*)value;
+  for (GSList* node = socket_manager->all_connections; node != NULL; node = node->next) {
+    ct_connection_t* connection = (ct_connection_t*)node->data;
     if (!ct_connection_is_closed(connection)) {
       log_trace("Closing connection: %s associated with aborted socket", connection->uuid);
       ct_connection_mark_as_closed(connection);
@@ -260,7 +256,7 @@ int udp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
   return udp_init_with_send(connection, connection_callbacks, NULL, NULL);
 }
 
-int udp_close(ct_connection_t* connection, void(*on_close)(ct_connection_t* connection)) {
+int udp_close(ct_connection_t* connection, ct_on_connection_close_cb on_close) {
   log_info("Closing UDP connection");
   // No-OP since  the underlying UDP socket has no concept of an UDP-connection
   (void)connection;
@@ -329,7 +325,7 @@ void socket_listen_callback(uv_udp_t* handle,
                                const struct sockaddr* addr,
                                unsigned flags) {
   (void)flags;
-  if (nread == 0 && addr == NULL) {
+  if (nread == 0 && !addr) {
     if (buf->base) {
       free(buf->base);
     }
@@ -357,7 +353,7 @@ int udp_listen(ct_socket_manager_t* socket_manager) {
 
   ct_local_endpoint_t local_endpoint = ct_listener_get_local_endpoint(socket_manager->listener);
   uv_udp_t* udp_handle = create_udp_listening_on_local(&local_endpoint, alloc_buffer, socket_listen_callback);
-  if (udp_handle == NULL) {
+  if (!udp_handle) {
     log_error("Failed to create UDP handle for listening");
     return -EIO;
   }
@@ -413,16 +409,7 @@ int udp_clone_connection(const struct ct_connection_s* source_connection, struct
 }
 
 int udp_free_state(ct_connection_t* connection) {
-  return 0; // TODO - Fix after ownership refactor
-  log_trace("Freeing UDP connection resources");
-  if (!connection || !connection->internal_connection_state) {
-    log_warn("UDP connection or internal state is NULL during free_state");
-    log_debug("Connection pointer: %p", (void*)connection);
-    if (connection) {
-      log_debug("Internal connection state pointer: %p", (void*)connection->internal_connection_state);
-    }
-    return -EINVAL;
-  }
+  free(connection->internal_connection_state);
   return 0;
 }
 

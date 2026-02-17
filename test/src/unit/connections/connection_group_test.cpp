@@ -20,79 +20,59 @@ FAKE_VOID_FUNC(fake_protocol_abort, ct_connection_t*);
 
 
 TEST(ConnectionGroupUnitTests, CloseAllClosesOnlyOpenConnections) {
-    GTEST_SKIP(); // Until we finish refactoring.
     RESET_FAKE(fake_protocol_close);
-    fake_protocol_close_fake.return_val = 0;
-
-    // Create a shared connection group
-    ct_connection_group_t group;
-
-
-    generate_uuid_string(group.connection_group_id);
-    group.connections = g_hash_table_new(g_str_hash, g_str_equal);
-    group.connection_group_state = NULL;
 
     ct_protocol_impl_t protocol_impl;
     protocol_impl.close = fake_protocol_close;
+    protocol_impl.protocol_enum = CT_PROTOCOL_TCP;
+    protocol_impl.name = "fake_protocol";
 
     ct_socket_manager_t* socket_manager = ct_socket_manager_new(&protocol_impl, NULL);
 
-    // Connection 1: Established (should be closed)
-    ct_connection_t conn1;
-    memset(&conn1, 0, sizeof(ct_connection_t));
-    conn1.socket_manager = socket_manager;
-    generate_uuid_string(conn1.uuid);
-    ct_connection_mark_as_established(&conn1);
-    ct_connection_group_add_connection(&group, &conn1);
+    ct_connection_group_t* group = generate_connection_group(4);
+    ct_connection_t* connections[4];
 
-    // Connection 2: Already closing (should be skipped)
-    ct_connection_t conn2;
-    memset(&conn2, 0, sizeof(ct_connection_t));
-    conn2.socket_manager = socket_manager;
-    generate_uuid_string(conn2.uuid);
-    ct_connection_mark_as_closing(&conn2);
-    ct_connection_group_add_connection(&group, &conn2);
+    int counter = 0;
+    GHashTableIter iter;
+    gpointer key, value;
+    g_hash_table_iter_init(&iter, group->connections);
+    while (g_hash_table_iter_next(&iter, &key, &value)) {
+        ct_connection_t* conn = (ct_connection_t*)value;
+        conn->socket_manager = socket_manager;
+        connections[counter++] = conn;
+    }
 
-    // Connection 3: Established (should be closed)
-    ct_connection_t conn3;
-    memset(&conn3, 0, sizeof(ct_connection_t));
-    conn3.socket_manager = socket_manager;
-    generate_uuid_string(conn3.uuid);
-    ct_connection_mark_as_established(&conn3);
-    ct_connection_group_add_connection(&group, &conn3);
+    // Connection 1: Established
+    ct_connection_mark_as_established(connections[0]);
 
-    // Connection 4: closing
-    ct_connection_t conn4;
-    memset(&conn4, 0, sizeof(ct_connection_t));
-    conn4.socket_manager = socket_manager;
-    generate_uuid_string(conn4.uuid);
-    ct_connection_mark_as_closed(&conn4);
-    ct_connection_group_add_connection(&group, &conn4);
+    // Connection 2: Already closed (should be skipped)
+    ct_connection_mark_as_closed(connections[1]);
 
+    // Connection 3: Established
+    ct_connection_mark_as_established(connections[2]);
 
-    // Call close_all
-    ct_connection_group_close_all(&group);
+    // Connection 4: closing, should be skipped 
+    ct_connection_mark_as_closing(connections[3]);
 
-    // check length of internal hash table
-    EXPECT_EQ(g_hash_table_size(group.connections), 4);
+    ct_connection_group_close_all(group);
 
-    // Verify: close called exactly twice (conn1 and conn3, not conn2)
+    EXPECT_EQ(g_hash_table_size(group->connections), 4);
+
     EXPECT_EQ(fake_protocol_close_fake.call_count, 2);
 
-    // Verify the correct connections were passed to close
-    // The order might vary due to hash table iteration, so check both are present
     ct_connection_t* closed_conn1 = fake_protocol_close_fake.arg0_history[0];
     ct_connection_t* closed_conn2 = fake_protocol_close_fake.arg0_history[1];
 
-    // Both closed connections should be either conn1 or conn3, but not conn2
-    EXPECT_TRUE((closed_conn1 == &conn1 && closed_conn2 == &conn3) ||
-                (closed_conn1 == &conn3 && closed_conn2 == &conn1));
+    EXPECT_TRUE(connections[0] == closed_conn1 || connections[0] == closed_conn2);
+    EXPECT_TRUE(connections[2] == closed_conn1 || connections[2] == closed_conn2);
+
+    EXPECT_FALSE(closed_conn1 == closed_conn2);
 
     // Cleanup
-    ct_connection_free_content(&conn1);
-    ct_connection_free_content(&conn2);
-    ct_connection_free_content(&conn3);
-    g_hash_table_destroy(group.connections);
+    ct_connection_free(connections[0]);
+    ct_connection_free(connections[1]);
+    ct_connection_free(connections[2]);
+    ct_connection_free(connections[3]);
 }
 
 TEST(ConnectionGroupUnitTests, abortAllabortsOnlyOpenOrClosingConnections) {

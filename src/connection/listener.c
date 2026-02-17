@@ -13,7 +13,7 @@ void ct_listener_close(ct_listener_t* listener) {
 
 ct_listener_t* ct_listener_new(void) {
   ct_listener_t* listener = malloc(sizeof(ct_listener_t));
-  if (listener == NULL) {
+  if (!listener) {
     log_error("Could not allocate memory for ct_listener_t: %s", strerror(errno));
     return NULL;
   }
@@ -26,7 +26,7 @@ ct_local_endpoint_t ct_listener_get_local_endpoint(const ct_listener_t* listener
 }
 
 void ct_listener_free(ct_listener_t* listener) {
-  if (listener == NULL) {
+  if (!listener) {
     return;
   }
   free(listener);

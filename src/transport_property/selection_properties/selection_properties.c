@@ -39,15 +39,12 @@ void ct_selection_properties_deep_copy(ct_selection_properties_t* dest, const ct
 
   memcpy(dest, src, sizeof(ct_selection_properties_t));
 
-  // // Now deep copy the interface preference map if it exists
   if (src->selection_property[INTERFACE].value.preference_map) {
     GHashTable* src_map = (GHashTable*)src->selection_property[INTERFACE].value.preference_map;
     GHashTable* dest_map = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
 
-    // Copy all entries from source to destination
     g_hash_table_foreach(src_map, copy_hash_table_entry, dest_map);
 
-    // Update the destination's pointer to the new hash table
     dest->selection_property[INTERFACE].value.preference_map = dest_map;
   }
 }
@@ -91,7 +88,7 @@ void ct_set_sel_prop_bool(ct_selection_properties_t* props, ct_selection_propert
 void ct_set_sel_prop_interface(ct_selection_properties_t* props, const char* interface_name, ct_selection_preference_t preference) {
   log_debug("Setting interface preference: %s -> %d", interface_name, preference);
   // Check if the property has been initialized.
-  if (props->selection_property[INTERFACE].value.preference_map == NULL) {
+  if (!props->selection_property[INTERFACE].value.preference_map) {
     log_trace("No existing interface map, creating a new one.");
     // This is an internal function to create the GHashTable.
     // It is not exposed in the header file.

@@ -27,7 +27,7 @@ int copy_remote_endpoints(ct_preconnection_t* preconnection,
                           const size_t num_remote_endpoints) {
   preconnection->num_remote_endpoints = num_remote_endpoints;
   preconnection->remote_endpoints = malloc(num_remote_endpoints * sizeof(ct_remote_endpoint_t));
-  if (preconnection->remote_endpoints == NULL) {
+  if (!preconnection->remote_endpoints) {
     log_error("Could not allocate memory for remote endpoints: %s");
     return errno;
   }
@@ -86,13 +86,12 @@ ct_preconnection_t* ct_preconnection_new(
 int ct_preconnection_listen(ct_preconnection_t* preconnection, ct_listener_t* listener, ct_listener_callbacks_t listener_callbacks) {
   log_info("Listening from preconnection");
   GArray* candidate_nodes = get_ordered_candidate_nodes(preconnection);
-  log_debug("Caniddate node ptr: %p", (void*)candidate_nodes);
   if (candidate_nodes->len > 0) {
     const ct_candidate_node_t first_node = g_array_index(candidate_nodes, ct_candidate_node_t, 0);
 
 
     ct_socket_manager_t* socket_manager = ct_socket_manager_new(first_node.protocol_candidate->protocol_impl, listener);
-    if (socket_manager == NULL) {
+    if (!socket_manager) {
       log_error("Failed to create socket manager for listener");
       return -errno;
     }

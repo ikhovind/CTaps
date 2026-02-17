@@ -49,7 +49,7 @@ int ct_local_endpoint_with_interface(ct_local_endpoint_t* local_endpoint, const 
 
 int ct_local_endpoint_with_service(ct_local_endpoint_t* local_endpoint, char* service) {
   local_endpoint->service = strdup(service);
-  if (local_endpoint->service == NULL) {
+  if (!local_endpoint->service) {
     return -ENOMEM;
   }
   return 0;
@@ -60,7 +60,7 @@ int ct_local_endpoint_resolve(const ct_local_endpoint_t* local_endpoint, ct_loca
   int num_found_addresses = 0;
   *out_count = 0;
   struct sockaddr_storage found_interface_addrs[MAX_FOUND_INTERFACE_ADDRS];
-  if (local_endpoint->interface_name == NULL) {
+  if (!local_endpoint->interface_name) {
     log_debug("Interface name was NULL, getting addresses for 'any' interface");
     get_interface_addresses("any", &num_found_addresses, found_interface_addrs);
   }

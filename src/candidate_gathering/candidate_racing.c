@@ -103,7 +103,7 @@ static ct_racing_context_t* racing_context_create(GArray* candidate_nodes,
   log_info("Creating racing context with %d candidates", candidate_nodes->len);
 
   ct_racing_context_t* context = malloc(sizeof(ct_racing_context_t));
-  if (context == NULL) {
+  if (!context) {
     log_error("Failed to allocate racing context");
     return NULL;
   }
@@ -123,7 +123,7 @@ static ct_racing_context_t* racing_context_create(GArray* candidate_nodes,
 
   // Allocate attempts array
   context->attempts = calloc(context->num_attempts, sizeof(ct_racing_attempt_t));
-  if (context->attempts == NULL) {
+  if (!context->attempts) {
     log_error("Failed to allocate attempts array");
     free(context);
     return NULL;
@@ -142,7 +142,7 @@ static ct_racing_context_t* racing_context_create(GArray* candidate_nodes,
 
   // Allocate timer for staggered attempts
   context->stagger_timer = malloc(sizeof(uv_timer_t));
-  if (context->stagger_timer == NULL) {
+  if (!context->stagger_timer) {
     log_error("Failed to allocate stagger timer");
     free(context->attempts);
     free(context);
@@ -181,7 +181,7 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
     context->preconnection->framer_impl
   );
 
-  if (attempt->connection == NULL) {
+  if (!attempt->connection) {
     log_error("Failed to allocate connection for connection attempt");
     return -ENOMEM;
   }
@@ -420,7 +420,7 @@ int start_candidate_racing(ct_preconnection_t* preconnection,
                                                        should_try_early_data
                                                        );
 
-  if (context == NULL) {
+  if (!context) {
     log_error("Failed to create racing context");
     free_candidate_array(candidate_nodes);
     if (connection_callbacks.establishment_error) {
@@ -470,10 +470,6 @@ int preconnection_race(ct_preconnection_t* preconnection, ct_connection_callback
  * when all async operations (timer close) complete.
  */
 void racing_context_free(ct_racing_context_t* context) {
-  if (context == NULL) {
-    return;
-  }
-
   log_debug("Initiating racing context cleanup");
 
   // Pass context via timer->data so close callback can free it
