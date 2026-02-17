@@ -18,6 +18,7 @@ TEST_F(ConnectionCloneTest, clonesConnectionSendsOnBothAndReceivesIndividualResp
 
     ct_transport_properties_t* transport_properties = ct_transport_properties_new();
     ASSERT_NE(transport_properties, nullptr);
+
     // Allocated with ct_transport_properties_new()
     ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, REQUIRE);
 

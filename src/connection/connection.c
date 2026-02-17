@@ -147,6 +147,7 @@ ct_connection_t* ct_connection_create_clone(const ct_connection_t* source_connec
                                             ct_framer_impl_t* framer_impl,
                                             void* internal_connection_state
                                             ) {
+  (void)socket_manager; // TODO - use socket manager for clone when we have protocols that need it
   ct_connection_t* clone = ct_connection_create_empty_with_uuid();
   if (!clone) {
     log_error("Failed to create empty connection for clone");
@@ -158,23 +159,13 @@ ct_connection_t* ct_connection_create_clone(const ct_connection_t* source_connec
   clone->security_parameters = ct_security_parameters_deep_copy(source_connection->security_parameters);
   clone->local_endpoint = ct_local_endpoint_deep_copy(source_connection->local_endpoint);
   clone->remote_endpoint = ct_remote_endpoint_deep_copy(source_connection->remote_endpoint);
+  clone->socket_manager = NULL;
   if (socket_manager) {
-    log_debug("Using provided socket manager for cloned connection");
     clone->socket_manager = ct_socket_manager_ref(socket_manager);
+    socket_manager_insert_connection(clone->socket_manager, clone->remote_endpoint, clone);
   }
-  else {
-    log_debug("No socket manager provided for cloned connection, creating new socket manager with same protocol implementation");
-    ct_socket_manager_t* new_socket_manager = ct_socket_manager_new(source_connection->socket_manager->protocol_impl, NULL);
-    clone->socket_manager = ct_socket_manager_ref(new_socket_manager);
-  }
-  log_debug("Clone socket manager pointer: %p", (void*)clone->socket_manager);
 
-  int rc = socket_manager_insert_connection(clone->socket_manager, clone->remote_endpoint, clone);
-  if (rc < 0) {
-    log_error("Failed to insert cloned connection into socket manager: %d", rc);
-    ct_connection_free(clone);
-    return NULL;
-  }
+
 
   clone->role = source_connection->role;
   if (framer_impl) {
@@ -538,7 +529,7 @@ int ct_connection_clone_full(
   (void)connection_properties; // TODO - apply any overridden properties to the clone
 
   ct_connection_t* new_connection = ct_connection_create_clone(source_connection, NULL, framer, NULL);
-  int rc = new_connection->socket_manager->protocol_impl->clone_connection(source_connection, new_connection);
+  int rc = source_connection->socket_manager->protocol_impl->clone_connection(source_connection, new_connection);
   if (rc < 0) {
     log_error("Failed to initialize protocol state for cloned connection: %d", rc);
     ct_connection_free(new_connection);

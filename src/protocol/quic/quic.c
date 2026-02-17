@@ -165,7 +165,7 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
     return NULL;
   }
 
-  socket_state->socket_manager = ct_socket_manager_ref(socket_manager);
+  socket_state->socket_manager = socket_manager;
   socket_manager->internal_socket_manager_state = socket_state;
 
   // Store ticket store path for 0-RTT session persistence
@@ -174,7 +174,6 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
     socket_state->ticket_store_path = strdup(ticket_store_path);
     if (!socket_state->ticket_store_path) {
       log_error("Failed to duplicate ticket store path");
-      ct_socket_manager_unref(socket_state->socket_manager);
       free(socket_state->key_file_name);
       free(socket_state->cert_file_name);
       free(socket_state);
@@ -190,7 +189,6 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
   const char** alpn_strings = ct_sec_param_get_alpn_strings(security_parameters, &out_num_alpns);
   if (!alpn_strings) {
     log_error("No ALPN strings specified in security parameters for QUIC context");
-    ct_socket_manager_unref(socket_state->socket_manager);
     free(socket_state->ticket_store_path);
     free(socket_state->key_file_name);
     free(socket_state->cert_file_name);
@@ -198,7 +196,6 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
   }
   if (out_num_alpns == 0) {
     log_error("ALPN string array is empty in security parameters for QUIC context");
-    ct_socket_manager_unref(socket_state->socket_manager);
     free(socket_state->ticket_store_path);
     free(socket_state->key_file_name);
     free(socket_state->cert_file_name);
@@ -237,7 +234,6 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
 
   if (!socket_state->picoquic_ctx) {
     log_error("Failed to create picoquic context");
-    ct_socket_manager_unref(socket_state->socket_manager);
     free(socket_state->ticket_store_path);
     free(socket_state->key_file_name);
     free(socket_state->cert_file_name);
@@ -250,7 +246,6 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
   if (!socket_state->timer_handle) {
     log_error("Failed to allocate memory for QUIC context timer");
     picoquic_free(socket_state->picoquic_ctx);
-    ct_socket_manager_unref(socket_state->socket_manager);
     free(socket_state->ticket_store_path);
     free(socket_state->key_file_name);
     free(socket_state->cert_file_name);
@@ -261,7 +256,6 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
   int rc = uv_timer_init(event_loop, socket_state->timer_handle);
   if (rc < 0) {
     log_error("Error initializing QUIC context timer: %s", uv_strerror(rc));
-    ct_socket_manager_unref(socket_state->socket_manager);
     free(socket_state->timer_handle);
     picoquic_free(socket_state->picoquic_ctx);
     free(socket_state->ticket_store_path);
@@ -277,17 +271,16 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
   return socket_state;
 }
 
-void ct_close_quic_context(ct_quic_socket_state_t* quic_ctx) {
-  if (!quic_ctx) {
+void ct_close_quic_context(ct_quic_socket_state_t* socket_state) {
+  if (!socket_state) {
     return;
   }
   log_trace("Closing QUIC context");
-  ct_socket_manager_unref(quic_ctx->socket_manager);
-  quic_ctx->socket_manager = NULL;
-  if (quic_ctx->timer_handle) {
+  socket_state->socket_manager = NULL;
+  if (socket_state->timer_handle) {
     log_debug("Stopping and closing QUIC context timer");
-    uv_timer_stop(quic_ctx->timer_handle);
-    uv_close((uv_handle_t*)quic_ctx->timer_handle, quic_context_timer_close_cb);
+    uv_timer_stop(socket_state->timer_handle);
+    uv_close((uv_handle_t*)socket_state->timer_handle, quic_context_timer_close_cb);
   }
 }
 
@@ -564,18 +557,30 @@ static void handle_stream_fin(ct_connection_t* connection) {
   // Check if both send and receive directions are closed
   bool can_send = ct_connection_can_send(connection);
 
-  if (!can_send) {
-    // Both directions closed - close the connection per our earlier decision
+  size_t num_active = 0;
+  GHashTableIter iter;
+  gpointer key, value;
+  g_hash_table_iter_init(&iter, connection->connection_group->connections);
+  while (g_hash_table_iter_next(&iter, &key, &value)) {
+    ct_connection_t* conn = (ct_connection_t*)value;
+    if (ct_connection_can_send(conn) || ct_connection_can_receive(conn)) {
+      log_debug("Connection %s is still active (can_send=%d, can_receive=%d)", conn->uuid, ct_connection_can_send(conn), ct_connection_can_receive(conn));
+      num_active++;
+    }
+  }
+
+  if (num_active == 0) {
+      log_debug("No more active connections in group after receiving FIN, closing entire QUIC connection");
+      ct_quic_connection_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
+      picoquic_close(group_state->picoquic_connection, 0);
+  }
+  else if (!can_send) {
+    // Both directions closed, but some streams still active, just notify socket manager
     log_info("Both send and receive sides closed for connection %s, closing connection", connection->uuid);
     ct_socket_manager_t* socket_manager = connection->socket_manager;
     if (socket_manager && socket_manager->callbacks.closed_connection) {
       socket_manager->callbacks.closed_connection(connection);
     }
-    else {
-      log_trace("No connection closed callback set for connection: %s", connection->uuid);
-    }
-  } else {
-    log_debug("FIN received but send direction still open for connection %s (half-close)", connection->uuid);
   }
 }
 
@@ -870,15 +875,6 @@ void on_quic_udp_send(uv_udp_send_t* req, int status) {
   if (status) {
     log_error("Send error: %s\n", uv_strerror(status));
   }
-  ct_socket_manager_t* socket_manager = (ct_socket_manager_t*)req->handle->data;
-  ct_quic_socket_state_t* socket_state = (ct_quic_socket_state_t*)socket_manager->internal_socket_manager_state;
-  socket_state->num_pending_sends--;
-  log_debug("After send completion, num pending sends: %d", socket_state->num_pending_sends);
-  if (socket_state->num_pending_sends == 0 && socket_state->close_requested) {
-    log_debug("After send completion, no more pending sends and close was requested - closing QUIC context");
-    ct_close_quic_context(socket_state);
-  }
-  // Free the buffer data that was allocated for the async send
   if (req->data) {
     uv_buf_t* buf = (uv_buf_t*)req->data;
     if (buf->base) {
@@ -1069,7 +1065,7 @@ void on_quic_context_timer(uv_timer_t* timer_handle) {
       break;
     }
 
-    log_debug("Prepared QUIC packet of length %zu", send_length);
+    log_trace("Prepared QUIC packet of length %zu", send_length);
     if (send_length > 0) {
       uv_udp_t* udp_handle = quic_ctx->udp_handle;
 
@@ -1108,7 +1104,6 @@ void on_quic_context_timer(uv_timer_t* timer_handle) {
         free(send_req);
         break;
       }
-      quic_ctx->num_pending_sends++;
       log_trace("Sent QUIC packet of length %zu", send_length);
     } else {
       log_trace("No QUIC data to send at this time");
@@ -1432,11 +1427,6 @@ int quic_close(ct_connection_t* connection, void(*on_connection_close)(ct_connec
             ct_quic_socket_state_t* socket_state = connection->socket_manager->internal_socket_manager_state;
             on_quic_context_timer(socket_state->timer_handle);
         }
-        // If we have received FIN from peer, connection is closed
-        if (!ct_connection_can_receive(connection)) {
-            log_debug("Peer has already closed their side of the stream for connection %s, marking as closed", connection->uuid);
-            on_connection_close(connection);
-        }
     } else {
         log_debug("No more active connections in group, closing entire QUIC connection");
         picoquic_close(group_state->picoquic_connection, 0);
@@ -1468,6 +1458,7 @@ void quic_abort(ct_connection_t* connection) {
         log_error("Error sending RST on stream %llu: %d", (unsigned long long)stream_id, rc);
         return;
       }
+      ct_connection_mark_as_closed(connection);
     }
     else {
       log_debug("Stream %llu not initialized, no RST sent", (unsigned long long)stream_id);
@@ -1479,15 +1470,16 @@ void quic_abort(ct_connection_t* connection) {
     ct_quic_connection_group_set_close_initiated(connection_group, true);
     picoquic_close_immediate(group_state->picoquic_connection);
   }
-  connection->socket_manager->callbacks.aborted_connection(connection);
   reset_quic_timer((ct_quic_socket_state_t*)connection->socket_manager->internal_socket_manager_state);
 }
 
 int quic_clone_connection(const struct ct_connection_s* source_connection, struct ct_connection_s* target_connection) {
-  (void)source_connection;
-  ct_socket_manager_unref(target_connection->socket_manager);
   log_debug("Creating clone of QUIC connection using multistreaming");
-  target_connection->socket_manager = ct_socket_manager_ref(source_connection->socket_manager);
+  int rc = socket_manager_insert_connection(source_connection->socket_manager, target_connection->remote_endpoint, target_connection);
+  if (rc < 0) {
+    log_error("Failed to insert cloned connection into socket manager: %d", rc);
+    return rc;
+  }
   target_connection->internal_connection_state = malloc(sizeof(ct_quic_stream_state_t));
   ct_quic_stream_state_t* target_state = (target_connection->internal_connection_state);
   target_state->stream_id = 0;
@@ -1684,27 +1676,6 @@ void ct_free_quic_connection_group_state(ct_quic_connection_group_state_t* group
 int quic_close_socket(ct_socket_manager_t* socket_manager) {
   log_debug("Closing QUIC socket");
   ct_quic_socket_state_t* socket_state = socket_manager->internal_socket_manager_state;
-
-  // Get the connection group to access the picoquic connection
-  for (GSList* node = socket_manager->all_connections; node != NULL; node = node->next) {
-     ct_connection_t* connection = (ct_connection_t*)node->data;
-    ct_quic_connection_group_state_t* group_state = ct_connection_get_quic_group_state(connection);
-    if (group_state && group_state->picoquic_connection && !ct_quic_connection_group_get_close_initiated(connection->connection_group)) {
-      log_debug("Initiating graceful QUIC connection close, waiting for picoquic_callback_close");
-      ct_quic_connection_group_set_close_initiated(connection->connection_group, true);
-      int rc = picoquic_close(group_state->picoquic_connection, 0);
-      if (rc != 0) {
-        log_error("Error initiating QUIC connection close: %d", rc);
-        return rc;
-      }
-      socket_state->close_requested = true;
-      // Don't close UDP socket yet - picoquic_callback_close will handle it
-      return 0;
-    }
-  }
-  
-  // Fallback: no active connection, close immediately
-  log_debug("No active QUIC connection, closing UDP socket immediately");
   ct_close_quic_context(socket_state);
   return 0;
 }
