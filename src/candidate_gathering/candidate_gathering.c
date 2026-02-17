@@ -1,9 +1,9 @@
 #include "candidate_gathering.h"
 
 #include "connection/preconnection.h"
-#include "endpoint/local_endpoint.h"
 #include "ctaps.h"
 #include "ctaps_internal.h"
+#include "endpoint/local_endpoint.h"
 #include <glib.h>
 #include <logging/log.h>
 #include <stdbool.h>
@@ -80,7 +80,7 @@ ct_protocol_options_t* ct_protocol_options_new(const ct_preconnection_t* precon)
   return options;
 }
 
-gboolean free_candidate_node(GNode *node, gpointer user_data) {
+gboolean free_candidate_node_in_loop(GNode *node, gpointer user_data) {
   (void)user_data;
   const ct_candidate_node_t* candidate_node = (ct_candidate_node_t*)node->data;
   if (candidate_node->local_endpoint) {
@@ -251,7 +251,7 @@ int prune_candidate_tree(GNode* root, ct_selection_properties_t selection_proper
     GNode* node_to_remove = (GNode*)current_node_list->data;
     GList* next_iter = current_node_list->next;
 
-    g_node_traverse(node_to_remove, G_IN_ORDER, G_TRAVERSE_ALL, -1, free_candidate_node, NULL);
+    g_node_traverse(node_to_remove, G_IN_ORDER, G_TRAVERSE_ALL, -1, free_candidate_node_in_loop, NULL);
     // First remove it from the tree, to avoid trying to free it twice, when later freeing a parent
     g_node_unlink(node_to_remove);
     g_node_destroy(node_to_remove);
@@ -456,6 +456,7 @@ int branch_by_path(GNode* parent, const ct_local_endpoint_t* local_ep) {
       NULL, // Protocol not yet specified
       parent_data->transport_properties
     );
+    ct_local_endpoint_free_strings(&local_endpoint_list[i]);
     if (path_node_data == NULL) {
       log_error("Could not create PATH node data");
       free(local_endpoint_list);
@@ -463,6 +464,7 @@ int branch_by_path(GNode* parent, const ct_local_endpoint_t* local_ep) {
     }
     g_node_append_data(parent, path_node_data);
   }
+  free(local_endpoint_list);
   return 0;
 }
 
@@ -619,8 +621,8 @@ GArray* get_ordered_candidate_nodes(const ct_preconnection_t* precon) {
 
   log_trace("Freeing undesirable nodes from candidate tree");
 
-  // Free data owned by tree
-  g_node_traverse(root_node, G_IN_ORDER, G_TRAVERSE_ALL, -1, free_candidate_node, NULL);
+  // Free data owned by tree (all non-leaf nodes)
+  g_node_traverse(root_node, G_IN_ORDER, G_TRAVERSE_ALL, -1, free_candidate_node_in_loop, NULL);
 
   g_node_destroy(root_node);
 

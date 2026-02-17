@@ -40,4 +40,6 @@ GArray* get_ordered_candidate_nodes(const ct_preconnection_t* precon);
 
 void free_candidate_array(GArray* candidate_array);
 
+void ct_protocol_candidate_free(ct_protocol_candidate_t* protocol_candidate);
+
 #endif //CANDIDATE_GATHERING_H

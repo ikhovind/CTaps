@@ -132,6 +132,9 @@ void on_libuv_close(uv_handle_t* handle) {
     log_debug("Invoking TCP connection close callback");
     socket_state->close_cb(socket_state->connection);
   }
+  else {
+    log_debug("No close callback registered for TCP connection");
+  }
 }
 
 void tcp_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
@@ -280,7 +283,7 @@ int tcp_init_with_send(ct_connection_t* connection, const ct_connection_callback
     return -ENOMEM;
   }
 
-  new_tcp_handle->data = ct_socket_manager_ref(connection->socket_manager);
+  new_tcp_handle->data = connection->socket_manager;
 
   uint32_t keepalive_timeout = connection->transport_properties->connection_properties.list[KEEP_ALIVE_TIMEOUT].value.uint32_val;
   if (keepalive_timeout != CONN_TIMEOUT_DISABLED) {
@@ -335,7 +338,7 @@ int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
   }
 
   uv_connect_t* connect_req = malloc(sizeof(uv_connect_t));
-  new_tcp_handle->data = ct_socket_manager_ref(connection->socket_manager);
+  new_tcp_handle->data = connection->socket_manager;
   connection->socket_manager->internal_socket_manager_state = ct_tcp_socket_state_new(
     connection,
     NULL,
@@ -390,11 +393,10 @@ int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
 
 int tcp_close(ct_connection_t* connection, ct_on_connection_close_cb on_connection_close) {
   log_info("Closing TCP connection: %s", connection->uuid);
-  (void)on_connection_close;
 
   ct_tcp_socket_state_t* socket_state = connection->socket_manager->internal_socket_manager_state;
+  log_info("Closing tcp handle: %p", (void*)socket_state->tcp_handle);
   socket_state->close_cb = on_connection_close;
-      log_debug("Closing tcp handle: %p", (void*)socket_state->tcp_handle);
   uv_close((uv_handle_t*)socket_state->tcp_handle, on_libuv_close);
 
   return 0;
@@ -472,7 +474,7 @@ int tcp_listen(ct_socket_manager_t* socket_manager) {
   }
 
   socket_manager->internal_socket_manager_state = ct_tcp_socket_state_new(NULL, listener, NULL, NULL, NULL, new_tcp_handle);
-  new_tcp_handle->data = ct_socket_manager_ref(socket_manager);
+  new_tcp_handle->data = socket_manager;
 
   return 0;
 }
@@ -529,7 +531,7 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
   }
 
   server_conn_socket_manager->internal_socket_manager_state = ct_tcp_socket_state_new(server_conn, listener, NULL, NULL, NULL, server_conn_tcp_handle);
-  server_conn_tcp_handle->data = ct_socket_manager_ref(server_conn_socket_manager);
+  server_conn_tcp_handle->data = server_conn_socket_manager;
   log_debug("Server conn socket tcp handle: %p", server_conn_tcp_handle);
 
   rc = uv_read_start((uv_stream_t*)server_conn_tcp_handle, alloc_cb, tcp_on_read);
@@ -614,13 +616,13 @@ int tcp_clone_connection(const struct ct_connection_s* source_connection,
   }
 
   ct_socket_manager_t* socket_manager = ct_socket_manager_new(&tcp_protocol_interface, NULL);
-  target_connection->socket_manager = ct_socket_manager_ref(socket_manager);
+  target_connection->socket_manager = socket_manager;
 
   uv_connect_t* connect_req = malloc(sizeof(uv_connect_t));
   memset(connect_req, 0, sizeof(uv_connect_t));
 
   socket_manager->internal_socket_manager_state = ct_tcp_socket_state_new(target_connection, NULL, NULL, NULL, connect_req, new_tcp_handle);
-  new_tcp_handle->data = ct_socket_manager_ref(socket_manager);
+  new_tcp_handle->data = socket_manager;
 
   // Copy TCP keepalive settings
   uint32_t keepalive_timeout = target_connection->transport_properties

@@ -118,7 +118,6 @@ int ct_preconnection_initiate(ct_preconnection_t* preconnection, ct_connection_c
   log_info("Initiating connection from preconnection with candidate racing");
 
   // The winning connection will be passed to the ready()
-  //
   return preconnection_race(preconnection, connection_callbacks);
 }
 

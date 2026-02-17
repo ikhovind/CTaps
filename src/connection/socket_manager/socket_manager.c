@@ -42,7 +42,7 @@ ct_socket_manager_t* ct_socket_manager_ref(ct_socket_manager_t* socket_manager) 
     return NULL;
   }
   socket_manager->ref_count++;
-  log_debug("Incremented socket manager reference count, new count is: %d", socket_manager->ref_count);
+  log_debug("Incremented socket manager %p, new reference count is: %d", socket_manager, socket_manager->ref_count);
   return socket_manager;
 }
 
@@ -58,7 +58,9 @@ void ct_socket_manager_free(ct_socket_manager_t* socket_manager) {
   else {
     log_debug("No protocol-specific socket state to free for protocol: %s in socket manager", socket_manager->protocol_impl->name);
   }
-  g_hash_table_destroy(socket_manager->demux_table);
+  if (socket_manager->demux_table) {
+    g_hash_table_destroy(socket_manager->demux_table);
+  }
   g_slist_free(socket_manager->all_connections);
   free(socket_manager);
 }
@@ -113,7 +115,7 @@ void ct_socket_manager_unref(ct_socket_manager_t* socket_manager) {
     return;
   }
   socket_manager->ref_count--;
-  log_debug("Decremented socket manager reference count, new count is: %d", socket_manager->ref_count);
+  log_debug("Decremented socket manager %p, new reference count is: %d", socket_manager, socket_manager->ref_count);
   if (socket_manager->ref_count == 0) {
     log_trace("Socket manager reference count is zero, freeing socket manager");
     ct_socket_manager_free(socket_manager);
@@ -247,6 +249,7 @@ ct_socket_manager_t* ct_socket_manager_new(const ct_protocol_impl_t* protocol_im
   socket_manager->all_connections = NULL;
   socket_manager->callbacks.closed_connection = ct_socket_manager_closed_connection_cb;
   socket_manager->callbacks.aborted_connection = ct_socket_manager_aborted_connection_cb;
+  log_debug("Created new socket manager: %p for protocol: %s", socket_manager, protocol_impl->name);
   return socket_manager;
 }
 
