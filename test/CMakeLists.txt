@@ -198,6 +198,7 @@ add_gtest(candidate_racing_test
   SOURCES
     src/integration/candidate_racing_test.cpp
     ${CTAPS_SOURCES}
+  ASAN_ENABLED
 )
 
 add_gtest(framing_test
