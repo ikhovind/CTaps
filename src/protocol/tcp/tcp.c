@@ -150,7 +150,6 @@ void tcp_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
   if (nread < 0) {
     log_error("Read error for TCP connection: %s\n", uv_strerror(nread));
     if (!uv_is_closing((uv_handle_t*)socket_state->tcp_handle)) {
-      log_debug("Closing tcp handle: %p", (void*)socket_state->tcp_handle);
       uv_close((uv_handle_t*)socket_state->tcp_handle, on_abort);
     }
     else {
@@ -256,7 +255,7 @@ int tcp_init_with_send(ct_connection_t* connection, const ct_connection_callback
   (void)connection_callbacks;
   log_info("Initiating TCP connection");
   uv_tcp_t* new_tcp_handle = malloc(sizeof(uv_tcp_t));
-  if (new_tcp_handle == NULL) {
+  if (!new_tcp_handle) {
     log_error("Failed to allocate memory for TCP handle");
     return -ENOMEM;
   }
@@ -278,7 +277,6 @@ int tcp_init_with_send(ct_connection_t* connection, const ct_connection_callback
                                                               new_tcp_handle);
   if (!connection->socket_manager->internal_socket_manager_state) {
     log_error("Failed to allocate memory for TCP connection state");
-      log_debug("Closing tcp handle: %p", (void*)new_tcp_handle);
     uv_close((uv_handle_t*)new_tcp_handle, on_libuv_close);
     return -ENOMEM;
   }
@@ -324,7 +322,7 @@ int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
   (void)connection_callbacks;
   log_info("Initiating TCP connection");
   uv_tcp_t* new_tcp_handle = malloc(sizeof(uv_tcp_t));
-  if (new_tcp_handle == NULL) {
+  if (!new_tcp_handle) {
     log_error("Failed to allocate memory for TCP handle");
     return -ENOMEM;
   }
@@ -349,7 +347,6 @@ int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
   );
   if (!connection->socket_manager->internal_socket_manager_state) {
     log_error("Failed to allocate memory for TCP connection state");
-      log_debug("Closing tcp handle: %p", (void*)new_tcp_handle);
     uv_close((uv_handle_t*)new_tcp_handle, on_libuv_close);
     return -ENOMEM;
   }
@@ -395,7 +392,6 @@ int tcp_close(ct_connection_t* connection, ct_on_connection_close_cb on_connecti
   log_info("Closing TCP connection: %s", connection->uuid);
 
   ct_tcp_socket_state_t* socket_state = connection->socket_manager->internal_socket_manager_state;
-  log_info("Closing tcp handle: %p", (void*)socket_state->tcp_handle);
   socket_state->close_cb = on_connection_close;
   uv_close((uv_handle_t*)socket_state->tcp_handle, on_libuv_close);
 
@@ -441,7 +437,7 @@ int tcp_send(ct_connection_t* connection, ct_message_t* message, ct_message_cont
 int tcp_listen(ct_socket_manager_t* socket_manager) {
   log_debug("Listening via TCP");
   uv_tcp_t* new_tcp_handle = malloc(sizeof(uv_tcp_t));
-  if (new_tcp_handle == NULL) {
+  if (!new_tcp_handle) {
     log_error("Failed to allocate memory for TCP handle");
     return -ENOMEM;
   }
@@ -503,7 +499,6 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
   rc = uv_accept(server, (uv_stream_t*)server_conn_tcp_handle);
   if (rc < 0) {
     log_error("Error accepting new TCP connection: %s", uv_strerror(rc));
-      log_debug("Closing tcp handle: %p", (void*)server_conn_tcp_handle);
     uv_close((uv_handle_t*)server_conn_tcp_handle, on_libuv_close);
     return;
   }
@@ -525,7 +520,6 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
 
   if (!server_conn) {
     log_error("Failed to build connection from received handle");
-      log_debug("Closing tcp handle: %p", (void*)server_conn_tcp_handle);
     uv_close((uv_handle_t*)server_conn_tcp_handle, on_libuv_close);
     return;
   }
@@ -537,7 +531,6 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
   rc = uv_read_start((uv_stream_t*)server_conn_tcp_handle, alloc_cb, tcp_on_read);
   if (rc < 0) {
     log_error("Could not start reading from TCP connection: %s", uv_strerror(rc));
-      log_debug("Closing tcp handle: %p", (void*)server_conn_tcp_handle);
     uv_close((uv_handle_t*)server_conn_tcp_handle, on_libuv_close);
     ct_connection_close(server_conn);
     free(server_conn);
@@ -566,7 +559,6 @@ int tcp_stop_listen(ct_socket_manager_t* socket_manager) {
 
   if (socket_manager->internal_socket_manager_state) {
     ct_tcp_socket_state_t* socket_state = socket_manager->internal_socket_manager_state;
-    log_debug("Closing tcp handle: %p", (void*)socket_state->tcp_handle);
     uv_close((uv_handle_t*)socket_state->tcp_handle, on_stop_listen);
   }
   return 0;
@@ -599,7 +591,7 @@ int tcp_clone_connection(const struct ct_connection_s* source_connection,
 
   // Allocate and initialize TCP handle
   uv_tcp_t* new_tcp_handle = malloc(sizeof(uv_tcp_t));
-  if (new_tcp_handle == NULL) {
+  if (!new_tcp_handle) {
     log_error("Failed to allocate memory for TCP handle");
     return -ENOMEM;
   }
@@ -638,7 +630,6 @@ int tcp_clone_connection(const struct ct_connection_s* source_connection,
 
   if (!connect_req) {
     log_error("Failed to allocate connect request");
-    log_debug("Closing tcp handle: %p", (void*)new_tcp_handle);
     uv_close((uv_handle_t*)new_tcp_handle, on_libuv_close);
     return -ENOMEM;
   }
@@ -653,7 +644,6 @@ int tcp_clone_connection(const struct ct_connection_s* source_connection,
   if (rc < 0) {
     log_error("Error initiating TCP clone connection: %s", uv_strerror(rc));
     free(connect_req);
-    log_debug("Closing tcp handle: %p", (void*)new_tcp_handle);
     uv_close((uv_handle_t*)new_tcp_handle, on_libuv_close);
     return rc;
   }

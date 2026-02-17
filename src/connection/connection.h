@@ -35,11 +35,11 @@ void ct_connection_on_protocol_receive(ct_connection_t* connection,
 
 
 /**
-  * @brief Allocate 0-initialized connection with only UUID.
+  * @brief Allocate connection with UUID and initialized queues.
   *
   * @return Pointer to newly created empty connection, or NULL on error
   */
-ct_connection_t* ct_connection_create_empty_with_uuid();
+ct_connection_t* ct_connection_create_empty_with_uuid(void);
 
 /**
  * @brief Mark a connection as established.
@@ -138,6 +138,6 @@ void ct_connection_set_sent_early_data(ct_connection_t* connection, bool used_0r
 
 void ct_connection_set_socket_state(ct_connection_t* connection, void* socket_state);
 
-void* ct_connection_get_socket_state(ct_connection_t* connection);
+void* ct_connection_get_socket_state(const ct_connection_t* connection);
 
 #endif // CONNECTION_H

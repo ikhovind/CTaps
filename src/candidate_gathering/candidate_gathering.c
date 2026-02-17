@@ -68,7 +68,7 @@ ct_protocol_impl_array_t* ct_protocol_impl_array_new(void) {
 
 ct_protocol_options_t* ct_protocol_options_new(const ct_preconnection_t* precon) {
   ct_protocol_options_t* options = malloc(sizeof(ct_protocol_options_t));
-  if (options == NULL) {
+  if (!options) {
     log_error("Could not allocate memory for ct_protocol_options_t");
     return NULL;
   }
@@ -134,7 +134,7 @@ bool interface_is_compatible(const char* interface_name, const ct_transport_prop
   log_trace("Checking if interface %s is compatible with transport properties", interface_name);
   // iterate over the interface preferences
   GHashTable* interface_map = (GHashTable*)transport_properties->selection_properties.selection_property[INTERFACE].value.preference_map;
-  if (interface_map == NULL) {
+  if (!interface_map) {
     // No preferences set, all interfaces are compatible
     return true;
   }
@@ -144,7 +144,7 @@ bool interface_is_compatible(const char* interface_name, const ct_transport_prop
   // iterate each value in the hash table
   GList* keys = g_hash_table_get_keys(interface_map);
   const char* interface_type = get_generic_interface_type(interface_name);
-  if (interface_type == NULL) {
+  if (!interface_type) {
     log_trace("Could not determine generic interface type for %s", interface_name);
     // Unknown interface type, consider it incompatible
     g_list_free(keys);
@@ -329,7 +329,7 @@ struct ct_candidate_node_t* candidate_node_new(ct_node_type_t type,
                                          const ct_transport_properties_t* props) {
   log_trace("Creating new candidate node of type %d", type);
   ct_candidate_node_t* node = malloc(sizeof(struct ct_candidate_node_t));
-  if (node == NULL) {
+  if (!node) {
     log_error("Could not allocate memory for ct_candidate_node_t");
     return NULL;
   }
@@ -338,7 +338,7 @@ struct ct_candidate_node_t* candidate_node_new(ct_node_type_t type,
   node->score = 0;
   if (local_ep) {
     node->local_endpoint = ct_local_endpoint_deep_copy(local_ep);
-    if (node->local_endpoint == NULL) {
+    if (!node->local_endpoint) {
       log_error("Could not copy local endpoint for ct_candidate_node_t");
       free(node);
       return NULL;
@@ -347,7 +347,7 @@ struct ct_candidate_node_t* candidate_node_new(ct_node_type_t type,
 
   if (remote_ep) {
     node->remote_endpoint = ct_remote_endpoint_deep_copy(remote_ep);
-    if (node->remote_endpoint == NULL) {
+    if (!node->remote_endpoint) {
       log_error("Could not allocate memory for remote_endpoint");
       ct_local_endpoint_free(node->local_endpoint);
       free(node);
@@ -391,7 +391,7 @@ GNode* build_candidate_tree(const ct_preconnection_t* precon) {
     preconnection_get_transport_properties(precon)
   );
 
-  if (root == NULL) {
+  if (!root) {
     log_error("Could not create root candidate node data");
     return NULL;
   }
@@ -457,7 +457,7 @@ int branch_by_path(GNode* parent, const ct_local_endpoint_t* local_ep) {
       parent_data->transport_properties
     );
     ct_local_endpoint_free_strings(&local_endpoint_list[i]);
-    if (path_node_data == NULL) {
+    if (!path_node_data) {
       log_error("Could not create PATH node data");
       free(local_endpoint_list);
       return -1;
@@ -493,7 +493,7 @@ int branch_by_protocol_options(GNode* parent, ct_protocol_options_t* protocol_op
           protocol_options->protocol_impls->protocols[i],
           protocol_options->alpns->strings[j]
         );
-        if (candidate == NULL) {
+        if (!candidate) {
           log_error("Could not create protocol candidate for protocol %s with ALPN %s",
                     protocol_options->protocol_impls->protocols[i]->name,
                     protocol_options->alpns->strings[j]);
@@ -509,7 +509,7 @@ int branch_by_protocol_options(GNode* parent, ct_protocol_options_t* protocol_op
           parent_data->transport_properties
         );
         ct_protocol_candidate_free(candidate);  // candidate_node_new copies it
-        if (candidate_node == NULL) {
+        if (!candidate_node) {
           log_error("Could not create PROTOCOL node data");
           return -1;
         }
@@ -522,7 +522,7 @@ int branch_by_protocol_options(GNode* parent, ct_protocol_options_t* protocol_op
         protocol_options->protocol_impls->protocols[i],
         NULL
       );
-      if (candidate == NULL) {
+      if (!candidate) {
         log_error("Could not create protocol candidate for protocol %s without ALPN",
                   protocol_options->protocol_impls->protocols[i]->name);
         return -1;
@@ -537,7 +537,7 @@ int branch_by_protocol_options(GNode* parent, ct_protocol_options_t* protocol_op
       );
       ct_protocol_candidate_free(candidate);  // candidate_node_new copies it
 
-      if (candidate_node == NULL) {
+      if (!candidate_node) {
         log_error("Could not create PROTOCOL node data");
         return -1;
       }
@@ -597,13 +597,13 @@ int branch_by_remote(GNode* parent, const ct_remote_endpoint_t* remote_ep) {
  */
 GArray* get_ordered_candidate_nodes(const ct_preconnection_t* precon) {
   log_info("Creating candidate node tree from preconnection");
-  if (precon == NULL) {
+  if (!precon) {
     log_error("NULL preconnection provided");
     return NULL;
   }
 
   GNode* root_node = build_candidate_tree(precon);
-  if (root_node == NULL) {
+  if (!root_node) {
     log_error("Could not build candidate tree");
     return NULL;
   }
@@ -652,7 +652,7 @@ void free_candidate_array(GArray* candidate_array) {
 
 ct_protocol_candidate_t* ct_protocol_candidate_new(const ct_protocol_impl_t* protocol_impl, const char* alpn) {
   ct_protocol_candidate_t* protocol_candidate = malloc(sizeof(ct_protocol_candidate_t));
-  if (protocol_candidate == NULL) {
+  if (!protocol_candidate) {
     log_error("Could not allocate memory for ct_protocol_candidate_t");
     return NULL;
   }
@@ -695,14 +695,14 @@ void ct_protocol_options_free(ct_protocol_options_t* protocol_options) {
   }
 }
 ct_protocol_candidate_t* ct_protocol_candidate_copy(const ct_protocol_candidate_t* protocol_candidate) {
-  if (protocol_candidate == NULL) {
+  if (!protocol_candidate) {
     return NULL;
   }
   return ct_protocol_candidate_new(protocol_candidate->protocol_impl, protocol_candidate->alpn);
 }
 
 ct_candidate_node_t* ct_candidate_node_copy(const ct_candidate_node_t* candidate_node) {
-  if (candidate_node == NULL) {
+  if (!candidate_node) {
     return NULL;
   }
   return candidate_node_new(

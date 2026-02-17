@@ -190,6 +190,7 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
   const char** alpn_strings = ct_sec_param_get_alpn_strings(security_parameters, &out_num_alpns);
   if (!alpn_strings) {
     log_error("No ALPN strings specified in security parameters for QUIC context");
+    ct_socket_manager_unref(socket_state->socket_manager);
     free(socket_state->ticket_store_path);
     free(socket_state->key_file_name);
     free(socket_state->cert_file_name);
@@ -197,6 +198,7 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
   }
   if (out_num_alpns == 0) {
     log_error("ALPN string array is empty in security parameters for QUIC context");
+    ct_socket_manager_unref(socket_state->socket_manager);
     free(socket_state->ticket_store_path);
     free(socket_state->key_file_name);
     free(socket_state->cert_file_name);
@@ -222,7 +224,7 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
       NULL,
       alpn_strings[0],
       picoquic_callback,
-      socket_state,   // Default callback context is the quic_context
+      socket_state,
       NULL,
       NULL,
       NULL,
@@ -235,6 +237,7 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
 
   if (!socket_state->picoquic_ctx) {
     log_error("Failed to create picoquic context");
+    ct_socket_manager_unref(socket_state->socket_manager);
     free(socket_state->ticket_store_path);
     free(socket_state->key_file_name);
     free(socket_state->cert_file_name);
@@ -247,6 +250,7 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
   if (!socket_state->timer_handle) {
     log_error("Failed to allocate memory for QUIC context timer");
     picoquic_free(socket_state->picoquic_ctx);
+    ct_socket_manager_unref(socket_state->socket_manager);
     free(socket_state->ticket_store_path);
     free(socket_state->key_file_name);
     free(socket_state->cert_file_name);
@@ -257,6 +261,7 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
   int rc = uv_timer_init(event_loop, socket_state->timer_handle);
   if (rc < 0) {
     log_error("Error initializing QUIC context timer: %s", uv_strerror(rc));
+    ct_socket_manager_unref(socket_state->socket_manager);
     free(socket_state->timer_handle);
     picoquic_free(socket_state->picoquic_ctx);
     free(socket_state->ticket_store_path);
@@ -313,7 +318,6 @@ void ct_quic_set_connection_stream(ct_connection_t* connection, uint64_t stream_
     return;
   }
   log_debug("Setting QUIC stream ID %llu for connection %s", (unsigned long long)stream_id, connection->uuid);
-  log_debug("First connection role: %s", ct_connection_is_server(connection) ? "server" : (ct_connection_is_client(connection) ? "client" : "unknown"));
   stream_state->stream_id = stream_id;
   stream_state->stream_initialized = true;
 }
@@ -393,8 +397,6 @@ size_t quic_alpn_select_cb(picoquic_quic_t* quic, ptls_iovec_t* list, size_t cou
 
   (void)count;
 
-  // Get the QUIC context from the default callback context
-  // The quic_context stores the listener pointer
   ct_quic_socket_state_t* quic_context = picoquic_get_default_callback_context(quic);
   if (!quic_context || !quic_context->socket_manager->listener) {
     log_error("ALPN select callback: no listener associated with QUIC context");
@@ -459,7 +461,6 @@ int handle_closed_picoquic_connection(ct_connection_group_t* connection_group) {
     }
   }
 
-  ct_connection_group_ref(connection_group);
   for (guint i = 0; i < connections_to_notify->len; i++) {
       ct_connection_t* conn = g_ptr_array_index(connections_to_notify, i);
       if(socket_manager && socket_manager->callbacks.closed_connection) {
@@ -470,8 +471,6 @@ int handle_closed_picoquic_connection(ct_connection_group_t* connection_group) {
       }
   }
   g_ptr_array_free(connections_to_notify, true);
-
-  ct_connection_group_unref(connection_group);
   return 0;
 }
 
@@ -497,11 +496,9 @@ int handle_aborted_picoquic_connection_group(ct_connection_group_t* connection_g
     }
   }
 
-  ct_connection_group_ref(connection_group);
   for (guint i = 0; i < connections_to_notify->len; i++) {
       ct_connection_t* conn = g_ptr_array_index(connections_to_notify, i);
       if(socket_manager && socket_manager->callbacks.aborted_connection) {
-        // TODO - replace with a proper abort callback
         socket_manager->callbacks.aborted_connection(conn);
       }
       else {
@@ -509,8 +506,6 @@ int handle_aborted_picoquic_connection_group(ct_connection_group_t* connection_g
       }
   }
   g_ptr_array_free(connections_to_notify, true);
-
-  ct_connection_group_unref(connection_group);
   return 0;
 }
 
@@ -666,7 +661,7 @@ int picoquic_callback(picoquic_cnx_t* cnx,
       log_debug("Received %zu bytes on stream %llu", length, (unsigned long long)stream_id);
 
       // Check if this is a new stream (stream context is NULL)
-      if (v_stream_ctx == NULL) {
+      if (!v_stream_ctx) {
         log_debug("Received data on new stream %llu from remote", (unsigned long long)stream_id);
 
         // Get the first connection
@@ -724,10 +719,6 @@ int picoquic_callback(picoquic_cnx_t* cnx,
           }
         } else {
           log_debug("First connection has uninitialized stream, using it for stream %llu", (unsigned long long)stream_id);
-          picoquic_state_enum curr_picoquic_state = picoquic_get_cnx_state(cnx);
-          if (curr_picoquic_state < picoquic_state_ready && curr_picoquic_state >= picoquic_state_server_init) {
-            log_debug("Picoquic received data in early state: %d", curr_picoquic_state);
-          }
 
           ct_quic_set_connection_stream(first_connection, stream_id);
           int rc = picoquic_set_app_stream_ctx(cnx, stream_id, first_connection);
@@ -749,8 +740,8 @@ int picoquic_callback(picoquic_cnx_t* cnx,
       break;
     case picoquic_callback_stream_fin:
       connection = (ct_connection_t*)v_stream_ctx;
-      log_info("Received FIN on connection: %s, with data length: %zu", connection->uuid, length);
-      if (connection == NULL) {
+      log_debug("Received QUIC FIN on connection: %s, with data length: %zu", connection->uuid, length);
+      if (!connection) {
         // Get the first connection
         ct_connection_t* first_connection = ct_connection_group_get_first(connection_group);
         if (!first_connection) {
@@ -759,16 +750,10 @@ int picoquic_callback(picoquic_cnx_t* cnx,
         }
 
         if (ct_connection_stream_is_initialized(first_connection)) {
-          log_error("Not yet supported");
-          log_debug("First connection role: %s", ct_connection_is_server(first_connection) ? "server" : (ct_connection_is_client(first_connection) ? "client" : "unknown"));
-          log_debug("Received stream id is: %llu", (unsigned long long)stream_id);
-          log_debug("first connection stream id is: %llu", (unsigned long long)ct_connection_get_stream_id(first_connection));
+          log_error("Received new stream in established connection group with FIN on first data, this is not supported yet");
+          return -ENOSYS;
         } else {
           log_debug("First connection has uninitialized stream, using it for stream %llu", (unsigned long long)stream_id);
-          picoquic_state_enum curr_picoquic_state = picoquic_get_cnx_state(cnx);
-          if (curr_picoquic_state < picoquic_state_ready && curr_picoquic_state >= picoquic_state_server_init) {
-            log_debug("Picoquic received data in early state: %d", curr_picoquic_state);
-          }
 
           ct_quic_set_connection_stream(first_connection, stream_id);
           int rc = picoquic_set_app_stream_ctx(cnx, stream_id, first_connection);
@@ -913,7 +898,7 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
     return;
   }
 
-  if (addr_from == NULL && nread == 0) {
+  if (!addr_from && nread == 0) {
     // No more data to read
     if (buf->base) {
       free(buf->base);
@@ -1440,7 +1425,6 @@ int quic_close(ct_connection_t* connection, void(*on_connection_close)(ct_connec
         log_debug("QUIC connection has %zu active streams remaining", num_active);
         if (ct_connection_stream_is_initialized(connection)) {
             log_debug("Sending FIN on stream for connection %s", connection->uuid);
-            log_debug("connection role is %s", ct_connection_is_client(connection) ? "client" : "server");
             uint64_t stream_id = ct_connection_get_stream_id(connection);
             picoquic_add_to_stream_with_ctx(group_state->picoquic_connection, stream_id, NULL, 0, 1, connection);
 
@@ -1542,7 +1526,6 @@ int quic_send(ct_connection_t* connection, ct_message_t* message, ct_message_con
 
   if (!ct_connection_stream_is_initialized(connection)) {
     log_debug("First message sent on QUIC stream for connection %s, initializing stream", connection->uuid);
-    log_debug("Connection role is %s", ct_connection_is_client(connection) ? "client" : "server");
     // Determine stream ID based on connection role (client/server) and stream type (bidirectional/unidirectional)
     ct_connection_assign_next_free_stream(connection, false);
   }

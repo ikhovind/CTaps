@@ -29,7 +29,7 @@ uv_udp_t* create_udp_listening_on_local(ct_local_endpoint_t* local_endpoint, uv_
     log_debug("Local endpoint is not set, creating UDP socket for ephemeral port");
   }
   uv_udp_t* new_udp_handle = malloc(sizeof(uv_udp_t));
-  if (new_udp_handle == NULL) {
+  if (!new_udp_handle) {
     log_error("Failed to allocate memory for UDP handle");
     return NULL;
   }
@@ -80,7 +80,7 @@ int resolve_local_endpoint_from_handle(uv_handle_t* handle, ct_connection_t* con
   }
   switch (handle->type) {
     case UV_UDP: {
-      log_debug("Resolving local endpoint from UDP handle");
+      log_trace("Resolving local endpoint from UDP handle");
       uv_udp_t* udp_handle = (uv_udp_t*)handle;
       struct sockaddr_storage addr;
       int namelen = sizeof(addr);
@@ -93,7 +93,7 @@ int resolve_local_endpoint_from_handle(uv_handle_t* handle, ct_connection_t* con
       return 0;
     }
     case UV_TCP: {
-      log_debug("Resolving local endpoint from TCP handle");
+      log_trace("Resolving local endpoint from TCP handle");
       uv_tcp_t* tcp_handle = (uv_tcp_t*)handle;
       struct sockaddr_storage addr;
       int namelen = sizeof(addr);

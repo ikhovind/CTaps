@@ -70,7 +70,7 @@ int perform_dns_lookup(const char* hostname, const char* service, ct_remote_endp
     return 0;
   }
   *out_list = malloc(count * sizeof(ct_remote_endpoint_t));
-  if (*out_list == NULL) {
+  if (!*out_list) {
     log_error("Could not allocate memory for ct_remote_endpoint_t output list");
     uv_freeaddrinfo(request.addrinfo);
     return -ENOMEM;

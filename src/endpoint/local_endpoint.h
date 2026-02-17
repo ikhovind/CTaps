@@ -15,6 +15,6 @@ uint16_t local_endpoint_get_resolved_port(const ct_local_endpoint_t* local_endpo
 
 sa_family_t local_endpoint_get_address_family(const ct_local_endpoint_t* local_endpoint);
 
-ct_local_endpoint_t* ct_local_endpoint_deep_copy(const ct_local_endpoint_t* source);
+ct_local_endpoint_t* ct_local_endpoint_deep_copy(const ct_local_endpoint_t* local_endpoint);
 
 #endif

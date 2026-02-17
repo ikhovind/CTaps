@@ -161,7 +161,6 @@ void ct_socket_manager_closed_connection_cb(ct_connection_t* connection) {
   }
   else {
     log_debug("Socket manager %p has attached listener, not closing socket manager", socket_manager);
-    log_debug("%p", socket_manager->listener);
   }
   if (connection->connection_callbacks.closed) {
     connection->connection_callbacks.closed(connection);
@@ -186,7 +185,6 @@ void ct_socket_manager_aborted_connection_cb(ct_connection_t* connection) {
   }
   else {
     log_debug("Socket manager %p has attached listener, not closing socket manager", socket_manager);
-    log_debug("%p", socket_manager->listener);
   }
   if (connection->connection_callbacks.connection_error) {
     connection->connection_callbacks.connection_error(connection);
@@ -194,11 +192,11 @@ void ct_socket_manager_aborted_connection_cb(ct_connection_t* connection) {
 }
 
 int ct_socket_manager_close_connection(ct_socket_manager_t* socket_manager, ct_connection_t* connection) {
-  log_debug("Socket manager: Closing attached connection: %s", connection->uuid);
   if (!socket_manager || !connection) {
     log_error("NULL parameter passed to socket manager close connection");
     log_debug("socket mangager: %p, connection: %p", socket_manager, connection); 
   }
+  log_debug("Socket manager: Closing attached connection: %s", connection->uuid);
   int rc = socket_manager->protocol_impl->close(connection, ct_socket_manager_closed_connection_cb);
   if (rc) {
     log_error("Error from protocol when closing connection: %s", connection->uuid);

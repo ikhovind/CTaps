@@ -32,8 +32,6 @@ ct_connection_t* ct_connection_group_get_first(ct_connection_group_t* group);
  */
 uint64_t ct_connection_group_get_num_active_connections(ct_connection_group_t* group);
 
-void ct_connection_group_mark_all_as_closed(ct_connection_group_t* group);
-
 /**
  * @brief Remove a connection from a connection group.
  *

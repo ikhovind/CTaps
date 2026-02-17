@@ -95,7 +95,7 @@ static int server_callback(picoquic_cnx_t *cnx, uint64_t stream_id,
     stream_context_t *s_ctx = (stream_context_t *)stream_ctx;
     int ret = 0;
 
-    if (callback_ctx == NULL || callback_ctx == picoquic_get_default_callback_context(picoquic_get_quic_ctx(cnx))) {
+    if (!callback_ctx || callback_ctx == picoquic_get_default_callback_context(picoquic_get_quic_ctx(cnx))) {
         server_ctx = malloc(sizeof(server_context_t));
         if (!server_ctx) {
             picoquic_close(cnx, PICOQUIC_ERROR_MEMORY);

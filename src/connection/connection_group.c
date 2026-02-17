@@ -27,7 +27,7 @@ int ct_connection_group_add_connection(ct_connection_group_t* group, ct_connecti
   int rc = g_hash_table_insert(group->connections, connection->uuid, connection);
   if (!rc) {
     log_error("Connection with UUID %s already exists in group", connection->uuid);
-    return -EEXIST; // Connection already in group
+    return -EEXIST;
   }
   connection->connection_group = ct_connection_group_ref(group);
   return 0;
@@ -266,20 +266,4 @@ ct_connection_group_t* ct_connection_group_new(void) {
   group->connections = g_hash_table_new(g_str_hash, g_str_equal);
 
   return group;
-}
-
-void ct_connection_group_mark_all_as_closed(ct_connection_group_t* group) {
-  if (!group || !group->connections) {
-    log_error("ct_connection_group_mark_all_as_closed called with NULL parameter");
-    return;
-  }
-
-  GHashTableIter iter;
-  gpointer key = NULL;
-  gpointer value = NULL;
-  g_hash_table_iter_init(&iter, group->connections);
-  while (g_hash_table_iter_next(&iter, &key, &value)) {
-    ct_connection_t* connection = (ct_connection_t*)value;
-    ct_connection_mark_as_closed(connection);
-  }
 }
