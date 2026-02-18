@@ -131,6 +131,13 @@ void on_libuv_close(uv_handle_t* handle) {
   socket_manager->callbacks.closed_connection(socket_state->connection);
 }
 
+void on_libuv_close_after_error(uv_handle_t* handle) {
+  log_debug("libuv TCP handle successfully closed after error");
+  ct_socket_manager_t* socket_manager = handle->data;
+  ct_tcp_socket_state_t* socket_state = socket_manager->internal_socket_manager_state;
+  socket_manager->callbacks.establishment_error(socket_state->connection);
+}
+
 void tcp_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
   ct_socket_manager_t* socket_manager = handle->data;
   ct_tcp_socket_state_t* socket_state = socket_manager->internal_socket_manager_state;
@@ -200,7 +207,7 @@ void on_connect(struct uv_connect_s *req, int status) {
   ct_connection_t* connection = socket_state->connection;
   if (status < 0) {
     log_error("ct_connection_t error: %s", uv_strerror(status));
-    uv_close((uv_handle_t*)socket_state->tcp_handle, on_libuv_close);
+    uv_close((uv_handle_t*)socket_state->tcp_handle, on_libuv_close_after_error);
     return;
   }
   log_info("Successfully connected to remote endpoint using TCP");

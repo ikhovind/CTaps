@@ -383,6 +383,7 @@ typedef struct ct_preconnection_s {
 typedef struct ct_socket_manager_callbacks_s {
   void (*closed_connection)(ct_connection_t* connection);
   void (*aborted_connection)(ct_connection_t* connection);
+  void (*establishment_error)(ct_connection_t* connection);
 } ct_socket_manager_callbacks_t;
 
 
