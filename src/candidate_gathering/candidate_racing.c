@@ -58,8 +58,6 @@ static void on_timer_close_free_context(uv_handle_t* handle) {
       }
       free(context->attempts);
     }
-    // Do not free initial message and context here - they are owned by the protocol
-    // TODO - think about ownership model, does this make sense?
     free(context);
   }
 }
@@ -159,6 +157,7 @@ static ct_racing_context_t* racing_context_create(GArray* candidate_nodes,
  * @brief Starts a single connection attempt.
  */
 static int start_connection_attempt(ct_racing_context_t* context, ct_racing_attempt_t* attempt) {
+  attempt->state = ATTEMPT_STATE_CONNECTING;
   ct_candidate_node_t* candidate = &attempt->candidate;
 
   log_debug("Attempting connection with protocol: %s", candidate->protocol_candidate->protocol_impl->name);
@@ -195,8 +194,6 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
     ct_sec_param_set_property_string_array(attempt->connection->security_parameters, ALPN, (const char**)&attempt->candidate.protocol_candidate->alpn, 1);
   }
 
-  attempt->state = ATTEMPT_STATE_CONNECTING;
-
   int rc = 0;
   if (context->should_try_early_data) {
     log_debug("Initiating racing connection attempt with early data");
@@ -208,6 +205,7 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
   }
   if (rc != 0) {
     log_error("Failed to initiate connection attempt: %d", rc);
+    ct_connection_free(attempt->connection);
     return rc;
   }
 
@@ -275,10 +273,6 @@ static int on_attempt_establishment_error(ct_connection_t* connection) {
 
   log_info("ct_connection_t attempt %zu failed", attempt->attempt_index);
 
-  // set connection state to CLOSED
-  log_debug("Setting connection state to CLOSED for failed attempt %zu", attempt->attempt_index);
-  ct_connection_mark_as_closed(connection);
-
   // Check if race is already complete (another attempt won)
   if (context->race_complete) {
     log_debug("Race already complete, ignoring this failure");
@@ -286,6 +280,7 @@ static int on_attempt_establishment_error(ct_connection_t* connection) {
   }
 
   register_failed_attempt(context, attempt);
+  ct_connection_free(connection);
   if (all_attempts_failed(context)) {
     log_error("All connection attempts have failed");
     handle_all_attempts_failed(context);
@@ -309,14 +304,9 @@ static void cancel_all_other_attempts(ct_racing_context_t* context, size_t winni
       log_debug("Canceling attempt %zu", i);
       attempt->state = ATTEMPT_STATE_CANCELED;
 
-      if (attempt->connection != NULL) {
+      if (attempt->connection) {
         attempt->connection->connection_callbacks.closed = free_connection_on_close_cb;
         ct_connection_close(attempt->connection);
-      }
-    }
-    else if (attempt->state != ATTEMPT_STATE_SUCCEEDED) {
-      if (attempt->connection) {
-        ct_connection_free(attempt->connection);
       }
     }
   }
