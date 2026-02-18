@@ -14,7 +14,7 @@ extern "C" {
 }
 
 DEFINE_FFF_GLOBALS;
-FAKE_VALUE_FUNC(int, fake_protocol_close, ct_connection_t*, ct_on_connection_close_cb);
+FAKE_VALUE_FUNC(int, fake_protocol_close, ct_connection_t*);
 FAKE_VOID_FUNC(fake_protocol_abort, ct_connection_t*);
 
 

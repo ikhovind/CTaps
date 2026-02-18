@@ -28,11 +28,11 @@ int ct_initialize(void) {
 
 int ct_close(void) {
   int rc = uv_loop_close(event_loop);
+  free(event_loop);
   if (rc < 0) {
     log_error("Error closing libuv event loop: %s", uv_strerror(rc));
     return rc;
   }
-  free(event_loop);
   log_info("Successfully closed CTaps");
   return 0;
 }
