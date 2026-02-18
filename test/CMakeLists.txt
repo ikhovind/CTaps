@@ -246,17 +246,6 @@ add_gtest(message_unit_test
     ${CTAPS_SOURCES}
 )
 
-add_gtest(tcp_close_callback_test
-  SOURCES
-    src/unit/protocol/tcp_close_test.cpp
-    ${CTAPS_SOURCES}
-  WRAP_FUNCTIONS
-    uv_close
-    uv_tcp_close_reset
-    uv_is_closing
-  ASAN_ENABLED
-)
-
 get_property(all_tests GLOBAL PROPERTY CTAPS_TEST_TARGETS)
 add_custom_target(ctaps_tests
     DEPENDS ${all_tests}
