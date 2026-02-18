@@ -256,14 +256,9 @@ int udp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
   return udp_init_with_send(connection, connection_callbacks, NULL, NULL);
 }
 
-int udp_close(ct_connection_t* connection, ct_on_connection_close_cb on_close) {
+int udp_close(ct_connection_t* connection) {
   log_info("Closing UDP connection");
-  // No-OP since  the underlying UDP socket has no concept of an UDP-connection
-  (void)connection;
-  if (on_close) {
-    on_close(connection);
-  }
-
+  connection->socket_manager->callbacks.closed_connection(connection);
   return 0;
 }
 

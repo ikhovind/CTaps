@@ -128,13 +128,7 @@ void on_libuv_close(uv_handle_t* handle) {
   log_debug("libuv TCP handle successfully closed");
   ct_socket_manager_t* socket_manager = handle->data;
   ct_tcp_socket_state_t* socket_state = socket_manager->internal_socket_manager_state;
-  if (socket_state->close_cb) {
-    log_debug("Invoking TCP connection close callback");
-    socket_state->close_cb(socket_state->connection);
-  }
-  else {
-    log_debug("No close callback registered for TCP connection");
-  }
+  socket_manager->callbacks.closed_connection(socket_state->connection);
 }
 
 void tcp_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
@@ -206,11 +200,7 @@ void on_connect(struct uv_connect_s *req, int status) {
   ct_connection_t* connection = socket_state->connection;
   if (status < 0) {
     log_error("ct_connection_t error: %s", uv_strerror(status));
-    // ct_connection_close(connection);
-    ct_connection_mark_as_closed(connection); // TODO - replace with callbacks to socket manager
-    if (connection->connection_callbacks.establishment_error) {
-      connection->connection_callbacks.establishment_error(connection);
-    }
+    uv_close((uv_handle_t*)socket_state->tcp_handle, on_libuv_close);
     return;
   }
   log_info("Successfully connected to remote endpoint using TCP");
@@ -388,11 +378,10 @@ int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
   return 0;
 }
 
-int tcp_close(ct_connection_t* connection, ct_on_connection_close_cb on_connection_close) {
+int tcp_close(ct_connection_t* connection) {
   log_info("Closing TCP connection: %s", connection->uuid);
 
   ct_tcp_socket_state_t* socket_state = connection->socket_manager->internal_socket_manager_state;
-  socket_state->close_cb = on_connection_close;
   uv_close((uv_handle_t*)socket_state->tcp_handle, on_libuv_close);
 
   return 0;

@@ -60,7 +60,7 @@ ct_quic_stream_state_t* ct_quic_stream_state_new(void);
 
 int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks);
 int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks, ct_message_t* initial_message, ct_message_context_t* initial_message_context);
-int quic_close(ct_connection_t*, void(*on_connection_close)(ct_connection_t* connection));
+int quic_close(ct_connection_t*);
 int quic_close_socket(ct_socket_manager_t*);
 void quic_abort(ct_connection_t* connection);
 int quic_send(ct_connection_t* connection, ct_message_t* message, ct_message_context_t*);
