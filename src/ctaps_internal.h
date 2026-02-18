@@ -319,7 +319,7 @@ typedef struct ct_protocol_impl_s {
   int (*stop_listen)(struct ct_socket_manager_s*);
 
   /** @brief Close a connection. */
-  int (*close)(ct_connection_t*, ct_on_connection_close_cb);
+  int (*close)(ct_connection_t*);
 
   int(*close_socket)(struct ct_socket_manager_s*);
 

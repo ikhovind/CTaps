@@ -197,7 +197,7 @@ int ct_socket_manager_close_connection(ct_socket_manager_t* socket_manager, ct_c
     log_debug("socket mangager: %p, connection: %p", socket_manager, connection); 
   }
   log_debug("Socket manager: Closing attached connection: %s", connection->uuid);
-  int rc = socket_manager->protocol_impl->close(connection, ct_socket_manager_closed_connection_cb);
+  int rc = socket_manager->protocol_impl->close(connection);
   if (rc) {
     log_error("Error from protocol when closing connection: %s", connection->uuid);
     return rc;
