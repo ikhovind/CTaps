@@ -445,7 +445,9 @@ void ct_connection_free_content(ct_connection_t* connection) {
   if (connection->connection_group && connection->connection_group->connections) {
     g_hash_table_remove(connection->connection_group->connections, connection->uuid);
   }
-  ct_connection_group_unref(connection->connection_group);
+  if (connection->connection_group) {
+    ct_connection_group_unref(connection->connection_group);
+  }
 }
 
 void ct_connection_free(ct_connection_t* connection) {

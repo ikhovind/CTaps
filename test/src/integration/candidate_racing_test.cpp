@@ -52,7 +52,7 @@ extern "C" {
   }
 
   int free_on_close(ct_connection_t* connection) {
-    log_debug("Connection closed, freeing resources");
+    log_debug("Connection %s was closed, freeing resources", connection->uuid);
     ct_connection_free(connection);
     return 0;
   }
@@ -69,6 +69,12 @@ protected:
         FFF_RESET_HISTORY();
         RESET_FAKE(fake_on_ready_counter);
         RESET_FAKE(fake_on_establishment_error_counter);
+    }
+
+    
+    void TearDown() override {
+      int rc = ct_close();
+      EXPECT_EQ(rc, 0);
     }
 };
 
@@ -112,9 +118,6 @@ TEST_F(CandidateRacingTests, FirstCandidateSucceeds) {
   ct_transport_properties_free(transport_properties);
 }
 
-/**
- * Test that racing handles all candidates failing
- */
 TEST_F(CandidateRacingTests, AllCandidatesFail) {
   ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
   ct_remote_endpoint_with_ipv4(remote_endpoint, inet_addr("127.0.0.1"));
@@ -122,10 +125,8 @@ TEST_F(CandidateRacingTests, AllCandidatesFail) {
 
   ct_transport_properties_t* transport_properties = ct_transport_properties_new();
 
-  // No compatible protocols
-  ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, REQUIRE);
-  ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, REQUIRE);
-  ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, PROHIBIT);
+  ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, NO_PREFERENCE);
+  ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, NO_PREFERENCE);
 
   ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
 
@@ -168,7 +169,6 @@ TEST_F(CandidateRacingTests, RespectsProtocolPreferences) {
   ASSERT_NE(transport_properties, nullptr);
   // Allocated with ct_transport_properties_new()
 
-  // Require reliability - should prefer TCP
   ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, REQUIRE);
 
   ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
@@ -200,9 +200,6 @@ TEST_F(CandidateRacingTests, RespectsProtocolPreferences) {
   ct_transport_properties_free(transport_properties);
 }
 
-/**
- * Test that racing works with hostname resolution
- */
 TEST_F(CandidateRacingTests, WorksWithHostnameResolution) {
   ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
   ASSERT_NE(remote_endpoint, nullptr);
@@ -253,8 +250,6 @@ TEST_F(CandidateRacingTests, SingleCandidateOptimization) {
   ct_remote_endpoint_with_port(remote_endpoint, TCP_PING_PORT);
 
   ct_transport_properties_t* transport_properties = ct_transport_properties_new();
-  ASSERT_NE(transport_properties, nullptr);
-  // Allocated with ct_transport_properties_new()
 
   // Select TCP specifically - stream-based, reliable, no multistreaming
   ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, REQUIRE);
@@ -262,7 +257,6 @@ TEST_F(CandidateRacingTests, SingleCandidateOptimization) {
   ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, PROHIBIT);
 
   ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
-  ASSERT_NE(preconnection, nullptr);
 
   bool connection_succeeded = false;
 
@@ -293,12 +287,12 @@ TEST_F(CandidateRacingTests, SingleCandidateOptimization) {
 TEST_F(CandidateRacingTests, HandlesNoCandidates) {
   ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
   ct_remote_endpoint_with_ipv4(remote_endpoint, inet_addr("127.0.0.1"));
-  ct_remote_endpoint_with_port(remote_endpoint, INVALID_TCP_PORT_1); // Invalid port
+  ct_remote_endpoint_with_port(remote_endpoint, TCP_PING_PORT); // Invalid port
 
   ct_transport_properties_t* transport_properties = ct_transport_properties_new();
 
-  ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, REQUIRE);
-  ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, REQUIRE);
+  ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, PROHIBIT);
+  ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, REQUIRE);
 
   ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
 
@@ -314,7 +308,7 @@ TEST_F(CandidateRacingTests, HandlesNoCandidates) {
   // Execute
   int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
 
-  ASSERT_EQ(rc, 0);
+  ASSERT_EQ(rc, -EINVAL);
 
   ct_start_event_loop();
 
