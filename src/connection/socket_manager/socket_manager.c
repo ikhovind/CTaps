@@ -165,6 +165,33 @@ void ct_socket_manager_closed_connection_cb(ct_connection_t* connection) {
   if (connection->connection_callbacks.closed) {
     connection->connection_callbacks.closed(connection);
   }
+  else {
+    log_debug("Connection has no closed callback registered");
+  }
+}
+
+void ct_socket_manager_establishment_error_cb(ct_connection_t* connection) {
+  ct_socket_manager_t* socket_manager = connection->socket_manager;
+  log_debug("Socket manager establishment error callback invoked for connection: %s", connection->uuid);
+  ct_connection_mark_as_closed(connection);
+
+  if (!socket_manager->listener || socket_manager->listener->state == CT_LISTENER_STATE_CLOSED) {
+    log_debug("socket manager has closed/no attched listener, checking num open connections");
+    int num_open = ct_socket_manager_get_num_open_connections(socket_manager);
+    if (num_open == 0) {
+      log_debug("Socket manager now has no open connections, closing en%tire socket manager");
+      ct_socket_manager_close(socket_manager);
+    }
+    else {
+      log_debug("Socket manager has %d open connections, not closing socket manager", num_open);
+    }
+  }
+  else {
+    log_debug("Socket manager %p has attached listener, not closing socket manager", socket_manager);
+  }
+  if (connection->connection_callbacks.establishment_error) {
+    connection->connection_callbacks.establishment_error(connection);
+  }
 }
 
 void ct_socket_manager_aborted_connection_cb(ct_connection_t* connection) {
@@ -188,6 +215,9 @@ void ct_socket_manager_aborted_connection_cb(ct_connection_t* connection) {
   }
   if (connection->connection_callbacks.connection_error) {
     connection->connection_callbacks.connection_error(connection);
+  }
+  else {
+    log_debug("No connection error callback registered for connection: %s", connection->uuid);
   }
 }
 
@@ -247,6 +277,7 @@ ct_socket_manager_t* ct_socket_manager_new(const ct_protocol_impl_t* protocol_im
   socket_manager->all_connections = NULL;
   socket_manager->callbacks.closed_connection = ct_socket_manager_closed_connection_cb;
   socket_manager->callbacks.aborted_connection = ct_socket_manager_aborted_connection_cb;
+  socket_manager->callbacks.establishment_error = ct_socket_manager_establishment_error_cb;
   log_debug("Created new socket manager: %p for protocol: %s", socket_manager, protocol_impl->name);
   return socket_manager;
 }
