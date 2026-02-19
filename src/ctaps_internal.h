@@ -346,6 +346,10 @@ typedef struct ct_protocol_impl_s {
 
 bool ct_protocol_supports_alpn(const ct_protocol_impl_t* protocol_impl);
 
+extern const ct_protocol_impl_t* const ct_supported_protocols[];
+
+extern const size_t ct_num_protocols;
+
 typedef struct ct_listener_s {
   ct_transport_properties_t transport_properties;     ///< Transport properties for accepted connections
   ct_local_endpoint_t local_endpoint;                 ///< Local endpoint (listening address/port)

@@ -18,8 +18,8 @@ typedef struct ct_node_pruning_data_t {
 } ct_node_pruning_data_t;
 
 typedef struct ct_protocol_impl_array_s {
-  const ct_protocol_impl_t** protocols;
-  size_t count;
+  const ct_protocol_impl_t* const* protocols;
+  size_t num_protocols;
 } ct_protocol_impl_array_t;
 
 /**
@@ -30,7 +30,7 @@ typedef struct ct_protocol_impl_array_s {
   * as members in this struct and modify branch_by_protocol accordingly.
   */
 typedef struct ct_protocol_options_s {
-  ct_protocol_impl_array_t* protocol_impls;
+  ct_protocol_impl_array_t protocol_arr; // List of supported protocol implementations
   ct_string_array_value_t* alpns; // e.g., ALPN strings
 } ct_protocol_options_t;
 
@@ -42,8 +42,6 @@ ct_protocol_candidate_t* ct_protocol_candidate_copy(const ct_protocol_candidate_
 
 ct_candidate_node_t* ct_candidate_node_copy(const ct_candidate_node_t* candidate_node);
 
-void ct_protocol_candidate_free(ct_protocol_candidate_t* protocol_candidate);
-
 void ct_protocol_options_free(ct_protocol_options_t* protocol_options);
 
 ct_protocol_impl_array_t* ct_protocol_impl_array_new(void);
@@ -52,19 +50,6 @@ GNode* build_candidate_tree(const ct_preconnection_t* precon);
 int branch_by_path(GNode* parent, const ct_local_endpoint_t* local_ep);
 int branch_by_protocol_options(GNode* parent, ct_protocol_options_t* protocol_options);
 int branch_by_remote(GNode* parent, const ct_remote_endpoint_t* remote_ep);
-
-ct_protocol_impl_array_t* ct_protocol_impl_array_new(void) {
-  ct_protocol_impl_array_t* protocol_array = malloc(sizeof(ct_protocol_impl_array_t));
-  if (protocol_array == NULL) {
-    log_error("Could not allocate memory for ct_protocol_impl_array_t");
-    return NULL;
-  }
-  const ct_protocol_impl_t **candidate_stacks = ct_get_supported_protocols();
-  size_t num_found_protocols = ct_get_num_protocols(); // Assume one protocol for demonstration purposes.
-  protocol_array->protocols = candidate_stacks;
-  protocol_array->count = num_found_protocols;
-  return protocol_array;
-}
 
 ct_protocol_options_t* ct_protocol_options_new(const ct_preconnection_t* precon) {
   ct_protocol_options_t* options = malloc(sizeof(ct_protocol_options_t));
@@ -76,11 +61,12 @@ ct_protocol_options_t* ct_protocol_options_new(const ct_preconnection_t* precon)
   if (precon->security_parameters && precon->security_parameters->security_parameters[ALPN].value.array_of_strings) {
     options->alpns = precon->security_parameters->security_parameters[ALPN].value.array_of_strings;
   }
-  options->protocol_impls = ct_protocol_impl_array_new();
+  options->protocol_arr.protocols = ct_supported_protocols;
+  options->protocol_arr.num_protocols = ct_num_protocols;
   return options;
 }
 
-gboolean free_candidate_node_in_loop(GNode *node, gpointer user_data) {
+gboolean free_data_in_tree_node_and_children(GNode *node, gpointer user_data) {
   (void)user_data;
   const ct_candidate_node_t* candidate_node = (ct_candidate_node_t*)node->data;
   if (candidate_node->local_endpoint) {
@@ -120,9 +106,11 @@ bool protocol_implementation_supports_selection_properties(
 
     if (desired_value.type == TYPE_PREFERENCE) {
       if (desired_value.value.simple_preference == REQUIRE && protocol_value.value.simple_preference == PROHIBIT) {
+        log_trace("Protocol %s does not support required property: %s", protocol->name, desired_value.name);
         return false;
       }
       if (desired_value.value.simple_preference == PROHIBIT && protocol_value.value.simple_preference == REQUIRE) {
+        log_trace("Protocol %s requires prohibited property: %s", protocol->name, desired_value.name);
         return false;
       }
     }
@@ -229,7 +217,39 @@ gboolean gather_incompatible_protocol_nodes(GNode *node, gpointer user_data) {
   return false;
 }
 
-int prune_candidate_tree(GNode* root, ct_selection_properties_t selection_properties) {
+/*
+ * @Brief Remove and free each node and its children from the tree they belong to
+ *
+ * @param undesirable_nodes A list of GNode* that should be removed from the tree.
+ *
+ * @return the number of nodes removed from the tree (including children of removed nodes)
+ */
+size_t remove_nodes_from_tree(GList* undesirable_nodes) {
+  if (!undesirable_nodes) {
+    return 0;
+  }
+  size_t num_removed = 0;
+  for (GList* current_node_list = undesirable_nodes; current_node_list != NULL; current_node_list = current_node_list->next) { 
+    GNode* node_to_remove = (GNode*)current_node_list->data;
+    num_removed += g_node_n_nodes(node_to_remove, G_TRAVERSE_ALL);
+
+    g_node_traverse(node_to_remove, G_IN_ORDER, G_TRAVERSE_ALL, -1, free_data_in_tree_node_and_children, NULL);
+    // First remove it from the tree, to avoid trying to free it twice, when later freeing a parent
+    g_node_unlink(node_to_remove);
+    g_node_destroy(node_to_remove);
+  }
+  return num_removed;
+}
+
+/**
+ * @brief Prunes the candidate tree by removing nodes that are incompatible with the selection properties.
+ *
+ * @param root The root of the candidate tree to prune.
+ * @param selection_properties The selection properties to use for pruning.
+ *
+ * @return the number of candidates remaining after pruning
+ */
+void prune_candidate_tree(GNode* root, ct_selection_properties_t selection_properties) {
   log_debug("Pruning candidate tree based on selection properties");
 
   ct_node_pruning_data_t pruning_data = {
@@ -246,22 +266,8 @@ int prune_candidate_tree(GNode* root, ct_selection_properties_t selection_proper
   g_node_traverse(root, G_LEVEL_ORDER, G_TRAVERSE_NON_LEAVES, -1, gather_incompatible_path_nodes, &pruning_data);
 
   log_trace("Total nodes in tree before pruning: %d", g_node_n_nodes(root, G_TRAVERSE_ALL));
-  GList* current_node_list = pruning_data.undesirable_nodes;
-  while (current_node_list != NULL) {
-    GNode* node_to_remove = (GNode*)current_node_list->data;
-    GList* next_iter = current_node_list->next;
-
-    g_node_traverse(node_to_remove, G_IN_ORDER, G_TRAVERSE_ALL, -1, free_candidate_node_in_loop, NULL);
-    // First remove it from the tree, to avoid trying to free it twice, when later freeing a parent
-    g_node_unlink(node_to_remove);
-    g_node_destroy(node_to_remove);
-
-    current_node_list = next_iter;
-  }
+  remove_nodes_from_tree(pruning_data.undesirable_nodes);
   g_list_free(pruning_data.undesirable_nodes);
-
-  log_trace("Total nodes in tree after pruning: %d", g_node_n_nodes(root, G_TRAVERSE_ALL));
-  return 0;
 }
 
 gint compare_prefer_and_avoid_preferences(gconstpointer a, gconstpointer b, gpointer desired_selection_properties) {
@@ -477,8 +483,8 @@ int branch_by_protocol_options(GNode* parent, ct_protocol_options_t* protocol_op
 
   log_trace("Expanding node of type PATH to PROTOCOL nodes");
 
-  for (size_t i = 0; i < protocol_options->protocol_impls->count; i++) {
-    if (ct_protocol_supports_alpn(protocol_options->protocol_impls->protocols[i])
+  for (size_t i = 0; i < protocol_options->protocol_arr.num_protocols; i++) {
+    if (ct_protocol_supports_alpn(protocol_options->protocol_arr.protocols[i])
         && protocol_options->alpns
         && protocol_options->alpns->num_strings > 0) {
       // If the current protocol supports ALPN, create a candidate for each ALPN value
@@ -490,12 +496,12 @@ int branch_by_protocol_options(GNode* parent, ct_protocol_options_t* protocol_op
       for (size_t j = 0; j < protocol_options->alpns->num_strings; j++) {
         log_trace("Checking QUIC protocol against selection properties");
         ct_protocol_candidate_t* candidate = ct_protocol_candidate_new(
-          protocol_options->protocol_impls->protocols[i],
+          protocol_options->protocol_arr.protocols[i],
           protocol_options->alpns->strings[j]
         );
         if (!candidate) {
           log_error("Could not create protocol candidate for protocol %s with ALPN %s",
-                    protocol_options->protocol_impls->protocols[i]->name,
+                    protocol_options->protocol_arr.protocols[i]->name,
                     protocol_options->alpns->strings[j]);
           return -1;
         }
@@ -519,12 +525,12 @@ int branch_by_protocol_options(GNode* parent, ct_protocol_options_t* protocol_op
     else {
       // If the current protocol does not support ALPN, just create a single candidate without any alpn
       ct_protocol_candidate_t* candidate = ct_protocol_candidate_new(
-        protocol_options->protocol_impls->protocols[i],
+        protocol_options->protocol_arr.protocols[i],
         NULL
       );
       if (!candidate) {
         log_error("Could not create protocol candidate for protocol %s without ALPN",
-                  protocol_options->protocol_impls->protocols[i]->name);
+                  protocol_options->protocol_arr.protocols[i]->name);
         return -1;
       }
 
@@ -622,7 +628,7 @@ GArray* get_ordered_candidate_nodes(const ct_preconnection_t* precon) {
   log_trace("Freeing undesirable nodes from candidate tree");
 
   // Free data owned by tree (all non-leaf nodes)
-  g_node_traverse(root_node, G_IN_ORDER, G_TRAVERSE_ALL, -1, free_candidate_node_in_loop, NULL);
+  g_node_traverse(root_node, G_IN_ORDER, G_TRAVERSE_ALL, -1, free_data_in_tree_node_and_children, NULL);
 
   g_node_destroy(root_node);
 
@@ -686,10 +692,6 @@ void ct_protocol_candidate_free(ct_protocol_candidate_t* protocol_candidate) {
 
 void ct_protocol_options_free(ct_protocol_options_t* protocol_options) {
   if (protocol_options) {
-    if (protocol_options->protocol_impls) {
-      // protocols array points to static data, don't free it
-      free(protocol_options->protocol_impls);
-    }
     // alpns points to security_parameters data, don't free it
     free(protocol_options);
   }

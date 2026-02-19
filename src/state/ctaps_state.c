@@ -1,13 +1,8 @@
 #include "ctaps.h"
 
-#include "protocol/tcp/tcp.h"
-#include "protocol/udp/udp.h"
-#include <logging/log.h>
-#include <protocol/quic/quic.h>
-#include <protocol/tcp/tcp.h>
+#include "logging/log.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <uv.h>
 
 uv_loop_t* event_loop;
@@ -17,11 +12,12 @@ int ct_initialize(void) {
   log_set_level(LOG_INFO);
 
   event_loop = malloc(sizeof(uv_loop_t));
-  uv_loop_init(event_loop);
-
-  ct_register_protocol(&udp_protocol_interface);
-  ct_register_protocol(&tcp_protocol_interface);
-  ct_register_protocol(&quic_protocol_interface);
+  int rc = uv_loop_init(event_loop);
+  if (rc < 0) {
+    log_error("Error initializing libuv event loop: %s", uv_strerror(rc));
+    free(event_loop);
+    return rc;
+  }
 
   return 0;
 }
