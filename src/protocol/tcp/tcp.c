@@ -107,16 +107,10 @@ static void alloc_cb(uv_handle_t* handle, size_t size, uv_buf_t* buf) {
 }
 
 void on_abort(uv_handle_t* handle) {
+  log_debug("TCP handle aborted successfully");
   ct_socket_manager_t* socket_manager = handle->data;
   ct_tcp_socket_state_t* socket_state = socket_manager->internal_socket_manager_state;
-  //ct_connection_mark_as_closed(socket_state->connection); // TODO - move to callback here as well
-  if (socket_state->connection->connection_callbacks.connection_error) {
-    log_debug("Invoking connection connection error callback due to abort");
-    socket_state->connection->connection_callbacks.connection_error(socket_state->connection);
-  }
-  else {
-    log_debug("Connection error callback not set, on abort");
-  }
+  socket_manager->callbacks.aborted_connection(socket_state->connection);
 }
 
 void on_stop_listen(uv_handle_t* handle) {
@@ -144,8 +138,19 @@ void tcp_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
   ct_connection_t* connection = socket_state->connection;
   if (nread == UV_EOF) {
     log_info("TCP connection closed by peer");
-    ct_connection_close(connection);
     free(buf->base);
+    if (!uv_is_closing((uv_handle_t*)socket_state->tcp_handle)) {
+      uv_close((uv_handle_t*)socket_state->tcp_handle, on_libuv_close);
+    }
+    else {
+      log_debug("TCP handle already closing, not invoking uv_close again");
+    }
+    return;
+  }
+  if (nread == UV_ECONNRESET) {
+    log_info("TCP connection closed by peer");
+    free(buf->base);
+    uv_tcp_close_reset(socket_state->tcp_handle, on_abort);
     return;
   }
   if (nread < 0) {
@@ -397,9 +402,7 @@ int tcp_close(ct_connection_t* connection) {
 void tcp_abort(ct_connection_t* connection) {
   log_info("Aborting TCP connection: %s", connection->uuid);
   ct_tcp_socket_state_t* socket_state = connection->socket_manager->internal_socket_manager_state;
-
   uv_tcp_close_reset(socket_state->tcp_handle, on_abort);
-  ct_connection_mark_as_closed(connection);
 }
 
 int tcp_send(ct_connection_t* connection, ct_message_t* message, ct_message_context_t* ctx) {

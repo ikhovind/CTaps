@@ -35,6 +35,14 @@ int tcp_free_state(ct_connection_t* connection);
   */
 int tcp_free_connection_group_state(ct_connection_group_t* connection_group);
 
+ct_tcp_socket_state_t* ct_tcp_socket_state_new(ct_connection_t* connection,
+                                                 ct_listener_t* listener,
+                                                 ct_message_t* initial_message,
+                                                 ct_message_context_t* initial_message_context,
+                                                 uv_connect_t* connect_req,
+                                                 uv_tcp_t* uv_tcp_handle
+                                                 );
+
 // Protocol interface (definition in tcp.c)
 extern const ct_protocol_impl_t tcp_protocol_interface;
 
