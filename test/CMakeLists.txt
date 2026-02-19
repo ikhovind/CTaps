@@ -240,6 +240,15 @@ add_gtest(message_context_integration_test
     ${CTAPS_SOURCES}
 )
 
+add_gtest(tcp_unit_test
+  SOURCES
+    src/unit/protocol/tcp_unit_test.cpp
+    ${CTAPS_SOURCES}
+    WRAP_FUNCTIONS
+      uv_tcp_close_reset
+      uv_close
+)
+
 add_gtest(message_unit_test
   SOURCES
     src/unit/message/message_unit_test.cpp
