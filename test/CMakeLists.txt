@@ -133,8 +133,6 @@ add_gtest(candidate_gathering_test
         WRAP_FUNCTIONS
             ct_local_endpoint_resolve
             ct_remote_endpoint_resolve
-            ct_get_supported_protocols
-            ct_get_num_protocols
         ASAN_ENABLED
 )
 

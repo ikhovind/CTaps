@@ -946,18 +946,6 @@ struct ct_framer_impl_s {
 // Protocol Interface - Protocol implementation abstraction
 // =============================================================================
 
-/**
- * @brief Protocol implementation interface.
- *
- * This interface defines the contract that all transport protocol implementations
- * (TCP, UDP, QUIC, or custom protocols) must implement. The CTaps library uses
- * this interface to abstract over different transport protocols.
- *
- * This is an opaque type used only via pointers. Protocol implementations are registered
- * using ct_register_protocol().
- */
-typedef struct ct_protocol_impl_s ct_protocol_impl_t;
-
 // =============================================================================
 // Public API Functions
 // =============================================================================
@@ -1824,36 +1812,6 @@ CT_EXTERN ct_listener_t* ct_listener_new(void);
  * @return Local endpoint structure (copy)
  */
 ct_local_endpoint_t ct_listener_get_local_endpoint(const ct_listener_t* listener);
-
-#define MAX_PROTOCOLS 256  ///< Maximum number of protocols that can be registered
-
-/// Global array of registered protocol implementations
-__attribute__((unused)) static const ct_protocol_impl_t* ct_supported_protocols[MAX_PROTOCOLS] = {0};
-
-/**
- * @brief Register a custom protocol implementation.
- *
- * Add a custom protocol to the registry so it can be selected during
- * candidate gathering and connection establishment.
- *
- * @param[in] proto Pointer to protocol implementation structure
- *
- * @note The protocol implementation must remain valid for the lifetime of the library
- * @see ct_protocol_impl_t for the protocol interface
- */
-CT_EXTERN void ct_register_protocol(const ct_protocol_impl_t* proto);
-
-/**
- * @brief Get the array of all registered protocols.
- * @return Pointer to protocol array
- */
-const ct_protocol_impl_t** ct_get_supported_protocols();
-
-/**
- * @brief Get the number of registered protocols.
- * @return Number of protocols in the registry
- */
-size_t ct_get_num_protocols();
 
 // =============================================================================
 // Connection functions

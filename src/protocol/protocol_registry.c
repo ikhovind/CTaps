@@ -1,19 +1,14 @@
-#include "ctaps.h"
+#include "ctaps_internal.h"
+#include "protocol/quic/quic.h"
+#include "protocol/tcp/tcp.h"
+#include "protocol/udp/udp.h"
 
 #include <stddef.h>
 
-static int protocol_count = 0;
-// Function to add a new protocol to our list
-void ct_register_protocol(const ct_protocol_impl_t* proto) {
-  if (protocol_count < MAX_PROTOCOLS) {
-    ct_supported_protocols[protocol_count++] = proto;
-  }
-}
+const ct_protocol_impl_t* const ct_supported_protocols[] = {
+    &udp_protocol_interface,
+    &tcp_protocol_interface,
+    &quic_protocol_interface,
+};
 
-const ct_protocol_impl_t** ct_get_supported_protocols() {
-  return ct_supported_protocols;
-}
-
-size_t ct_get_num_protocols() {
-  return protocol_count;
-}
+const size_t ct_num_protocols = sizeof(ct_supported_protocols) / sizeof(ct_supported_protocols[0]);
