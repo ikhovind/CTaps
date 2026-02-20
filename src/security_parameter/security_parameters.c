@@ -349,3 +349,30 @@ int ct_sec_param_set_session_ticket_encryption_key(ct_security_parameters_t* sec
 
   return ct_sec_param_set_property_byte_array(security_parameters, SESSION_TICKET_ENCRYPTION_KEY, key);
 }
+
+int ct_sec_param_set_server_name_identification(ct_security_parameters_t* security_parameters, const char* sni) {
+  if (!security_parameters) {
+    log_error("Attempted to set server name identification on NULL security parameters");
+    return -EINVAL;
+  }
+  if (security_parameters->security_parameters[SERVER_NAME_IDENTIFICATION].value.string) {
+    log_trace("Freeing existing server name identification before setting new value");
+    free(security_parameters->security_parameters[SERVER_NAME_IDENTIFICATION].value.string);
+  }
+  security_parameters->security_parameters[SERVER_NAME_IDENTIFICATION].set_by_user = true;
+  if (sni) {
+    security_parameters->security_parameters[SERVER_NAME_IDENTIFICATION].value.string = strdup(sni);
+  }
+  else {
+    security_parameters->security_parameters[SERVER_NAME_IDENTIFICATION].value.string = NULL;
+  }
+  return 0;
+}
+
+const char* ct_sec_param_get_server_name_identification(const ct_security_parameters_t* security_parameters) {
+  if (!security_parameters) {
+    log_error("Attempted to get server name identification from NULL security parameters");
+    return NULL;
+  }
+  return security_parameters->security_parameters[SERVER_NAME_IDENTIFICATION].value.string;
+}

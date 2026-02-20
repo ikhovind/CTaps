@@ -290,6 +290,7 @@ TEST_F(QuicListenTests, ListenerCanReceive0RttMessage) {
     ct_security_parameters_t* client_security_parameters = ct_security_parameters_new();
     ASSERT_NE(client_security_parameters, nullptr);
     ct_sec_param_set_property_string_array(client_security_parameters, ALPN, &alpn_strings, 1);
+    ct_sec_param_set_server_name_identification(client_security_parameters, "localhost");
 
     ct_certificate_bundles_t* client_bundles = ct_certificate_bundles_new();
     ct_certificate_bundles_add_cert(client_bundles, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");

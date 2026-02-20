@@ -560,17 +560,21 @@ typedef struct ct_sec_property_s ct_security_parameter_t;
 
 // clang-format off
 #define get_security_parameter_list(f)                                        \
-  f(SUPPORTED_GROUP,                "supportedGroup",    TYPE_STRING_ARRAY)               \
-  f(CIPHERSUITE,                    "ciphersuite",       TYPE_STRING_ARRAY)               \
-  f(SERVER_CERTIFICATE,             "serverCertificate", TYPE_CERTIFICATE_BUNDLES)        \
-  f(CLIENT_CERTIFICATE,             "clientCertificate", TYPE_CERTIFICATE_BUNDLES)        \
-  f(SIGNATURE_ALGORITHM,            "signatureAlgorithm",TYPE_STRING_ARRAY)               \
-  f(ALPN,                           "alpn",              TYPE_STRING_ARRAY)               \
-  f(TICKET_STORE_PATH,              "ticketStorePath",   TYPE_STRING)                     \
-  f(SESSION_TICKET_ENCRYPTION_KEY,  "ticketStorePath",   TYPE_BYTE_ARRAY) // Optional parameter to allow for session resumption 
+  f(SUPPORTED_GROUP,                "supportedGroup",             TYPE_STRING_ARRAY)               \
+  f(CIPHERSUITE,                    "ciphersuite",                TYPE_STRING_ARRAY)               \
+  f(SERVER_CERTIFICATE,             "serverCertificate",          TYPE_CERTIFICATE_BUNDLES)        \
+  f(CLIENT_CERTIFICATE,             "clientCertificate",          TYPE_CERTIFICATE_BUNDLES)        \
+  f(SIGNATURE_ALGORITHM,            "signatureAlgorithm",         TYPE_STRING_ARRAY)               \
+  f(ALPN,                           "alpn",                       TYPE_STRING_ARRAY)               \
+  f(TICKET_STORE_PATH,              "ticketStorePath",            TYPE_STRING)                     \
+  f(SERVER_NAME_IDENTIFICATION,     "serverNameIdentification",   TYPE_STRING)                     \
+  f(SESSION_TICKET_ENCRYPTION_KEY,  "sessionTicketEncryptionKey", TYPE_BYTE_ARRAY) // Optional parameter to allow for session resumption 
 // clang-format on
 
 #define output_sec_enum(enum_name, string_name, property_type) enum_name,
+
+#define create_sec_param_setter(enum_name, string_name, property_type) \
+  CT_EXTERN void ct_sec_param_set_##enum_name(ct_security_parameters_t* sec_params, ct_sec_property_value_t value);
 
 /**
  * @brief Enumeration of all available security parameters.
@@ -611,6 +615,8 @@ typedef struct ct_security_parameters_s ct_security_parameters_t;
  * @return Pointer to newly allocated transport properties, or NULL on allocation failure.
  */
 CT_EXTERN ct_transport_properties_t* ct_transport_properties_new(void);
+
+
 
 /**
  * @brief Free a transport properties object.
@@ -1092,13 +1098,17 @@ CT_EXTERN int ct_sec_param_set_property_byte_array(ct_security_parameters_t* sec
 
 CT_EXTERN int ct_sec_param_set_ticket_store_path(ct_security_parameters_t* security_parameters, const char* ticket_store_path);
 
+CT_EXTERN int ct_sec_param_set_server_name_identification(ct_security_parameters_t* security_parameters, const char* sni);
+
+CT_EXTERN int ct_sec_param_set_session_ticket_encryption_key(ct_security_parameters_t* security_parameters, const ct_byte_array_t* key);
+
 CT_EXTERN const char* ct_sec_param_get_ticket_store_path(const ct_security_parameters_t* security_parameters);
 
 CT_EXTERN const char** ct_sec_param_get_alpn_strings(const ct_security_parameters_t* security_parameters, size_t* out_num_strings);
 
 CT_EXTERN const ct_byte_array_t* ct_sec_param_get_session_ticket_encryption_key(const ct_security_parameters_t* security_parameters);
 
-CT_EXTERN int ct_sec_param_set_session_ticket_encryption_key(ct_security_parameters_t* security_parameters, const ct_byte_array_t* key);
+CT_EXTERN const char* ct_sec_param_get_server_name_identification(const ct_security_parameters_t* security_parameters);
 
 
 // ==============================================================================

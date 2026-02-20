@@ -1215,15 +1215,15 @@ int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbac
   ct_quic_connection_group_state_t* group_state = (ct_quic_connection_group_state_t*)connection->connection_group->connection_group_state;
 
   group_state->picoquic_connection = picoquic_create_cnx(
-      quic_context->picoquic_ctx,
-      picoquic_null_connection_id,
-      picoquic_null_connection_id,
-      (struct sockaddr*) &connection->remote_endpoint->data.resolved_address,
-      current_time,
-      1,
-      "localhost",
-      alpn_strings[0], // We create separate candidates for each ALPN to support 0-rtt (see candidate gathering code)
-      1
+    quic_context->picoquic_ctx,
+    picoquic_null_connection_id,
+    picoquic_null_connection_id,
+    (struct sockaddr*) &connection->remote_endpoint->data.resolved_address,
+    current_time,
+    1,
+    ct_sec_param_get_server_name_identification(connection->security_parameters),
+    alpn_strings[0], // We create separate candidates for each ALPN to support 0-rtt (see candidate gathering code)
+    1
   );
 
   log_trace("Setting callback context to connection group: %p", (void*)connection->connection_group);
@@ -1362,15 +1362,15 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
 
   ct_quic_connection_group_state_t* group_state = (ct_quic_connection_group_state_t*)connection->connection_group->connection_group_state;
   group_state->picoquic_connection = picoquic_create_cnx(
-      quic_context->picoquic_ctx,
-      picoquic_null_connection_id,
-      picoquic_null_connection_id,
-      (struct sockaddr*) &connection->remote_endpoint->data.resolved_address,
-      current_time,
-      1,
-      "localhost",
-      alpn_strings[0], // We create separate candidates for each ALPN to support 0-rtt (see candidate gathering code)
-      1
+    quic_context->picoquic_ctx,
+    picoquic_null_connection_id,
+    picoquic_null_connection_id,
+    (struct sockaddr*) &connection->remote_endpoint->data.resolved_address,
+    current_time,
+    1,
+    ct_sec_param_get_server_name_identification(connection->security_parameters),
+    alpn_strings[0], // We create separate candidates for each ALPN to support 0-rtt (see candidate gathering code)
+    1
   );
 
   log_trace("Setting callback context to connection group: %p", (void*)connection->connection_group);

@@ -41,6 +41,9 @@ TEST(SecurityParametersTest, newInitializesCorrectNames) {
     EXPECT_STREQ(params->security_parameters[SIGNATURE_ALGORITHM].name, "signatureAlgorithm");
     EXPECT_STREQ(params->security_parameters[ALPN].name, "alpn");
     EXPECT_STREQ(params->security_parameters[TICKET_STORE_PATH].name, "ticketStorePath");
+    EXPECT_STREQ(params->security_parameters[SERVER_NAME_IDENTIFICATION].name, "serverNameIdentification");
+    EXPECT_STREQ(params->security_parameters[SESSION_TICKET_ENCRYPTION_KEY].name, "sessionTicketEncryptionKey");
+
 
     ct_sec_param_free(params);
 }
@@ -56,6 +59,8 @@ TEST(SecurityParametersTest, newInitializesCorrectTypes) {
     EXPECT_EQ(params->security_parameters[SIGNATURE_ALGORITHM].type, TYPE_STRING_ARRAY);
     EXPECT_EQ(params->security_parameters[ALPN].type, TYPE_STRING_ARRAY);
     EXPECT_EQ(params->security_parameters[TICKET_STORE_PATH].type, TYPE_STRING);
+    EXPECT_EQ(params->security_parameters[SESSION_TICKET_ENCRYPTION_KEY].type, TYPE_BYTE_ARRAY);
+    EXPECT_EQ(params->security_parameters[SERVER_NAME_IDENTIFICATION].type, TYPE_STRING);
 
     ct_sec_param_free(params);
 }
@@ -381,6 +386,83 @@ TEST(SecurityParametersTest, setTicketStorePathWithEmptyString) {
     EXPECT_EQ(result, 0);
     EXPECT_TRUE(params->security_parameters[TICKET_STORE_PATH].set_by_user);
     EXPECT_STREQ(params->security_parameters[TICKET_STORE_PATH].value.string, "");
+
+    ct_sec_param_free(params);
+}
+
+// =============================================================================
+// Server name identification Setter Tests
+// =============================================================================
+
+TEST(SecurityParametersTest, setServerNameIdentificationSetsCorrectValue) {
+    ct_security_parameters_t* params = ct_security_parameters_new();
+    ASSERT_NE(params, nullptr);
+
+    int result = ct_sec_param_set_server_name_identification(params, "localhost123");
+
+    EXPECT_EQ(result, 0);
+    EXPECT_TRUE(params->security_parameters[SERVER_NAME_IDENTIFICATION].set_by_user);
+    EXPECT_STREQ(params->security_parameters[SERVER_NAME_IDENTIFICATION].value.string, "localhost123");
+
+    ct_sec_param_free(params);
+}
+
+TEST(SecurityParametersTest, setServerNameIdentificationOverwritesPreviousValue) {
+    ct_security_parameters_t* params = ct_security_parameters_new();
+
+    ct_sec_param_set_server_name_identification(params, "localhost123");
+    EXPECT_STREQ(params->security_parameters[SERVER_NAME_IDENTIFICATION].value.string, "localhost123");
+    int result = ct_sec_param_set_server_name_identification(params, "localhost321");
+
+    EXPECT_EQ(result, 0);
+    EXPECT_STREQ(params->security_parameters[SERVER_NAME_IDENTIFICATION].value.string, "localhost321");
+
+    ct_sec_param_free(params);
+}
+
+TEST(SecurityParametersTest, setServerNameIdentificationAcceptsNullToClear) {
+    ct_security_parameters_t* params = ct_security_parameters_new();
+
+    ct_sec_param_set_server_name_identification(params, "localhost");
+    EXPECT_STREQ(params->security_parameters[SERVER_NAME_IDENTIFICATION].value.string, "localhost");
+    int result = ct_sec_param_set_server_name_identification(params, nullptr);
+
+    EXPECT_EQ(result, 0);
+    EXPECT_TRUE(params->security_parameters[SERVER_NAME_IDENTIFICATION].set_by_user);
+    EXPECT_EQ(params->security_parameters[SERVER_NAME_IDENTIFICATION].value.string, nullptr);
+
+    ct_sec_param_free(params);
+}
+
+TEST(SecurityParametersTest, setServerNameIdentificationHandlesNullSecurityParameters) {
+    int result = ct_sec_param_set_server_name_identification(nullptr, "localhost");
+
+    EXPECT_NE(result, 0);
+}
+
+TEST(SecurityParametersTest, setServerNameIdentificationWithEmptyString) {
+    ct_security_parameters_t* params = ct_security_parameters_new();
+    ASSERT_NE(params, nullptr);
+
+    int result = ct_sec_param_set_server_name_identification(params, "");
+
+    EXPECT_EQ(result, 0);
+    EXPECT_TRUE(params->security_parameters[SERVER_NAME_IDENTIFICATION].set_by_user);
+    EXPECT_STREQ(params->security_parameters[SERVER_NAME_IDENTIFICATION].value.string, "");
+
+    ct_sec_param_free(params);
+}
+
+TEST(SecurityParametersTest, setServerNameIdentificationTakesDeepCopy) {
+    ct_security_parameters_t* params = ct_security_parameters_new();
+
+    char sni[] = "abcdef";
+    int result = ct_sec_param_set_server_name_identification(params, "abcdef");
+    EXPECT_STREQ(params->security_parameters[SERVER_NAME_IDENTIFICATION].value.string, "abcdef");
+    sni[0] = 'x'; // Modify original string after setting
+
+    EXPECT_TRUE(params->security_parameters[SERVER_NAME_IDENTIFICATION].set_by_user);
+    EXPECT_STREQ(params->security_parameters[SERVER_NAME_IDENTIFICATION].value.string, "abcdef");
 
     ct_sec_param_free(params);
 }

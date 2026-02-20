@@ -182,6 +182,7 @@ TEST_F(QuicPingTest, successfullyPingsQuicServerWith0Rtt) {
   ASSERT_NE(security_parameters, nullptr);
   const char* alpn_strings = "simple-ping";
   ct_sec_param_set_property_string_array(security_parameters, ALPN, (const char**)&alpn_strings, 1);
+  ct_sec_param_set_server_name_identification(security_parameters, "localhost");
 
   ct_certificate_bundles_t* client_bundles = ct_certificate_bundles_new();
   ct_certificate_bundles_add_cert(client_bundles, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
