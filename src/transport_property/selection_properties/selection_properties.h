@@ -1,6 +1,7 @@
 #ifndef CT_SELECTION_PROPERTIES_H
 #define CT_SELECTION_PROPERTIES_H
 #include <ctaps.h>
+#include <ctaps_internal.h>
 
 /**
  * @brief Initialize selection properties with default values.
@@ -15,5 +16,6 @@ void ct_selection_properties_build(ct_selection_properties_t* selection_properti
 void ct_selection_properties_cleanup(ct_selection_properties_t* selection_properties);
 
 void ct_selection_properties_deep_copy(ct_selection_properties_t* dest, const ct_selection_properties_t* src);
+
 
 #endif // CT_SELECTION_PROPERTIES_H

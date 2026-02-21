@@ -2,17 +2,17 @@
 #include "connection/socket_manager/socket_manager.h"
 #include "ctaps.h"
 #include "ctaps_internal.h"
+#include "message/message.h"
+#include "message/message_context.h"
 #include "transport_property/selection_properties/selection_properties.h"
 #include <candidate_gathering/candidate_gathering.h>
 #include <candidate_gathering/candidate_racing.h>
 #include <endpoint/local_endpoint.h>
 #include <endpoint/remote_endpoint.h>
-#include <security_parameter/security_parameters.h>
-#include "message/message.h"
-#include "message/message_context.h"
 #include <errno.h>
 #include <glib.h>
 #include <logging/log.h>
+#include <security_parameter/security_parameters.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -52,15 +52,13 @@ ct_preconnection_t* ct_preconnection_new(
 
   memset(precon, 0, sizeof(ct_preconnection_t));
 
-  // Deep copy transport properties or use defaults
-  // Note: We can't use ct_transport_properties_deep_copy() here because transport_properties
-  // is embedded in the preconnection struct, not a pointer. We manually copy using the
-  // underlying helper functions.
   if (transport_properties) {
+    log_debug("Copying transport properties into preconnection");
     ct_selection_properties_deep_copy(&precon->transport_properties.selection_properties,
                                      &transport_properties->selection_properties);
     precon->transport_properties.connection_properties = transport_properties->connection_properties;
   } else {
+    log_debug("No transport properties provided, initializing with defaults");
     // Initialize with default values
     memcpy(&precon->transport_properties.selection_properties, &DEFAULT_SELECTION_PROPERTIES, sizeof(ct_selection_properties_t));
     memcpy(&precon->transport_properties.connection_properties, &DEFAULT_CONNECTION_PROPERTIES, sizeof(ct_connection_properties_t));

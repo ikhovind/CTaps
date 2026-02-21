@@ -155,20 +155,8 @@ typedef struct ct_selection_properties_s {
   ct_selection_property_t selection_property[SELECTION_PROPERTY_END];  ///< Array of selection properties
 } ct_selection_properties_t;
 
-// The value cast is a hack to please the c++ compiler for our tests
-#define create_sel_property_initializer(enum_name, string_name, property_type, default_value) \
-  [enum_name] = {                                                          \
-    .name = string_name,                                                   \
-    .type = property_type,                                                 \
-    .set_by_user = false,                                                  \
-    .value = { (ct_selection_preference_t)default_value }                     \
-},
 
-static const ct_selection_properties_t DEFAULT_SELECTION_PROPERTIES = {
-  .selection_property = {
-    get_selection_property_list(create_sel_property_initializer)
-  }
-};
+extern const ct_selection_properties_t DEFAULT_SELECTION_PROPERTIES;
 
 // =============================================================================
 // Message Properties - Properties for individual messages
@@ -255,11 +243,9 @@ typedef struct ct_connection_properties_s {
   ct_connection_property_t list[CONNECTION_PROPERTY_END];  ///< Array of connection properties
 } ct_connection_properties_t;
 
-static const ct_connection_property_t DEFAULT_CONNECTION_PROPERTIES[] = {
-    get_writable_connection_property_list(create_con_property_initializer)
-    get_read_only_connection_properties(create_con_property_initializer)
-    get_tcp_connection_properties(create_con_property_initializer)
-};
+
+
+extern const ct_connection_property_t DEFAULT_CONNECTION_PROPERTIES[];
 
 /**
  * @brief Transport properties for protocol selection and connection configuration.

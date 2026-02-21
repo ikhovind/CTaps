@@ -8,7 +8,20 @@ extern "C" {
 }
 
 
-TEST(PreconnectionUnitTests, SetsPreconnectionAsExpected) {
+class PreconnectionUnitTests : public ::testing::Test {
+protected:
+    void SetUp() override {
+        ct_set_log_level(CT_LOG_DEBUG);
+    }
+
+    
+    void TearDown() override {
+    }
+
+};
+
+
+TEST_F(PreconnectionUnitTests, SetsPreconnectionAsExpected) {
     ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
     ASSERT_NE(remote_endpoint, nullptr);
 
@@ -39,7 +52,7 @@ TEST(PreconnectionUnitTests, SetsPreconnectionAsExpected) {
     ct_transport_properties_free(transport_properties);
 }
 
-TEST(PreconnectionUnitTests, TakesDeepCopyOfRemoteEndpoint) {
+TEST_F(PreconnectionUnitTests, TakesDeepCopyOfRemoteEndpoint) {
     ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
     ASSERT_NE(remote_endpoint, nullptr);
 
@@ -68,7 +81,7 @@ TEST(PreconnectionUnitTests, TakesDeepCopyOfRemoteEndpoint) {
     ct_transport_properties_free(transport_properties);
 }
 
-TEST(PreconnectionUnitTests, TakesDeepCopyOfRemoteEndpointWhenBuildingWithLocal) {
+TEST_F(PreconnectionUnitTests, TakesDeepCopyOfRemoteEndpointWhenBuildingWithLocal) {
     ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
     ASSERT_NE(remote_endpoint, nullptr);
 
@@ -102,4 +115,16 @@ TEST(PreconnectionUnitTests, TakesDeepCopyOfRemoteEndpointWhenBuildingWithLocal)
     ct_remote_endpoint_free(remote_endpoint);
     ct_preconnection_free(preconnection);
     ct_transport_properties_free(transport_properties);
+}
+
+TEST_F(PreconnectionUnitTests, newHandlesNullForOptionalParams) {
+    ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, NULL, NULL);
+    ASSERT_NE(preconnection, nullptr);
+    EXPECT_EQ(0, preconnection->num_local_endpoints);
+    EXPECT_EQ(0, preconnection->num_remote_endpoints);
+    EXPECT_EQ(0, memcmp(&preconnection->transport_properties.selection_properties, &DEFAULT_SELECTION_PROPERTIES, sizeof(ct_selection_properties_t)));
+    EXPECT_EQ(0, memcmp(&preconnection->transport_properties.connection_properties, &DEFAULT_CONNECTION_PROPERTIES, sizeof(ct_connection_properties_t)));
+    EXPECT_EQ(NULL, preconnection->security_parameters);
+
+    ct_preconnection_free(preconnection);
 }

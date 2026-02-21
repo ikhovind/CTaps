@@ -123,7 +123,7 @@ add_gtest(
             picoquic_close_immediate
 )
 add_gtest(remote_endpoint_unit_test SOURCES src/unit/endpoint/remote.cpp ${CTAPS_SOURCES})
-add_gtest(preconnection_unit_test SOURCES src/unit/connections/preconnection.cpp ${CTAPS_SOURCES})
+add_gtest(preconnection_unit_test SOURCES src/unit/connections/preconnection_unit_test.cpp ${CTAPS_SOURCES})
 add_gtest(connection_unit_test SOURCES src/unit/connections/connection_unit_test.cpp ${CTAPS_SOURCES})
 add_gtest(connection_group_unit_test SOURCES src/unit/connections/connection_group_test.cpp ${CTAPS_SOURCES})
 add_gtest(candidate_gathering_test
