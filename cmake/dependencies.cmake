@@ -9,7 +9,7 @@ FetchContent_Declare(
 FetchContent_Declare(
         picoquic
         GIT_REPOSITORY https://github.com/private-octopus/picoquic.git
-        GIT_TAG 226e2af7b29c2561ce95d34b1cf27eaf44505f24 # Most recent commit as of writing
+        GIT_TAG d399d3a0689b6add881d4a1b48b21d374b56fbf1
 )
 
 set(PICOQUIC_FETCH_PTLS ON)

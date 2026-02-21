@@ -124,3 +124,7 @@ enable_testing()
 add_subdirectory (test)
 
 add_subdirectory (benchmark)
+
+add_executable(quic_internet_test quic_internet_test.c)
+
+target_link_libraries(quic_internet_test PRIVATE CTaps)
