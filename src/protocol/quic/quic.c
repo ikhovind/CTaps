@@ -310,6 +310,7 @@ void ct_quic_set_connection_stream(ct_connection_t* connection, uint64_t stream_
     log_error("Cannot set conncetion stream for connection %s, stream state is NULL", connection->uuid);
     return;
   }
+  
   log_debug("Setting QUIC stream ID %llu for connection %s", (unsigned long long)stream_id, connection->uuid);
   stream_state->stream_id = stream_id;
   stream_state->stream_initialized = true;
@@ -665,58 +666,58 @@ int picoquic_callback(picoquic_cnx_t* cnx,
     case picoquic_callback_stream_data:
       log_debug("Received %zu bytes on stream %llu", length, (unsigned long long)stream_id);
 
+      connection = (ct_connection_t*)v_stream_ctx;
       // Check if this is a new stream (stream context is NULL)
-      if (!v_stream_ctx) {
+      if (!connection) {
         log_debug("Received data on new stream %llu from remote", (unsigned long long)stream_id);
 
         // Get the first connection
-        ct_connection_t* first_connection = ct_connection_group_get_first(connection_group);
-        if (!first_connection) {
+        connection = ct_connection_group_get_first(connection_group);
+        if (!connection) {
           log_error("No connections in group when receiving new stream");
           return -EINVAL;
         }
 
         // If we have received a new stream, but the first connection already has a stream initialized,
-        if (ct_connection_stream_is_initialized(first_connection)) {
+        if (ct_connection_stream_is_initialized(connection)) {
           log_info("Received stream id is: %llu", (unsigned long long)stream_id);
-          if (ct_connection_is_server(first_connection)) {
+          if (ct_connection_is_server(connection)) {
             log_info("Received new remote-initiated stream on server connection");
 
             // Create new connection for this stream by cloning the first connection
-            ct_connection_t* new_stream_connection = ct_connection_create_clone(first_connection, first_connection->socket_manager, NULL, ct_quic_stream_state_new());
-            if (!new_stream_connection) {
+            connection = ct_connection_create_clone(connection, connection->socket_manager, NULL, ct_quic_stream_state_new());
+            if (!connection) {
               log_error("Failed to create cloned connection for new stream");
               return -ENOMEM;
             }
 
             // Set the stream ID on the cloned connection so responses go to the correct stream
-            ct_quic_set_connection_stream(new_stream_connection, stream_id);
+            ct_quic_set_connection_stream(connection, stream_id);
 
-            int rc = picoquic_set_app_stream_ctx(cnx, stream_id, new_stream_connection);
+            int rc = picoquic_set_app_stream_ctx(cnx, stream_id, connection);
             if (rc < 0) {
               log_error("Failed to set stream context for new stream connection: %d", rc);
               return rc;
             }
 
-            ct_quic_socket_state_t* socket_state = ct_connection_get_quic_socket_state(new_stream_connection);
+            ct_quic_socket_state_t* socket_state = ct_connection_get_quic_socket_state(connection);
             ct_listener_t* listener = socket_state->socket_manager->listener;
             if (listener) {
-              ct_connection_mark_as_established(new_stream_connection);
+              ct_connection_mark_as_established(connection);
 
-              int rc = resolve_local_endpoint_from_handle((uv_handle_t*)socket_state->udp_handle, new_stream_connection);
+              int rc = resolve_local_endpoint_from_handle((uv_handle_t*)socket_state->udp_handle, connection);
               if (rc < 0) {
                 log_error("Failed to get UDP socket name: %s", uv_strerror(rc));
               }
-              listener->listener_callbacks.connection_received(listener, new_stream_connection);
+              listener->listener_callbacks.connection_received(listener, connection);
             } else {
               log_warn("Received new stream but listener has been closed, not notifying application");
             }
 
             // Use helper function to handle received data
-            return handle_stream_data(new_stream_connection, bytes, length);
-          } if (ct_connection_is_client(first_connection)) {
+            return handle_stream_data(connection, bytes, length);
+          } else if (ct_connection_is_client(connection)) {
             log_error("Received new remote-initiated stream on client connection - multi-streaming not yet implemented");
-            log_info("Stream id is: %d", stream_id);
             return -ENOSYS;
           } else {
             log_error("Unknown connection role when handling new remote-initiated stream");
@@ -725,23 +726,15 @@ int picoquic_callback(picoquic_cnx_t* cnx,
         } else {
           log_debug("First connection has uninitialized stream, using it for stream %llu", (unsigned long long)stream_id);
 
-          ct_quic_set_connection_stream(first_connection, stream_id);
-          int rc = picoquic_set_app_stream_ctx(cnx, stream_id, first_connection);
+          ct_quic_set_connection_stream(connection, stream_id);
+          int rc = picoquic_set_app_stream_ctx(cnx, stream_id, connection);
           if (rc < 0) {
             log_error("Failed to set stream context for first connection: %d", rc);
             return rc;
           }
-
-          // Use helper function to handle received data
-          return handle_stream_data(first_connection, bytes, length);
         }
-      } else {
-        // Existing stream - get connection from stream context
-        connection = (ct_connection_t*)v_stream_ctx;
-        log_trace("Got connection %s from stream context for stream %llu", connection->uuid, (unsigned long long)stream_id);
-        // Use helper function to handle received data
-        return handle_stream_data(connection, bytes, length);
       }
+      return handle_stream_data(connection, bytes, length);
       break;
     case picoquic_callback_stream_fin:
       connection = (ct_connection_t*)v_stream_ctx;
