@@ -218,6 +218,7 @@ int udp_init_with_send(ct_connection_t* connection, const ct_connection_callback
   (void)connection_callbacks;
   log_debug("Initiating UDP connection\n");
 
+  ct_socket_manager_t* socket_manager = connection->socket_manager;
   uv_udp_t* new_udp_handle = create_udp_listening_on_local(connection->local_endpoint, alloc_buffer, on_read);
   if (!new_udp_handle) {
     log_error("Failed to create UDP handle for connection");
@@ -235,7 +236,7 @@ int udp_init_with_send(ct_connection_t* connection, const ct_connection_callback
   ct_udp_socket_state_t* socket_state = ct_udp_socket_state_new(new_udp_handle);
 
   ct_connection_set_socket_state(connection, socket_state);
-  new_udp_handle->data = connection->socket_manager;
+  new_udp_handle->data = socket_manager;
 
   ct_connection_mark_as_established(connection);
 
@@ -243,12 +244,7 @@ int udp_init_with_send(ct_connection_t* connection, const ct_connection_callback
     udp_send(connection, initial_message, initial_message_context);
   }
 
-  if (connection->connection_callbacks.ready) {
-    connection->connection_callbacks.ready(connection);
-  }
-  else {
-    log_warn("No ready callback set for UDP connection");
-  }
+  socket_manager->callbacks.connection_ready(connection);
   return 0;
 }
 
@@ -399,9 +395,7 @@ int udp_clone_connection(const struct ct_connection_s* source_connection, struct
   }
 
   ct_connection_mark_as_established(target_connection);
-  if (target_connection->connection_callbacks.ready) {
-    target_connection->connection_callbacks.ready(target_connection);
-  }
+  clone_socket_manager->callbacks.connection_ready(target_connection);
 
   return 0;
 }

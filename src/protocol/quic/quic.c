@@ -611,7 +611,8 @@ int picoquic_callback(picoquic_cnx_t* cnx,
         return -EINVAL;
       }
 
-      ct_quic_socket_state_t* socket_state = ct_connection_get_quic_socket_state(connection);
+      ct_socket_manager_t* socket_manager = connection->socket_manager;
+      ct_quic_socket_state_t* socket_state = socket_manager->internal_socket_manager_state;
       if (socket_state->initial_message) {
         ct_message_free(socket_state->initial_message);
         socket_state->initial_message = NULL;
@@ -655,9 +656,7 @@ int picoquic_callback(picoquic_cnx_t* cnx,
         }
         log_debug("Client connection ready, notifying application");
         ct_connection_mark_as_established(connection);
-        if (connection->connection_callbacks.ready) {
-          connection->connection_callbacks.ready(connection);
-        }
+        socket_manager->callbacks.connection_ready(connection);
       }
       else {
         log_error("Unknown connection role in picoquic ready callback");
@@ -1467,7 +1466,8 @@ void quic_abort(ct_connection_t* connection) {
 
 int quic_clone_connection(const struct ct_connection_s* source_connection, struct ct_connection_s* target_connection) {
   log_debug("Creating clone of QUIC connection using multistreaming");
-  int rc = socket_manager_insert_connection(source_connection->socket_manager, target_connection->remote_endpoint, target_connection);
+  ct_socket_manager_t* socket_manager = source_connection->socket_manager;
+  int rc = socket_manager_insert_connection(socket_manager, target_connection->remote_endpoint, target_connection);
   if (rc < 0) {
     log_error("Failed to insert cloned connection into socket manager: %d", rc);
     return rc;
@@ -1479,13 +1479,7 @@ int quic_clone_connection(const struct ct_connection_s* source_connection, struc
   ct_connection_mark_as_established(target_connection);
 
   log_debug("QUIC cloned connection ready: %s", target_connection->uuid);
-  // call ready callback of target connection
-  if (target_connection->connection_callbacks.ready) {
-    target_connection->connection_callbacks.ready(target_connection);
-  }
-  else {
-    log_debug("No ready callback defined for cloned connection %s", target_connection->uuid);
-  }
+  socket_manager->callbacks.connection_ready(target_connection);
   return 0;
 }
 

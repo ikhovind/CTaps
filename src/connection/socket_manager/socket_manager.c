@@ -194,6 +194,27 @@ void ct_socket_manager_establishment_error_cb(ct_connection_t* connection) {
   }
 }
 
+void ct_socket_manager_connection_ready_cb(ct_connection_t* connection) {
+  ct_socket_manager_t* socket_manager = connection->socket_manager;
+  log_debug("Socket manager connection ready callback invoked for connection: %s", connection->uuid);
+  ct_connection_mark_as_established(connection);
+  if (socket_manager->listener) {
+    ct_listener_t* listener = socket_manager->listener;
+    if (listener->listener_callbacks.connection_received) {
+      listener->listener_callbacks.connection_received(listener, connection);
+    }
+    else {
+      log_debug("No listener connection received callback registered for listener");
+    }
+  }
+  else if (connection->connection_callbacks.ready) {
+    connection->connection_callbacks.ready(connection);
+  }
+  else {
+    log_debug("No connection ready callback registered for connection: %s", connection->uuid);
+  }
+}
+
 void ct_socket_manager_aborted_connection_cb(ct_connection_t* connection) {
   ct_socket_manager_t* socket_manager = connection->socket_manager;
   log_debug("Socket manager aborted connection callback invoked for connection: %s", connection->uuid);
@@ -278,6 +299,7 @@ ct_socket_manager_t* ct_socket_manager_new(const ct_protocol_impl_t* protocol_im
   socket_manager->callbacks.closed_connection = ct_socket_manager_closed_connection_cb;
   socket_manager->callbacks.aborted_connection = ct_socket_manager_aborted_connection_cb;
   socket_manager->callbacks.establishment_error = ct_socket_manager_establishment_error_cb;
+  socket_manager->callbacks.connection_ready = ct_socket_manager_connection_ready_cb;
   log_debug("Created new socket manager: %p for protocol: %s", socket_manager, protocol_impl->name);
   return socket_manager;
 }

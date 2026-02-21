@@ -201,9 +201,7 @@ void on_clone_connect(struct uv_connect_s *req, int status) {
   ct_connection_mark_as_established(connection);
 
   // Call ready callback to notify that cloned connection is established
-  if (connection->connection_callbacks.ready) {
-    connection->connection_callbacks.ready(connection);
-  }
+  socket_manager->callbacks.connection_ready(connection);
 }
 
 void on_connect(struct uv_connect_s *req, int status) {
@@ -222,9 +220,7 @@ void on_connect(struct uv_connect_s *req, int status) {
     tcp_send(connection, socket_state->initial_message, socket_state->initial_message_context);
   }
 
-  if (connection->connection_callbacks.ready) {
-    connection->connection_callbacks.ready(connection);
-  }
+  socket_manager->callbacks.connection_ready(connection);
 }
 
 void on_write(uv_write_t* req, int status) {
