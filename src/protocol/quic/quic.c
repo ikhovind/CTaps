@@ -624,20 +624,11 @@ int picoquic_callback(picoquic_cnx_t* cnx,
 
       if (ct_connection_is_server(connection)) {
         log_debug("Server connection ready, notifying listener");
-        ct_listener_t* listener = socket_state->socket_manager->listener;
-
         int rc = resolve_local_endpoint_from_handle((uv_handle_t*)socket_state->udp_handle, connection);
         if (rc < 0) {
           log_error("Failed to get UDP socket name: %s", uv_strerror(rc));
         }
-        ct_connection_mark_as_established(connection);
-        if (listener->listener_callbacks.connection_received) {
-          log_debug("Invoking listener connection received callback for new server connection");
-          listener->listener_callbacks.connection_received(listener, connection);
-        }
-        else {
-          log_warn("No connection received callback set on listener");
-        }
+        socket_manager->callbacks.connection_ready(connection);
       }
       else if (ct_connection_is_client(connection)) {
         if (picoquic_tls_is_psk_handshake(cnx)) {
@@ -655,7 +646,6 @@ int picoquic_callback(picoquic_cnx_t* cnx,
           log_trace("Client connection did not use 0-RTT");
         }
         log_debug("Client connection ready, notifying application");
-        ct_connection_mark_as_established(connection);
         socket_manager->callbacks.connection_ready(connection);
       }
       else {
@@ -699,16 +689,18 @@ int picoquic_callback(picoquic_cnx_t* cnx,
               return rc;
             }
 
-            ct_quic_socket_state_t* socket_state = ct_connection_get_quic_socket_state(connection);
-            ct_listener_t* listener = socket_state->socket_manager->listener;
+            ct_socket_manager_t* socket_manager = connection->socket_manager;
+            ct_quic_socket_state_t* socket_state = socket_manager->internal_socket_manager_state;
+            ct_listener_t* listener = socket_manager->listener;
             if (listener) {
               ct_connection_mark_as_established(connection);
 
               int rc = resolve_local_endpoint_from_handle((uv_handle_t*)socket_state->udp_handle, connection);
               if (rc < 0) {
                 log_error("Failed to get UDP socket name: %s", uv_strerror(rc));
+                return rc;
               }
-              listener->listener_callbacks.connection_received(listener, connection);
+              socket_manager->callbacks.connection_ready(connection);
             } else {
               log_warn("Received new stream but listener has been closed, not notifying application");
             }
@@ -1476,9 +1468,6 @@ int quic_clone_connection(const struct ct_connection_s* source_connection, struc
   ct_quic_stream_state_t* target_state = (target_connection->internal_connection_state);
   target_state->stream_id = 0;
   target_state->stream_initialized = false;
-  ct_connection_mark_as_established(target_connection);
-
-  log_debug("QUIC cloned connection ready: %s", target_connection->uuid);
   socket_manager->callbacks.connection_ready(target_connection);
   return 0;
 }

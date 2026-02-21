@@ -120,7 +120,7 @@ void udp_multiplex_received_message(ct_socket_manager_t* socket_manager, char* b
 
     ct_udp_socket_state_t* socket_state = (ct_udp_socket_state_t*)socket_manager->internal_socket_manager_state;
     log_debug("Calling connection received for UDP connection with handle: %p", socket_state->udp_handle);
-    socket_manager->listener->listener_callbacks.connection_received(socket_manager->listener, connection);
+    socket_manager->callbacks.connection_ready(connection);
   }
   ct_connection_on_protocol_receive(connection, buf, len);
 }
@@ -237,8 +237,6 @@ int udp_init_with_send(ct_connection_t* connection, const ct_connection_callback
 
   ct_connection_set_socket_state(connection, socket_state);
   new_udp_handle->data = socket_manager;
-
-  ct_connection_mark_as_established(connection);
 
   if (initial_message) {
     udp_send(connection, initial_message, initial_message_context);
@@ -393,8 +391,6 @@ int udp_clone_connection(const struct ct_connection_s* source_connection, struct
     uv_close((uv_handle_t*)new_udp_handle, closed_handle_cb);
     return rc;
   }
-
-  ct_connection_mark_as_established(target_connection);
   clone_socket_manager->callbacks.connection_ready(target_connection);
 
   return 0;

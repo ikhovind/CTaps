@@ -198,9 +198,6 @@ void on_clone_connect(struct uv_connect_s *req, int status) {
     ct_connection_close(connection);
     return;
   }
-  ct_connection_mark_as_established(connection);
-
-  // Call ready callback to notify that cloned connection is established
   socket_manager->callbacks.connection_ready(connection);
 }
 
@@ -215,11 +212,9 @@ void on_connect(struct uv_connect_s *req, int status) {
   }
   log_info("Successfully connected to remote endpoint using TCP");
   uv_read_start((uv_stream_t*)socket_state->tcp_handle, alloc_cb, tcp_on_read);
-  ct_connection_mark_as_established(connection);
   if (socket_state->initial_message) {
     tcp_send(connection, socket_state->initial_message, socket_state->initial_message_context);
   }
-
   socket_manager->callbacks.connection_ready(connection);
 }
 
@@ -538,15 +533,7 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
   }
 
   log_trace("TCP invoking new connection callback");
-  ct_connection_mark_as_established(server_conn);
-  if (listener->listener_callbacks.connection_received) {
-    log_debug("Invoking connection received callback for listener");
-    log_debug("Listener: %p, server_conn: %p", listener, server_conn);
-    listener->listener_callbacks.connection_received(listener, server_conn);
-  }
-  else {
-    log_debug("No connection received callback registered for listener");
-  }
+  server_conn_socket_manager->callbacks.connection_ready(server_conn);
 }
 
 int tcp_stop_listen(ct_socket_manager_t* socket_manager) {
