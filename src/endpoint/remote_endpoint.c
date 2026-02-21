@@ -117,7 +117,7 @@ int ct_remote_endpoint_resolve(const ct_remote_endpoint_t* remote_endpoint, ct_r
 
   if (remote_endpoint->hostname != NULL) {
     log_debug("Endpoint was a hostname, performing DNS lookup for %s", remote_endpoint->hostname);
-    perform_dns_lookup(remote_endpoint->hostname, NULL, out_list, out_count, NULL);
+    perform_dns_lookup(remote_endpoint->hostname, remote_endpoint->service, out_list, out_count, NULL);
     for (size_t i = 0; i < *out_count; i++) {
       (*out_list)[i].port = assigned_port;
       // set port in resolved_address
