@@ -421,6 +421,12 @@ void ct_udp_socket_state_free(ct_udp_socket_state_t* socket_state) {
   free(socket_state);
 }
 
+void socket_closed_success(uv_handle_t* handle) {
+  log_debug("UDP socket closed successfully");
+  ct_socket_manager_t* socket_manager = (ct_socket_manager_t*)handle->data;
+  socket_manager->callbacks.socket_closed(socket_manager);
+}
+
 int udp_close_socket(ct_socket_manager_t* socket_manager) {
   if (!socket_manager) {
     log_error("NULL parameter passed to udp close socket");
@@ -428,7 +434,7 @@ int udp_close_socket(ct_socket_manager_t* socket_manager) {
   }
   ct_udp_socket_state_t* socket_state = socket_manager->internal_socket_manager_state;
   uv_udp_recv_stop(socket_state->udp_handle);
-  uv_close((uv_handle_t*)socket_state->udp_handle, closed_handle_cb);
+  uv_close((uv_handle_t*)socket_state->udp_handle, socket_closed_success);
   return 0;
 }
 

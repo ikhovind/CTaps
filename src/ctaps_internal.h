@@ -375,6 +375,7 @@ typedef struct ct_socket_manager_callbacks_s {
   void (*aborted_connection)(ct_connection_t* connection);
   void (*establishment_error)(ct_connection_t* connection);
   void (*connection_ready)(ct_connection_t* connection);
+  void (*socket_closed)(struct ct_socket_manager_s* socket_manager);
 } ct_socket_manager_callbacks_t;
 
 

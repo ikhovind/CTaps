@@ -103,11 +103,11 @@ void ct_free_quic_stream_state(ct_quic_stream_state_t* state) {
 }
 
 // Forward declarations
-void on_quic_context_timer(uv_timer_t* timer_handle);
+void on_socket_timer(uv_timer_t* timer_handle);
 void quic_closed_udp_handle_cb(uv_handle_t* handle);
 
-static void quic_context_timer_close_cb(uv_handle_t* handle) {
-  log_trace("Successfully closed QUIC context timer handle: %p", handle);
+static void socket_timer_close_cb(uv_handle_t* handle) {
+  log_trace("Successfully closed socket state timer handle: %p", handle);
   ct_socket_manager_t* socket_manager = (ct_socket_manager_t*)handle->data;
   ct_quic_socket_state_t* quic_ctx = (ct_quic_socket_state_t*)socket_manager->internal_socket_manager_state;
   if (quic_ctx && quic_ctx->ticket_store_path) {
@@ -119,7 +119,7 @@ static void quic_context_timer_close_cb(uv_handle_t* handle) {
     }
   }
   if (quic_ctx->udp_handle) {
-    log_debug("Stopping and closing QUIC context UDP handle");
+    log_debug("Stopping and closing socket state UDP handle");
     uv_udp_recv_stop(quic_ctx->udp_handle);
     uv_close((uv_handle_t*)quic_ctx->udp_handle, quic_closed_udp_handle_cb);
   }
@@ -276,11 +276,10 @@ void ct_close_quic_context(ct_quic_socket_state_t* socket_state) {
     return;
   }
   log_trace("Closing QUIC context");
-  socket_state->socket_manager = NULL;
   if (socket_state->timer_handle) {
     log_debug("Stopping and closing QUIC context timer");
     uv_timer_stop(socket_state->timer_handle);
-    uv_close((uv_handle_t*)socket_state->timer_handle, quic_context_timer_close_cb);
+    uv_close((uv_handle_t*)socket_state->timer_handle, socket_timer_close_cb);
   }
 }
 
@@ -426,12 +425,13 @@ void reset_quic_timer(ct_quic_socket_state_t* quic_context) {
   }
   uint64_t next_wake_delay = picoquic_get_next_wake_delay(quic_context->picoquic_ctx, picoquic_get_quic_time(quic_context->picoquic_ctx), INT64_MAX - 1);
   log_trace("Resetting QUIC timer to fire in %llu ms", (unsigned long long)MICRO_TO_MILLI(next_wake_delay));
-  uv_timer_start(quic_context->timer_handle, on_quic_context_timer, MICRO_TO_MILLI(next_wake_delay), 0);
+  uv_timer_start(quic_context->timer_handle, on_socket_timer, MICRO_TO_MILLI(next_wake_delay), 0);
 }
 
 void quic_closed_udp_handle_cb(uv_handle_t* handle) {
   log_info("Successfully closed UDP handle for QUIC connection");
-  (void)handle;
+  ct_socket_manager_t* socket_manager = (ct_socket_manager_t*)handle->data;
+  socket_manager->callbacks.socket_closed(socket_manager);
 }
 
 int handle_closed_picoquic_connection(ct_connection_group_t* connection_group) {
@@ -457,12 +457,7 @@ int handle_closed_picoquic_connection(ct_connection_group_t* connection_group) {
 
   for (guint i = 0; i < connections_to_notify->len; i++) {
       ct_connection_t* conn = g_ptr_array_index(connections_to_notify, i);
-      if(socket_manager && socket_manager->callbacks.closed_connection) {
-        socket_manager->callbacks.closed_connection(conn);
-      }
-      else {
-        log_debug("No connection closed callback set for connection: %s", conn->uuid);
-      }
+      socket_manager->callbacks.closed_connection(conn);
   }
   g_ptr_array_free(connections_to_notify, true);
   return 0;
@@ -732,10 +727,6 @@ int picoquic_callback(picoquic_cnx_t* cnx,
           return rc;
         }
       }
-      // Set this a bit prematurely handle_stream_fin doesn't think the connection is already fully closed
-      if (is_new_connection) {
-        ct_connection_set_can_send(connection, true);
-      }
       handle_stream_fin(connection);
       if (is_new_connection) {
         connection->socket_manager->callbacks.connection_ready(connection);
@@ -779,10 +770,10 @@ int picoquic_callback(picoquic_cnx_t* cnx,
       uint64_t error = picoquic_get_remote_error(cnx);
       ct_quic_connection_group_set_close_initiated(connection_group, true);
       if (error != 0) {
-        log_info("Connection closed by peer with error code: %llu", (unsigned long long)error);
+        log_info("QUIC connection closed by peer with error code: %llu", (unsigned long long)error);
         rc = handle_aborted_picoquic_connection_group(connection_group);
       } else {
-        log_info("Connection closed by peer without error");
+        log_debug("QUIC connection %s closed by peer without error", connection_group->connection_group_id);
         rc = handle_closed_picoquic_connection(connection_group);
       }
 
@@ -976,7 +967,7 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
   reset_quic_timer(socket_state);
 }
 
-void on_quic_context_timer(uv_timer_t* timer_handle) {
+void on_socket_timer(uv_timer_t* timer_handle) {
   ct_socket_manager_t* socket_manager = (ct_socket_manager_t*)timer_handle->data;
   ct_quic_socket_state_t* quic_ctx = (ct_quic_socket_state_t*)socket_manager->internal_socket_manager_state;
   if (!quic_ctx || !quic_ctx->picoquic_ctx) {
@@ -1381,7 +1372,7 @@ int quic_close(ct_connection_t* connection) {
 
             // Force immediate packet preparation and sending
             ct_quic_socket_state_t* socket_state = connection->socket_manager->internal_socket_manager_state;
-            on_quic_context_timer(socket_state->timer_handle);
+            on_socket_timer(socket_state->timer_handle);
         }
     } else {
         log_debug("No more active connections in group, closing entire QUIC connection");

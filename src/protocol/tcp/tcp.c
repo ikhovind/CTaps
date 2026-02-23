@@ -629,6 +629,7 @@ int tcp_clone_connection(const struct ct_connection_s* source_connection,
     uv_close((uv_handle_t*)new_tcp_handle, on_libuv_close);
     return rc;
   }
+  socket_manager_insert_connection(socket_manager, ct_connection_get_remote_endpoint(target_connection), target_connection);
 
   log_info("TCP clone connection initiated, establishing asynchronously");
   return 0;
@@ -647,7 +648,7 @@ int tcp_free_connection_group_state(ct_connection_group_t* connection_group) {
 int tcp_close_socket(ct_socket_manager_t* socket_manager) {
   // NO-op, since the socket is closed when the connection
   // is closed
-  (void)socket_manager;
+  socket_manager->callbacks.socket_closed(socket_manager);
   return 0;
 }
 

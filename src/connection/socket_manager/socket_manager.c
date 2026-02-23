@@ -143,25 +143,48 @@ void ct_socket_manager_close(ct_socket_manager_t* socket_manager) {
   socket_manager->protocol_impl->close_socket(socket_manager);
 }
 
+void ct_socket_manager_closed_socket_cb(ct_socket_manager_t* socket_manager) {
+  log_debug("Socket manager socket closed callback invoked");
+  for (GSList* node = socket_manager->all_connections; node != NULL; node = node->next) {
+    log_debug("Checking connection: %s for closed socket notification", ((ct_connection_t*)node->data)->uuid);
+    ct_connection_t* conn = (ct_connection_t*)node->data;
+    if (!ct_connection_is_closed(conn)) {
+      log_debug("Connection: %s is still open, adding to list of connections to notify for closed socket", conn->uuid);
+      ct_connection_mark_as_closed(conn);
+      if(conn->connection_callbacks.closed) {
+        conn->connection_callbacks.closed(conn);
+      }
+      // Only one open connection should be possible
+      return;
+    }
+  }
+}
+
 void ct_socket_manager_closed_connection_cb(ct_connection_t* connection) {
   ct_socket_manager_t* socket_manager = connection->socket_manager;
   log_debug("Socket manager closed connection callback invoked for connection: %s", connection->uuid);
-  ct_connection_mark_as_closed(connection);
 
   if (!socket_manager->listener || socket_manager->listener->state == CT_LISTENER_STATE_CLOSED) {
     log_debug("socket manager has closed/no attched listener, checking num open connections");
     int num_open = ct_socket_manager_get_num_open_connections(socket_manager);
-    if (num_open == 0) {
-      log_debug("Socket manager now has no open connections, closing entire socket manager");
+    if (num_open <= 1) {
+      log_debug("The final open connection in socket manager is now closed, closing entire socket manager");
       ct_socket_manager_close(socket_manager);
+      return;
     }
     else {
       log_debug("Socket manager has %d open connections, not closing socket manager", num_open);
     }
   }
   else {
-    log_debug("Socket manager %p has attached listener, not closing socket manager", socket_manager);
+    log_debug("Socket manager %p has open listener, not closing socket manager", socket_manager);
   }
+  // Only mark as closed if it is not the final connection. For the
+  // final connection we wait for the socket to close before marking
+  // as closed and notifying the application. Otherwise the application
+  // could invoke ct_connection_free() while the connection is still
+  // working on closing the socket state
+  ct_connection_mark_as_closed(connection);
   if (connection->connection_callbacks.closed) {
     connection->connection_callbacks.closed(connection);
   }
@@ -300,6 +323,7 @@ ct_socket_manager_t* ct_socket_manager_new(const ct_protocol_impl_t* protocol_im
   socket_manager->callbacks.aborted_connection = ct_socket_manager_aborted_connection_cb;
   socket_manager->callbacks.establishment_error = ct_socket_manager_establishment_error_cb;
   socket_manager->callbacks.connection_ready = ct_socket_manager_connection_ready_cb;
+  socket_manager->callbacks.socket_closed = ct_socket_manager_closed_socket_cb;
   log_debug("Created new socket manager: %p for protocol: %s", socket_manager, protocol_impl->name);
   return socket_manager;
 }
