@@ -86,6 +86,11 @@ int preconnection_race_with_send_after_ready(ct_preconnection_t* preconnection,
 
 int preconnection_race(ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks);
 
+/*
+ * Callback for when a candidate node array is ready.
+ */
+void start_candidate_racing_on_nodes_ready(GArray* candidate_nodes, void* context);
+
 /**
  * @brief Frees a racing context and all associated resources.
  *

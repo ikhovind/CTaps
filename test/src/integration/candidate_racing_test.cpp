@@ -308,7 +308,7 @@ TEST_F(CandidateRacingTests, HandlesNoCandidates) {
   // Execute
   int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
 
-  ASSERT_EQ(rc, -EINVAL);
+  ASSERT_EQ(rc, 0);
 
   ct_start_event_loop();
 

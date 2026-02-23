@@ -593,25 +593,17 @@ int branch_by_remote(GNode* parent, const ct_remote_endpoint_t* remote_ep) {
   return 0;
 }
 
-/**
- * @brief Get an array of candidate nodes. Internally builds a tree
- * as described in RFC9623 and then prunes it. It then gets all the
- * leaf nodes and sorts them according to preferences/avoids
- *
- * @param precon A pointer to a valid ct_preconnection_t object.
- * @return A GArray Containing all the candidate nodes, ordered by preference.
- */
-GArray* get_ordered_candidate_nodes(const ct_preconnection_t* precon) {
+int get_ordered_candidate_nodes(const ct_preconnection_t* precon, ct_candidate_gathering_callbacks_t callbacks) {
   log_info("Creating candidate node tree from preconnection");
   if (!precon) {
     log_error("NULL preconnection provided");
-    return NULL;
+    return -EINVAL;
   }
 
   GNode* root_node = build_candidate_tree(precon);
   if (!root_node) {
     log_error("Could not build candidate tree");
-    return NULL;
+    return -ENOMEM;
   }
 
   prune_candidate_tree(root_node, preconnection_get_transport_properties(precon)->selection_properties);
@@ -642,7 +634,8 @@ GArray* get_ordered_candidate_nodes(const ct_preconnection_t* precon) {
     log_warn("No candidate nodes found after pruning");
   }
 
-  return root_array;
+  callbacks.candidate_node_array_ready_cb(root_array, callbacks.context);
+  return 0;
 }
 
 
