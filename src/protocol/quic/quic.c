@@ -613,6 +613,23 @@ static int resolve_or_create_stream_connection(
             }
         }
 
+        bool server_initiated = (stream_id & 1U) != 0;
+        bool unidirectional = (stream_id & 2U) != 0;
+        bool can_send = false;
+        bool can_receive = false;
+        if (picoquic_is_client(cnx)) {
+          log_debug("New stream %llu is for client connection, determining send/receive capabilities based on stream ID", (unsigned long long)stream_id);
+          can_receive = server_initiated || !unidirectional;
+          can_send = !server_initiated || !unidirectional;
+        }
+        else {
+          log_debug("New stream %llu is for server connection, determining send/receive capabilities based on stream ID", (unsigned long long)stream_id);
+          can_receive = !server_initiated || !unidirectional;
+          can_send = server_initiated || !unidirectional;
+        }
+        log_debug("Stream %llu capabilities - can_send: %d, can_receive: %d", (unsigned long long)stream_id, can_send, can_receive);
+        ct_connection_set_can_send(connection, can_send);
+        ct_connection_set_can_receive(connection, can_receive);
         ct_quic_set_connection_stream(connection, stream_id);
         int rc = picoquic_set_app_stream_ctx(cnx, stream_id, connection);
         if (rc < 0) {
