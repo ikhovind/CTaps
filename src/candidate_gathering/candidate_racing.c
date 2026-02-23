@@ -20,19 +20,53 @@ static int racing_on_attempt_ready(struct ct_connection_s* connection);
 static int on_attempt_establishment_error(ct_connection_t* connection);
 static void cancel_all_other_attempts(ct_racing_context_t* context, size_t winning_index);
 static int start_connection_attempt(ct_racing_context_t* context, ct_racing_attempt_t* attempt);
+void handle_concluded_attempt(ct_racing_context_t* context);
+
+
+void register_failed_attempt(ct_racing_context_t* context, ct_racing_attempt_t* attempt) {
+  attempt->state = ATTEMPT_STATE_FAILED;
+  context->completed_attempts++;
+  handle_concluded_attempt(context);
+}
+
+void register_canceled_attempt(ct_racing_context_t* context, ct_racing_attempt_t* attempt) {
+  attempt->state = ATTEMPT_STATE_CANCELED;
+  context->completed_attempts++;
+  handle_concluded_attempt(context);
+}
+
+void register_succesful_attempt(ct_racing_context_t* context, ct_racing_attempt_t* attempt) {
+  attempt->state = ATTEMPT_STATE_SUCCEEDED;
+  context->completed_attempts++;
+  context->winning_attempt_index = attempt->attempt_index;
+  context->race_complete = true;
+  handle_concluded_attempt(context);
+}
 
 
 
-
-int free_connection_on_close_cb(ct_connection_t* connection) {
+int raced_connection_close_cb(ct_connection_t* connection) {
   log_trace("Freeing failed connection: %s created in candidate racing", connection->uuid);
+  ct_racing_attempt_t* attempt = (ct_racing_attempt_t*)connection->connection_callbacks.user_connection_context;
+  register_canceled_attempt(attempt->context, attempt);
   ct_connection_free(connection);
   return 0;
 }
 
 bool all_attempts_failed(ct_racing_context_t* context) {
   for (size_t i = 0; i < context->num_attempts; i++) {
-    if (context->attempts[i].state != ATTEMPT_STATE_FAILED) {
+    if (context->attempts[i].state != ATTEMPT_STATE_FAILED && context->attempts[i].state != ATTEMPT_STATE_CANCELED) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool all_attempts_concluded(ct_racing_context_t* context) {
+  for (size_t i = 0; i < context->num_attempts; i++) {
+    if (context->attempts[i].state != ATTEMPT_STATE_FAILED
+      && context->attempts[i].state != ATTEMPT_STATE_CANCELED
+      && context->attempts[i].state != ATTEMPT_STATE_SUCCEEDED) {
       return false;
     }
   }
@@ -81,9 +115,13 @@ void handle_all_attempts_failed(ct_racing_context_t* context) {
   initiate_context_close(context);
 }
 
-void register_failed_attempt(ct_racing_context_t* context, ct_racing_attempt_t* attempt) {
-  attempt->state = ATTEMPT_STATE_FAILED;
-  context->completed_attempts++;
+void handle_concluded_attempt(ct_racing_context_t* context) {
+  if (all_attempts_failed(context)) {
+    handle_all_attempts_failed(context);
+  }
+  else if (all_attempts_concluded(context)) {
+    initiate_context_close(context);
+  }
 }
 
 
@@ -224,14 +262,14 @@ int racing_on_attempt_ready(ct_connection_t* connection) {
 
   // Check if race is already complete (another attempt won)
   if (context->race_complete) {
+    // If we reach this, we have already called ct_connection_close on this succesfull
+    // connection, so do nothing here since we are waiting for the closed() callback
     log_debug("Race already complete, ignoring this success");
     return 0;
   }
 
   // Mark the race as complete
-  context->race_complete = true;
-  context->winning_attempt_index = (int)attempt->attempt_index;
-  attempt->state = ATTEMPT_STATE_SUCCEEDED;
+  register_succesful_attempt(context, attempt);
 
   cancel_all_other_attempts(context, attempt->attempt_index);
 
@@ -250,9 +288,6 @@ int racing_on_attempt_ready(ct_connection_t* connection) {
       }
     }
   }
-
-  log_debug("Freeing racing context after having found successful candidate");
-  racing_context_free(context);
 
   // Call the user's ready callback with the winning connection
   if (connection->connection_callbacks.ready) {
@@ -281,10 +316,6 @@ static int on_attempt_establishment_error(ct_connection_t* connection) {
 
   register_failed_attempt(context, attempt);
   ct_connection_free(connection);
-  if (all_attempts_failed(context)) {
-    log_error("All connection attempts have failed");
-    handle_all_attempts_failed(context);
-  }
   return 0;
 }
 
@@ -302,12 +333,17 @@ static void cancel_all_other_attempts(ct_racing_context_t* context, size_t winni
     ct_racing_attempt_t* attempt = &context->attempts[i];
     if (attempt->state == ATTEMPT_STATE_CONNECTING) {
       log_debug("Canceling attempt %zu", i);
-      attempt->state = ATTEMPT_STATE_CANCELED;
+      attempt->state = ATTEMPT_STATE_CLOSING;
 
       if (attempt->connection) {
-        attempt->connection->connection_callbacks.closed = free_connection_on_close_cb;
+        attempt->connection->connection_callbacks.closed = raced_connection_close_cb;
         ct_connection_close(attempt->connection);
       }
+    }
+    if (attempt->state == ATTEMPT_STATE_PENDING) {
+      // This attempt hasn't started yet, so just mark it as canceled
+      log_debug("Marking pending attempt %zu as canceled", i);
+      register_canceled_attempt(context, attempt);
     }
   }
 

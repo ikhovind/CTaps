@@ -15,6 +15,7 @@
 typedef enum {
   ATTEMPT_STATE_PENDING,      // Not yet started
   ATTEMPT_STATE_CONNECTING,   // ct_connection_t attempt in progress
+  ATTEMPT_STATE_CLOSING,      // ct_connection_t is being closed
   ATTEMPT_STATE_SUCCEEDED,    // ct_connection_t established successfully
   ATTEMPT_STATE_FAILED,       // ct_connection_t attempt failed
   ATTEMPT_STATE_CANCELED,     // Canceled due to another attempt succeeding
