@@ -30,6 +30,7 @@ int tcp_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* resol
 int tcp_clone_connection(const struct ct_connection_s* source_connection,
                          struct ct_connection_s* target_connection);
 int tcp_free_state(ct_connection_t* connection);
+int tcp_close_connection_group(ct_connection_group_t* connection_group);
 /**
   * @brief No-op, TCP is not multiplexed and therefore has no shared state across cloned connections.
   */

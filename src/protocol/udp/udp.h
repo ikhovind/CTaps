@@ -26,6 +26,7 @@ int udp_free_socket_state(ct_socket_manager_t* socket_manager);
   * @brief No-op, UDP is not multiplexed and therefore has no shared state across cloned connections.
   */
 int udp_free_connection_group_state(ct_connection_group_t* connection_group);
+int udp_close_connection_group(ct_connection_group_t* connection_group);
 
 // Protocol interface (definition in udp.c)
 extern const ct_protocol_impl_t udp_protocol_interface;

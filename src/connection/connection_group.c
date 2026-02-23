@@ -52,25 +52,6 @@ ct_connection_t* ct_connection_group_get_first(ct_connection_group_t* group) {
   return NULL;
 }
 
-void ct_connection_group_close_all(ct_connection_group_t* connection_group) {
-  log_info("Closing connection group: %s", connection_group->connection_group_id);
-  GHashTableIter iter;
-  gpointer key = NULL;
-  gpointer value = NULL;
-  g_hash_table_iter_init(&iter, connection_group->connections);
-  while (g_hash_table_iter_next(&iter, &key, &value)) {
-    ct_connection_t* connection = (ct_connection_t*)value;
-    log_debug("Checking member connection: %s in connection group for close", connection->uuid);
-    if (!ct_connection_is_closed_or_closing(connection)) {
-      log_debug("Closing member in connection group: %s", connection->uuid);
-      ct_connection_close(connection);
-    }
-    else {
-      log_trace("Member in connection group: %s was closed or closing already", connection->uuid);
-    }
-  }
-}
-
 void ct_connection_group_abort_all(ct_connection_group_t* connection_group) {
   log_info("Aborting connection group: %s", connection_group->connection_group_id);
   GHashTableIter iter;
@@ -213,8 +194,8 @@ void ct_connection_close_group(ct_connection_t* connection) {
     return;
   }
 
-  log_info("Closing all connections in group via connection %s", connection->uuid);
-  ct_connection_group_close_all(group);
+  log_info("Closing all connections in group: %s", group->connection_group_id);
+  ct_socket_manager_close_group(connection->socket_manager, group);
 }
 
 void ct_connection_abort_group(ct_connection_t* connection) {

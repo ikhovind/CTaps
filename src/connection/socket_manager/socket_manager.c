@@ -143,6 +143,14 @@ void ct_socket_manager_close(ct_socket_manager_t* socket_manager) {
   socket_manager->protocol_impl->close_socket(socket_manager);
 }
 
+int ct_socket_manager_close_group(ct_socket_manager_t* socket_manager, ct_connection_group_t* group) {
+  if (!socket_manager) {
+    log_warn("NULL socket manager parameter for ct_socket_manager_close_group");
+    return -EINVAL;
+  }
+  return socket_manager->protocol_impl->close_connection_group(group);
+}
+
 void ct_socket_manager_closed_socket_cb(ct_socket_manager_t* socket_manager) {
   log_debug("Socket manager socket closed callback invoked");
   for (GSList* node = socket_manager->all_connections; node != NULL; node = node->next) {

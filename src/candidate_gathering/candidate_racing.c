@@ -264,7 +264,7 @@ int racing_on_attempt_ready(ct_connection_t* connection) {
   if (context->race_complete) {
     // If we reach this, we have already called ct_connection_close on this succesfull
     // connection, so do nothing here since we are waiting for the closed() callback
-    log_debug("Race already complete, ignoring this success");
+    log_debug("Race already complete, ignoring success of attempt %zu", attempt->attempt_index);
     return 0;
   }
 
@@ -334,11 +334,8 @@ static void cancel_all_other_attempts(ct_racing_context_t* context, size_t winni
     if (attempt->state == ATTEMPT_STATE_CONNECTING) {
       log_debug("Canceling attempt %zu", i);
       attempt->state = ATTEMPT_STATE_CLOSING;
-
-      if (attempt->connection) {
-        attempt->connection->connection_callbacks.closed = raced_connection_close_cb;
-        ct_connection_close(attempt->connection);
-      }
+      attempt->connection->connection_callbacks.closed = raced_connection_close_cb;
+      ct_connection_close_group(attempt->connection);
     }
     if (attempt->state == ATTEMPT_STATE_PENDING) {
       // This attempt hasn't started yet, so just mark it as canceled

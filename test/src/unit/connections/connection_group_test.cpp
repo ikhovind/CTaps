@@ -19,62 +19,6 @@ FAKE_VOID_FUNC(fake_protocol_abort, ct_connection_t*);
 
 
 
-TEST(ConnectionGroupUnitTests, CloseAllClosesOnlyOpenConnections) {
-    RESET_FAKE(fake_protocol_close);
-
-    ct_protocol_impl_t protocol_impl;
-    protocol_impl.close = fake_protocol_close;
-    protocol_impl.protocol_enum = CT_PROTOCOL_TCP;
-    protocol_impl.name = "fake_protocol";
-
-    ct_socket_manager_t* socket_manager = ct_socket_manager_new(&protocol_impl, NULL);
-
-    ct_connection_group_t* group = generate_connection_group(4);
-    ct_connection_t* connections[4];
-
-    int counter = 0;
-    GHashTableIter iter;
-    gpointer key, value;
-    g_hash_table_iter_init(&iter, group->connections);
-    while (g_hash_table_iter_next(&iter, &key, &value)) {
-        ct_connection_t* conn = (ct_connection_t*)value;
-        conn->socket_manager = socket_manager;
-        connections[counter++] = conn;
-    }
-
-    // Connection 1: Established
-    ct_connection_mark_as_established(connections[0]);
-
-    // Connection 2: Already closed (should be skipped)
-    ct_connection_mark_as_closed(connections[1]);
-
-    // Connection 3: Established
-    ct_connection_mark_as_established(connections[2]);
-
-    // Connection 4: closing, should be skipped 
-    ct_connection_mark_as_closing(connections[3]);
-
-    ct_connection_group_close_all(group);
-
-    EXPECT_EQ(g_hash_table_size(group->connections), 4);
-
-    EXPECT_EQ(fake_protocol_close_fake.call_count, 2);
-
-    ct_connection_t* closed_conn1 = fake_protocol_close_fake.arg0_history[0];
-    ct_connection_t* closed_conn2 = fake_protocol_close_fake.arg0_history[1];
-
-    EXPECT_TRUE(connections[0] == closed_conn1 || connections[0] == closed_conn2);
-    EXPECT_TRUE(connections[2] == closed_conn1 || connections[2] == closed_conn2);
-
-    EXPECT_FALSE(closed_conn1 == closed_conn2);
-
-    // Cleanup
-    ct_connection_free(connections[0]);
-    ct_connection_free(connections[1]);
-    ct_connection_free(connections[2]);
-    ct_connection_free(connections[3]);
-}
-
 TEST(ConnectionGroupUnitTests, abortAllabortsOnlyOpenOrClosingConnections) {
     RESET_FAKE(fake_protocol_abort);
 

@@ -54,6 +54,7 @@ const ct_protocol_impl_t udp_protocol_interface = {
     .remote_endpoint_from_peer = udp_remote_endpoint_from_peer,
     .free_connection_state = udp_free_state,
     .free_socket_state = udp_free_socket_state,
+    .close_connection_group = udp_close_connection_group,
     .free_connection_group_state = udp_free_connection_group_state,
 };
 
@@ -446,4 +447,27 @@ int udp_free_socket_state(ct_socket_manager_t* socket_manager) {
   }
   ct_udp_socket_state_free(socket_manager->internal_socket_manager_state);
   return 0;
+}
+
+int udp_close_connection_group(ct_connection_group_t* connection_group) {
+  // Intermediate to avoid concurrent modification
+  GSList* connections = NULL;
+  int rc = 0;
+  GHashTableIter iter;
+  gpointer key = NULL;
+  gpointer value = NULL;
+  g_hash_table_iter_init(&iter, connection_group->connections);
+  while (g_hash_table_iter_next(&iter, &key, &value)) {
+    ct_connection_t* connection = (ct_connection_t*)value;
+    connections = g_slist_append(connections, connection);
+  }
+  for (GSList* node = connections; node != NULL; node = node->next) {
+    ct_connection_t* connection = (ct_connection_t*)node->data;
+    int inner_rc = udp_close(connection);
+    if (inner_rc < 0) {
+      log_error("Error closing connection %s in udp_close_connection_group: %d", connection->uuid, inner_rc);
+      rc = inner_rc;
+    }
+  }
+  return rc;
 }

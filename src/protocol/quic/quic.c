@@ -59,6 +59,7 @@ const ct_protocol_impl_t quic_protocol_interface = {
     .abort = quic_abort,
     .clone_connection = quic_clone_connection,
     .remote_endpoint_from_peer = quic_remote_endpoint_from_peer,
+    .close_connection_group = quic_close_connection_group,
     .free_connection_state = quic_free_state
 };
 
@@ -1617,4 +1618,10 @@ int quic_close_socket(ct_socket_manager_t* socket_manager) {
   ct_quic_socket_state_t* socket_state = socket_manager->internal_socket_manager_state;
   ct_close_quic_context(socket_state);
   return 0;
+}
+
+int quic_close_connection_group(ct_connection_group_t* connection_group) {
+  log_debug("Closing connection group: %s", connection_group->connection_group_id);
+  ct_quic_connection_group_state_t* group_state = (ct_quic_connection_group_state_t*)connection_group->connection_group_state;
+  return picoquic_close(group_state->picoquic_connection, 0);
 }

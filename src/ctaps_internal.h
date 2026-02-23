@@ -325,6 +325,8 @@ typedef struct ct_protocol_impl_s {
   /** @brief Free socket-specific state in a connection. */
   int (*free_socket_state)(struct ct_socket_manager_s* socket_manager);
 
+  int (*close_connection_group)(ct_connection_group_t* connection_group);
+
   /** @brief Free protocol-specific shared state in a connection group, useful for multiplexing */
   int (*free_connection_group_state)(ct_connection_group_t* connection_group);
 
