@@ -22,7 +22,7 @@ FAKE_VALUE_FUNC(int, faked_ct_remote_endpoint_resolve, const ct_remote_endpoint_
 extern "C" int __wrap_ct_local_endpoint_resolve(const ct_local_endpoint_t* ep, ct_local_endpoint_t** out, size_t* count) {
     return faked_ct_local_endpoint_resolve(ep, out, count);
 }
-extern "C" int __wrap_ct_remote_endpoint_resolve(ct_remote_endpoint_t* ep, ct_remote_endpoint_t** out, size_t* count) {
+extern "C" int __wrap_ct_remote_endpoint_resolve(const ct_remote_endpoint_t* ep, ct_remote_endpoint_t** out, size_t* count) {
     return faked_ct_remote_endpoint_resolve(ep, out, count);
 }
 
@@ -50,6 +50,12 @@ int remote_endpoint_resolve_fake_custom(const ct_remote_endpoint_t*, ct_remote_e
     return 0;
 }
 
+// Callback used by tests to capture the candidate array
+static void capture_candidate_array(GArray* candidate_array, void* context) {
+    GArray** out = (GArray**)context;
+    *out = candidate_array;
+}
+
 // --- Fixture ---
 class CandidateGatheringTest : public ::testing::Test {
 protected:
@@ -58,7 +64,7 @@ protected:
     ct_preconnection_t* preconnection = nullptr;
 
     void SetUp() override {
-        ct_set_log_level(CT_LOG_TRACE);
+        ct_set_log_level(CT_LOG_DEBUG);
         FFF_RESET_HISTORY();
         RESET_FAKE(faked_ct_local_endpoint_resolve);
         RESET_FAKE(faked_ct_remote_endpoint_resolve);
@@ -84,9 +90,23 @@ protected:
         ASSERT_NE(preconnection, nullptr);
     }
 
+    // Invoke candidate gathering and return the result via the capture callback.
+    // DNS resolution is mocked to return synchronously, so the callback is always
+    // invoked before get_ordered_candidate_nodes returns.
+    GArray* GatherCandidates() {
+        GArray* candidates = nullptr;
+        ct_candidate_gathering_callbacks_t callbacks = {
+            .candidate_node_array_ready_cb = capture_candidate_array,
+            .context = &candidates,
+        };
+        int rc = get_ordered_candidate_nodes(preconnection, callbacks);
+        EXPECT_EQ(rc, 0);
+        return candidates;
+    }
+
     void TearDown() override {
-        if (preconnection) ct_preconnection_free(preconnection);
-        if (props)         ct_transport_properties_free(props);
+        if (preconnection)   ct_preconnection_free(preconnection);
+        if (props)           ct_transport_properties_free(props);
         if (remote_endpoint) ct_remote_endpoint_free(remote_endpoint);
     }
 };
@@ -96,7 +116,7 @@ protected:
 TEST_F(CandidateGatheringTest, CreatesAndResolvesFullTree) {
     BuildPreconnection();
 
-    GArray* candidates = get_ordered_candidate_nodes(preconnection);
+    GArray* candidates = GatherCandidates();
     ASSERT_NE(candidates, nullptr);
     ASSERT_EQ(candidates->len, 2 * 3 * 1); // 2 local, 3 protocols, 1 remote
 
@@ -114,7 +134,7 @@ TEST_F(CandidateGatheringTest, PrunesPathAndProtocol) {
     ct_tp_set_sel_prop_interface(props, "Ethernet", REQUIRE);
     BuildPreconnection();
 
-    GArray* candidates = get_ordered_candidate_nodes(preconnection);
+    GArray* candidates = GatherCandidates();
     ASSERT_NE(candidates, nullptr);
     ASSERT_EQ(candidates->len, 1 * 2 * 1); // lo pruned, UDP pruned
 
@@ -125,14 +145,14 @@ TEST_F(CandidateGatheringTest, PrunesPathAndProtocol) {
 }
 
 TEST_F(CandidateGatheringTest, SortsOnPreferOverAvoid) {
-    ct_tp_set_sel_prop_preference(props, PRESERVE_MSG_BOUNDARIES, REQUIRE);       // Prune TCP 
+    ct_tp_set_sel_prop_preference(props, PRESERVE_MSG_BOUNDARIES, REQUIRE);       // Prune TCP
     // QUIC should win even if UDP has more avoids, since prefers are stronger than avoids
     ct_tp_set_sel_prop_preference(props, MULTISTREAMING, PREFER);
     ct_tp_set_sel_prop_preference(props, PRESERVE_ORDER, AVOID);
     ct_tp_set_sel_prop_preference(props, CONGESTION_CONTROL, AVOID);
     BuildPreconnection();
 
-    GArray* candidates = get_ordered_candidate_nodes(preconnection);
+    GArray* candidates = GatherCandidates();
     ASSERT_NE(candidates, nullptr);
     ASSERT_EQ(candidates->len, 2 * 2 * 1);
 
@@ -145,14 +165,14 @@ TEST_F(CandidateGatheringTest, SortsOnPreferOverAvoid) {
 }
 
 TEST_F(CandidateGatheringTest, UsesAvoidAsTieBreaker) {
-    // QUIC and TCP both match these two 
+    // QUIC and TCP both match these two
     ct_tp_set_sel_prop_preference(props, RELIABILITY, PREFER);
     ct_tp_set_sel_prop_preference(props, CONGESTION_CONTROL, PREFER);
     // But only TCP here, so TCP should be placed first
     ct_tp_set_sel_prop_preference(props, PRESERVE_MSG_BOUNDARIES, AVOID);
     BuildPreconnection();
 
-    GArray* candidates = get_ordered_candidate_nodes(preconnection);
+    GArray* candidates = GatherCandidates();
     ASSERT_NE(candidates, nullptr);
     ASSERT_EQ(candidates->len, 2 * 3 * 1);
 
@@ -173,7 +193,7 @@ TEST_F(CandidateGatheringTest, GivesNoCandidateNodesWhenAllProtocolsProhibited) 
 
     BuildPreconnection();
 
-    GArray* candidates = get_ordered_candidate_nodes(preconnection);
+    GArray* candidates = GatherCandidates();
     ASSERT_NE(candidates, nullptr);
     ASSERT_EQ(candidates->len, 0);
 
@@ -188,9 +208,9 @@ TEST_F(CandidateGatheringTest, AlpnIsOnlySetWhenSupportedByProtocol) {
     BuildPreconnection(sec);
     ct_sec_param_free(sec);
 
-    GArray* candidates = get_ordered_candidate_nodes(preconnection);
+    GArray* candidates = GatherCandidates();
     // QUIC (ALPN): 2 local * 2 ALPNs × 1 protos = 4
-    // TCP/QUIC (no ALPN):  2 local * 2 protos = 4
+    // TCP/UDP (no ALPN):  2 local * 2 protos = 4
     ASSERT_EQ(candidates->len, 8);
 
     std::map<std::pair<std::string, std::string>, int> alpn_counts;

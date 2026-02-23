@@ -36,7 +36,19 @@ typedef struct ct_candidate_node_t {
   const ct_transport_properties_t* transport_properties;
 } ct_candidate_node_t;
 
-GArray* get_ordered_candidate_nodes(const ct_preconnection_t* precon);
+typedef struct ct_candidate_gathering_callbacks_s {
+  void (*candidate_node_array_ready_cb)(GArray* candidate_array, void* context);
+  void* context;
+} ct_candidate_gathering_callbacks_t;
+
+/**
+  * @Brief Main entry point for candidate gathering. Builds the candidate tree and returns an ordered array of candidate nodes through the callback.
+  *
+  * @param precon The preconnection containing all necessary information for candidate gathering.
+  * @param callback The callback to be called when the candidate array is ready.
+  * @return Negative value on asynnchronous error, 0 on success. The caller is responsible for freeing the candidate array and its contents.
+  */
+int get_ordered_candidate_nodes(const ct_preconnection_t* precon, ct_candidate_gathering_callbacks_t callbacks);
 
 void free_candidate_array(GArray* candidate_array);
 

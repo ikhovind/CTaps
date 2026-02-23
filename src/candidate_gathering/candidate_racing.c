@@ -125,18 +125,36 @@ void handle_concluded_attempt(ct_racing_context_t* context) {
 }
 
 
+static void racing_context_initialize_attempt_array(ct_racing_context_t* context, GArray* candidate_nodes) {
+  context->num_attempts = candidate_nodes->len;
+  // Allocate attempts array
+  context->attempts = calloc(context->num_attempts, sizeof(ct_racing_attempt_t));
+  if (!context->attempts) {
+    log_error("Failed to allocate attempts array");
+    racing_context_free(context);
+    return;
+  }
+
+  // Initialize each attempt
+  for (size_t i = 0; i < context->num_attempts; i++) {
+    context->attempts[i].candidate = g_array_index(candidate_nodes, ct_candidate_node_t, i);
+    context->attempts[i].state = ATTEMPT_STATE_PENDING;
+    context->attempts[i].attempt_index = i;
+    context->attempts[i].connection = NULL;
+    context->attempts[i].context = context;
+  }
+}
 
 /**
  * @brief Creates a new racing context from candidate nodes.
  */
-static ct_racing_context_t* racing_context_create(GArray* candidate_nodes,
-                                            ct_connection_callbacks_t user_callbacks,
+static ct_racing_context_t* racing_context_create(ct_connection_callbacks_t user_callbacks,
                                             const ct_preconnection_t* preconnection,
                                             ct_message_t* initial_message,
                                             ct_message_context_t* initial_message_context,
                                             bool should_try_early_data 
                                             ) {
-  log_info("Creating racing context with %d candidates", candidate_nodes->len);
+  log_info("Creating racing context");
 
   ct_racing_context_t* context = malloc(sizeof(ct_racing_context_t));
   if (!context) {
@@ -145,7 +163,6 @@ static ct_racing_context_t* racing_context_create(GArray* candidate_nodes,
   }
   memset(context, 0, sizeof(ct_racing_context_t));
 
-  context->num_attempts = candidate_nodes->len;
   context->user_callbacks = user_callbacks;
   context->preconnection = preconnection;
   context->race_complete = false;
@@ -155,24 +172,6 @@ static ct_racing_context_t* racing_context_create(GArray* candidate_nodes,
   context->initial_message = initial_message;
   context->initial_message_context = initial_message_context;
   context->should_try_early_data = should_try_early_data;
-
-
-  // Allocate attempts array
-  context->attempts = calloc(context->num_attempts, sizeof(ct_racing_attempt_t));
-  if (!context->attempts) {
-    log_error("Failed to allocate attempts array");
-    free(context);
-    return NULL;
-  }
-
-  // Initialize each attempt
-  for (size_t i = 0; i < context->num_attempts; i++) {
-    context->attempts[i].candidate = g_array_index(candidate_nodes, ct_candidate_node_t, i);
-    context->attempts[i].state = ATTEMPT_STATE_PENDING;
-    context->attempts[i].attempt_index = i;
-    context->attempts[i].connection = NULL;
-    context->attempts[i].context = context;  // Set back-pointer
-  }
 
   context->completed_attempts = 0;
 
@@ -406,6 +405,47 @@ static void initiate_next_attempt(ct_racing_context_t* context) {
   }
 }
 
+void start_candidate_racing_on_nodes_ready(GArray* candidate_nodes, void* context) {
+  ct_racing_context_t* racing_context = (ct_racing_context_t*)context;
+  ct_connection_callbacks_t connection_callbacks = racing_context->user_callbacks;
+
+  if (!candidate_nodes) {
+    log_error("Could not allocate memory for candidate nodes");
+    if (connection_callbacks.establishment_error) {
+      connection_callbacks.establishment_error(NULL);
+    }
+    racing_context_free(racing_context);
+    return;
+  }
+  if (candidate_nodes->len == 0) {
+    log_error("No compatible candidates found for racing");
+    free_candidate_array(candidate_nodes);
+    if (connection_callbacks.establishment_error) {
+      log_debug("Notifying user of establishment error via establishment_error callback");
+      connection_callbacks.establishment_error(NULL);
+    }
+    else {
+      log_debug("No establishment_error callback provided by user");
+    }
+    racing_context_free(racing_context);
+    return;
+  }
+
+  racing_context_initialize_attempt_array(racing_context, candidate_nodes);
+
+
+  log_info("Racing with %d candidates", candidate_nodes->len);
+
+
+  // Start the first attempt immediately
+  initiate_next_attempt(context);
+
+  // The racing context manages the rest asynchronously via the event loop
+  // The user will get notified via the ready/establishment_error callbacks
+  // Note: We don't free the context here - it needs to live until racing completes
+  g_array_free(candidate_nodes, true);
+}
+
 /**
  * @brief Main entry point for initiating connection with racing.
  */
@@ -415,28 +455,8 @@ int start_candidate_racing(ct_preconnection_t* preconnection,
                                        ct_message_context_t* initial_message_context,
                                        bool should_try_early_data
                                        ) {
-  // Get ordered candidate nodes
-  GArray* candidate_nodes = get_ordered_candidate_nodes(preconnection);
-  if (!candidate_nodes) {
-    log_error("Could not allocate memory for candidate nodes");
-    if (connection_callbacks.establishment_error) {
-      connection_callbacks.establishment_error(NULL);
-    }
-    return -ENOMEM;
-  }
-  if (candidate_nodes->len == 0) {
-    log_error("No compatible candidates found for racing");
-    free_candidate_array(candidate_nodes);
-    if (connection_callbacks.establishment_error) {
-      connection_callbacks.establishment_error(NULL);
-    }
-    return -EINVAL;
-  }
 
-  log_info("Racing with %d candidates", candidate_nodes->len);
-
-  ct_racing_context_t* context = racing_context_create(candidate_nodes,
-                                                       connection_callbacks,
+  ct_racing_context_t* context = racing_context_create(connection_callbacks,
                                                        preconnection,
                                                        initial_message,
                                                        initial_message_context,
@@ -445,24 +465,27 @@ int start_candidate_racing(ct_preconnection_t* preconnection,
 
   if (!context) {
     log_error("Failed to create racing context");
-    free_candidate_array(candidate_nodes);
     if (connection_callbacks.establishment_error) {
       connection_callbacks.establishment_error(NULL);
     }
     return -ENOMEM;
   }
 
-  // Free the GArray structure but not the ct_candidate_node_t data (endpoints are already copied)
-  // The racing context now owns the ct_candidate_node_t data
-  g_array_free(candidate_nodes, true);
 
-  // Start the first attempt immediately
-  initiate_next_attempt(context);
+  ct_candidate_gathering_callbacks_t gathering_callbacks = {
+    .candidate_node_array_ready_cb = start_candidate_racing_on_nodes_ready,
+    .context = context,
+  };
 
-  // The racing context manages the rest asynchronously via the event loop
-  // The user will get notified via the ready/establishment_error callbacks
-  // Note: We don't free the context here - it needs to live until racing completes
-
+  // Get ordered candidate nodes
+  int rc = get_ordered_candidate_nodes(preconnection, gathering_callbacks);
+  if (rc != 0) {
+    log_error("Synchronous error in getting ordered candidate nodes: %d", rc);
+    if (connection_callbacks.establishment_error) {
+      connection_callbacks.establishment_error(NULL);
+    }
+    return rc;
+  }
   return 0;
 }
 

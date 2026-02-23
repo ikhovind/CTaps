@@ -80,10 +80,17 @@ ct_preconnection_t* ct_preconnection_new(
   return precon;
 }
 
+typedef struct listener_candidate_node_array_ready_context_s {
+  ct_preconnection_t* preconnection;
+  ct_listener_callbacks_t listener_callbacks;
+  ct_listener_t* listener;
+} listener_candidate_node_array_ready_context_t;
 
-int ct_preconnection_listen(ct_preconnection_t* preconnection, ct_listener_t* listener, ct_listener_callbacks_t listener_callbacks) {
-  log_info("Listening from preconnection");
-  GArray* candidate_nodes = get_ordered_candidate_nodes(preconnection);
+void listener_candidate_node_array_ready_cb(GArray* candidate_nodes, void* context) {
+  listener_candidate_node_array_ready_context_t* listener_candidate_node_array_ready_context = (listener_candidate_node_array_ready_context_t*)context;
+  ct_preconnection_t* preconnection = listener_candidate_node_array_ready_context->preconnection;
+  ct_listener_callbacks_t listener_callbacks = listener_candidate_node_array_ready_context->listener_callbacks;
+  ct_listener_t* listener = listener_candidate_node_array_ready_context->listener;
   if (candidate_nodes->len > 0) {
     const ct_candidate_node_t first_node = g_array_index(candidate_nodes, ct_candidate_node_t, 0);
 
@@ -91,7 +98,7 @@ int ct_preconnection_listen(ct_preconnection_t* preconnection, ct_listener_t* li
     ct_socket_manager_t* socket_manager = ct_socket_manager_new(first_node.protocol_candidate->protocol_impl, listener);
     if (!socket_manager) {
       log_error("Failed to create socket manager for listener");
-      return -errno;
+      return;
     }
     *listener = (ct_listener_t){
       .listener_callbacks = listener_callbacks,
@@ -104,11 +111,38 @@ int ct_preconnection_listen(ct_preconnection_t* preconnection, ct_listener_t* li
     };
 
     log_info("Starting to listen on ct_listener_t using protocol: %s on port: %d", socket_manager->protocol_impl->name, listener->local_endpoint.port);
-    return socket_manager->protocol_impl->listen(socket_manager);
+    int rc = socket_manager->protocol_impl->listen(socket_manager);
+    if (rc != 0) {
+      log_error("Failed to listen on socket manager for listener: %d", rc);
+      ct_socket_manager_unref(socket_manager);
+      return;
+    }
   }
-  g_array_free(candidate_nodes, true);
-  log_error("No candidate node for ct_listener_t found");
-  return -EINVAL;
+  else {
+    log_error("No candidate node for ct_listener_t found");
+  }
+  free_candidate_array(candidate_nodes);
+  free(listener_candidate_node_array_ready_context);
+}
+
+int ct_preconnection_listen(ct_preconnection_t* preconnection, ct_listener_t* listener, ct_listener_callbacks_t listener_callbacks) {
+  log_info("Listening from preconnection");
+  listener_candidate_node_array_ready_context_t* cb_context = calloc(1, sizeof(listener_candidate_node_array_ready_context_t));
+
+  cb_context->preconnection = preconnection;
+  cb_context->listener_callbacks = listener_callbacks;
+  cb_context->listener = listener;
+
+  ct_candidate_gathering_callbacks_t callbacks = {
+    .candidate_node_array_ready_cb = listener_candidate_node_array_ready_cb,
+    .context = cb_context,
+  };
+  int rc = get_ordered_candidate_nodes(preconnection, callbacks);
+  if (rc != 0) {
+    log_error("Failed to get ordered candidate nodes for listener");
+    return rc;
+  }
+  return 0;
 }
 
 int ct_preconnection_initiate(ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks) {
