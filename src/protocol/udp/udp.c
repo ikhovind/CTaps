@@ -127,6 +127,7 @@ void udp_multiplex_received_message(ct_socket_manager_t* socket_manager, char* b
 }
 
 void on_send(uv_udp_send_t* req, int status) {
+  log_debug("UDP send callback invoked with status: %d", status);
   if (status) {
     log_error("Send error: %s\n", uv_strerror(status));
   }
@@ -295,6 +296,8 @@ int udp_send(ct_connection_t* connection, ct_message_t* message, ct_message_cont
   // Store the message in send_req->data so we can free it in the callback
   send_req->data = udp_send_data_new(message, message_context);
   ct_udp_socket_state_t* socket_state = ct_connection_get_socket_state(connection);
+  log_debug("Sending UDP message to port %d",
+            ntohs(((struct sockaddr_in*)&connection->remote_endpoint->data.resolved_address)->sin_port));
   
   int rc = uv_udp_send(
       send_req, socket_state->udp_handle, &buffer, 1,

@@ -68,9 +68,6 @@ TEST_F(ConnectionCloneTest, clonesConnectionSendsOnBothAndReceivesIndividualResp
 
 TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses) {
     // --- SETUP SERVER/LISTENER ---
-    ct_listener_t listener;
-    test_context.listener = &listener;
-
     ct_local_endpoint_t* listener_endpoint = ct_local_endpoint_new();
     ct_local_endpoint_with_interface(listener_endpoint, "lo");
     ct_local_endpoint_with_port(listener_endpoint, QUIC_CLONE_LISTENER_PORT);
@@ -101,8 +98,9 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
         .user_listener_context = &test_context
     };
 
-    int listen_res = ct_preconnection_listen(listener_precon, &listener, listener_callbacks);
-    ASSERT_EQ(listen_res, 0);
+    ct_listener_t* listener = ct_preconnection_listen(listener_precon, listener_callbacks);
+    test_context.listener = listener;
+
     log_info("Listener created on port %d", QUIC_CLONE_LISTENER_PORT);
 
     // --- SETUP CLIENT ---

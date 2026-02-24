@@ -4,57 +4,8 @@
 #include "fff.h"
 extern "C" {
 #include "ctaps.h"
+#include "endpoint/remote_endpoint.h"
 #include "ctaps_internal.h"
-}
-
-
-TEST(RemoteEndpointUnitTests, SetsIpv4FamilyAndAddress) {
-    ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
-    ASSERT_NE(remote_endpoint, nullptr);
-
-    ct_remote_endpoint_with_port(remote_endpoint, 5005);
-    ct_remote_endpoint_with_ipv4(remote_endpoint, inet_addr("127.0.0.1"));
-
-    ct_remote_endpoint_t* out_list;
-    size_t out_count = 0;
-
-    ct_remote_endpoint_resolve(remote_endpoint, &out_list, &out_count);
-
-    sockaddr_in* addr = (struct sockaddr_in*)&out_list[0].data.resolved_address;
-
-    EXPECT_EQ(5005, ntohs(addr->sin_port));
-    EXPECT_EQ(5005, remote_endpoint->port);
-    EXPECT_EQ(AF_INET, addr->sin_family);
-    EXPECT_EQ(inet_addr("127.0.0.1"), addr->sin_addr.s_addr);
-
-    ct_remote_endpoint_free(remote_endpoint);
-    free(out_list);
-}
-
-TEST(RemoteEndpointUnitTests, SetsIpv6FamilyAndAddress) {
-    ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
-    ASSERT_NE(remote_endpoint, nullptr);
-
-    // localhost ipv6 resolved_address:
-    in6_addr ipv6_addr = { .__in6_u = { .__u6_addr8 = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1} } };
-
-    ct_remote_endpoint_with_port(remote_endpoint, 5005);
-    ct_remote_endpoint_with_ipv6(remote_endpoint, ipv6_addr);
-
-    ct_remote_endpoint_t* out_list;
-    size_t out_count = 0;
-
-    ct_remote_endpoint_resolve(remote_endpoint, &out_list, &out_count);
-
-    sockaddr_in6* addr = (struct sockaddr_in6*)&out_list[0].data.resolved_address;
-
-    EXPECT_EQ(AF_INET6, addr->sin6_family);
-    EXPECT_EQ(5005, ntohs(addr->sin6_port));
-    EXPECT_EQ(5005, remote_endpoint->port);
-    EXPECT_EQ(0, memcmp(&ipv6_addr, &addr->sin6_addr, sizeof(in6_addr)));
-
-    ct_remote_endpoint_free(remote_endpoint);
-    free(out_list);
 }
 
 TEST(RemoteEndpointUnitTests, TakesDeepCopyOfHostname) {

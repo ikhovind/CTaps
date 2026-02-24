@@ -334,7 +334,8 @@ typedef enum {
 } ct_connection_state_enum_t;
 
 typedef enum {
-  CT_LISTENER_STATE_LISTENING = 0,  ///< Listener is active and accepting connections
+  CT_LISTENER_STATE_ESTABLISHING = 0, ///< Listener is being set up (e.g., gathering candidates)
+  CT_LISTENER_STATE_LISTENING,  ///< Listener is active and accepting connections
   CT_LISTENER_STATE_CLOSED            ///< Listener is closed and not accepting connections
 } ct_listener_state_enum_t;
 
@@ -695,6 +696,11 @@ typedef struct ct_local_endpoint_s ct_local_endpoint_t;
  */
 typedef struct ct_remote_endpoint_s ct_remote_endpoint_t;
 
+typedef struct ct_remote_endpoint_resolve_callbacks_s {
+  void (*ct_remote_endpoint_resolve_cb)(ct_remote_endpoint_t* remote_endpoint, size_t out_count, void* context);
+  void* context;
+} ct_remote_endpoint_resolve_callbacks_t;
+
 
 // =============================================================================
 // Messages - Message and message context structures
@@ -856,6 +862,11 @@ typedef struct ct_connection_callbacks_s {
  * All callbacks are invoked from the event loop thread.
  */
 typedef struct ct_listener_callbacks_s {
+
+  /*** 
+   * @brief Called when the listener starts listening and is ready to accept connections.
+   */
+  void (*listener_ready)(ct_listener_t* listener);
   /** @brief Called when a new connection is received.
    * @param[in] listener The listener that accepted the connection
    * @param[in] new_conn The new connection object (caller must handle)
@@ -865,10 +876,10 @@ typedef struct ct_listener_callbacks_s {
 
   /** @brief Called when connection establishment fails for an incoming connection.
    * @param[in] listener The listener
-   * @param[in] reason Error description string
+   * @param[in] reason Error code
    * @return 0 on success, non-zero on error
    */
-  int (*establishment_error)(ct_listener_t* listener, const char* reason);
+  void (*establishment_error)(ct_listener_t* listener, int error_code);
 
   /** @brief Called when the listener has stopped and will accept no more connections. */
   int (*stopped)(ct_listener_t* listener);
@@ -1297,15 +1308,6 @@ CT_EXTERN void ct_remote_endpoint_free(ct_remote_endpoint_t* remote_endpoint);
 CT_EXTERN int ct_remote_endpoint_from_sockaddr(ct_remote_endpoint_t* remote_endpoint, const struct sockaddr_storage* addr);
 
 /**
- * @brief Resolve a remote endpoint hostname to concrete addresses via DNS.
- * @param[in] remote_endpoint Endpoint to resolve
- * @param[out] out_list Output array of resolved endpoints (caller must free)
- * @param[out] out_count Number of endpoints in output array
- * @return 0 on success, non-zero on error
- */
-CT_EXTERN int ct_remote_endpoint_resolve(const ct_remote_endpoint_t* remote_endpoint, ct_remote_endpoint_t** out_list, size_t* out_count);
-
-/**
  * @brief Create a heap-allocated copy of a remote endpoint.
  * @param[in] remote_endpoint Source endpoint
  * @return Pointer to newly allocated copy, or NULL on error
@@ -1551,7 +1553,7 @@ CT_EXTERN int ct_preconnection_initiate_with_send(ct_preconnection_t* preconnect
  * @note The event loop must be running for the listener to accept connections
  * @see ct_listener_stop() for stopping the listener
  */
-CT_EXTERN int ct_preconnection_listen(ct_preconnection_t* preconnection, ct_listener_t* listener, ct_listener_callbacks_t listener_callbacks);
+CT_EXTERN ct_listener_t* ct_preconnection_listen(const ct_preconnection_t* preconnection, ct_listener_callbacks_t listener_callbacks);
 
 // Connection
 /**
@@ -1809,12 +1811,6 @@ CT_EXTERN void ct_listener_close(ct_listener_t* listener);
  * @param[in] listener Listener to free
  */
 CT_EXTERN void ct_listener_free(ct_listener_t* listener);
-
-/**
- * @brief Create a new listener object on the heap.
- * @return Pointer to newly allocated listener, or NULL on allocation failure
- */
-CT_EXTERN ct_listener_t* ct_listener_new(void);
 
 /**
  * @brief Get the local endpoint a listener is bound to.

@@ -88,6 +88,7 @@ typedef struct listener_candidate_node_array_ready_context_s {
 } listener_candidate_node_array_ready_context_t;
 
 void listener_candidate_node_array_ready_cb(GArray* candidate_nodes, void* context) {
+  log_info("Candidate gathering complete for listener, processing candidate nodes");
   listener_candidate_node_array_ready_context_t* listener_candidate_node_array_ready_context = (listener_candidate_node_array_ready_context_t*)context;
   const ct_preconnection_t* preconnection = listener_candidate_node_array_ready_context->preconnection;
   ct_listener_callbacks_t listener_callbacks = listener_candidate_node_array_ready_context->listener_callbacks;
@@ -101,6 +102,7 @@ void listener_candidate_node_array_ready_cb(GArray* candidate_nodes, void* conte
       log_error("Failed to create socket manager for listener");
       return;
     }
+    log_debug("listening on port: %d with protocol: %s", first_node.local_endpoint->port, socket_manager->protocol_impl->name);
     *listener = (ct_listener_t){
       .listener_callbacks = listener_callbacks,
       .local_endpoint = *first_node.local_endpoint,
@@ -120,7 +122,11 @@ void listener_candidate_node_array_ready_cb(GArray* candidate_nodes, void* conte
       return;
     }
     if (listener->listener_callbacks.listener_ready) {
+      log_debug("Calling listener_ready callback for listener");
       listener->listener_callbacks.listener_ready(listener);
+    }
+    else {
+      log_debug("No listener_ready callback set for listener");
     }
   }
   else {

@@ -147,38 +147,15 @@ add_gtest(dns_integration_test
             src/integration/dns/dns_test.cpp
             ${CTAPS_SOURCES}
 )
-add_gtest(remote_endpoint_integration_test
+
+add_gtest(remote_endpoint_resolve_test
         SOURCES
-            src/integration/endpoint/remote_endpoint_test.cpp
-            ${CMAKE_SOURCE_DIR}/src/endpoint/remote_endpoint.c
-            ${CMAKE_SOURCE_DIR}/src/endpoint/local_endpoint.c
-            ${CMAKE_SOURCE_DIR}/src/logging/log.c
-            ${CMAKE_SOURCE_DIR}/src/message/message.c
-            ${CMAKE_SOURCE_DIR}/src/message/message_context.c
-            ${CMAKE_SOURCE_DIR}/src/endpoint/util.c
-            ${CMAKE_SOURCE_DIR}/src/protocol/udp/udp.c
-            ${CMAKE_SOURCE_DIR}/src/protocol/tcp/tcp.c
-            ${CMAKE_SOURCE_DIR}/src/protocol/quic/quic.c
-            ${CMAKE_SOURCE_DIR}/src/protocol/common/socket_utils.c
-            ${CMAKE_SOURCE_DIR}/src/protocol/common/protocol.c
-            ${CMAKE_SOURCE_DIR}/src/util/uuid_util.c
-            ${CMAKE_SOURCE_DIR}/src/state/ctaps_state.c
-            ${CMAKE_SOURCE_DIR}/src/transport_property/transport_properties.c
-            ${CMAKE_SOURCE_DIR}/src/transport_property/selection_properties/selection_properties.c
-            ${CMAKE_SOURCE_DIR}/src/transport_property/message_properties/message_properties.c
-            ${CMAKE_SOURCE_DIR}/src/transport_property/connection_properties/connection_properties.c
-            ${CMAKE_SOURCE_DIR}/src/security_parameter/security_parameters.c
-            ${CMAKE_SOURCE_DIR}/src/security_parameter/certificate_bundles/certificate_bundles.c
-            ${CMAKE_SOURCE_DIR}/src/security_parameter/byte_array/byte_array.c
-            ${CMAKE_SOURCE_DIR}/src/connection/connection.c
-            ${CMAKE_SOURCE_DIR}/src/connection/connection_group.c
-            ${CMAKE_SOURCE_DIR}/src/protocol/protocol_registry.c
-            ${CMAKE_SOURCE_DIR}/src/connection/listener.c
-            ${CMAKE_SOURCE_DIR}/src/connection/socket_manager/socket_manager.c
+            src/unit/endpoint/remote_endpoint_resolve_test.cpp
+            ${CTAPS_SOURCES}
         WRAP_FUNCTIONS
-            uv_getaddrinfo
-            uv_freeaddrinfo
-            get_service_port
+            ct_remote_endpoint_resolve_cb
+            perform_dns_lookup
+        ASAN_ENABLED
 )
 add_gtest(udp_listen_test SOURCES src/integration/udp/udp_listen_test.cpp ${CTAPS_SOURCES})
 add_gtest(tcp_listen_test SOURCES src/integration/tcp/tcp_listen_test.cpp ${CTAPS_SOURCES})

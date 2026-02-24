@@ -134,17 +134,11 @@ int ct_remote_endpoint_resolve(const ct_remote_endpoint_t* remote_endpoint, ct_r
     if (out_list[0].data.resolved_address.ss_family == AF_INET) {
       struct sockaddr_in* addr = (struct sockaddr_in*)&(out_list)[0].data.resolved_address;
       addr->sin_port = htons(assigned_port);
-      log_debug("Set port %d in resolved IPv4 address", assigned_port);
     }
     else if (out_list[0].data.resolved_address.ss_family == AF_INET6) {
       struct sockaddr_in6* addr = (struct sockaddr_in6*)&(out_list)[0].data.resolved_address;
       addr->sin6_port = htons(assigned_port);
-      log_debug("Set port %d in resolved IPv6 address", assigned_port);
     }
-    else {
-      log_error("Unsupported resolved_address family: %d\n", out_list[0].data.resolved_address.ss_family);
-    }
-
     ct_remote_endpoint_resolve_cb(out_list, out_count, context);
   }
   else {
