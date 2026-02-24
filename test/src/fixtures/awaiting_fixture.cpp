@@ -25,6 +25,7 @@ struct CallbackContext {
     ct_listener_t* listener;
     bool connection_succeeded = false;
     uint16_t expected_server_port = 0; // Expected remote port for message context verification
+    std::function<void()> listener_ready_action;
 };
 
 class CTapsGenericFixture : public ::testing::Test {
@@ -48,6 +49,7 @@ protected:
         test_context.total_expected_messages = 1;
         test_context.listener = nullptr;
         test_context.connection_succeeded = false;
+        test_context.listener_ready_action = nullptr;
     }
 
     void TearDown() override {
