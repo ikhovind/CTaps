@@ -41,6 +41,22 @@ typedef struct ct_candidate_gathering_callbacks_s {
   void* context;
 } ct_candidate_gathering_callbacks_t;
 
+typedef struct ct_gather_context_s {
+    GNode* root_node;
+    const ct_preconnection_t* preconnection;
+    size_t pending_resolutions;
+    ct_candidate_gathering_callbacks_t gathering_callbacks;
+} ct_gather_context_t;
+
+typedef struct ct_remote_resolve_call_context_s {
+    GNode* parent_node;
+    ct_gather_context_t* gather_context;
+    int32_t assigned_port;
+} ct_remote_resolve_call_context_t;
+
+
+void ct_remote_endpoint_resolve_cb(ct_remote_endpoint_t* remote_endpoint, size_t out_count, ct_remote_resolve_call_context_t* context);
+
 /**
   * @Brief Main entry point for candidate gathering. Builds the candidate tree and returns an ordered array of candidate nodes through the callback.
   *

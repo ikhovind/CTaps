@@ -18,6 +18,7 @@ ct_listener_t* ct_listener_new(void) {
     return NULL;
   }
   memset(listener, 0, sizeof(ct_listener_t));
+  listener->state = CT_LISTENER_STATE_ESTABLISHING;
   return listener;
 }
 

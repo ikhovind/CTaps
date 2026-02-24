@@ -1,5 +1,6 @@
 
 #include "connection/socket_manager/socket_manager.h"
+#include "connection/listener.h"
 #include "ctaps.h"
 #include "ctaps_internal.h"
 #include "message/message.h"
@@ -81,14 +82,14 @@ ct_preconnection_t* ct_preconnection_new(
 }
 
 typedef struct listener_candidate_node_array_ready_context_s {
-  ct_preconnection_t* preconnection;
+  const ct_preconnection_t* preconnection;
   ct_listener_callbacks_t listener_callbacks;
   ct_listener_t* listener;
 } listener_candidate_node_array_ready_context_t;
 
 void listener_candidate_node_array_ready_cb(GArray* candidate_nodes, void* context) {
   listener_candidate_node_array_ready_context_t* listener_candidate_node_array_ready_context = (listener_candidate_node_array_ready_context_t*)context;
-  ct_preconnection_t* preconnection = listener_candidate_node_array_ready_context->preconnection;
+  const ct_preconnection_t* preconnection = listener_candidate_node_array_ready_context->preconnection;
   ct_listener_callbacks_t listener_callbacks = listener_candidate_node_array_ready_context->listener_callbacks;
   ct_listener_t* listener = listener_candidate_node_array_ready_context->listener;
   if (candidate_nodes->len > 0) {
@@ -115,7 +116,11 @@ void listener_candidate_node_array_ready_cb(GArray* candidate_nodes, void* conte
     if (rc != 0) {
       log_error("Failed to listen on socket manager for listener: %d", rc);
       ct_socket_manager_unref(socket_manager);
+      listener->listener_callbacks.establishment_error(listener, rc);
       return;
+    }
+    if (listener->listener_callbacks.listener_ready) {
+      listener->listener_callbacks.listener_ready(listener);
     }
   }
   else {
@@ -125,9 +130,11 @@ void listener_candidate_node_array_ready_cb(GArray* candidate_nodes, void* conte
   free(listener_candidate_node_array_ready_context);
 }
 
-int ct_preconnection_listen(ct_preconnection_t* preconnection, ct_listener_t* listener, ct_listener_callbacks_t listener_callbacks) {
+ct_listener_t* ct_preconnection_listen(const ct_preconnection_t* preconnection, ct_listener_callbacks_t listener_callbacks) {
   log_info("Listening from preconnection");
   listener_candidate_node_array_ready_context_t* cb_context = calloc(1, sizeof(listener_candidate_node_array_ready_context_t));
+
+  ct_listener_t* listener = ct_listener_new();
 
   cb_context->preconnection = preconnection;
   cb_context->listener_callbacks = listener_callbacks;
@@ -140,9 +147,11 @@ int ct_preconnection_listen(ct_preconnection_t* preconnection, ct_listener_t* li
   int rc = get_ordered_candidate_nodes(preconnection, callbacks);
   if (rc != 0) {
     log_error("Failed to get ordered candidate nodes for listener");
-    return rc;
+    ct_listener_free(listener);
+    free(cb_context);
+    return NULL;
   }
-  return 0;
+  return listener;
 }
 
 int ct_preconnection_initiate(ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks) {

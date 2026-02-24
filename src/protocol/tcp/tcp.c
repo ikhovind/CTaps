@@ -309,6 +309,7 @@ int tcp_init_with_send(ct_connection_t* connection, const ct_connection_callback
     return rc;
   }
 
+  log_debug("Initiated with new TCP handle: %p", new_tcp_handle);
   return 0;
 }
 
@@ -354,6 +355,15 @@ int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
     if (rc < 0) {
       log_warn("Error setting TCP keepalive: %s", uv_strerror(rc));
     }
+  }
+
+  const ct_remote_endpoint_t* remote_endpoint = ct_connection_get_remote_endpoint(connection);
+  struct sockaddr_storage tmp = remote_endpoint->data.resolved_address;
+  if (tmp.ss_family == AF_INET) {
+    log_info("Connecting to remote endpoint %d via TCP", ntohs(((struct sockaddr_in*)&tmp)->sin_port));
+  }
+  else {
+    log_debug("Connecting to remote endpoint with unsupported address family %d via TCP", tmp.ss_family);
   }
 
   rc = uv_tcp_connect(connect_req,
@@ -677,10 +687,12 @@ int tcp_close_connection_group(ct_connection_group_t* connection_group) {
   }
   for (GSList* node = connections; node != NULL; node = node->next) {
     ct_connection_t* connection = (ct_connection_t*)node->data;
-    int inner_rc = tcp_close(connection);
-    if (inner_rc < 0) {
-      log_error("Error closing connection %s in udp_close_connection_group: %d", connection->uuid, inner_rc);
-      rc = inner_rc;
+    if (!ct_connection_is_closed_or_closing(connection)) {
+      int inner_rc = tcp_close(connection);
+      if (inner_rc < 0) {
+        log_error("Error closing connection %s in udp_close_connection_group: %d", connection->uuid, inner_rc);
+        rc = inner_rc;
+      }
     }
   }
   return rc;
