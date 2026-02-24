@@ -127,7 +127,6 @@ int on_connection_ready(ct_connection_t *connection) {
             return -1;
             break;
     }
-    ct_message_context_free(msg_ctx);
     return 0;
 }
 
