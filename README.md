@@ -120,8 +120,6 @@ int on_connection_received_receive_message(ct_listener_t* listener, ct_connectio
 int main() {
     ct_initialize(); // Init (currently) global state
 
-    ct_listener_t* listener = ct_listener_new();
-
     // Create local endpoint
     ct_local_endpoint_t* listener_endpoint = ct_local_endpoint_new();
     ct_local_endpoint_with_interface(listener_endpoint, "lo");
@@ -143,11 +141,11 @@ int main() {
         .connection_received = on_connection_received_receive_message,
     };
 
-    int listen_res = ct_preconnection_listen(listener_precon, listener, listener_callbacks);
+    ct_listener_t* listener = ct_preconnection_listen(listener_precon, listener_callbacks);
 
-    if (listen_res < 0) {
-        perror("Error in initiating connection\n");
-        return listen_res;
+    if (!listener) {
+        perror("Sync error in establishing listener\n");
+        return -1;
     }
 
     ct_start_event_loop();

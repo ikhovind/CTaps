@@ -17,13 +17,15 @@ extern "C" {
 
 DEFINE_FFF_GLOBALS;
 FAKE_VALUE_FUNC(int, faked_ct_local_endpoint_resolve, const ct_local_endpoint_t*, ct_local_endpoint_t**, size_t*);
-FAKE_VALUE_FUNC(int, faked_ct_remote_endpoint_resolve, const ct_remote_endpoint_t*, ct_remote_endpoint_t**, size_t*);
+FAKE_VALUE_FUNC(int, faked_ct_remote_endpoint_resolve, const ct_remote_endpoint_t* , ct_remote_resolve_call_context_t*);
 
 extern "C" int __wrap_ct_local_endpoint_resolve(const ct_local_endpoint_t* ep, ct_local_endpoint_t** out, size_t* count) {
     return faked_ct_local_endpoint_resolve(ep, out, count);
 }
-extern "C" int __wrap_ct_remote_endpoint_resolve(const ct_remote_endpoint_t* ep, ct_remote_endpoint_t** out, size_t* count) {
-    return faked_ct_remote_endpoint_resolve(ep, out, count);
+
+
+extern "C" int __wrap_ct_remote_endpoint_resolve(const ct_remote_endpoint_t* remote_endpoint, ct_remote_resolve_call_context_t* context) {
+    return faked_ct_remote_endpoint_resolve(remote_endpoint, context);
 }
 
 // Custom fakes
@@ -40,13 +42,12 @@ int local_endpoint_resolve_fake_custom(const ct_local_endpoint_t*, ct_local_endp
     return 0;
 }
 
-int remote_endpoint_resolve_fake_custom(const ct_remote_endpoint_t*, ct_remote_endpoint_t** out, size_t* count) {
+int remote_endpoint_resolve_fake_custom(const ct_remote_endpoint_t*, ct_remote_resolve_call_context_t* context) {
     ct_remote_endpoint_t* list = (ct_remote_endpoint_t*)malloc(sizeof(ct_remote_endpoint_t));
     ct_remote_endpoint_build(&list[0]);
     ct_remote_endpoint_with_ipv4(&list[0], inet_addr("1.2.3.4"));
     ct_remote_endpoint_with_port(&list[0], 80);
-    *out = list;
-    *count = 1;
+    ct_remote_endpoint_resolve_cb(list, 1, context);  // drives the real callback
     return 0;
 }
 

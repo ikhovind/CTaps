@@ -154,8 +154,6 @@ TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnRec
 }
 
 TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnReceiveForTcpListener) {
-    ct_listener_t listener;
-
     // Set expected remote port for verification
     test_context.expected_server_port = QUIC_PING_PORT;
 
@@ -185,9 +183,7 @@ TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnRec
         .user_listener_context = &test_context
     };
 
-    int listen_res = ct_preconnection_listen(listener_precon, &listener, listener_callbacks);
-
-    ASSERT_EQ(listen_res, 0);
+    ct_listener_t* listener = ct_preconnection_listen(listener_precon, listener_callbacks);
 
     // --- SETUP CLIENT ---
     ct_remote_endpoint_t* client_remote = ct_remote_endpoint_new();

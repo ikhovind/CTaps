@@ -13,8 +13,6 @@ class TcpListenTests : public CTapsGenericFixture {};
 // weird about the test itself. Should test TCP ping test and see if there are issues there
 // as well
 TEST_F(TcpListenTests, ReceivesConnectionFromListenerAndExchangesMessages) {
-    ct_listener_t listener = {0};
-
     ct_local_endpoint_t* listener_endpoint = ct_local_endpoint_new();
 
     ct_local_endpoint_with_interface(listener_endpoint, "lo");
@@ -37,9 +35,7 @@ TEST_F(TcpListenTests, ReceivesConnectionFromListenerAndExchangesMessages) {
         .user_listener_context = &test_context
     };
 
-    int listen_res = ct_preconnection_listen(listener_precon, &listener, listener_callbacks);
-
-    ASSERT_EQ(listen_res, 0);
+    ct_listener_t* listener = ct_preconnection_listen(listener_precon, listener_callbacks);
 
     // --- SETUP CLIENT ---
     ct_remote_endpoint_t* client_remote = ct_remote_endpoint_new();

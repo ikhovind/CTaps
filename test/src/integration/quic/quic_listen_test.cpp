@@ -11,8 +11,6 @@ extern "C" {
 class QuicListenTests : public CTapsGenericFixture {};
 
 TEST_F(QuicListenTests, QuicReceivesConnectionFromListenerAndExchangesMessages) {
-    ct_listener_t listener;
-
     ct_local_endpoint_t* listener_endpoint = ct_local_endpoint_new();
     ASSERT_NE(listener_endpoint, nullptr);
 
@@ -49,9 +47,7 @@ TEST_F(QuicListenTests, QuicReceivesConnectionFromListenerAndExchangesMessages) 
         .user_listener_context = &test_context
     };
 
-    int listen_res = ct_preconnection_listen(listener_precon, &listener, listener_callbacks);
-
-    ASSERT_EQ(listen_res, 0);
+    ct_listener_t* listener = ct_preconnection_listen(listener_precon, listener_callbacks);
 
     // --- SETUP CLIENT ---
     ct_remote_endpoint_t* client_remote = ct_remote_endpoint_new();
@@ -121,10 +117,6 @@ TEST_F(QuicListenTests, QuicReceivesConnectionFromListenerAndExchangesMessages) 
 }
 
 TEST_F(QuicListenTests, ServerInitiatesStreamByWritingFirst) {
-    ct_listener_t listener;
-
-    test_context.listener = &listener;
-
     // --- SETUP SERVER/LISTENER ---
     ct_local_endpoint_t* listener_endpoint = ct_local_endpoint_new();
     ASSERT_NE(listener_endpoint, nullptr);
@@ -161,8 +153,9 @@ TEST_F(QuicListenTests, ServerInitiatesStreamByWritingFirst) {
         .user_listener_context = &test_context
     };
 
-    int listen_res = ct_preconnection_listen(listener_precon, &listener, listener_callbacks);
-    ASSERT_EQ(listen_res, 0);
+    ct_listener_t* listener = ct_preconnection_listen(listener_precon, listener_callbacks);
+
+    test_context.listener = listener;
 
     // --- SETUP CLIENT ---
     ct_remote_endpoint_t* client_remote = ct_remote_endpoint_new();
@@ -228,8 +221,6 @@ TEST_F(QuicListenTests, ServerInitiatesStreamByWritingFirst) {
 }
 
 TEST_F(QuicListenTests, ListenerCanReceive0RttMessage) {
-    ct_listener_t listener;
-
     ct_local_endpoint_t* listener_endpoint = ct_local_endpoint_new();
     ASSERT_NE(listener_endpoint, nullptr);
 
@@ -270,9 +261,7 @@ TEST_F(QuicListenTests, ListenerCanReceive0RttMessage) {
         .user_listener_context = &test_context
     };
 
-    int listen_res = ct_preconnection_listen(listener_precon, &listener, listener_callbacks);
-
-    ASSERT_EQ(listen_res, 0);
+    ct_listener_t* listener = ct_preconnection_listen(listener_precon, listener_callbacks);
 
     // --- SETUP CLIENT ---
     ct_remote_endpoint_t* client_remote = ct_remote_endpoint_new();
@@ -336,9 +325,7 @@ TEST_F(QuicListenTests, ListenerCanReceive0RttMessage) {
     ASSERT_FALSE(ct_connection_sent_early_data(client_connection));
 
     // ============= second round with 0-RTT =============
-    listen_res = ct_preconnection_listen(listener_precon, &listener, listener_callbacks);
-
-    ASSERT_EQ(listen_res, 0);
+    ct_listener_t* listener2 = ct_preconnection_listen(listener_precon, listener_callbacks);
 
     // --- SETUP CLIENT ---
     ct_message_t* early_data_msg = ct_message_new();
