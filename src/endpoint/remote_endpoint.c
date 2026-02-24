@@ -1,3 +1,4 @@
+#include "candidate_gathering/candidate_gathering.h"
 #include "ctaps.h"
 #include "ctaps_internal.h"
 #include "remote_endpoint.h"
@@ -105,7 +106,7 @@ void ct_remote_endpoint_with_port(ct_remote_endpoint_t* remote_endpoint, const u
   }
 }
 
-int ct_remote_endpoint_resolve(const ct_remote_endpoint_t* remote_endpoint, ct_remote_endpoint_t** out_list, size_t* out_count) {
+int ct_remote_endpoint_resolve(const ct_remote_endpoint_t* remote_endpoint, ct_remote_resolve_call_context_t* context) {
   log_trace("Resolving remote endpoint");
   int32_t assigned_port = 0;
   if (remote_endpoint->service != NULL) {
@@ -114,44 +115,44 @@ int ct_remote_endpoint_resolve(const ct_remote_endpoint_t* remote_endpoint, ct_r
   else {
     assigned_port = remote_endpoint->port;
   }
+  context->assigned_port = assigned_port;
+  size_t out_count = 0;
+  ct_remote_endpoint_t* out_list = NULL;
 
   if (remote_endpoint->hostname != NULL) {
     log_debug("Endpoint was a hostname, performing DNS lookup for %s", remote_endpoint->hostname);
-    perform_dns_lookup(remote_endpoint->hostname, remote_endpoint->service, out_list, out_count, NULL);
-    for (size_t i = 0; i < *out_count; i++) {
-      (*out_list)[i].port = assigned_port;
-      // set port in resolved_address
-      if ((*out_list)[i].data.resolved_address.ss_family == AF_INET) {
-        struct sockaddr_in* addr = (struct sockaddr_in*)&(*out_list)[i].data.resolved_address;
-        addr->sin_port = htons(assigned_port);
-      }
-      else if ((*out_list)[i].data.resolved_address.ss_family == AF_INET6) {
-        struct sockaddr_in6* addr = (struct sockaddr_in6*)&(*out_list)[i].data.resolved_address;
-        addr->sin6_port = htons(assigned_port);
-      }
-    }
-    log_debug("Successfully performed DNS lookup, found %zu addresses", *out_count);
+
+    perform_dns_lookup(remote_endpoint->hostname, remote_endpoint->service, context);
   }
   else if (remote_endpoint->data.resolved_address.ss_family != AF_UNSPEC) {
     log_debug("Endpoint was an IP address");
-    *out_count = 1;
-    *out_list = malloc(sizeof(ct_remote_endpoint_t));
-    ct_remote_endpoint_build(&(*out_list)[0]);
-    memcpy(*out_list, remote_endpoint, sizeof(ct_remote_endpoint_t));
+    out_count = 1;
+    out_list = malloc(sizeof(ct_remote_endpoint_t));
+    ct_remote_endpoint_build(&(out_list)[0]);
+    memcpy(out_list, remote_endpoint, sizeof(ct_remote_endpoint_t));
     // set port in resolved_address
-    if (out_list[0]->data.resolved_address.ss_family == AF_INET) {
-      struct sockaddr_in* addr = (struct sockaddr_in*)&(*out_list)[0].data.resolved_address;
+    if (out_list[0].data.resolved_address.ss_family == AF_INET) {
+      struct sockaddr_in* addr = (struct sockaddr_in*)&(out_list)[0].data.resolved_address;
       addr->sin_port = htons(assigned_port);
+      log_debug("Set port %d in resolved IPv4 address", assigned_port);
     }
-    else if (out_list[0]->data.resolved_address.ss_family == AF_INET6) {
-      struct sockaddr_in6* addr = (struct sockaddr_in6*)&(*out_list)[0].data.resolved_address;
+    else if (out_list[0].data.resolved_address.ss_family == AF_INET6) {
+      struct sockaddr_in6* addr = (struct sockaddr_in6*)&(out_list)[0].data.resolved_address;
       addr->sin6_port = htons(assigned_port);
+      log_debug("Set port %d in resolved IPv6 address", assigned_port);
     }
+    else {
+      log_error("Unsupported resolved_address family: %d\n", out_list[0].data.resolved_address.ss_family);
+    }
+
+    ct_remote_endpoint_resolve_cb(out_list, out_count, context);
   }
   else {
     log_error("endpoint type was unspecified, cannot resolve\n");
+    ct_remote_endpoint_resolve_cb(NULL, 0, context);
     return -EINVAL;
   }
+
   return 0;
 }
 

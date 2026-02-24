@@ -206,6 +206,20 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
     .user_connection_context = attempt,
   };
 
+  log_debug("Candidate has remote endpoint port: %d", candidate->remote_endpoint->port);
+  struct sockaddr_storage remote_addr = candidate->remote_endpoint->data.resolved_address;
+  if (remote_addr.ss_family == AF_INET) {
+    log_debug("Remote endpoint address family is AF_INET");
+    log_debug("Resolved port for remote endpoint: %d", ntohs(((struct sockaddr_in*)&remote_addr)->sin_port));
+  }
+  else if (remote_addr.ss_family == AF_INET6) {
+    log_debug("Remote endpoint address family is AF_INET6");
+  }
+  else {
+    log_debug("Remote endpoint has unsupported address family: %d", remote_addr.ss_family);
+  }
+
+
   // Allocate connection for this attempt
   attempt->connection = ct_connection_create_client(
     candidate->protocol_candidate->protocol_impl,
@@ -429,6 +443,11 @@ void start_candidate_racing_on_nodes_ready(GArray* candidate_nodes, void* contex
     }
     racing_context_free(racing_context);
     return;
+  }
+
+  ct_candidate_node_t* first_node = &g_array_index(candidate_nodes, ct_candidate_node_t, 0);
+  if (first_node->remote_endpoint->data.resolved_address.ss_family == AF_INET) {
+    log_debug("First candidate has port %d", ntohs(((struct sockaddr_in*)&first_node->remote_endpoint->data.resolved_address)->sin_port));
   }
 
   racing_context_initialize_attempt_array(racing_context, candidate_nodes);

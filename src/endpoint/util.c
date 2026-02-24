@@ -1,5 +1,6 @@
 #include "util.h"
 
+#include "candidate_gathering/candidate_gathering.h"
 #include "ctaps.h"
 #include "ctaps_internal.h"
 #include <endpoint/remote_endpoint.h>
@@ -39,62 +40,79 @@ void get_interface_addresses(const char *interface_name, int *num_found_addresse
   }
 }
 
-int perform_dns_lookup(const char* hostname, const char* service, ct_remote_endpoint_t** out_list, size_t* out_count, uv_getaddrinfo_cb getaddrinfo_cb) {
-  log_trace("Performing dns lookup for hostname: %s\n", hostname);
-  uv_getaddrinfo_t request = {0};
-
-  int rc = uv_getaddrinfo(
-    event_loop,
-    &request,
-    getaddrinfo_cb,
-    hostname,
-    service,
-    NULL//&hints
-  );
-
-  if (rc < 0) {
-    log_error("Could not initiate DNS lookup for hostname %s: %s\n", hostname, uv_strerror(rc));
-    return rc;
-  }
-
-  *out_count = 0;
+void on_uv_getaddrinfo_cb(uv_getaddrinfo_t* req, int status, struct addrinfo* res) {
+  (void)res;  // We access the results through req->addrinfo, so we don't need this parameter.
+  (void)status;  // We handle errors through the status parameter, but we don't need to access it after that.
+  log_debug("DNS lookup completed with status: %d", status);
   int count = 0;
+  ct_remote_resolve_call_context_t* context = req->data;
 
-  for (struct addrinfo* ptr = request.addrinfo; ptr != NULL; ptr = ptr->ai_next) {
+  for (struct addrinfo* ptr = req->addrinfo; ptr != NULL; ptr = ptr->ai_next) {
     count++;
   }
-  log_debug("Found %d addresses for hostname %s", count, hostname);
+  log_debug("Number of addresses resolved: %d", count);
+  for (struct addrinfo* ptr = res; ptr != NULL; ptr = ptr->ai_next) {
+    log_debug("Resolved address family: %d", ptr->ai_family);
+  }
 
   if (count == 0) {
-    uv_freeaddrinfo(request.addrinfo);
-    return 0;
+    ct_remote_endpoint_resolve_cb(NULL, 0, context);
+    uv_freeaddrinfo(req->addrinfo);
+    free(req);
+    return;
   }
-  *out_list = malloc(count * sizeof(ct_remote_endpoint_t));
-  if (!*out_list) {
+  ct_remote_endpoint_t* out_list = calloc(count, sizeof(ct_remote_endpoint_t));
+  if (!out_list) {
     log_error("Could not allocate memory for ct_remote_endpoint_t output list");
-    uv_freeaddrinfo(request.addrinfo);
-    return -ENOMEM;
+    ct_remote_endpoint_resolve_cb(NULL, 0, context);
+    uv_freeaddrinfo(req->addrinfo);
+    free(req);
+    return;
   }
 
+  size_t out_count = 0;
   // Build a single ct_remote_endpoint_t for each resolved address
-  for (struct addrinfo* ptr = request.addrinfo; ptr != NULL; ptr = ptr->ai_next) {
+  for (struct addrinfo* ptr = req->addrinfo; ptr != NULL; ptr = ptr->ai_next) {
     ct_remote_endpoint_t new_node;
     ct_remote_endpoint_build(&new_node);
+    new_node.port = context->assigned_port;
 
     if (ptr->ai_family == AF_INET) {
       memcpy(&new_node.data.resolved_address, ptr->ai_addr, sizeof(struct sockaddr_in));
-      new_node.port = ntohs(((struct sockaddr_in*)ptr->ai_addr)->sin_port);
+      ((struct sockaddr_in*)&new_node.data.resolved_address)->sin_port = htons(context->assigned_port);
     } else if (ptr->ai_family == AF_INET6) {
       memcpy(&new_node.data.resolved_address, ptr->ai_addr, sizeof(struct sockaddr_in6));
-      new_node.port = ntohs(((struct sockaddr_in6*)ptr->ai_addr)->sin6_port);
+      ((struct sockaddr_in6*)&new_node.data.resolved_address)->sin6_port = htons(context->assigned_port);
     } else {
       // Skip resolved_address families we don't handle.
       continue;
     }
-    (*out_list)[*out_count] = new_node;
-    (*out_count)++;
+    out_list[out_count] = new_node;
+    out_count++;
   }
+  ct_remote_endpoint_resolve_cb(out_list, out_count, context);
+  uv_freeaddrinfo(req->addrinfo);
+  free(req);
+}
 
-  uv_freeaddrinfo(request.addrinfo);
+int perform_dns_lookup(const char* hostname, const char* service, ct_remote_resolve_call_context_t* context) {
+  log_trace("Performing dns lookup for hostname: %s\n", hostname);
+  uv_getaddrinfo_t* request = calloc(1, sizeof(uv_getaddrinfo_t));
+  request->data = context;
+
+
+  int rc = uv_getaddrinfo(
+    event_loop,
+    request,
+    on_uv_getaddrinfo_cb,
+    hostname,
+    service,
+    NULL
+  );
+  if (rc < 0) {
+    log_error("Synchronous error in initiating DNS lookup for hostname %s: %s\n", hostname, uv_strerror(rc));
+    free(request);
+    return rc;
+  }
   return 0;
 }

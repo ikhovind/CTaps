@@ -4,13 +4,13 @@
 #include "ctaps.h"
 #include "ctaps_internal.h"
 #include "endpoint/local_endpoint.h"
+#include "endpoint/remote_endpoint.h"
 #include <glib.h>
 #include <logging/log.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 
 typedef struct ct_node_pruning_data_t {
   ct_selection_properties_t selection_properties;
@@ -34,6 +34,9 @@ typedef struct ct_protocol_options_s {
   ct_string_array_value_t* alpns; // e.g., ALPN strings
 } ct_protocol_options_t;
 
+ct_remote_resolve_call_context_t* ct_remote_resolve_call_context_new(GNode* root_node, ct_gather_context_t* gather_context);
+void ct_remote_resolve_call_context_free(ct_remote_resolve_call_context_t* context);
+
 ct_protocol_options_t* ct_protocol_options_new(const ct_preconnection_t* precon);
 
 ct_protocol_candidate_t* ct_protocol_candidate_new(const ct_protocol_impl_t* protocol_impl, const char* alpn);
@@ -46,10 +49,12 @@ void ct_protocol_options_free(ct_protocol_options_t* protocol_options);
 
 ct_protocol_impl_array_t* ct_protocol_impl_array_new(void);
 
-GNode* build_candidate_tree(const ct_preconnection_t* precon);
+void build_candidate_tree_is_complete_cb(ct_gather_context_t* gather_context);
+
+int build_candidate_tree(ct_gather_context_t* gather_context);
 int branch_by_path(GNode* parent, const ct_local_endpoint_t* local_ep);
 int branch_by_protocol_options(GNode* parent, ct_protocol_options_t* protocol_options);
-int branch_by_remote(GNode* parent, const ct_remote_endpoint_t* remote_ep);
+int branch_by_remote(GNode* parent, const ct_remote_endpoint_t* remote_ep, ct_remote_resolve_call_context_t* resolve_call_context);
 
 ct_protocol_options_t* ct_protocol_options_new(const ct_preconnection_t* precon) {
   ct_protocol_options_t* options = malloc(sizeof(ct_protocol_options_t));
@@ -250,6 +255,10 @@ size_t remove_nodes_from_tree(GList* undesirable_nodes) {
  * @return the number of candidates remaining after pruning
  */
 void prune_candidate_tree(GNode* root, ct_selection_properties_t selection_properties) {
+  if (!root) {
+    log_error("Cannot prune candidate tree: root is NULL");
+    return;
+  }
   log_debug("Pruning candidate tree based on selection properties");
 
   ct_node_pruning_data_t pruning_data = {
@@ -388,7 +397,8 @@ static gboolean collect_leaves(GNode *node, gpointer user_data) {
   return false;
 }
 
-GNode* build_candidate_tree(const ct_preconnection_t* precon) {
+int build_candidate_tree(ct_gather_context_t* gather_context) {
+  const ct_preconnection_t* precon = gather_context->preconnection;
   struct ct_candidate_node_t* root = candidate_node_new(
     NODE_TYPE_ROOT,
     NULL, 
@@ -399,7 +409,7 @@ GNode* build_candidate_tree(const ct_preconnection_t* precon) {
 
   if (!root) {
     log_error("Could not create root candidate node data");
-    return NULL;
+    return -ENOMEM;
   }
 
   GNode* root_node = g_node_new(root);
@@ -407,8 +417,10 @@ GNode* build_candidate_tree(const ct_preconnection_t* precon) {
   if (!root_node) {
     log_error("Could not create root GNode for candidate tree");
     free(root);
-    return NULL;
+    return -ENOMEM;
   }
+
+  gather_context->root_node = root_node;
 
   branch_by_path(root_node, preconnection_get_local_endpoint(precon));  
 
@@ -426,13 +438,14 @@ GNode* build_candidate_tree(const ct_preconnection_t* precon) {
   leaves = NULL;
 
   g_node_traverse(root_node, G_IN_ORDER, G_TRAVERSE_LEAVES, -1, collect_leaves, &leaves);
+  gather_context->pending_resolutions = g_list_length(leaves);
   for (GList* iter = leaves; iter != NULL; iter = iter->next) {
     GNode* leaf_node = (GNode*)iter->data;
-    branch_by_remote(leaf_node, precon->remote_endpoints);
+    ct_remote_resolve_call_context_t* context = ct_remote_resolve_call_context_new(leaf_node, gather_context);
+    branch_by_remote(leaf_node, precon->remote_endpoints, context);
   }
-
   g_list_free(leaves);
-  return root_node;
+  return 0;
 }
 
 int branch_by_path(GNode* parent, const ct_local_endpoint_t* local_ep) {
@@ -554,31 +567,16 @@ int branch_by_protocol_options(GNode* parent, ct_protocol_options_t* protocol_op
 }
 
 
+void ct_remote_endpoint_resolve_cb(ct_remote_endpoint_t* remote_endpoint, size_t out_count, ct_remote_resolve_call_context_t* context) {
+  GNode* parent = context->parent_node;
+  ct_candidate_node_t* parent_data = (ct_candidate_node_t*)parent->data;
 
-
-int branch_by_remote(GNode* parent, const ct_remote_endpoint_t* remote_ep) {
-  struct ct_candidate_node_t* parent_data = (struct ct_candidate_node_t*)parent->data;
-  if (parent_data->type != NODE_TYPE_PROTOCOL) {
-    log_error("branch_by_remote called on non-PROTOCOL node");
-    return -1;
-  }
-  log_trace("Expanding node of type PROTOCOL to ENDPOINT nodes");
-  ct_remote_endpoint_t* resolved_remote_endpoints = NULL;
-  size_t num_found_remote = 0;
-
-  // Resolve the remote endpoint (hostname to IP address).
-  int rc = ct_remote_endpoint_resolve(remote_ep, &resolved_remote_endpoints, &num_found_remote);
-  if (rc != 0) {
-    log_error("Error resolving remote endpoint");
-    return rc;
-  }
-
-  for (size_t i = 0; i < num_found_remote; i++) {
+  for (size_t i = 0; i < out_count; i++) {
     // Create a leaf node for each resolved IP address.
     ct_candidate_node_t* leaf_node_data = candidate_node_new(
       NODE_TYPE_ENDPOINT,
       parent_data->local_endpoint,
-      &resolved_remote_endpoints[i],
+      &remote_endpoint[i],
       parent_data->protocol_candidate,
       parent_data->transport_properties
     );
@@ -586,26 +584,41 @@ int branch_by_remote(GNode* parent, const ct_remote_endpoint_t* remote_ep) {
   }
 
   // Clean up the allocated memory for the list of remote endpoints.
-  if (resolved_remote_endpoints != NULL) {
+  if (remote_endpoint) {
     log_trace("Freeing list of remote endpoints after building leaf nodes");
-    free(resolved_remote_endpoints);
+    free(remote_endpoint);
   }
+
+  context->gather_context->pending_resolutions--;
+  if (context->gather_context->pending_resolutions == 0) {
+    log_trace("All remote endpoint resolutions complete");
+    build_candidate_tree_is_complete_cb(context->gather_context);
+  }
+  free(context);
+}
+
+
+int branch_by_remote(GNode* parent, const ct_remote_endpoint_t* remote_ep, ct_remote_resolve_call_context_t* context) {
+  struct ct_candidate_node_t* parent_data = (struct ct_candidate_node_t*)parent->data;
+  if (parent_data->type != NODE_TYPE_PROTOCOL) {
+    log_error("branch_by_remote called on non-PROTOCOL node");
+    return -1;
+  }
+  log_trace("Expanding node of type PROTOCOL to ENDPOINT nodes");
+
+  // Resolve the remote endpoint (hostname to IP address).
+  int rc = ct_remote_endpoint_resolve(remote_ep, context);
+  if (rc != 0) {
+    log_error("Error resolving remote endpoint");
+    return rc;
+  }
+
   return 0;
 }
 
-int get_ordered_candidate_nodes(const ct_preconnection_t* precon, ct_candidate_gathering_callbacks_t callbacks) {
-  log_info("Creating candidate node tree from preconnection");
-  if (!precon) {
-    log_error("NULL preconnection provided");
-    return -EINVAL;
-  }
-
-  GNode* root_node = build_candidate_tree(precon);
-  if (!root_node) {
-    log_error("Could not build candidate tree");
-    return -ENOMEM;
-  }
-
+void build_candidate_tree_is_complete_cb(ct_gather_context_t* gather_context) {
+  GNode* root_node = gather_context->root_node;
+  const ct_preconnection_t* precon = gather_context->preconnection;
   prune_candidate_tree(root_node, preconnection_get_transport_properties(precon)->selection_properties);
 
   log_info("Candidate tree has been pruned, extracting leaf nodes");
@@ -633,8 +646,29 @@ int get_ordered_candidate_nodes(const ct_preconnection_t* precon, ct_candidate_g
   else {
     log_warn("No candidate nodes found after pruning");
   }
+  gather_context->gathering_callbacks.candidate_node_array_ready_cb(root_array, gather_context->gathering_callbacks.context);
+  free(gather_context);
+}
 
-  callbacks.candidate_node_array_ready_cb(root_array, callbacks.context);
+int get_ordered_candidate_nodes(const ct_preconnection_t* precon, ct_candidate_gathering_callbacks_t callbacks) {
+  log_info("Creating candidate node tree from preconnection");
+  if (!precon) {
+    log_error("NULL preconnection provided");
+    return -EINVAL;
+  }
+
+  ct_gather_context_t* gather_context = malloc(sizeof(ct_gather_context_t));
+  memset(gather_context, 0, sizeof(ct_gather_context_t));
+  gather_context->gathering_callbacks = callbacks;
+  gather_context->pending_resolutions = 0;
+  gather_context->root_node = NULL;
+  gather_context->preconnection = precon;
+
+  int rc = build_candidate_tree(gather_context);
+  if (rc != 0) {
+    log_error("Could not build candidate tree");
+    return rc;
+  }
   return 0;
 }
 
@@ -707,4 +741,20 @@ ct_candidate_node_t* ct_candidate_node_copy(const ct_candidate_node_t* candidate
     candidate_node->protocol_candidate,
     candidate_node->transport_properties
   );
+}
+
+void ct_remote_resolve_call_context_free(ct_remote_resolve_call_context_t* context) {
+  free(context);
+}
+
+ct_remote_resolve_call_context_t* ct_remote_resolve_call_context_new(GNode* root_node, ct_gather_context_t* gather_context) {
+  ct_remote_resolve_call_context_t* context = malloc(sizeof(ct_remote_resolve_call_context_t));
+  if (!context) {
+    log_error("Could not allocate memory for ct_remote_resolve_call_context_t");
+    return NULL;
+  }
+  memset(context, 0, sizeof(ct_remote_resolve_call_context_t));
+  context->parent_node = root_node;
+  context->gather_context = gather_context;
+  return context;
 }
