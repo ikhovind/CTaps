@@ -291,7 +291,6 @@ int udp_send(ct_connection_t* connection, ct_message_t* message, ct_message_cont
   uv_udp_send_t* send_req = malloc(sizeof(uv_udp_send_t));
   if (!send_req) {
     log_error("Failed to allocate send request\n");
-    ct_message_free(message);
     return -ENOMEM;
   }
 
@@ -306,7 +305,9 @@ int udp_send(ct_connection_t* connection, ct_message_t* message, ct_message_cont
 
   if (rc < 0) {
     log_error("Error sending UDP message: %s", uv_strerror(rc));
-    udp_send_data_free(send_req->data);
+    // Caller frees on sync error
+    free(send_req->data);
+    free(send_req);
   }
 
   return rc;
