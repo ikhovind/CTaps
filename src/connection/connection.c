@@ -325,6 +325,23 @@ int ct_send_message_full(ct_connection_t* connection, ct_message_t* message, ct_
     log_info("Sending FINAL message over connection %s, setting canSend to false", connection->uuid);
     ct_connection_set_can_send(connection, false);
   }
+  ct_message_context_t* message_context_copy = NULL;
+
+  if (message_context) {
+    message_context_copy = ct_message_context_deep_copy(message_context);
+    if (!message_context_copy) {
+      log_error("Failed to deep copy message context");
+      return -ENOMEM;
+    }
+  }
+  else {
+    message_context_copy = ct_message_context_new_from_connection(connection);
+    if (!message_context_copy) {
+      log_error("Failed to create message context from connection");
+      return -ENOMEM;
+    }
+  }
+
   // Deep copy the message so the library owns its lifetime
   // Ownership is transferred to the framer or protocol send function, so it is freed in protocol implementation
   ct_message_t* message_copy = ct_message_deep_copy(message);
@@ -336,13 +353,13 @@ int ct_send_message_full(ct_connection_t* connection, ct_message_t* message, ct_
   int rc = 0;
   if (connection->framer_impl != NULL) {
     log_debug("User sending message on connection with framer");
-    rc = connection->framer_impl->encode_message(connection, message_copy, message_context, ct_connection_send_to_protocol);
+    rc = connection->framer_impl->encode_message(connection, message_copy, message_context_copy, ct_connection_send_to_protocol);
     if (rc < 0) {
       log_error("Framer encode_message failed: %d", rc);
     }
   } else {
     log_debug("User sending message on connection without framer");
-    rc = ct_connection_send_to_protocol(connection, message_copy, message_context);
+    rc = ct_connection_send_to_protocol(connection, message_copy, message_context_copy);
   }
 
   return rc;

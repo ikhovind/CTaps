@@ -24,6 +24,7 @@ TEST(ConnectionGroupUnitTests, abortAllabortsOnlyOpenOrClosingConnections) {
 
     ct_protocol_impl_t protocol_impl;
     protocol_impl.abort = fake_protocol_abort;
+    protocol_impl.name = "fake_protocol";
 
     ct_socket_manager_t* socket_manager = ct_socket_manager_new(&protocol_impl, NULL);
 

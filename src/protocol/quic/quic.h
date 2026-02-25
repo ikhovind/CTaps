@@ -50,8 +50,7 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
                                           const char* key_file, 
                                           ct_socket_manager_t* socket_manager,
                                           const ct_security_parameters_t* security_parameters,
-                                          ct_message_t* initial_message,
-                                          ct_message_context_t* initial_message_context
+                                          ct_message_t* initial_message
                                           );
 void ct_close_quic_context(ct_quic_socket_state_t* ctx);
 void ct_free_quic_connection_group_state(ct_quic_connection_group_state_t* group_state);

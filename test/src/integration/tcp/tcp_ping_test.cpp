@@ -11,9 +11,19 @@ extern "C" {
 #define TCP_PING_PORT 5006
 #define INVALID_TCP_PORT 5007
 
-class TcpGenericTests : public CTapsGenericFixture {};
+DEFINE_FFF_GLOBALS;
+FAKE_VOID_FUNC(fake_message_sent, ct_connection_t*, ct_message_context_t*);
 
-TEST_F(TcpGenericTests, successfullyConnectsToTcpServer) {
+class TcpPingTest : public CTapsGenericFixture {
+protected:
+  void SetUp() override {
+    CTapsGenericFixture::SetUp();
+    RESET_FAKE(fake_message_sent);
+    FFF_RESET_HISTORY();
+  }
+};
+
+TEST_F(TcpPingTest, successfullyConnectsToTcpServer) {
   log_info("Starting test: successfullyConnectsToTcpServer");
   // --- Setup ---
   ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
@@ -34,6 +44,7 @@ TEST_F(TcpGenericTests, successfullyConnectsToTcpServer) {
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
     .ready = mark_connection_as_success_and_close,
+    .sent = fake_message_sent,
     .user_connection_context = &test_context,
   };
 
@@ -45,12 +56,14 @@ TEST_F(TcpGenericTests, successfullyConnectsToTcpServer) {
 
   ASSERT_TRUE(test_context.connection_succeeded);
 
+  ASSERT_EQ(fake_message_sent_fake.call_count, 0);
+
   ct_remote_endpoint_free(remote_endpoint);
   ct_preconnection_free(preconnection);
   ct_transport_properties_free(transport_properties);
 }
 
-TEST_F(TcpGenericTests, connectionErrorCalledWhenNoServer) {
+TEST_F(TcpPingTest, connectionErrorCalledWhenNoServer) {
   // --- Setup ---
   ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
   ASSERT_NE(remote_endpoint, nullptr);
@@ -71,6 +84,7 @@ TEST_F(TcpGenericTests, connectionErrorCalledWhenNoServer) {
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
     .ready = on_connection_ready,
+    .sent = fake_message_sent,
     .user_connection_context = &test_context,
   };
 
@@ -82,12 +96,14 @@ TEST_F(TcpGenericTests, connectionErrorCalledWhenNoServer) {
 
   ASSERT_FALSE(test_context.connection_succeeded);
 
+  ASSERT_EQ(fake_message_sent_fake.call_count, 0);
+
   ct_remote_endpoint_free(remote_endpoint);
   ct_preconnection_free(preconnection);
   ct_transport_properties_free(transport_properties);
 }
 
-TEST_F(TcpGenericTests, sendsSingleTcpMessage) {
+TEST_F(TcpPingTest, sendsSingleTcpMessage) {
   int rc;
   // --- Setup ---
   ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
@@ -112,6 +128,7 @@ TEST_F(TcpGenericTests, sendsSingleTcpMessage) {
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
     .ready = send_message_and_receive,
+    .sent = fake_message_sent,
     .user_connection_context = &test_context,
   };
 
@@ -127,6 +144,10 @@ TEST_F(TcpGenericTests, sendsSingleTcpMessage) {
   ASSERT_EQ(per_connection_messages.size(), 1);
   ASSERT_EQ(per_connection_messages[saved_connection].size(), 1);
   ASSERT_STREQ(per_connection_messages[saved_connection][0]->content, "Pong: ping");
+
+  ASSERT_EQ(fake_message_sent_fake.call_count, 1);
+  ASSERT_EQ(fake_message_sent_fake.arg0_val, saved_connection);
+  ASSERT_NE(fake_message_sent_fake.arg1_val, nullptr);
 
   ct_remote_endpoint_free(remote_endpoint);
   ct_preconnection_free(preconnection);

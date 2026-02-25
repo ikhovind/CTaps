@@ -8,7 +8,17 @@ extern "C" {
 #include "fixtures/awaiting_fixture.cpp"
 }
 
-class UdpPingTests : public CTapsGenericFixture {};
+DEFINE_FFF_GLOBALS;
+FAKE_VOID_FUNC(fake_message_sent, ct_connection_t*, ct_message_context_t*);
+
+class UdpPingTests : public CTapsGenericFixture {
+protected:
+  void SetUp() override {
+    CTapsGenericFixture::SetUp();
+    RESET_FAKE(fake_message_sent);
+    FFF_RESET_HISTORY();
+  }
+};
 
 TEST_F(UdpPingTests, sendsSingleUdpPacket) {
   log_info("Starting test: sendsSingleUdpPacket");
@@ -31,6 +41,7 @@ TEST_F(UdpPingTests, sendsSingleUdpPacket) {
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
     .ready = send_message_and_receive,
+    .sent = fake_message_sent,
     .user_connection_context = &test_context,
   };
 
@@ -40,12 +51,15 @@ TEST_F(UdpPingTests, sendsSingleUdpPacket) {
 
   ct_start_event_loop();
 
-  // assert state of connection is closed
   ASSERT_TRUE(ct_connection_is_closed(test_context.client_connections[0]));
 
   ASSERT_EQ(per_connection_messages.size(), 1);
   ASSERT_EQ(per_connection_messages[test_context.client_connections[0]].size(), 1);
   ASSERT_STREQ(per_connection_messages[test_context.client_connections[0]][0]->content, "Pong: ping");
+
+  ASSERT_EQ(fake_message_sent_fake.call_count, 1);
+  ASSERT_EQ(fake_message_sent_fake.arg0_val, test_context.client_connections[0]);
+  ASSERT_NE(fake_message_sent_fake.arg1_val, nullptr);
 
   ct_remote_endpoint_free(remote_endpoint);
   ct_preconnection_free(preconnection);
@@ -75,6 +89,7 @@ TEST_F(UdpPingTests, packetsAreReadInOrder) {
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
     .ready = send_two_messages_on_ready,
+    .sent = fake_message_sent,
     .user_connection_context = &test_context,
   };
 
@@ -90,6 +105,10 @@ TEST_F(UdpPingTests, packetsAreReadInOrder) {
   ASSERT_EQ(per_connection_messages[test_context.client_connections[0]].size(), 2);
   EXPECT_STREQ(per_connection_messages[test_context.client_connections[0]][0]->content, "Pong: hello 1");
   EXPECT_STREQ(per_connection_messages[test_context.client_connections[0]][1]->content, "Pong: hello 2");
+
+  ASSERT_EQ(fake_message_sent_fake.call_count, 2);
+  ASSERT_EQ(fake_message_sent_fake.arg0_history[0], test_context.client_connections[0]);
+  ASSERT_NE(fake_message_sent_fake.arg0_history[1], test_context.client_connections[1]);
 
   ct_remote_endpoint_free(remote_endpoint);
   ct_preconnection_free(preconnection);
@@ -164,6 +183,7 @@ TEST_F(UdpPingTests, sendsSingleUdpPacketWithInitiateWithSend) {
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
     .ready = receive_on_ready,
+    .sent = fake_message_sent,
     .user_connection_context = &test_context,
   };
 
@@ -181,6 +201,10 @@ TEST_F(UdpPingTests, sendsSingleUdpPacketWithInitiateWithSend) {
   ASSERT_EQ(per_connection_messages.size(), 1);
   ASSERT_EQ(per_connection_messages[test_context.client_connections[0]].size(), 1);
   ASSERT_STREQ(per_connection_messages[test_context.client_connections[0]][0]->content, "Pong: ping");
+
+  ASSERT_EQ(fake_message_sent_fake.call_count, 1);
+  ASSERT_EQ(fake_message_sent_fake.arg0_val, test_context.client_connections[0]);
+  ASSERT_NE(fake_message_sent_fake.arg1_val, nullptr);
 
   ct_remote_endpoint_free(remote_endpoint);
   ct_preconnection_free(preconnection);

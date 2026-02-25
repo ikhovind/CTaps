@@ -8,9 +8,19 @@ extern "C" {
 #include <logging/log.h>
 }
 
-class QuicPingTest : public CTapsGenericFixture {};
+DEFINE_FFF_GLOBALS;
+FAKE_VOID_FUNC(fake_message_sent, ct_connection_t*, ct_message_context_t*);
 
-TEST_F(QuicPingTest, successfullyPingsQuicServer) {
+class QuicPingTest : public CTapsGenericFixture {
+protected:
+  void SetUp() override {
+    CTapsGenericFixture::SetUp();
+    RESET_FAKE(fake_message_sent);
+    FFF_RESET_HISTORY();
+  }
+};
+
+TEST_F(QuicPingTest, successfullyPingsQuicServerWithout0Rtt) {
   // --- Setup ---
   ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
   ASSERT_NE(remote_endpoint, nullptr);
@@ -42,6 +52,7 @@ TEST_F(QuicPingTest, successfullyPingsQuicServer) {
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
     .ready = send_message_and_receive,
+    .sent = fake_message_sent,
     .user_connection_context = &test_context,
   };
 
@@ -58,6 +69,10 @@ TEST_F(QuicPingTest, successfullyPingsQuicServer) {
   ASSERT_EQ(per_connection_messages[connection].size(), 1);
   ASSERT_STREQ(per_connection_messages[connection][0]->content, "Pong: ping");
   ASSERT_FALSE(ct_connection_sent_early_data(connection));
+
+  ASSERT_EQ(fake_message_sent_fake.call_count, 1);
+  ASSERT_EQ(fake_message_sent_fake.arg0_val, connection);
+  ASSERT_NE(fake_message_sent_fake.arg1_val, nullptr);
 
   ct_remote_endpoint_free(remote_endpoint);
   ct_preconnection_free(preconnection);
@@ -142,6 +157,7 @@ TEST_F(QuicPingTest, SuccessfullyPingsQuicServerEvenIfFirstAlpnDoesNotMatch) {
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
     .ready = send_message_and_receive,
+    .sent = fake_message_sent,
     .user_connection_context = &test_context,
   };
 
@@ -158,6 +174,10 @@ TEST_F(QuicPingTest, SuccessfullyPingsQuicServerEvenIfFirstAlpnDoesNotMatch) {
   ASSERT_EQ(per_connection_messages[connection].size(), 1);
   ASSERT_STREQ(per_connection_messages[connection][0]->content, "Pong: ping");
   ASSERT_FALSE(ct_connection_sent_early_data(connection));
+
+  ASSERT_EQ(fake_message_sent_fake.call_count, 1);
+  ASSERT_EQ(fake_message_sent_fake.arg0_val, connection);
+  ASSERT_NE(fake_message_sent_fake.arg1_val, nullptr);
 
   ct_remote_endpoint_free(remote_endpoint);
   ct_preconnection_free(preconnection);
@@ -199,6 +219,7 @@ TEST_F(QuicPingTest, successfullyPingsQuicServerWith0Rtt) {
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
     .ready = send_message_and_receive,
+    .sent = fake_message_sent,
     .user_connection_context = &test_context,
   };
 
@@ -216,6 +237,14 @@ TEST_F(QuicPingTest, successfullyPingsQuicServerWith0Rtt) {
   ASSERT_STREQ(per_connection_messages[connection][0]->content, "Pong: ping");
   ASSERT_FALSE(ct_connection_sent_early_data(connection));
 
+  ASSERT_EQ(fake_message_sent_fake.call_count, 1);
+  ASSERT_EQ(fake_message_sent_fake.arg0_val, connection);
+  ASSERT_NE(fake_message_sent_fake.arg1_val, nullptr);
+
+  ASSERT_EQ(fake_message_sent_fake.call_count, 1);
+  ASSERT_EQ(fake_message_sent_fake.arg0_val, connection);
+  ASSERT_NE(fake_message_sent_fake.arg1_val, nullptr);
+
   ct_remote_endpoint_free(remote_endpoint);
   ct_transport_properties_free(transport_properties);
 
@@ -228,6 +257,7 @@ TEST_F(QuicPingTest, successfullyPingsQuicServerWith0Rtt) {
   connection_callbacks = {
     .establishment_error = on_establishment_error,
     .ready = receive_on_ready,
+    .sent = fake_message_sent,
     .user_connection_context = &test_context,
   };
 
@@ -251,6 +281,10 @@ TEST_F(QuicPingTest, successfullyPingsQuicServerWith0Rtt) {
   ASSERT_EQ(per_connection_messages[connection].size(), 1);
   ASSERT_STREQ(per_connection_messages[connection][0]->content, "Pong: ping");
   ASSERT_TRUE(ct_connection_sent_early_data(connection));
+
+  ASSERT_EQ(fake_message_sent_fake.call_count, 2);
+  ASSERT_EQ(fake_message_sent_fake.arg0_history[1], connection);
+  ASSERT_NE(fake_message_sent_fake.arg1_history[1], nullptr);
 
   ct_preconnection_free(preconnection);
 }
@@ -289,6 +323,7 @@ TEST_F(QuicPingTest, doesNotUse0rttWithNormalInitiate) {
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
     .ready = send_message_and_receive,
+    .sent = fake_message_sent,
     .user_connection_context = &test_context,
   };
 
@@ -305,6 +340,9 @@ TEST_F(QuicPingTest, doesNotUse0rttWithNormalInitiate) {
   ASSERT_EQ(per_connection_messages[connection].size(), 1);
   ASSERT_STREQ(per_connection_messages[connection][0]->content, "Pong: ping");
   ASSERT_FALSE(ct_connection_sent_early_data(connection));
+
+  ASSERT_EQ(fake_message_sent_fake.call_count, 1);
+  ASSERT_NE(fake_message_sent_fake.arg0_val, nullptr);
 
   ct_remote_endpoint_free(remote_endpoint);
   ct_transport_properties_free(transport_properties);
@@ -324,6 +362,8 @@ TEST_F(QuicPingTest, doesNotUse0rttWithNormalInitiate) {
   ASSERT_EQ(per_connection_messages[connection].size(), 1);
   ASSERT_STREQ(per_connection_messages[connection][0]->content, "Pong: ping");
   ASSERT_FALSE(ct_connection_sent_early_data(connection));
+  ASSERT_EQ(fake_message_sent_fake.call_count, 2);
+  ASSERT_NE(fake_message_sent_fake.arg0_history[1], nullptr);
 
   ct_preconnection_free(preconnection);
 }

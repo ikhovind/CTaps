@@ -60,16 +60,18 @@ const ct_protocol_impl_t udp_protocol_interface = {
 
 // Used to free data in send callbac
 typedef struct udp_send_data_s {
+  ct_connection_t* connection;
   ct_message_t* message;
   ct_message_context_t* message_context;
 } udp_send_data_t;
 
-udp_send_data_t* udp_send_data_new(ct_message_t* message, ct_message_context_t* message_context) {
+udp_send_data_t* udp_send_data_new(ct_connection_t* connection, ct_message_t* message, ct_message_context_t* message_context) {
   udp_send_data_t* send_data = malloc(sizeof(udp_send_data_t));
   if (!send_data) {
     log_error("Failed to allocate memory for UDP send data");
     return NULL;
   }
+  send_data->connection = connection;
   send_data->message = message;
   send_data->message_context = message_context;
   return send_data;
@@ -128,12 +130,18 @@ void udp_multiplex_received_message(ct_socket_manager_t* socket_manager, char* b
 
 void on_send(uv_udp_send_t* req, int status) {
   log_debug("UDP send callback invoked with status: %d", status);
+  udp_send_data_t* send_data = req->data;
+  ct_socket_manager_t* socket_manager = send_data->connection->socket_manager;
   if (status) {
     log_error("Send error: %s\n", uv_strerror(status));
+    socket_manager->callbacks.message_send_error(send_data->connection, send_data->message_context, status);
+    return;
   }
-  if (req && req->data) {
-    udp_send_data_free(req->data);
-  }
+
+  // message context is freed by socket manager
+  ct_message_free(send_data->message);
+  socket_manager->callbacks.message_sent(send_data->connection, send_data->message_context);
+  free(send_data);
   free(req);
 }
 
@@ -294,7 +302,7 @@ int udp_send(ct_connection_t* connection, ct_message_t* message, ct_message_cont
   }
 
   // Store the message in send_req->data so we can free it in the callback
-  send_req->data = udp_send_data_new(message, message_context);
+  send_req->data = udp_send_data_new(connection, message, message_context);
   ct_udp_socket_state_t* socket_state = ct_connection_get_socket_state(connection);
   
   int rc = uv_udp_send(
