@@ -838,7 +838,7 @@ typedef struct ct_connection_callbacks_s {
   int (*closed)(ct_connection_t* connection);
 
   /** @brief Called when a message send operation fails. */
-  int (*send_error)(ct_connection_t* connection, ct_message_context_t* message_context, int reason_code);
+  void (*send_error)(ct_connection_t* connection, ct_message_context_t* message_context, int reason_code);
 
   /** @brief Called when a sent message is acknowledged by the transport. */
   void (*sent)(ct_connection_t* connection, ct_message_context_t* message_context);

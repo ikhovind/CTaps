@@ -283,7 +283,7 @@ int racing_on_attempt_ready(ct_connection_t* connection) {
     if (rc != 0) {
       log_error("Failed to send initial message on winning connection: %d", rc);
       ct_socket_manager_t* socket_manager = connection->socket_manager;
-      socket_manager->callbacks.message_send_error(connection, NULL, rc);
+      socket_manager->callbacks.message_send_error(connection, context->initial_message_context, rc);
     }
   }
 

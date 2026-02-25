@@ -1,8 +1,6 @@
 #include "ctaps.h"
 #include "ctaps_internal.h"
 #include "message_context.h"
-#include "endpoint/local_endpoint.h"
-#include "endpoint/remote_endpoint.h"
 
 #include <logging/log.h>
 #include <stdlib.h>

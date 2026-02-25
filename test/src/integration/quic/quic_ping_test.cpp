@@ -241,10 +241,6 @@ TEST_F(QuicPingTest, successfullyPingsQuicServerWith0Rtt) {
   ASSERT_EQ(fake_message_sent_fake.arg0_val, connection);
   ASSERT_NE(fake_message_sent_fake.arg1_val, nullptr);
 
-  ASSERT_EQ(fake_message_sent_fake.call_count, 1);
-  ASSERT_EQ(fake_message_sent_fake.arg0_val, connection);
-  ASSERT_NE(fake_message_sent_fake.arg1_val, nullptr);
-
   ct_remote_endpoint_free(remote_endpoint);
   ct_transport_properties_free(transport_properties);
 

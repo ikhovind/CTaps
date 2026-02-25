@@ -62,12 +62,6 @@ const ct_protocol_impl_t tcp_protocol_interface = {
     .free_connection_group_state = tcp_free_connection_group_state,
 };
 
-typedef struct ct_tcp_send_data_s {
-  ct_connection_t* connection;
-  ct_message_t* message;
-  ct_message_context_t* message_context;
-} ct_tcp_send_data_t;
-
 ct_tcp_send_data_t* ct_tcp_send_data_new(ct_connection_t* connection, ct_message_t* message, ct_message_context_t* message_context) {
   ct_tcp_send_data_t* send_data = malloc(sizeof(ct_tcp_send_data_t));
   if (!send_data) {
@@ -244,11 +238,10 @@ void on_write(uv_write_t* req, int status) {
   ct_tcp_send_data_t* send_data = req->data;
 
   if (status < 0) {
-    log_error("Write error: %s", uv_strerror(status));
+    log_error("Write error for TCP: %s", uv_strerror(status));
     socket_manager->callbacks.message_send_error(connection, send_data->message_context, status);
   } else {
     socket_manager->callbacks.message_sent(connection, send_data->message_context);
-    log_info("Successfully sent message over TCP");
   }
 
   // Free the message after sending (or error), context is freed by socket manager callbacks
@@ -256,7 +249,6 @@ void on_write(uv_write_t* req, int status) {
      ct_message_free(send_data->message);
   }
   free(send_data);
-  log_debug("Freeing write request");
   free(req);
 }
 
