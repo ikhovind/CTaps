@@ -31,7 +31,7 @@ typedef struct ct_protocol_impl_array_s {
   */
 typedef struct ct_protocol_options_s {
   ct_protocol_impl_array_t protocol_arr; // List of supported protocol implementations
-  ct_string_array_value_t* alpns; // e.g., ALPN strings
+  ct_string_array_t* alpns; // e.g., ALPN strings
 } ct_protocol_options_t;
 
 ct_remote_resolve_call_context_t* ct_remote_resolve_call_context_new(GNode* root_node, ct_gather_context_t* gather_context);

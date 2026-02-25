@@ -402,7 +402,7 @@ size_t quic_alpn_select_cb(picoquic_quic_t* quic, ptls_iovec_t* list, size_t cou
     return count;
   }
 
-  const ct_string_array_value_t* listener_alpns = listener->security_parameters->security_parameters[ALPN].value.array_of_strings;
+  const ct_string_array_t* listener_alpns = listener->security_parameters->security_parameters[ALPN].value.array_of_strings;
 
   for (size_t i = 0; i < count; i++) {
     for (size_t j = 0; j < listener_alpns->num_strings; j++) {
@@ -1476,7 +1476,7 @@ int quic_send(ct_connection_t* connection, ct_message_t* message, ct_message_con
   log_debug("Queuing %zu bytes for QUIC, sending on stream %llu, connection: %s", message->length, (unsigned long long)stream_id, connection->uuid);
 
   int set_fin = 0;
-  if (message_context && ct_message_properties_is_final(&message_context->message_properties)) {
+  if (message_context && ct_message_properties_get_final(&message_context->message_properties)) {
     log_debug("Setting FIN on QUIC stream %llu for connection: %s", (unsigned long long)stream_id, connection->uuid);
     set_fin = 1;
   }

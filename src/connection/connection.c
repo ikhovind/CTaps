@@ -321,7 +321,7 @@ int ct_send_message_full(ct_connection_t* connection, ct_message_t* message, ct_
     log_error("Connection %s cannot send messages in its current state", connection->uuid);
     return -EPIPE;
   }
-  if (message_context && ct_message_properties_is_final(&message_context->message_properties)) {
+  if (message_context && ct_message_properties_get_final(&message_context->message_properties)) {
     log_info("Sending FINAL message over connection %s, setting canSend to false", connection->uuid);
     ct_connection_set_can_send(connection, false);
   }

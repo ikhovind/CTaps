@@ -96,16 +96,16 @@ typedef struct ct_byte_array_s {
 typedef struct {
   char** strings;       ///< Array of string pointers
   size_t num_strings;   ///< Number of strings in the array
-} ct_string_array_value_t;
+} ct_string_array_t;
 
-ct_string_array_value_t* ct_string_array_value_new(char** strings, size_t num_strings);
+ct_string_array_t* ct_string_array_value_new(char** strings, size_t num_strings);
 
 
 /**
  * @brief Union holding security parameter values.
  */
 typedef union ct_sec_property_value_u {
-  ct_string_array_value_t* array_of_strings;  ///< For TYPE_STRING_ARRAY properties
+  ct_string_array_t* array_of_strings;  ///< For TYPE_STRING_ARRAY properties
   ct_certificate_bundles_t* certificate_bundles; ///< For TYPE_CERTIFICATE_BUNDLES properties
   char* string;                         ///< For TYPE_STRING properties
   ct_byte_array_t* byte_array;          ///< For TYPE_BYTE_ARRAY properties
@@ -163,16 +163,6 @@ extern const ct_selection_properties_t DEFAULT_SELECTION_PROPERTIES;
 // =============================================================================
 
 /**
- * @brief Type of value stored in a message property.
- */
-typedef enum ct_message_property_type_e {
-  TYPE_UINT32_MSG,
-  TYPE_BOOLEAN_MSG,
-  TYPE_UINT64_MSG,
-  TYPE_ENUM_MSG
-} ct_message_property_type_t;
-
-/**
  * @brief Union holding message property values.
  */
 typedef union {
@@ -187,7 +177,6 @@ typedef union {
  */
 typedef struct ct_message_property_s {
   char* name;                              ///< Property name string
-  ct_message_property_type_t type;         ///< Type of value stored
   bool set_by_user;                        ///< True if user explicitly set this property
   ct_message_property_value_t value;       ///< Property value
 } ct_message_property_t;
@@ -203,12 +192,11 @@ typedef struct ct_message_properties_s {
 } ct_message_properties_t;
 
 // The value cast is a hack to please the c++ compiler for our tests
-#define create_message_property_initializer(enum_name, string_name, property_type, default_value) \
+#define create_message_property_initializer(enum_name, string_name, property_type, token_name, default_value) \
   [enum_name] = {                                                          \
-    .name = string_name,                                                   \
-    .type = property_type,                                                 \
+    .name = (string_name),                                                   \
     .set_by_user = false,                                                  \
-    .value = { (uint32_t)default_value }                     \
+    .value = { (uint32_t)(default_value) }                     \
 },
 
 static const ct_message_properties_t DEFAULT_MESSAGE_PROPERTIES = {

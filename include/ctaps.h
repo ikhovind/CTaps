@@ -316,12 +316,20 @@ CT_EXTERN void ct_set_sel_prop_interface(ct_selection_properties_t* props, const
 // Connection Properties
 // =============================================================================
 
+
+/**
+ * @brief Collection of all connection properties.
+ *
+ * Contains both configurable and read-only properties for an active connection.
+ * Properties are indexed by ct_connection_property_enum_t.
+ */
+typedef struct ct_connection_properties_s ct_connection_properties_t;
+
 #define CONN_TIMEOUT_DISABLED UINT32_MAX            ///< Special value: no timeout
 #define CONN_RATE_UNLIMITED UINT64_MAX              ///< Special value: no rate limit
 #define CONN_CHECKSUM_FULL_COVERAGE UINT32_MAX      ///< Special value: checksum entire message
 #define CONN_MSG_MAX_LEN_NOT_APPLICABLE 0           ///< Special value: no maximum length
 
-#define output_con_enum(enum_name, string_name, property_type, default_value) enum_name,
 
 /**
  * @brief Connection lifecycle states.
@@ -369,33 +377,48 @@ typedef enum {
 
 // clang-format off
 #define get_writable_connection_property_list(f)                                                                    \
-f(RECV_CHECKSUM_LEN,          "recvChecksumLen",          uint32_t,                       CONN_CHECKSUM_FULL_COVERAGE)        \
-f(CONN_PRIORITY,              "connPriority",             uint32_t,                       100)                                \
-f(CONN_TIMEOUT,               "connTimeout",              uint32_t,                       CONN_TIMEOUT_DISABLED)              \
-f(KEEP_ALIVE_TIMEOUT,         "keepAliveTimeout",         uint32_t,                       CONN_TIMEOUT_DISABLED)              \
-f(CONN_SCHEDULER,             "connScheduler",            ct_connection_scheduler_enum_t, CONN_SCHEDULER_WEIGHTED_FAIR_QUEUEING) \
-f(CONN_CAPACITY_PROFILE,      "connCapacityProfile",      ct_capacity_profile_enum_t,     CAPACITY_PROFILE_BEST_EFFORT)           \
-f(MULTIPATH_POLICY,           "multipathPolicy",          ct_multipath_policy_enum_t,     MULTIPATH_POLICY_HANDOVER)          \
-f(MIN_SEND_RATE,              "minSendRate",              uint64_t,                       CONN_RATE_UNLIMITED)                \
-f(MIN_RECV_RATE,              "minRecvRate",              uint64_t,                       CONN_RATE_UNLIMITED)                \
-f(MAX_SEND_RATE,              "maxSendRate",              uint64_t,                       CONN_RATE_UNLIMITED)                \
-f(MAX_RECV_RATE,              "maxRecvRate",              uint64_t,                       CONN_RATE_UNLIMITED)                \
-f(GROUP_CONN_LIMIT,           "groupConnLimit",           uint64_t,                       CONN_RATE_UNLIMITED)                \
-f(ISOLATE_SESSION,            "isolateSession",           bool,                           false)
+f(RECV_CHECKSUM_LEN,          "recvChecksumLen",          uint32_t,                       recv_checksum_len,     CONN_CHECKSUM_FULL_COVERAGE)        \
+f(CONN_PRIORITY,              "connPriority",             uint32_t,                       conn_priority,         100)                                \
+f(CONN_TIMEOUT,               "connTimeout",              uint32_t,                       conn_timeout,          CONN_TIMEOUT_DISABLED)              \
+f(KEEP_ALIVE_TIMEOUT,         "keepAliveTimeout",         uint32_t,                       keep_alive_timeout,    CONN_TIMEOUT_DISABLED)              \
+f(CONN_SCHEDULER,             "connScheduler",            ct_connection_scheduler_enum_t, conn_scheduler,        CONN_SCHEDULER_WEIGHTED_FAIR_QUEUEING) \
+f(CONN_CAPACITY_PROFILE,      "connCapacityProfile",      ct_capacity_profile_enum_t,     conn_capacity_profile, CAPACITY_PROFILE_BEST_EFFORT)           \
+f(MULTIPATH_POLICY,           "multipathPolicy",          ct_multipath_policy_enum_t,     multipath_policy,      MULTIPATH_POLICY_HANDOVER)          \
+f(MIN_SEND_RATE,              "minSendRate",              uint64_t,                       min_send_rate,         CONN_RATE_UNLIMITED)                \
+f(MIN_RECV_RATE,              "minRecvRate",              uint64_t,                       min_recv_rate,         CONN_RATE_UNLIMITED)                \
+f(MAX_SEND_RATE,              "maxSendRate",              uint64_t,                       max_send_rate,         CONN_RATE_UNLIMITED)                \
+f(MAX_RECV_RATE,              "maxRecvRate",              uint64_t,                       max_recv_rate,         CONN_RATE_UNLIMITED)                \
+f(GROUP_CONN_LIMIT,           "groupConnLimit",           uint64_t,                       group_conn_limit,      CONN_RATE_UNLIMITED)                \
+f(ISOLATE_SESSION,            "isolateSession",           bool,                           isolate_session,       false)
 
 #define get_read_only_connection_properties(f)                                                                \
-f(STATE,                               "state",                               ct_connection_state_enum_t, 0)        \
-f(CAN_SEND,                            "canSend",                             bool,                0)        \
-f(CAN_RECEIVE,                         "canReceive",                          bool,                0)        \
-f(SINGULAR_TRANSMISSION_MSG_MAX_LEN,   "singularTransmissionMsgMaxLen",       uint64_t,            0)        \
-f(SEND_MESSAGE_MAX_LEN,                "sendMsgMaxLen",                       uint64_t,            0)        \
-f(RECV_MESSAGE_MAX_LEN,                "recvMessageMaxLen",                   uint64_t,            0)
+f(STATE,                               "state",                               ct_connection_state_enum_t, state, 0)        \
+f(CAN_SEND,                            "canSend",                             bool,                       can_send, 0)        \
+f(CAN_RECEIVE,                         "canReceive",                          bool,                       can_receive, 0)        \
+f(SINGULAR_TRANSMISSION_MSG_MAX_LEN,   "singularTransmissionMsgMaxLen",       uint64_t,                   singular_transmission_msg_max_len, 0)        \
+f(SEND_MESSAGE_MAX_LEN,                "sendMsgMaxLen",                       uint64_t,                   send_message_max_len, 0)        \
+f(RECV_MESSAGE_MAX_LEN,                "recvMessageMaxLen",                   uint64_t,                   recv_message_max_len, 0)
 
 #define get_tcp_connection_properties(f)                                                                \
-f(USER_TIMEOUT_VALUE_MS,        "userTimeoutValueMs",      uint32_t, TCP_USER_TIMEOUT)        \
-f(USER_TIMEOUT_ENABLED,         "userTimeoutEnabled",      bool,     false)        \
-f(USER_TIMEOUT_CHANGEABLE,      "userTimeoutChangeable",   bool,     true)
+f(USER_TIMEOUT_VALUE_MS,        "userTimeoutValueMs",      uint32_t, user_timeout_value_ms,   TCP_USER_TIMEOUT)        \
+f(USER_TIMEOUT_ENABLED,         "userTimeoutEnabled",      bool,     user_timeout_enabled,    false)        \
+f(USER_TIMEOUT_CHANGEABLE,      "userTimeoutChangeable",   bool,     user_timeout_changeable, true)
 // clang-format on
+
+#define output_connection_property_getter_declaration(enum_name, string_name, property_type, token_name, default_value) \
+  CT_EXTERN property_type ct_connection_properties_get_##token_name(ct_connection_properties_t* conn_props); 
+
+#define output_connection_property_setter_declaration(enum_name, string_name, property_type, token_name, default_value) \
+  CT_EXTERN void ct_connection_properties_set_##token_name(ct_connection_properties_t* conn_props, property_type val); 
+
+get_writable_connection_property_list(output_connection_property_setter_declaration)
+
+get_writable_connection_property_list(output_connection_property_getter_declaration)
+get_read_only_connection_properties(output_connection_property_getter_declaration)
+get_tcp_connection_properties(output_connection_property_getter_declaration)
+
+
+#define output_con_enum(enum_name, string_name, property_type, token_name, default_value) enum_name,
 
 /**
  * @brief Enumeration of all available connection properties.
@@ -410,123 +433,68 @@ typedef enum {
   CONNECTION_PROPERTY_END
 } ct_connection_property_enum_t;
 
-/**
- * @brief Collection of all connection properties.
- *
- * Contains both configurable and read-only properties for an active connection.
- * Properties are indexed by ct_connection_property_enum_t.
- */
-typedef struct ct_connection_properties_s ct_connection_properties_t;
-
-// Connection property getters
-
-CT_EXTERN uint64_t ct_connection_properties_get_recv_checksum_len(ct_connection_properties_t* conn_props);
-
-CT_EXTERN uint32_t ct_connection_properties_get_conn_priority(ct_connection_properties_t* conn_props);
-
-CT_EXTERN uint32_t ct_connection_properties_get_conn_timeout(ct_connection_properties_t* conn_props);
-
-CT_EXTERN uint32_t ct_connection_properties_get_keep_alive_timeout(ct_connection_properties_t* conn_props);
-
-CT_EXTERN ct_connection_scheduler_enum_t ct_connection_properties_get_conn_scheduler(ct_connection_properties_t* conn_props);
-
-CT_EXTERN ct_capacity_profile_enum_t ct_connection_properties_get_conn_capacity_profile(ct_connection_properties_t* conn_props);
-
-CT_EXTERN ct_multipath_policy_enum_t ct_connection_properties_get_multipath_policy(ct_connection_properties_t* conn_props);
-
-CT_EXTERN uint64_t ct_connection_properties_get_min_send_rate(ct_connection_properties_t* conn_props);
-
-CT_EXTERN uint64_t ct_connection_properties_get_min_recv_rate(ct_connection_properties_t* conn_props);
-
-CT_EXTERN uint64_t ct_connection_properties_get_max_send_rate(ct_connection_properties_t* conn_props);
-
-CT_EXTERN uint64_t ct_connection_properties_get_max_recv_rate(ct_connection_properties_t* conn_props);
-
-CT_EXTERN uint64_t ct_connection_properties_get_group_conn_limit(ct_connection_properties_t* conn_props);
-
-CT_EXTERN bool ct_connection_properties_get_isolate_session(ct_connection_properties_t* conn_props);
-
-CT_EXTERN ct_connection_state_enum_t ct_connection_properties_get_state(ct_connection_properties_t* conn_props);
-
-CT_EXTERN bool ct_connection_properties_get_can_send(ct_connection_properties_t* conn_props);
-
-CT_EXTERN bool ct_connection_properties_get_can_receive(ct_connection_properties_t* conn_props);
-
-CT_EXTERN uint64_t ct_connection_properties_get_singular_transmission_msg_max_len(ct_connection_properties_t* conn_props);
-
-CT_EXTERN uint64_t ct_connection_properties_get_send_message_max_len(ct_connection_properties_t* conn_props);
-
-CT_EXTERN uint64_t ct_connection_properties_get_recv_message_max_len(ct_connection_properties_t* conn_props);
-
-CT_EXTERN uint32_t ct_connection_properties_get_user_timeout_value_ms(ct_connection_properties_t* conn_props);
-
-CT_EXTERN bool ct_connection_properties_get_user_timeout_enabled(ct_connection_properties_t* conn_props);
-
-CT_EXTERN bool ct_connection_properties_get_user_timeout_changeable(ct_connection_properties_t* conn_props);
-
 // Writable connection property setters
 
-CT_EXTERN void ct_connection_properties_set_recv_checksum_len(ct_connection_properties_t* conn_props, uint32_t recv_checksum_len);
-
-CT_EXTERN void ct_connection_properties_set_conn_priority(ct_connection_properties_t* conn_props, uint32_t conn_priority);
-
-CT_EXTERN void ct_connection_properties_set_conn_timeout(ct_connection_properties_t* conn_props, uint32_t conn_timeout);
-
-CT_EXTERN void ct_connection_properties_set_keep_alive_timeout(ct_connection_properties_t* conn_props, uint32_t keep_alive_timeout);
-
-CT_EXTERN void ct_connection_properties_set_conn_scheduler(ct_connection_properties_t* conn_props, ct_connection_scheduler_enum_t conn_scheduler);
-
-CT_EXTERN void ct_connection_properties_set_conn_capacity_profile(ct_connection_properties_t* conn_props, ct_capacity_profile_enum_t conn_capacity_profile);
-
-CT_EXTERN void ct_connection_properties_set_multipath_policy(ct_connection_properties_t* conn_props, ct_multipath_policy_enum_t multipath_policy);
-
-CT_EXTERN void ct_connection_properties_set_min_send_rate(ct_connection_properties_t* conn_props, uint64_t min_send_rate);
-
-
-CT_EXTERN void ct_connection_properties_set_min_recv_rate(ct_connection_properties_t* conn_props, uint64_t min_recv_rate);
-
-CT_EXTERN void ct_connection_properties_set_max_send_rate(ct_connection_properties_t* conn_props, uint64_t max_send_rate);
-
-CT_EXTERN void ct_connection_properties_set_max_recv_rate(ct_connection_properties_t* conn_props, uint64_t max_recv_rate);
-
-CT_EXTERN void ct_connection_properties_set_group_conn_limit(ct_connection_properties_t* conn_props, uint64_t group_conn_limit);
-
-CT_EXTERN void ct_connection_properties_set_isolate_session(ct_connection_properties_t* conn_props, bool isolate_session);
-
-CT_EXTERN void ct_connection_properties_set_user_timeout_value_ms(ct_connection_properties_t* conn_props, uint32_t user_timeout_value_ms);
-
-CT_EXTERN void ct_connection_properties_set_user_timeout_enabled(ct_connection_properties_t* conn_props, bool user_timeout_enabled);
-
-// TODO - is user_timeout_changeable settable?
-
-
-
-#define create_con_property_initializer(enum_name, string_name, property_type, default_value) \
+#define create_con_property_initializer(enum_name, string_name, property_type, token_name, default_value) \
   [enum_name] = {                                                          \
-    .name = string_name,                                                   \
-    .value = { (uint32_t)default_value }                     \
+    .name = (string_name),                                                   \
+    .value = { (uint32_t)(default_value) }                     \
 },
+
+// #################
+// # Message Properties
+// #################
+
+/**
+ * @brief Collection of message properties for per-message transmission control.
+ *
+ * ## Message Properties Ownership Model
+ *
+ * ### Passing to Functions
+ * Message properties are typically embedded within a ct_message_context_t.
+ * When you pass a message context to sending functions:
+ * - **You retain ownership** of your original message_context
+ * - CTaps makes a **deep copy** internally when needed
+ * - **You can free your message_context** after the function returns
+ *
+ * ### Lifecycle
+ * - Create with ct_message_properties_new()
+ * - Embed in a message context with ct_message_context_new()
+ * - Free your copy with ct_message_properties_free() when done
+ * - CTaps-owned copies are freed automatically
+ */
+typedef struct ct_message_properties_s ct_message_properties_t;
+
 
 #define MESSAGE_CHECKSUM_FULL_COVERAGE UINT32_MAX  ///< Special value: checksum entire message
 
 // clang-format off
 #define get_message_property_list(f)                                                                    \
-  f(MSG_LIFETIME,           "msgLifetime",          TYPE_UINT64_MSG,   0)                  \
-  f(MSG_PRIORITY,           "msgPriority",          TYPE_UINT32_MSG,   100)                \
-  f(MSG_ORDERED,            "msgOrdered",           TYPE_BOOLEAN_MSG,  true)               \
-  f(MSG_SAFELY_REPLAYABLE,  "msgSafelyReplayable",  TYPE_BOOLEAN_MSG,  false)              \
-  f(FINAL,                  "final",                TYPE_BOOLEAN_MSG,  false)              \
-  f(MSG_CHECKSUM_LEN,       "msgChecksumLen",       TYPE_UINT32_MSG,   MESSAGE_CHECKSUM_FULL_COVERAGE)                  \
-  f(MSG_RELIABLE,           "msgReliable",          TYPE_BOOLEAN_MSG,  true)               \
-  f(MSG_CAPACITY_PROFILE,   "msgCapacityProfile",   TYPE_ENUM_MSG,     CAPACITY_PROFILE_BEST_EFFORT)    \
-  f(NO_FRAGMENTATION,       "noFragmentation",      TYPE_BOOLEAN_MSG,  false)              \
-  f(NO_SEGMENTATION,        "noSegmentation",       TYPE_BOOLEAN_MSG,  false)
+f(MSG_LIFETIME,           "msgLifetime",          uint64_t,                       lifetime,          0)                  \
+f(MSG_PRIORITY,           "msgPriority",          uint32_t,                       priority,          100)                \
+f(MSG_ORDERED,            "msgOrdered",           bool,                           ordered,           true)               \
+f(MSG_SAFELY_REPLAYABLE,  "msgSafelyReplayable",  bool,                           safely_replayable, false)              \
+f(FINAL,                  "final",                bool,                           final,                 false)              \
+f(MSG_CHECKSUM_LEN,       "msgChecksumLen",       uint32_t,                       checksum_len,      MESSAGE_CHECKSUM_FULL_COVERAGE)                  \
+f(MSG_RELIABLE,           "msgReliable",          bool,                           reliable,          true)               \
+f(MSG_CAPACITY_PROFILE,   "msgCapacityProfile",   ct_capacity_profile_enum_t,     capacity_profile,  CAPACITY_PROFILE_BEST_EFFORT)    \
+f(NO_FRAGMENTATION,       "noFragmentation",      bool,                           no_fragmentation,      false)              \
+f(NO_SEGMENTATION,        "noSegmentation",       bool,                           no_segmentation,       false)
 // clang-format on
+
+#define output_message_property_getter_declaration(enum_name, string_name, property_type, token_name, default_value) \
+  CT_EXTERN property_type ct_message_properties_get_##token_name(const ct_message_properties_t* msg_props); 
+
+#define output_message_property_setter_declaration(enum_name, string_name, property_type, token_name, default_value) \
+  CT_EXTERN void ct_message_properties_set_##token_name(ct_message_properties_t* msg_props, property_type val); 
+
+get_message_property_list(output_message_property_getter_declaration)
+get_message_property_list(output_message_property_setter_declaration)
 
 /**
  * @brief Enumeration of all available message properties.
  */
-typedef enum { get_message_property_list(output_enum) MESSAGE_PROPERTY_END } ct_message_properties_enum_t;
+typedef enum { get_message_property_list(output_con_enum) MESSAGE_PROPERTY_END } ct_message_properties_enum_t;
 
 // =============================================================================
 // Transport Properties - Combination of selection and connection properties
@@ -561,21 +529,24 @@ typedef struct ct_sec_property_s ct_security_parameter_t;
 
 // clang-format off
 #define get_security_parameter_list(f)                                        \
-  f(SUPPORTED_GROUP,                "supportedGroup",             TYPE_STRING_ARRAY)               \
-  f(CIPHERSUITE,                    "ciphersuite",                TYPE_STRING_ARRAY)               \
-  f(SERVER_CERTIFICATE,             "serverCertificate",          TYPE_CERTIFICATE_BUNDLES)        \
-  f(CLIENT_CERTIFICATE,             "clientCertificate",          TYPE_CERTIFICATE_BUNDLES)        \
-  f(SIGNATURE_ALGORITHM,            "signatureAlgorithm",         TYPE_STRING_ARRAY)               \
-  f(ALPN,                           "alpn",                       TYPE_STRING_ARRAY)               \
-  f(TICKET_STORE_PATH,              "ticketStorePath",            TYPE_STRING)                     \
-  f(SERVER_NAME_IDENTIFICATION,     "serverNameIdentification",   TYPE_STRING)                     \
-  f(SESSION_TICKET_ENCRYPTION_KEY,  "sessionTicketEncryptionKey", TYPE_BYTE_ARRAY) // Optional parameter to allow for session resumption 
+f(SUPPORTED_GROUP,                "supportedGroup",             TYPE_STRING_ARRAY)               \
+f(CIPHERSUITE,                    "ciphersuite",                TYPE_STRING_ARRAY)               \
+f(SERVER_CERTIFICATE,             "serverCertificate",          TYPE_CERTIFICATE_BUNDLES)        \
+f(CLIENT_CERTIFICATE,             "clientCertificate",          TYPE_CERTIFICATE_BUNDLES)        \
+f(SIGNATURE_ALGORITHM,            "signatureAlgorithm",         TYPE_STRING_ARRAY)               \
+f(ALPN,                           "alpn",                       TYPE_STRING_ARRAY)               \
+f(TICKET_STORE_PATH,              "ticketStorePath",            TYPE_STRING)                     \
+f(SERVER_NAME_IDENTIFICATION,     "serverNameIdentification",   TYPE_STRING)                     \
+f(SESSION_TICKET_ENCRYPTION_KEY,  "sessionTicketEncryptionKey", TYPE_BYTE_ARRAY) // Optional parameter to allow for session resumption 
 // clang-format on
 
 #define output_sec_enum(enum_name, string_name, property_type) enum_name,
 
-#define create_sec_param_setter(enum_name, string_name, property_type) \
-  CT_EXTERN void ct_sec_param_set_##enum_name(ct_security_parameters_t* sec_params, ct_sec_property_value_t value);
+#define output_security_parameter_getter_declaration(enum_name, string_name, property_type, token_name, default_value) \
+  CT_EXTERN property_type ct_security_parameters_get##token_name(const ct_message_properties_t* msg_props); 
+
+#define output_security_parameter_setter_declaration(enum_name, string_name, property_type, token_name, default_value) \
+  CT_EXTERN void ct_message_properties_set_##token_name(ct_message_properties_t* msg_props, property_type val); 
 
 /**
  * @brief Enumeration of all available security parameters.
@@ -979,28 +950,6 @@ CT_EXTERN void ct_selection_properties_free(ct_selection_properties_t* selection
 // Message Properties
 // =============================================================================
 
-/**
- * @brief Collection of message properties for per-message transmission control.
- *
- * Opaque type - use message property functions to work with this structure.
- * Full definition is in ctaps_internal.h.
- *
- * ## Message Properties Ownership Model
- *
- * ### Passing to Functions
- * Message properties are typically embedded within a ct_message_context_t.
- * When you pass a message context to sending functions:
- * - **You retain ownership** of your original message_context
- * - CTaps makes a **deep copy** internally when needed
- * - **You can free your message_context** after the function returns
- *
- * ### Lifecycle
- * - Create with ct_message_properties_new()
- * - Embed in a message context with ct_message_context_new()
- * - Free your copy with ct_message_properties_free() when done
- * - CTaps-owned copies are freed automatically
- */
-typedef struct ct_message_properties_s ct_message_properties_t;
 
 /**
  * @brief Create a new message properties object with default values.
@@ -1013,48 +962,10 @@ typedef struct ct_message_properties_s ct_message_properties_t;
 CT_EXTERN ct_message_properties_t* ct_message_properties_new(void);
 
 /**
- * @brief Check if the FINAL property is set in message properties.
- * @param[in] message_properties structure to check
- *
- * @return true if FINAL property is set, false otherwise or null
- */
-CT_EXTERN bool ct_message_properties_is_final(const ct_message_properties_t* message_properties);
-
-CT_EXTERN void ct_message_properties_set_uint64(ct_message_properties_t* message_properties, ct_message_properties_enum_t property, uint64_t value);
-
-CT_EXTERN void ct_message_properties_set_uint32(ct_message_properties_t* message_properties, ct_message_properties_enum_t property, uint32_t value);
-
-CT_EXTERN void ct_message_properties_set_boolean(ct_message_properties_t* message_properties, ct_message_properties_enum_t property, bool value);
-
-CT_EXTERN void ct_message_properties_set_capacity_profile(ct_message_properties_t* message_properties, ct_message_properties_enum_t property, ct_capacity_profile_enum_t value);
-
-CT_EXTERN uint64_t ct_message_properties_get_uint64(const ct_message_properties_t* message_properties,  ct_message_properties_enum_t property);
-
-CT_EXTERN uint32_t ct_message_properties_get_uint32(const ct_message_properties_t* message_properties,  ct_message_properties_enum_t property);
-
-CT_EXTERN bool ct_message_properties_get_boolean(const ct_message_properties_t* message_properties,  ct_message_properties_enum_t property);
-
-CT_EXTERN ct_capacity_profile_enum_t ct_message_properties_get_capacity_profile(const ct_message_properties_t* message_properties);
-
-CT_EXTERN bool ct_message_properties_get_safely_replayable(const ct_message_properties_t* message_properties);
-
-CT_EXTERN void ct_message_properties_set_safely_replayable(ct_message_properties_t* message_properties, bool value);
-
-CT_EXTERN bool ct_message_properties_get_final(const ct_message_properties_t* message_properties);
-
-CT_EXTERN void ct_message_properties_set_final(ct_message_properties_t* message_properties, bool value);
-
-/**
  * @brief Free resources in message properties.
  * @param[in] message_properties structure to free
  */
 CT_EXTERN void ct_message_properties_free(ct_message_properties_t* message_properties);
-
-/**
- * @brief Free resources in transport properties.
- * @param[in] transport_properties structure to free
- */
-CT_EXTERN void ct_transport_properties_free(ct_transport_properties_t* transport_properties);
 
 // Certificate bundles
 typedef struct ct_certificate_bundles_s ct_certificate_bundles_t;
@@ -1420,26 +1331,11 @@ CT_EXTERN const ct_remote_endpoint_t* ct_message_context_get_remote_endpoint(con
  */
 CT_EXTERN const ct_local_endpoint_t* ct_message_context_get_local_endpoint(const ct_message_context_t* message_context);
 
-// Message context property setters
-CT_EXTERN void ct_message_context_set_uint64(ct_message_context_t* message_context, ct_message_properties_enum_t property, uint64_t value);
-
-CT_EXTERN void ct_message_context_set_uint32(ct_message_context_t* message_context, ct_message_properties_enum_t property, uint32_t value);
-
-CT_EXTERN void ct_message_context_set_boolean(ct_message_context_t* message_context, ct_message_properties_enum_t property, bool value);
-
-CT_EXTERN void ct_message_context_set_capacity_profile(ct_message_context_t* message_context, ct_message_properties_enum_t property, ct_capacity_profile_enum_t value);
+CT_EXTERN void ct_message_context_set_capacity_profile(ct_message_context_t* message_context, ct_capacity_profile_enum_t value);
 
 CT_EXTERN void ct_message_context_set_safely_replayable(ct_message_context_t* message_context, bool value);
 
 CT_EXTERN void ct_message_context_set_final(ct_message_context_t* message_context, bool value);
-
-// Message context property getters
-CT_EXTERN uint64_t ct_message_context_get_uint64(const ct_message_context_t* message_context, ct_message_properties_enum_t property);
-
-CT_EXTERN uint32_t ct_message_context_get_uint32(const ct_message_context_t* message_context, ct_message_properties_enum_t property);
-
-CT_EXTERN bool ct_message_context_get_boolean(const ct_message_context_t* message_context, ct_message_properties_enum_t property);
-
 
 /**
  * @brief Create a new preconnection with transport properties and endpoints.
