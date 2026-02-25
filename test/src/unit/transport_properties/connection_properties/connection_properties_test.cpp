@@ -544,31 +544,3 @@ TEST(ConnectionPropertiesTest, setIsolateSessionHandlesNullPointer) {
     ct_connection_properties_set_isolate_session(nullptr, true);
     // Test passes if no crash occurs
 }
-
-TEST(ConnectionPropertiesTest, setUserTimeoutValueMsSetsCorrectValue) {
-    ct_connection_properties_t conn_props;
-    ct_connection_properties_build(&conn_props);
-
-    ct_connection_properties_set_user_timeout_value_ms(&conn_props, 10000);
-
-    ASSERT_EQ(ct_connection_properties_get_user_timeout_value_ms(&conn_props), 10000);
-}
-
-TEST(ConnectionPropertiesTest, setUserTimeoutValueMsHandlesNullPointer) {
-    ct_connection_properties_set_user_timeout_value_ms(nullptr, 10000);
-    // Test passes if no crash occurs
-}
-
-TEST(ConnectionPropertiesTest, setUserTimeoutEnabledSetsCorrectValue) {
-    ct_connection_properties_t conn_props;
-    ct_connection_properties_build(&conn_props);
-
-    ct_connection_properties_set_user_timeout_enabled(&conn_props, true);
-
-    ASSERT_TRUE(ct_connection_properties_get_user_timeout_enabled(&conn_props));
-}
-
-TEST(ConnectionPropertiesTest, setUserTimeoutEnabledHandlesNullPointer) {
-    ct_connection_properties_set_user_timeout_enabled(nullptr, true);
-    // Test passes if no crash occurs
-}

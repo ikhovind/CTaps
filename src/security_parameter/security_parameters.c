@@ -19,7 +19,7 @@ ct_security_parameters_t* ct_security_parameters_new(void) {
   return params;
 }
 
-static void ct_string_array_value_free(ct_string_array_value_t* arr) {
+static void ct_string_array_value_free(ct_string_array_t* arr) {
   if (!arr) {
     return;
   }
@@ -54,16 +54,16 @@ void ct_sec_param_free(ct_security_parameters_t* security_parameters) {
   free(security_parameters);
 }
 
-static ct_string_array_value_t* ct_string_array_value_deep_copy(const ct_string_array_value_t* source) {
+static ct_string_array_t* ct_string_array_value_deep_copy(const ct_string_array_t* source) {
   if (!source) {
     return NULL;
   }
 
-  ct_string_array_value_t* copy = malloc(sizeof(ct_string_array_value_t));
+  ct_string_array_t* copy = malloc(sizeof(ct_string_array_t));
   if (!copy) {
     return NULL;
   }
-  memset(copy, 0, sizeof(ct_string_array_value_t));
+  memset(copy, 0, sizeof(ct_string_array_t));
 
   if (source->num_strings == 0) {
     return copy;
@@ -168,7 +168,7 @@ int ct_sec_param_set_property_string_array(ct_security_parameters_t* security_pa
   // Free existing value if set
   ct_string_array_value_free(sec_param->value.array_of_strings);
 
-  ct_string_array_value_t* arr = malloc(sizeof(ct_string_array_value_t));
+  ct_string_array_t* arr = malloc(sizeof(ct_string_array_t));
   if (!arr) {
     log_error("Failed to allocate memory for string array");
     return -ENOMEM;
@@ -287,13 +287,13 @@ const char* ct_sec_param_get_ticket_store_path(const ct_security_parameters_t* s
   return security_parameters->security_parameters[TICKET_STORE_PATH].value.string;
 }
 
-ct_string_array_value_t* ct_string_array_value_new(char** strings, size_t num_strings) {
-  ct_string_array_value_t* arr = malloc(sizeof(ct_string_array_value_t));
+ct_string_array_t* ct_string_array_value_new(char** strings, size_t num_strings) {
+  ct_string_array_t* arr = malloc(sizeof(ct_string_array_t));
   if (!arr) {
     log_error("Failed to allocate memory for ct_string_array_value_t");
     return NULL;
   }
-  memset(arr, 0, sizeof(ct_string_array_value_t));
+  memset(arr, 0, sizeof(ct_string_array_t));
   arr->strings = malloc(sizeof(char*) * num_strings);
   arr->num_strings = num_strings;
   for (size_t i = 0; i < num_strings; i++) {

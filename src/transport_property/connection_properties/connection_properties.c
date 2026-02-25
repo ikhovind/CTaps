@@ -49,12 +49,12 @@ int ct_cp_set_prop_enum(ct_connection_properties_t* props, const ct_connection_p
   return 0;
 }
 
-uint64_t ct_connection_properties_get_recv_checksum_len(ct_connection_properties_t* conn_props) {
+uint32_t ct_connection_properties_get_recv_checksum_len(ct_connection_properties_t* conn_props) {
   if (!conn_props) {
     log_warn("Null pointer passed to get_recv_checksum_len");
     return 0;
   }
-  return conn_props->list[RECV_CHECKSUM_LEN].value.uint64_val;
+  return conn_props->list[RECV_CHECKSUM_LEN].value.uint32_val;
 }
 
 uint32_t ct_connection_properties_get_conn_priority(ct_connection_properties_t* conn_props) {
