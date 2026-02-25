@@ -20,7 +20,7 @@ TEST_F(ConnectionCloneTest, clonesConnectionSendsOnBothAndReceivesIndividualResp
     ASSERT_NE(transport_properties, nullptr);
 
     // Allocated with ct_transport_properties_new()
-    ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, REQUIRE);
+    ct_transport_properties_set_multistreaming(transport_properties, REQUIRE);
 
     ct_security_parameters_t* security_parameters = ct_security_parameters_new();
     ASSERT_NE(security_parameters, nullptr);
@@ -76,9 +76,9 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     ct_remote_endpoint_with_hostname(listener_remote, "127.0.0.1");
 
     ct_transport_properties_t* listener_props = ct_transport_properties_new();
-    ct_tp_set_sel_prop_preference(listener_props, RELIABILITY, REQUIRE);
-    ct_tp_set_sel_prop_preference(listener_props, PRESERVE_MSG_BOUNDARIES, REQUIRE);
-    ct_tp_set_sel_prop_preference(listener_props, MULTISTREAMING, REQUIRE); // Force QUIC
+    ct_transport_properties_set_reliability(listener_props, REQUIRE);
+    ct_transport_properties_set_preserve_msg_boundaries(listener_props, REQUIRE);
+    ct_transport_properties_set_multistreaming(listener_props, REQUIRE); // Force QUIC
 
     ct_security_parameters_t* server_security_parameters = ct_security_parameters_new();
     const char* alpn_strings = "simple-ping";
@@ -109,9 +109,9 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     ct_remote_endpoint_with_port(client_remote, QUIC_CLONE_LISTENER_PORT);
 
     ct_transport_properties_t* client_props = ct_transport_properties_new();
-    ct_tp_set_sel_prop_preference(client_props, RELIABILITY, REQUIRE);
-    ct_tp_set_sel_prop_preference(client_props, PRESERVE_MSG_BOUNDARIES, REQUIRE);
-    ct_tp_set_sel_prop_preference(client_props, MULTISTREAMING, REQUIRE);
+    ct_transport_properties_set_reliability(client_props, REQUIRE);
+    ct_transport_properties_set_preserve_msg_boundaries(client_props, REQUIRE);
+    ct_transport_properties_set_multistreaming(client_props, REQUIRE);
 
     ct_security_parameters_t* client_security_parameters = ct_security_parameters_new();
     ct_sec_param_set_property_string_array(client_security_parameters, ALPN, (const char**)&alpn_strings, 1);
@@ -178,9 +178,9 @@ TEST_F(ConnectionCloneTest, clonesUdpConnectionSendsOnBothAndReceivesIndividualR
     ct_transport_properties_t* transport_properties = ct_transport_properties_new();
     ASSERT_NE(transport_properties, nullptr);
     // Allocated with ct_transport_properties_new()
-    ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, PROHIBIT);
-    ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_ORDER, PROHIBIT);
-    ct_tp_set_sel_prop_preference(transport_properties, CONGESTION_CONTROL, PROHIBIT);
+    ct_transport_properties_set_reliability(transport_properties, PROHIBIT);
+    ct_transport_properties_set_preserve_order(transport_properties, PROHIBIT);
+    ct_transport_properties_set_congestion_control(transport_properties, PROHIBIT);
 
     ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
     ASSERT_NE(preconnection, nullptr);
@@ -225,9 +225,9 @@ TEST_F(ConnectionCloneTest, clonesTcpConnectionSendsOnBothAndReceivesIndividualR
   ASSERT_NE(transport_properties, nullptr);
     // Allocated with ct_transport_properties_new()
     // Force TCP selection
-    ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, REQUIRE);
-    ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
-    ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, PROHIBIT);
+    ct_transport_properties_set_reliability(transport_properties, REQUIRE);
+    ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PROHIBIT);
+    ct_transport_properties_set_multistreaming(transport_properties, PROHIBIT);
 
     ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
     ASSERT_NE(preconnection, nullptr);

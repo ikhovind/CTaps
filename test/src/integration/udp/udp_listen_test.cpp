@@ -28,9 +28,9 @@ TEST_F(UdpListenTests, ReceivesConnectionFromListenerAndExchangesMessages) {
     ct_remote_endpoint_with_hostname(listener_remote, "localhost");
 
     ct_transport_properties_t* udp_props = ct_transport_properties_new();
-    ct_tp_set_sel_prop_preference(udp_props, RELIABILITY, PROHIBIT);
-    ct_tp_set_sel_prop_preference(udp_props, PRESERVE_ORDER, PROHIBIT);
-    ct_tp_set_sel_prop_preference(udp_props, CONGESTION_CONTROL, PROHIBIT);
+    ct_transport_properties_set_reliability(udp_props, PROHIBIT);
+    ct_transport_properties_set_preserve_order(udp_props, PROHIBIT);
+    ct_transport_properties_set_congestion_control(udp_props, PROHIBIT);
 
     ct_preconnection_t* listener_precon = ct_preconnection_new(listener_remote, 1, udp_props, NULL);
     ct_preconnection_set_local_endpoint(listener_precon, listener_endpoint);

@@ -349,6 +349,7 @@ int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
   );
   if (!connection->socket_manager->internal_socket_manager_state) {
     log_error("Failed to allocate memory for TCP connection state");
+    free(connect_req);
     uv_close((uv_handle_t*)new_tcp_handle, on_libuv_close);
     return -ENOMEM;
   }

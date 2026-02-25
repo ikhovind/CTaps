@@ -23,9 +23,9 @@ TEST_F(TcpListenTests, ReceivesConnectionFromListenerAndExchangesMessages) {
 
     ct_transport_properties_t* listener_props = ct_transport_properties_new();
 
-    ct_tp_set_sel_prop_preference(listener_props, RELIABILITY, REQUIRE);
-    ct_tp_set_sel_prop_preference(listener_props, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
-    ct_tp_set_sel_prop_preference(listener_props, MULTISTREAMING, PROHIBIT);
+    ct_transport_properties_set_reliability(listener_props, REQUIRE);
+    ct_transport_properties_set_preserve_msg_boundaries(listener_props, PROHIBIT);
+    ct_transport_properties_set_multistreaming(listener_props, PROHIBIT);
 
     ct_preconnection_t* listener_precon = ct_preconnection_new(listener_remote, 1, listener_props, NULL);
     ct_preconnection_set_local_endpoint(listener_precon, listener_endpoint);
@@ -46,9 +46,9 @@ TEST_F(TcpListenTests, ReceivesConnectionFromListenerAndExchangesMessages) {
     ct_transport_properties_t* client_props = ct_transport_properties_new();
     ASSERT_NE(client_props, nullptr);
 
-    ct_tp_set_sel_prop_preference(client_props, RELIABILITY, REQUIRE);
-    ct_tp_set_sel_prop_preference(client_props, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
-    ct_tp_set_sel_prop_preference(client_props, MULTISTREAMING, PROHIBIT);
+    ct_transport_properties_set_reliability(client_props, REQUIRE);
+    ct_transport_properties_set_preserve_msg_boundaries(client_props, PROHIBIT);
+    ct_transport_properties_set_multistreaming(client_props, PROHIBIT);
 
     ct_preconnection_t* client_precon = ct_preconnection_new(client_remote, 1, client_props, NULL);
     ASSERT_NE(client_precon, nullptr);

@@ -69,7 +69,7 @@ TEST(SelectionPropertiesUnitTest, SetsDefaultValues) {
         EXPECT_EQ(current_prop.type, TYPE_PREFERENCE);
         EXPECT_EQ(current_prop.value.simple_preference, NO_PREFERENCE);
         break;
-      case INTERFACE: // Note: 'interface' is the enum name
+      case INTERFACE:
         /*
         EXPECT_STREQ(current_prop.name, "interface");
         EXPECT_EQ(current_prop.type, TYPE_PREFERENCE_SET);
@@ -90,13 +90,13 @@ TEST(SelectionPropertiesUnitTest, SetsDefaultValues) {
         break;
       case MULTIPATH:
         EXPECT_STREQ(current_prop.name, "multipath");
-        EXPECT_EQ(current_prop.type, TYPE_MULTIPATH_ENUM);
-        EXPECT_EQ(current_prop.value.multipath_enum, 0);
+        EXPECT_EQ(current_prop.type, TYPE_ENUM);
+        EXPECT_EQ(current_prop.value.enum_val, 0);
         break;
       case ADVERTISES_ALT_ADDRES:
         EXPECT_STREQ(current_prop.name, "advertisesAltAddr");
-        EXPECT_EQ(current_prop.type, TYPE_BOOLEAN);
-        EXPECT_EQ(current_prop.value.boolean, false);
+        EXPECT_EQ(current_prop.type, TYPE_BOOL);
+        EXPECT_EQ(current_prop.value.bool_val, false);
         break;
       case DIRECTION:
         EXPECT_STREQ(current_prop.name, "direction");
@@ -127,7 +127,7 @@ TEST(SelectionPropertiesUnitTest, SetsSetByUser) {
   ASSERT_NE(props, nullptr);
   // Allocated with ct_transport_properties_new()
 
-  ct_tp_set_sel_prop_direction(props, DIRECTION, DIRECTION_UNIDIRECTIONAL_SEND);
+  ct_transport_properties_set_direction(props, DIRECTION_UNIDIRECTIONAL_SEND);
 
   for (int i = 0; i < SELECTION_PROPERTY_END; i++) {
     const ct_selection_property_t& current_prop = props->selection_properties.list[i];
@@ -206,13 +206,13 @@ TEST(SelectionPropertiesUnitTest, SetsSetByUser) {
         break;
       case MULTIPATH:
         EXPECT_STREQ(current_prop.name, "multipath");
-        EXPECT_EQ(current_prop.type, TYPE_MULTIPATH_ENUM);
-        EXPECT_EQ(current_prop.value.multipath_enum, 0);
+        EXPECT_EQ(current_prop.type, TYPE_ENUM);
+        EXPECT_EQ(current_prop.value.enum_val, 0);
         break;
       case ADVERTISES_ALT_ADDRES:
         EXPECT_STREQ(current_prop.name, "advertisesAltAddr");
-        EXPECT_EQ(current_prop.type, TYPE_BOOLEAN);
-        EXPECT_EQ(current_prop.value.boolean, false);
+        EXPECT_EQ(current_prop.type, TYPE_BOOL);
+        EXPECT_EQ(current_prop.value.bool_val, false);
         break;
       case DIRECTION:
         EXPECT_EQ(current_prop.set_by_user, true);

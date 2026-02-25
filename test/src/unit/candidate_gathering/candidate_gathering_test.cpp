@@ -131,8 +131,8 @@ TEST_F(CandidateGatheringTest, CreatesAndResolvesFullTree) {
 }
 
 TEST_F(CandidateGatheringTest, PrunesPathAndProtocol) {
-    ct_tp_set_sel_prop_preference(props, RELIABILITY, REQUIRE); // UDP pruned
-    ct_tp_set_sel_prop_interface(props, "Ethernet", REQUIRE);
+    ct_transport_properties_set_reliability(props, REQUIRE); // UDP pruned
+    ct_transport_properties_add_interface_preference(props, "Ethernet", REQUIRE);
     BuildPreconnection();
 
     GArray* candidates = GatherCandidates();
@@ -146,11 +146,11 @@ TEST_F(CandidateGatheringTest, PrunesPathAndProtocol) {
 }
 
 TEST_F(CandidateGatheringTest, SortsOnPreferOverAvoid) {
-    ct_tp_set_sel_prop_preference(props, PRESERVE_MSG_BOUNDARIES, REQUIRE);       // Prune TCP
+    ct_transport_properties_set_preserve_msg_boundaries(props, REQUIRE);       // Prune TCP
     // QUIC should win even if UDP has more avoids, since prefers are stronger than avoids
-    ct_tp_set_sel_prop_preference(props, MULTISTREAMING, PREFER);
-    ct_tp_set_sel_prop_preference(props, PRESERVE_ORDER, AVOID);
-    ct_tp_set_sel_prop_preference(props, CONGESTION_CONTROL, AVOID);
+    ct_transport_properties_set_multistreaming(props, PREFER);
+    ct_transport_properties_set_preserve_order(props, AVOID);
+    ct_transport_properties_set_congestion_control(props, AVOID);
     BuildPreconnection();
 
     GArray* candidates = GatherCandidates();
@@ -167,10 +167,10 @@ TEST_F(CandidateGatheringTest, SortsOnPreferOverAvoid) {
 
 TEST_F(CandidateGatheringTest, UsesAvoidAsTieBreaker) {
     // QUIC and TCP both match these two
-    ct_tp_set_sel_prop_preference(props, RELIABILITY, PREFER);
-    ct_tp_set_sel_prop_preference(props, CONGESTION_CONTROL, PREFER);
+    ct_transport_properties_set_reliability(props, PREFER);
+    ct_transport_properties_set_congestion_control(props, PREFER);
     // But only TCP here, so TCP should be placed first
-    ct_tp_set_sel_prop_preference(props, PRESERVE_MSG_BOUNDARIES, AVOID);
+    ct_transport_properties_set_preserve_msg_boundaries(props, AVOID);
     BuildPreconnection();
 
     GArray* candidates = GatherCandidates();
@@ -188,9 +188,9 @@ TEST_F(CandidateGatheringTest, UsesAvoidAsTieBreaker) {
 }
 
 TEST_F(CandidateGatheringTest, GivesNoCandidateNodesWhenAllProtocolsProhibited) {
-    ct_tp_set_sel_prop_preference(props, RELIABILITY, PROHIBIT);
-    ct_tp_set_sel_prop_preference(props, PRESERVE_MSG_BOUNDARIES, REQUIRE);
-    ct_tp_set_sel_prop_preference(props, CONGESTION_CONTROL, REQUIRE);
+    ct_transport_properties_set_reliability(props, PROHIBIT);
+    ct_transport_properties_set_preserve_msg_boundaries(props, REQUIRE);
+    ct_transport_properties_set_congestion_control(props, REQUIRE);
 
     BuildPreconnection();
 

@@ -34,6 +34,7 @@ void ct_selection_properties_cleanup(ct_selection_properties_t* selection_proper
       for (size_t j = 0; j < selection_properties->list[i].value.preference_set_val.num_combinations; j++) {
         free(selection_properties->list[i].value.preference_set_val.combinations[j].value);
       }
+      free(selection_properties->list[i].value.preference_set_val.combinations);
     }
   }
 }
@@ -44,14 +45,19 @@ void ct_selection_properties_deep_copy(ct_selection_properties_t* dest, const ct
   }
   memcpy(dest, src, sizeof(ct_selection_properties_t));
 
-  for (size_t i = 0; i < src->list[INTERFACE].value.preference_set_val.num_combinations; i++) {
+  size_t interface_count = src->list[INTERFACE].value.preference_set_val.num_combinations;
+  dest->list[INTERFACE].value.preference_set_val.combinations = malloc(interface_count * sizeof(ct_preference_combination_t));
+  dest->list[INTERFACE].value.preference_set_val.num_combinations = interface_count;
+  for (size_t i = 0; i < interface_count; i++) {
     dest->list[INTERFACE].value.preference_set_val.combinations[i].value = strdup(src->list[INTERFACE].value.preference_set_val.combinations[i].value);
     dest->list[INTERFACE].value.preference_set_val.combinations[i].preference = src->list[INTERFACE].value.preference_set_val.combinations[i].preference;
-    dest->list[INTERFACE].value.preference_set_val.num_combinations++;
   }
-  for (size_t i = 0; i < src->list[PVD].value.preference_set_val.num_combinations; i++) {
+
+  size_t pvd_count = src->list[PVD].value.preference_set_val.num_combinations;
+  dest->list[PVD].value.preference_set_val.combinations = malloc(pvd_count * sizeof(ct_preference_combination_t));
+  dest->list[PVD].value.preference_set_val.num_combinations = pvd_count;
+  for (size_t i = 0; i < pvd_count; i++) {
     dest->list[PVD].value.preference_set_val.combinations[i].value = strdup(src->list[PVD].value.preference_set_val.combinations[i].value);
     dest->list[PVD].value.preference_set_val.combinations[i].preference = src->list[PVD].value.preference_set_val.combinations[i].preference;
-    dest->list[PVD].value.preference_set_val.num_combinations++;
   }
 }

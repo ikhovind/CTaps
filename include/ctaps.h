@@ -267,24 +267,6 @@ f(ACTIVE_READ_BEFORE_SEND,     "activeReadBeforeSend",       ct_selection_prefer
 f(INTERFACE,                   "interface",                  ct_preference_set_t,                 interface,                   EMPTY_PREFERENCE_SET_DEFAULT, TYPE_PREFERENCE_SET)  \
 f(PVD,                         "pvd",                        ct_preference_set_t,                 pvd,                         EMPTY_PREFERENCE_SET_DEFAULT, TYPE_PREFERENCE_SET)  \
 
-#define output_selection_property_value_getter_declaration(enum_name, string_name, property_type, token_name, default_value, type) \
-  CT_EXTERN property_type ct_selection_properties_get_##token_name(const ct_selection_properties_t* sel_props); 
-
-#define output_selection_property_pointer_getter_declaration(enum_name, string_name, property_type, token_name, default_value, type) \
-  CT_EXTERN ct_selection_preference_t ct_selection_properties_get_##token_name_preference(const ct_selection_properties_t* sel_props, char* value);
-
-#define output_selection_property_value_setter_declaration(enum_name, string_name, property_type, token_name, default_value, type) \
-  CT_EXTERN void ct_selection_properties_set_##token_name(const ct_selection_properties_t* sel_props, property_type val);
-
-#define output_selection_property_preference_set_adder(enum_name, string_name, property_type, token_name, default_value, type) \
-  CT_EXTERN void ct_connection_properties_set_##token_name_preference(const ct_selection_properties_t* sel_props, const char* value, ct_selection_preference_t preference); 
-
-get_selection_property_list(output_selection_property_value_getter_declaration)
-get_selection_property_list(output_selection_property_pointer_getter_declaration)
-
-get_selection_property_list(output_selection_property_value_setter_declaration)
-get_selection_property_list(output_selection_property_preference_set_adder)
-
 #define output_enum(enum_name, string_name, property_type, token_name, default_value, type) enum_name,
 
 /**
@@ -388,19 +370,7 @@ f(USER_TIMEOUT_VALUE_MS,   "userTimeoutValueMs",   uint32_t, user_timeout_value_
 f(USER_TIMEOUT_ENABLED,    "userTimeoutEnabled",    bool,     user_timeout_enabled,    false,            TYPE_BOOL)   \
 f(USER_TIMEOUT_CHANGEABLE, "userTimeoutChangeable", bool,     user_timeout_changeable, true,             TYPE_BOOL)
 // clang-format on
-
-#define output_connection_property_getter_declaration(enum_name, string_name, property_type, token_name, default_value, type_enum) \
-  CT_EXTERN property_type ct_connection_properties_get_##token_name(ct_connection_properties_t* conn_props); 
-
-#define output_connection_property_setter_declaration(enum_name, string_name, property_type, token_name, default_value, type_enum) \
-  CT_EXTERN void ct_connection_properties_set_##token_name(ct_connection_properties_t* conn_props, property_type val); 
-
-get_writable_connection_property_list(output_connection_property_setter_declaration)
-
-get_writable_connection_property_list(output_connection_property_getter_declaration)
-get_read_only_connection_properties(output_connection_property_getter_declaration)
-get_tcp_connection_properties(output_connection_property_getter_declaration)
-
+//
 /**
  * @brief Enumeration of all available connection properties.
  *
@@ -422,6 +392,48 @@ typedef enum {
     .type = (type_name), \
     .value = { (uint32_t)(default_value) }                     \
 },
+
+// =============================================================================
+// Transport Properties - Combination of selection and connection properties
+// =============================================================================
+
+/**
+ * @brief Transport properties for protocol selection and connection configuration.
+ *
+ * This structure contains both selection properties (for choosing protocols) and
+ * connection properties (for configuring active connections).
+ *
+ * This is an opaque type. Use ct_transport_properties_new() to create instances
+ * and the setter functions to configure properties.
+ */
+typedef struct ct_transport_properties_s ct_transport_properties_t;
+
+#define output_transport_property_getter_declaration(enum_name, string_name, property_type, token_name, default_value, type_enum) \
+  CT_EXTERN property_type ct_transport_properties_get_##token_name(const ct_transport_properties_t* transport_props);
+
+#define output_transport_property_preference_getter_declaration(enum_name, string_name, property_type, token_name, default_value, type) \
+  CT_EXTERN ct_selection_preference_t ct_transport_properties_get_##token_name##_preference(const ct_transport_properties_t* transport_props, const char* value);
+
+#define output_transport_property_setter_declaration(enum_name, string_name, property_type, token_name, default_value, type_enum) \
+  CT_EXTERN void ct_transport_properties_set_##token_name(ct_transport_properties_t* transport_props, property_type val);
+
+#define output_transport_property_preference_set_adder(enum_name, string_name, property_type, token_name, default_value, type) \
+  CT_EXTERN void ct_transport_properties_add_##token_name##_preference(ct_transport_properties_t* transport_props, const char* value, ct_selection_preference_t preference); 
+
+get_selection_property_list(output_transport_property_getter_declaration)
+get_selection_property_list(output_transport_property_setter_declaration)
+
+get_preference_set_selection_property_list(output_transport_property_preference_getter_declaration)
+get_preference_set_selection_property_list(output_transport_property_preference_set_adder)
+
+get_writable_connection_property_list(output_transport_property_getter_declaration)
+get_writable_connection_property_list(output_transport_property_setter_declaration)
+
+get_tcp_connection_properties(output_transport_property_getter_declaration)
+get_tcp_connection_properties(output_transport_property_setter_declaration)
+
+get_read_only_connection_properties(output_transport_property_getter_declaration)
+
 
 // #################
 // # Message Properties
@@ -478,46 +490,6 @@ get_message_property_list(output_message_property_setter_declaration)
  */
 typedef enum { get_message_property_list(output_enum) MESSAGE_PROPERTY_END } ct_message_properties_enum_t;
 
-// =============================================================================
-// Transport Properties - Combination of selection and connection properties
-// =============================================================================
-
-/**
- * @brief Transport properties for protocol selection and connection configuration.
- *
- * This structure contains both selection properties (for choosing protocols) and
- * connection properties (for configuring active connections).
- *
- * This is an opaque type. Use ct_transport_properties_new() to create instances
- * and the setter functions to configure properties.
- */
-typedef struct ct_transport_properties_s ct_transport_properties_t;
-
-#define output_transport_property_getter_declaration(enum_name, string_name, property_type, token_name, default_value, type_enum) \
-  CT_EXTERN property_type ct_transport_properties_get_##token_name(const ct_transport_properties_t* transport_props);
-
-#define output_transport_property_preference_getter_declaration(enum_name, string_name, property_type, token_name, default_value, type) \
-  CT_EXTERN ct_selection_preference_t ct_transport_properties_get_##token_name##_preference(const ct_transport_properties_t* transport_props, const char* value);
-
-#define output_transport_property_setter_declaration(enum_name, string_name, property_type, token_name, default_value, type_enum) \
-  CT_EXTERN void ct_transport_properties_set_##token_name(ct_transport_properties_t* transport_props, property_type val);
-
-#define output_transport_property_preference_set_adder(enum_name, string_name, property_type, token_name, default_value, type) \
-  CT_EXTERN void ct_transport_properties_set_##token_name_preference(const ct_transport_properties_t* transport_props, const char* value, ct_selection_preference_t preference); 
-
-get_selection_property_list(output_transport_property_getter_declaration)
-get_selection_property_list(output_transport_property_setter_declaration)
-
-get_preference_set_selection_property_list(output_transport_property_preference_getter_declaration)
-get_preference_set_selection_property_list(output_transport_property_preference_set_adder)
-
-get_writable_connection_property_list(output_transport_property_getter_declaration)
-get_writable_connection_property_list(output_transport_property_setter_declaration)
-
-get_tcp_connection_properties(output_transport_property_getter_declaration)
-get_tcp_connection_properties(output_transport_property_setter_declaration)
-
-get_read_only_connection_properties(output_transport_property_getter_declaration)
 
 // =============================================================================
 // Security Parameters

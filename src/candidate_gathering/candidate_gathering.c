@@ -142,6 +142,7 @@ bool interface_is_compatible(const char* interface_name, const ct_transport_prop
     return false;
   }
   log_trace("Checking compatibility for generic interface type: %s", interface_type);
+  log_debug("Interface preference map has %zu combinations", preference_map.num_combinations);
   for (size_t i = 0; i < preference_map.num_combinations; i++) {
     char* key = preference_map.combinations[i].value;
     ct_selection_preference_t preference = preference_map.combinations[i].preference;

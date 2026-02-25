@@ -50,13 +50,63 @@ ct_transport_properties_t* ct_transport_properties_deep_copy(const ct_transport_
   return dest;
 }
 
+void ct_transport_properties_add_interface_preference(ct_transport_properties_t* transport_props, const char* value, ct_selection_preference_t preference) {
+  if (!transport_props) {
+    log_warn("Null pointer passed to add_interface_preference");
+    return;
+  }
+  ct_preference_set_t* set = &transport_props->selection_properties.list[INTERFACE].value.preference_set_val;
+  log_debug("Before adding num_combinations: %zu", set->num_combinations);
+  log_debug("Adding interface preference: %s with preference %d", value, preference);
+  for (size_t i = 0; i < set->num_combinations; i++) {
+    if (strcmp(value, set->combinations[i].value) == 0) {
+      set->combinations[i].preference = preference;
+      return;
+    }
+  }
+  
+  ct_preference_combination_t* tmp = realloc(set->combinations, (set->num_combinations + 1) * sizeof(ct_preference_combination_t));
+  if (!tmp) {
+    log_error("Failed to allocate memory for new interface preference combination");
+    return;
+  }
+  set->combinations = tmp;
+  set->combinations[set->num_combinations].value = strdup(value);
+  set->combinations[set->num_combinations].preference = preference;
+  set->num_combinations++;
+  log_debug("After adding num_combinations: %zu", set->num_combinations);
+}
+
+void ct_transport_properties_add_pvd_preference(ct_transport_properties_t* transport_props, const char* value, ct_selection_preference_t preference) {
+  if (!transport_props) {
+    log_warn("Null pointer passed to add_pvd_preference");
+    return;
+  }
+  ct_preference_set_t* set = &transport_props->selection_properties.list[PVD].value.preference_set_val;
+  for (size_t i = 0; i < set->num_combinations; i++) {
+    if (strcmp(value, set->combinations[i].value) == 0) {
+      set->combinations[i].preference = preference;
+      return;
+    }
+  }
+  ct_preference_combination_t* tmp = realloc(set->combinations, (set->num_combinations + 1) * sizeof(ct_preference_combination_t));
+  if (!tmp) {
+    log_error("Failed to allocate memory for new interface preference combination");
+    return;
+  }
+  set->combinations = tmp;
+  set->combinations[set->num_combinations].value = strdup(value);
+  set->combinations[set->num_combinations].preference = preference;
+  set->num_combinations++;
+}
+
 ct_selection_preference_t ct_transport_properties_get_interface_preference(const ct_transport_properties_t *transport_props, const char *value) {
   if (!transport_props) {
     return NO_PREFERENCE;
   }
   for (size_t i = 0; i < transport_props->selection_properties.list[INTERFACE].value.preference_set_val.num_combinations; i++) {
-    if (strcmp(value, transport_props->selection_properties.list->value.preference_set_val.combinations[i].value) == 0) {
-      return transport_props->selection_properties.list->value.preference_set_val.combinations[i].preference;
+    if (strcmp(value, transport_props->selection_properties.list[INTERFACE].value.preference_set_val.combinations[i].value) == 0) {
+      return transport_props->selection_properties.list[INTERFACE].value.preference_set_val.combinations[i].preference;
     }
   }
   return NO_PREFERENCE;
@@ -67,8 +117,8 @@ ct_selection_preference_t ct_transport_properties_get_pvd_preference(const ct_tr
     return NO_PREFERENCE;
   }
   for (size_t i = 0; i < transport_props->selection_properties.list[PVD].value.preference_set_val.num_combinations; i++) {
-    if (strcmp(value, transport_props->selection_properties.list->value.preference_set_val.combinations[i].value) == 0) {
-      return transport_props->selection_properties.list->value.preference_set_val.combinations[i].preference;
+    if (strcmp(value, transport_props->selection_properties.list[PVD].value.preference_set_val.combinations[i].value) == 0) {
+      return transport_props->selection_properties.list[PVD].value.preference_set_val.combinations[i].preference;
     }
   }
   return NO_PREFERENCE;
@@ -118,6 +168,7 @@ ct_selection_preference_t ct_transport_properties_get_pvd_preference(const ct_tr
       return;                                                                             \
     }                                                                                     \
     tp->selection_properties.list[ENUM].value.UNION_MEMBER_##TYPE_TAG = val;             \
+    tp->selection_properties.list[ENUM].set_by_user = true;                             \
   }
 
 

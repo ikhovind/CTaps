@@ -56,9 +56,9 @@ TEST_F(QuicAbortTest, singleConnectionAbortCallsCloseImmediate) {
   ct_transport_properties_t* transport_properties = ct_transport_properties_new();
   ASSERT_NE(transport_properties, nullptr);
   // Allocated with ct_transport_properties_new()
-  ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, REQUIRE);
-  ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, REQUIRE);
-  ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, REQUIRE); // Force QUIC
+  ct_transport_properties_set_reliability(transport_properties, REQUIRE);
+  ct_transport_properties_set_preserve_msg_boundaries(transport_properties, REQUIRE);
+  ct_transport_properties_set_multistreaming(transport_properties, REQUIRE); // Force QUIC
 
   ct_security_parameters_t* security_parameters = ct_security_parameters_new();
   ASSERT_NE(security_parameters, nullptr);
@@ -113,9 +113,9 @@ TEST_F(QuicAbortTest, multiStreamAbortCallsResetStream) {
   ct_transport_properties_t* transport_properties = ct_transport_properties_new();
   ASSERT_NE(transport_properties, nullptr);
   // Allocated with ct_transport_properties_new()
-  ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, REQUIRE);
-  ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, REQUIRE);
-  ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, REQUIRE); // Force QUIC
+  ct_transport_properties_set_reliability(transport_properties, REQUIRE);
+  ct_transport_properties_set_preserve_msg_boundaries(transport_properties, REQUIRE);
+  ct_transport_properties_set_multistreaming(transport_properties, REQUIRE); // Force QUIC
 
   ct_security_parameters_t* security_parameters = ct_security_parameters_new();
   ASSERT_NE(security_parameters, nullptr);
