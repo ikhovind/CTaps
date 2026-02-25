@@ -93,13 +93,18 @@ void listener_candidate_node_array_ready_cb(GArray* candidate_nodes, void* conte
   const ct_preconnection_t* preconnection = listener_candidate_node_array_ready_context->preconnection;
   ct_listener_callbacks_t listener_callbacks = listener_candidate_node_array_ready_context->listener_callbacks;
   ct_listener_t* listener = listener_candidate_node_array_ready_context->listener;
-  if (candidate_nodes->len > 0) {
+  if (candidate_nodes && candidate_nodes->len > 0) {
     const ct_candidate_node_t first_node = g_array_index(candidate_nodes, ct_candidate_node_t, 0);
 
 
     ct_socket_manager_t* socket_manager = ct_socket_manager_new(first_node.protocol_candidate->protocol_impl, listener);
     if (!socket_manager) {
       log_error("Failed to create socket manager for listener");
+      free_candidate_array(candidate_nodes);
+      free(listener_candidate_node_array_ready_context);
+      if (listener->listener_callbacks.establishment_error) {
+        listener->listener_callbacks.establishment_error(listener, -ENOMEM);
+      }
       return;
     }
     log_debug("listening on port: %d with protocol: %s", first_node.local_endpoint->port, socket_manager->protocol_impl->name);
@@ -118,7 +123,9 @@ void listener_candidate_node_array_ready_cb(GArray* candidate_nodes, void* conte
     if (rc != 0) {
       log_error("Failed to listen on socket manager for listener: %d", rc);
       ct_socket_manager_unref(socket_manager);
-      listener->listener_callbacks.establishment_error(listener, rc);
+      if (listener->listener_callbacks.establishment_error) {
+        listener->listener_callbacks.establishment_error(listener, rc);
+      }
       return;
     }
     if (listener->listener_callbacks.listener_ready) {
@@ -131,6 +138,9 @@ void listener_candidate_node_array_ready_cb(GArray* candidate_nodes, void* conte
   }
   else {
     log_error("No candidate node for ct_listener_t found");
+    if (listener->listener_callbacks.establishment_error) {
+      listener->listener_callbacks.establishment_error(listener, -ENOENT);
+    }
   }
   free_candidate_array(candidate_nodes);
   free(listener_candidate_node_array_ready_context);
@@ -139,6 +149,10 @@ void listener_candidate_node_array_ready_cb(GArray* candidate_nodes, void* conte
 ct_listener_t* ct_preconnection_listen(const ct_preconnection_t* preconnection, ct_listener_callbacks_t listener_callbacks) {
   log_info("Listening from preconnection");
   listener_candidate_node_array_ready_context_t* cb_context = calloc(1, sizeof(listener_candidate_node_array_ready_context_t));
+  if (!cb_context) {
+    log_error("Failed to allocate memory for listener candidate node array ready context");
+    return NULL;
+  }
 
   ct_listener_t* listener = ct_listener_new();
 

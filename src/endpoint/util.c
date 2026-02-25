@@ -41,53 +41,47 @@ void get_interface_addresses(const char *interface_name, int *num_found_addresse
 }
 
 void on_uv_getaddrinfo_cb(uv_getaddrinfo_t* req, int status, struct addrinfo* res) {
-  (void)res;  // We access the results through req->addrinfo, so we don't need this parameter.
-  (void)status;  // We handle errors through the status parameter, but we don't need to access it after that.
   log_debug("DNS lookup completed with status: %d", status);
-  int count = 0;
   ct_remote_resolve_call_context_t* context = req->data;
-
-  for (struct addrinfo* ptr = req->addrinfo; ptr != NULL; ptr = ptr->ai_next) {
-    count++;
-  }
-  log_debug("Number of addresses resolved: %d", count);
-  for (struct addrinfo* ptr = res; ptr != NULL; ptr = ptr->ai_next) {
-    log_debug("Resolved address family: %d", ptr->ai_family);
-  }
-
-  if (count == 0) {
+  ct_candidate_node_t* parent_data = (ct_candidate_node_t*)context->parent_node->data;
+  if (status < 0) {
+    log_error("DNS lookup failed for hostname %s: %s", parent_data->remote_endpoint->hostname, uv_strerror(status));
     ct_remote_endpoint_resolve_cb(NULL, 0, context);
-    uv_freeaddrinfo(req->addrinfo);
     free(req);
     return;
   }
-  ct_remote_endpoint_t* out_list = calloc(count, sizeof(ct_remote_endpoint_t));
-  if (!out_list) {
-    log_error("Could not allocate memory for ct_remote_endpoint_t output list");
-    ct_remote_endpoint_resolve_cb(NULL, 0, context);
-    uv_freeaddrinfo(req->addrinfo);
-    free(req);
-    return;
-  }
+
+  ct_remote_endpoint_t* out_list = NULL;
 
   size_t out_count = 0;
   // Build a single ct_remote_endpoint_t for each resolved address
-  for (struct addrinfo* ptr = req->addrinfo; ptr != NULL; ptr = ptr->ai_next) {
-    ct_remote_endpoint_t new_node;
-    ct_remote_endpoint_build(&new_node);
-    new_node.port = context->assigned_port;
+  for (struct addrinfo* ptr = res; ptr != NULL; ptr = ptr->ai_next) {
+    if (ptr->ai_family != AF_INET && ptr->ai_family != AF_INET6) {
+        continue;
+    }
+    // realloc temporary variable, so that we can still free out_list if it fails
+    ct_remote_endpoint_t* tmp = realloc(out_list, (out_count + 1) * sizeof(ct_remote_endpoint_t));
+    if (!tmp) {
+        log_error("Could not allocate memory for ct_remote_endpoint_t output list");
+        free(out_list);
+        ct_remote_endpoint_resolve_cb(NULL, 0, context);
+        uv_freeaddrinfo(req->addrinfo);
+        free(req);
+        return;
+    }
+    out_list = tmp;
+
+    ct_remote_endpoint_t* new_node = &out_list[out_count];
+    ct_remote_endpoint_build(new_node);
+    new_node->port = context->assigned_port;
 
     if (ptr->ai_family == AF_INET) {
-      memcpy(&new_node.data.resolved_address, ptr->ai_addr, sizeof(struct sockaddr_in));
-      ((struct sockaddr_in*)&new_node.data.resolved_address)->sin_port = htons(context->assigned_port);
-    } else if (ptr->ai_family == AF_INET6) {
-      memcpy(&new_node.data.resolved_address, ptr->ai_addr, sizeof(struct sockaddr_in6));
-      ((struct sockaddr_in6*)&new_node.data.resolved_address)->sin6_port = htons(context->assigned_port);
+      memcpy(&new_node->data.resolved_address, ptr->ai_addr, sizeof(struct sockaddr_in));
+      ((struct sockaddr_in*)&new_node->data.resolved_address)->sin_port = htons(context->assigned_port);
     } else {
-      // Skip resolved_address families we don't handle.
-      continue;
-    }
-    out_list[out_count] = new_node;
+      memcpy(&new_node->data.resolved_address, ptr->ai_addr, sizeof(struct sockaddr_in6));
+      ((struct sockaddr_in6*)&new_node->data.resolved_address)->sin6_port = htons(context->assigned_port);
+    } 
     out_count++;
   }
   ct_remote_endpoint_resolve_cb(out_list, out_count, context);
@@ -98,6 +92,10 @@ void on_uv_getaddrinfo_cb(uv_getaddrinfo_t* req, int status, struct addrinfo* re
 int perform_dns_lookup(const char* hostname, const char* service, ct_remote_resolve_call_context_t* context) {
   log_trace("Performing dns lookup for hostname: %s\n", hostname);
   uv_getaddrinfo_t* request = calloc(1, sizeof(uv_getaddrinfo_t));
+  if (!request) {
+    log_error("Could not allocate memory for uv_getaddrinfo_t request");
+    return -ENOMEM;
+  }
   request->data = context;
 
 

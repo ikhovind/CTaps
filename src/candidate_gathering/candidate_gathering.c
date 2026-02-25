@@ -223,7 +223,7 @@ gboolean gather_incompatible_protocol_nodes(GNode *node, gpointer user_data) {
 }
 
 /*
- * @Brief Remove and free each node and its children from the tree they belong to
+ * @brief Remove and free each node and its children from the tree they belong to
  *
  * @param undesirable_nodes A list of GNode* that should be removed from the tree.
  *
@@ -439,10 +439,36 @@ int build_candidate_tree(ct_gather_context_t* gather_context) {
 
   g_node_traverse(root_node, G_IN_ORDER, G_TRAVERSE_LEAVES, -1, collect_leaves, &leaves);
   gather_context->pending_resolutions = g_list_length(leaves);
+  if (gather_context->pending_resolutions == 0) {
+    log_trace("No remote endpoint resolutions needed, candidate tree is complete");
+    build_candidate_tree_is_complete_cb(gather_context);
+    return 0;
+  }
   for (GList* iter = leaves; iter != NULL; iter = iter->next) {
     GNode* leaf_node = (GNode*)iter->data;
     ct_remote_resolve_call_context_t* context = ct_remote_resolve_call_context_new(leaf_node, gather_context);
-    branch_by_remote(leaf_node, precon->remote_endpoints, context);
+    if (!context) {
+      log_error("Could not create context for remote endpoint resolution");
+      gather_context->failed = true;
+      gather_context->pending_resolutions -= g_list_length(iter);
+      if (gather_context->pending_resolutions == 0) {
+        build_candidate_tree_is_complete_cb(gather_context);
+      }
+      g_list_free(leaves);
+      return -ENOMEM;
+    }
+    int rc = branch_by_remote(leaf_node, precon->remote_endpoints, context);
+    if (rc != 0) {
+      log_error("Error branching by remote endpoint: %d", rc);
+      ct_remote_resolve_call_context_free(context);
+      gather_context->failed = true;
+      gather_context->pending_resolutions -= g_list_length(iter);
+      if (gather_context->pending_resolutions == 0) {
+        build_candidate_tree_is_complete_cb(gather_context);
+      }
+      g_list_free(leaves);
+      return rc;
+    }
   }
   g_list_free(leaves);
   return 0;
@@ -602,7 +628,7 @@ int branch_by_remote(GNode* parent, const ct_remote_endpoint_t* remote_ep, ct_re
   struct ct_candidate_node_t* parent_data = (struct ct_candidate_node_t*)parent->data;
   if (parent_data->type != NODE_TYPE_PROTOCOL) {
     log_error("branch_by_remote called on non-PROTOCOL node");
-    return -1;
+    return -EINVAL;
   }
   log_trace("Expanding node of type PROTOCOL to ENDPOINT nodes");
 
@@ -617,6 +643,12 @@ int branch_by_remote(GNode* parent, const ct_remote_endpoint_t* remote_ep, ct_re
 }
 
 void build_candidate_tree_is_complete_cb(ct_gather_context_t* gather_context) {
+  if (gather_context->failed) {
+    log_error("Candidate tree building failed, not proceeding to pruning and callback");
+    gather_context->gathering_callbacks.candidate_node_array_ready_cb(NULL, gather_context->gathering_callbacks.context);
+    free(gather_context);
+    return;
+  }
   GNode* root_node = gather_context->root_node;
   const ct_preconnection_t* precon = gather_context->preconnection;
   prune_candidate_tree(root_node, preconnection_get_transport_properties(precon)->selection_properties);
@@ -658,6 +690,10 @@ int get_ordered_candidate_nodes(const ct_preconnection_t* precon, ct_candidate_g
   }
 
   ct_gather_context_t* gather_context = malloc(sizeof(ct_gather_context_t));
+  if (!gather_context) {
+    log_error("Could not allocate memory for gather context");
+    return -ENOMEM;
+  }
   memset(gather_context, 0, sizeof(ct_gather_context_t));
   gather_context->gathering_callbacks = callbacks;
   gather_context->pending_resolutions = 0;

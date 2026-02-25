@@ -206,20 +206,6 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
     .user_connection_context = attempt,
   };
 
-  log_debug("Candidate has remote endpoint port: %d", candidate->remote_endpoint->port);
-  struct sockaddr_storage remote_addr = candidate->remote_endpoint->data.resolved_address;
-  if (remote_addr.ss_family == AF_INET) {
-    log_debug("Remote endpoint address family is AF_INET");
-    log_debug("Resolved port for remote endpoint: %d", ntohs(((struct sockaddr_in*)&remote_addr)->sin_port));
-  }
-  else if (remote_addr.ss_family == AF_INET6) {
-    log_debug("Remote endpoint address family is AF_INET6");
-  }
-  else {
-    log_debug("Remote endpoint has unsupported address family: %d", remote_addr.ss_family);
-  }
-
-
   // Allocate connection for this attempt
   attempt->connection = ct_connection_create_client(
     candidate->protocol_candidate->protocol_impl,

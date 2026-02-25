@@ -152,17 +152,10 @@ TEST_F(RemoteEndpointResolveTest, HostnameWithNullServicePassesNullToDnsLookup) 
 
 // --- Unspecified endpoint ---
 
-TEST_F(RemoteEndpointResolveTest, UnspecifiedEndpointReturnsError) {
-    // Neither hostname nor IP set
+TEST_F(RemoteEndpointResolveTest, UnspecifiedEndpointReturnsErrorAndNoCallback) {
+    // Synchronous error -> no error callback
     int rc = ct_remote_endpoint_resolve(remote_endpoint, &context);
 
     EXPECT_EQ(rc, -EINVAL);
-}
-
-TEST_F(RemoteEndpointResolveTest, UnspecifiedEndpointCallsResolveCbWithNullAndZero) {
-    ct_remote_endpoint_resolve(remote_endpoint, &context);
-
-    EXPECT_EQ(faked_ct_remote_endpoint_resolve_cb_fake.call_count, 1);
-    EXPECT_EQ(faked_ct_remote_endpoint_resolve_cb_fake.arg0_val, nullptr);
-    EXPECT_EQ(faked_ct_remote_endpoint_resolve_cb_fake.arg1_val, 0u);
+    EXPECT_EQ(faked_ct_remote_endpoint_resolve_cb_fake.call_count, 0);
 }
