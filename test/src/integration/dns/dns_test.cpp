@@ -24,9 +24,9 @@ TEST_F(RemoteEndpointDnsTests, canDnsLookupHostName) {
   ASSERT_NE(transport_properties, nullptr);
 
     // Allocated with ct_transport_properties_new()
-    ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, PROHIBIT);
-    ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_ORDER, PROHIBIT);
-    ct_tp_set_sel_prop_preference(transport_properties, CONGESTION_CONTROL, PROHIBIT);
+    ct_transport_properties_set_reliability(transport_properties, PROHIBIT);
+    ct_transport_properties_set_preserve_order(transport_properties, PROHIBIT);
+    ct_transport_properties_set_congestion_control(transport_properties, PROHIBIT);
 
     ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
     ASSERT_NE(preconnection, nullptr);

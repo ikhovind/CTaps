@@ -90,7 +90,7 @@ TEST_F(CandidateRacingTests, FirstCandidateSucceeds) {
   // Allocated with ct_transport_properties_new()
 
   // Don't require specific protocol - let racing choose
-  ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, PREFER);
+  ct_transport_properties_set_reliability(transport_properties, PREFER);
 
   ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
 
@@ -125,8 +125,8 @@ TEST_F(CandidateRacingTests, AllCandidatesFail) {
 
   ct_transport_properties_t* transport_properties = ct_transport_properties_new();
 
-  ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, NO_PREFERENCE);
-  ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, NO_PREFERENCE);
+  ct_transport_properties_set_reliability(transport_properties, NO_PREFERENCE);
+  ct_transport_properties_set_preserve_msg_boundaries(transport_properties, NO_PREFERENCE);
 
   ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
 
@@ -169,7 +169,7 @@ TEST_F(CandidateRacingTests, RespectsProtocolPreferences) {
   ASSERT_NE(transport_properties, nullptr);
   // Allocated with ct_transport_properties_new()
 
-  ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, REQUIRE);
+  ct_transport_properties_set_reliability(transport_properties, REQUIRE);
 
   ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
   ASSERT_NE(preconnection, nullptr);
@@ -209,7 +209,7 @@ TEST_F(CandidateRacingTests, WorksWithHostnameResolution) {
   ct_transport_properties_t* transport_properties = ct_transport_properties_new();
   ASSERT_NE(transport_properties, nullptr);
 
-  ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT); // force TCP
+  ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PROHIBIT); // force TCP
 
   ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
   ASSERT_NE(preconnection, nullptr);
@@ -252,9 +252,9 @@ TEST_F(CandidateRacingTests, SingleCandidateOptimization) {
   ct_transport_properties_t* transport_properties = ct_transport_properties_new();
 
   // Select TCP specifically - stream-based, reliable, no multistreaming
-  ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, REQUIRE);
-  ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
-  ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, PROHIBIT);
+  ct_transport_properties_set_reliability(transport_properties, REQUIRE);
+  ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PROHIBIT);
+  ct_transport_properties_set_multistreaming(transport_properties, PROHIBIT);
 
   ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
 
@@ -291,8 +291,8 @@ TEST_F(CandidateRacingTests, HandlesNoCandidates) {
 
   ct_transport_properties_t* transport_properties = ct_transport_properties_new();
 
-  ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, PROHIBIT);
-  ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, REQUIRE);
+  ct_transport_properties_set_reliability(transport_properties, PROHIBIT);
+  ct_transport_properties_set_multistreaming(transport_properties, REQUIRE);
 
   ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
 

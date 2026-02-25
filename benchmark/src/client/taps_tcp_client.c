@@ -55,9 +55,9 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, REQUIRE);
-    ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
-    ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, PROHIBIT);
+    ct_transport_properties_set_reliability(transport_properties, REQUIRE);
+    ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PROHIBIT);
+    ct_transport_properties_set_multistreaming(transport_properties, PROHIBIT);
 
     ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
     if (!preconnection) {

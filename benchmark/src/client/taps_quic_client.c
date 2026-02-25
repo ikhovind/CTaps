@@ -51,9 +51,9 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, REQUIRE);
-    ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, REQUIRE);
-    ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, REQUIRE); // force QUIC
+    ct_transport_properties_set_reliability(transport_properties, REQUIRE);
+    ct_transport_properties_set_preserve_msg_boundaries(transport_properties, REQUIRE);
+    ct_transport_properties_set_multistreaming(transport_properties, REQUIRE); // force QUIC
 
     ct_security_parameters_t* security_parameters = ct_security_parameters_new();
     if (!security_parameters) {

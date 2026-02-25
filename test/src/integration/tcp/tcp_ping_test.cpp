@@ -34,9 +34,9 @@ TEST_F(TcpPingTest, successfullyConnectsToTcpServer) {
   ct_transport_properties_t* transport_properties = ct_transport_properties_new();
   ASSERT_NE(transport_properties, nullptr);
 
-  ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, REQUIRE);
-  ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
-  ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, PROHIBIT);
+  ct_transport_properties_set_reliability(transport_properties, REQUIRE);
+  ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PROHIBIT);
+  ct_transport_properties_set_multistreaming(transport_properties, PROHIBIT);
 
   ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
   ASSERT_NE(preconnection, nullptr);
@@ -73,9 +73,9 @@ TEST_F(TcpPingTest, connectionErrorCalledWhenNoServer) {
   ct_transport_properties_t* transport_properties = ct_transport_properties_new();
   ASSERT_NE(transport_properties, nullptr);
 
-  ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, REQUIRE);
-  ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
-  ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, PROHIBIT);
+  ct_transport_properties_set_reliability(transport_properties, REQUIRE);
+  ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PROHIBIT);
+  ct_transport_properties_set_multistreaming(transport_properties, PROHIBIT);
 
   ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
   ASSERT_NE(preconnection, nullptr);
@@ -114,9 +114,9 @@ TEST_F(TcpPingTest, sendsSingleTcpMessage) {
   ct_transport_properties_t* transport_properties = ct_transport_properties_new();
   ASSERT_NE(transport_properties, nullptr);
 
-  ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, REQUIRE);
-  ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
-  ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, PROHIBIT);
+  ct_transport_properties_set_reliability(transport_properties, REQUIRE);
+  ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PROHIBIT);
+  ct_transport_properties_set_multistreaming(transport_properties, PROHIBIT);
 
   ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
 

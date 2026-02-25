@@ -50,7 +50,7 @@ int main() {
    // selection properties decide which protocol(s) will be used, if multiple are compatible with
    // our requirements, then we will race the protocols
    // TCP is the only protocol compatible with this requirement
-   ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, REQUIRE); // force QUIC
+   ct_transport_properties_set_multistreaming(transport_properties, REQUIRE); // force QUIC
     //
    ct_security_parameters_t* security_parameters = ct_security_parameters_new();
    const char* alpn_strings = "h3";

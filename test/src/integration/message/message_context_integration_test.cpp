@@ -23,9 +23,9 @@ TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnRec
     // Setup transport properties for UDP
     ct_transport_properties_t* transport_properties = ct_transport_properties_new();
     ASSERT_NE(transport_properties, nullptr);
-    ct_tp_set_sel_prop_preference(transport_properties, RELIABILITY, PROHIBIT);
-    ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_ORDER, PROHIBIT);
-    ct_tp_set_sel_prop_preference(transport_properties, CONGESTION_CONTROL, PROHIBIT);
+    ct_transport_properties_set_reliability(transport_properties, PROHIBIT);
+    ct_transport_properties_set_preserve_order(transport_properties, PROHIBIT);
+    ct_transport_properties_set_congestion_control(transport_properties, PROHIBIT);
 
     // Create preconnection
     ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, nullptr);
@@ -68,7 +68,7 @@ TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnRec
 
     ct_transport_properties_t* transport_properties = ct_transport_properties_new();
     ASSERT_NE(transport_properties, nullptr);
-    ct_tp_set_sel_prop_preference(transport_properties, PRESERVE_MSG_BOUNDARIES, PROHIBIT); // force tcp
+    ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PROHIBIT); // force tcp
 
     // Create preconnection
     ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, nullptr);
@@ -112,7 +112,7 @@ TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnRec
     // Setup transport properties
     ct_transport_properties_t* transport_properties = ct_transport_properties_new();
     ASSERT_NE(transport_properties, nullptr);
-    ct_tp_set_sel_prop_preference(transport_properties, MULTISTREAMING, REQUIRE); // force quic
+    ct_transport_properties_set_multistreaming(transport_properties, REQUIRE); // force quic
     //
 
     ct_security_parameters_t* security_parameters = ct_security_parameters_new();
@@ -170,9 +170,9 @@ TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnRec
     ct_transport_properties_t* listener_props = ct_transport_properties_new();
     ASSERT_NE(listener_props, nullptr);
 
-    ct_tp_set_sel_prop_preference(listener_props, RELIABILITY, REQUIRE);
-    ct_tp_set_sel_prop_preference(listener_props, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
-    ct_tp_set_sel_prop_preference(listener_props, MULTISTREAMING, PROHIBIT);
+    ct_transport_properties_set_reliability(listener_props, REQUIRE);
+    ct_transport_properties_set_preserve_msg_boundaries(listener_props, PROHIBIT);
+    ct_transport_properties_set_multistreaming(listener_props, PROHIBIT);
 
     ct_preconnection_t* listener_precon = ct_preconnection_new(listener_remote, 1, listener_props, NULL);
     ASSERT_NE(listener_precon, nullptr);
@@ -194,9 +194,9 @@ TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnRec
     ct_transport_properties_t* client_props = ct_transport_properties_new();
     ASSERT_NE(client_props, nullptr);
 
-    ct_tp_set_sel_prop_preference(client_props, RELIABILITY, REQUIRE);
-    ct_tp_set_sel_prop_preference(client_props, PRESERVE_MSG_BOUNDARIES, PROHIBIT);
-    ct_tp_set_sel_prop_preference(client_props, MULTISTREAMING, PROHIBIT);
+    ct_transport_properties_set_reliability(client_props, REQUIRE);
+    ct_transport_properties_set_preserve_msg_boundaries(client_props, PROHIBIT);
+    ct_transport_properties_set_multistreaming(client_props, PROHIBIT);
 
     ct_preconnection_t* client_precon = ct_preconnection_new(client_remote, 1, client_props, NULL);
     ASSERT_NE(client_precon, nullptr);
