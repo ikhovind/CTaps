@@ -81,7 +81,7 @@ CT_EXTERN int ct_initialize(void);
  *
  * @see ct_initialize() for library initialization
  */
-CT_EXTERN void ct_start_event_loop();
+CT_EXTERN void ct_start_event_loop(void);
 
 /**
  * @brief Close and cleanup the CTaps library.
@@ -91,7 +91,7 @@ CT_EXTERN void ct_start_event_loop();
  *
  * @see ct_initialize() for re-initializing the library
  */
-CT_EXTERN int ct_close();
+CT_EXTERN int ct_close(void);
 
 // =============================================================================
 // Logging Configuration
@@ -696,12 +696,6 @@ typedef struct ct_local_endpoint_s ct_local_endpoint_t;
  */
 typedef struct ct_remote_endpoint_s ct_remote_endpoint_t;
 
-typedef struct ct_remote_endpoint_resolve_callbacks_s {
-  void (*ct_remote_endpoint_resolve_cb)(ct_remote_endpoint_t* remote_endpoint, size_t out_count, void* context);
-  void* context;
-} ct_remote_endpoint_resolve_callbacks_t;
-
-
 // =============================================================================
 // Messages - Message and message context structures
 // =============================================================================
@@ -870,14 +864,14 @@ typedef struct ct_listener_callbacks_s {
   /** @brief Called when a new connection is received.
    * @param[in] listener The listener that accepted the connection
    * @param[in] new_conn The new connection object (caller must handle)
-   * @return 0 to accept connection, non-zero to reject
+   * @return 0 to accept connection, non-zero to reject - TODO implement this
    */
   int (*connection_received)(ct_listener_t* listener, ct_connection_t* new_conn);
 
-  /** @brief Called when connection establishment fails for an incoming connection.
+  /** 
+   * @brief Called when connection establishment fails for an incoming connection.
    * @param[in] listener The listener
    * @param[in] reason Error code
-   * @return 0 on success, non-zero on error
    */
   void (*establishment_error)(ct_listener_t* listener, int error_code);
 
@@ -1548,10 +1542,9 @@ CT_EXTERN int ct_preconnection_initiate_with_send(ct_preconnection_t* preconnect
  * @param[in] preconnection Pointer to preconnection with listener configuration
  * @param[out] listener Pointer to listener object to initialize. Must be allocated by caller.
  * @param[in] listener_callbacks Callbacks for listener events (connection_received, etc.)
- * @return 0 on success, non-zero on error
+ * @return listener object on success, NULL on error
  *
- * @note The event loop must be running for the listener to accept connections
- * @see ct_listener_stop() for stopping the listener
+ * @see ct_listener_close() to stop accepting new connections
  */
 CT_EXTERN ct_listener_t* ct_preconnection_listen(const ct_preconnection_t* preconnection, ct_listener_callbacks_t listener_callbacks);
 

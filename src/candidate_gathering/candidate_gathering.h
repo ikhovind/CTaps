@@ -15,7 +15,7 @@ typedef enum {
 } ct_node_type_t;
 
 /**
-  * @Brief A single combination of options from the ct_protocol_options_t struct
+  * @brief A single combination of options from the ct_protocol_options_t struct
   *
   * A single PROTOCOL node contains a single one of these.
   */
@@ -46,6 +46,7 @@ typedef struct ct_gather_context_s {
     const ct_preconnection_t* preconnection;
     size_t pending_resolutions;
     ct_candidate_gathering_callbacks_t gathering_callbacks;
+    bool failed;
 } ct_gather_context_t;
 
 typedef struct ct_remote_resolve_call_context_s {
@@ -58,11 +59,11 @@ typedef struct ct_remote_resolve_call_context_s {
 void ct_remote_endpoint_resolve_cb(ct_remote_endpoint_t* remote_endpoint, size_t out_count, ct_remote_resolve_call_context_t* context);
 
 /**
-  * @Brief Main entry point for candidate gathering. Builds the candidate tree and returns an ordered array of candidate nodes through the callback.
+  * @brief Main entry point for candidate gathering. Builds the candidate tree and returns an ordered array of candidate nodes through the callback.
   *
   * @param precon The preconnection containing all necessary information for candidate gathering.
   * @param callback The callback to be called when the candidate array is ready.
-  * @return Negative value on asynnchronous error, 0 on success. The caller is responsible for freeing the candidate array and its contents.
+  * @return Negative value on asynchronous error, 0 on success. The caller is responsible for freeing the candidate array and its contents.
   */
 int get_ordered_candidate_nodes(const ct_preconnection_t* precon, ct_candidate_gathering_callbacks_t callbacks);
 

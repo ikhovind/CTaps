@@ -690,7 +690,7 @@ int tcp_close_connection_group(ct_connection_group_t* connection_group) {
     if (!ct_connection_is_closed_or_closing(connection)) {
       int inner_rc = tcp_close(connection);
       if (inner_rc < 0) {
-        log_error("Error closing connection %s in udp_close_connection_group: %d", connection->uuid, inner_rc);
+        log_error("Error closing connection %s in tcp_close_connection_group: %d", connection->uuid, inner_rc);
         rc = inner_rc;
       }
     }
