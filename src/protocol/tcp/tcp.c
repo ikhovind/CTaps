@@ -25,7 +25,7 @@ const ct_protocol_impl_t tcp_protocol_interface = {
     .protocol_enum = CT_PROTOCOL_TCP,
     .supports_alpn = false,
     .selection_properties = {
-      .selection_property = {
+      .list = {
         [RELIABILITY] = {.value = {.simple_preference = REQUIRE}},
         [PRESERVE_MSG_BOUNDARIES] = {.value = {.simple_preference = PROHIBIT}},
         [PER_MSG_RELIABILITY] = {.value = {.simple_preference = PROHIBIT}},

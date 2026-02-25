@@ -74,8 +74,8 @@ protected:
 
         props = ct_transport_properties_new();
         for (int i = 0; i < SELECTION_PROPERTY_END; i++) {
-            if (props->selection_properties.selection_property[i].type == TYPE_PREFERENCE) {
-                props->selection_properties.selection_property[i].value.simple_preference = NO_PREFERENCE;
+            if (props->selection_properties.list[i].type == TYPE_PREFERENCE) {
+                props->selection_properties.list[i].value.simple_preference = NO_PREFERENCE;
             }
         }
     }

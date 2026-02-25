@@ -15,7 +15,7 @@ TEST(SelectionPropertiesUnitTest, SetsDefaultValues) {
   // Allocated with ct_transport_properties_new()
 
   for (int i = 0; i < SELECTION_PROPERTY_END; i++) {
-    const ct_selection_property_t& current_prop = props->selection_properties.selection_property[i];
+    const ct_selection_property_t& current_prop = props->selection_properties.list[i];
 
     EXPECT_EQ(current_prop.set_by_user, false);
     switch (i) {
@@ -100,7 +100,7 @@ TEST(SelectionPropertiesUnitTest, SetsDefaultValues) {
         break;
       case DIRECTION:
         EXPECT_STREQ(current_prop.name, "direction");
-        EXPECT_EQ(current_prop.type, TYPE_DIRECTION_ENUM);
+        EXPECT_EQ(current_prop.type, TYPE_ENUM);
         EXPECT_EQ(current_prop.value.simple_preference, DIRECTION_BIDIRECTIONAL);
         break;
       case SOFT_ERROR_NOTIFY:
@@ -130,7 +130,7 @@ TEST(SelectionPropertiesUnitTest, SetsSetByUser) {
   ct_tp_set_sel_prop_direction(props, DIRECTION, DIRECTION_UNIDIRECTIONAL_SEND);
 
   for (int i = 0; i < SELECTION_PROPERTY_END; i++) {
-    const ct_selection_property_t& current_prop = props->selection_properties.selection_property[i];
+    const ct_selection_property_t& current_prop = props->selection_properties.list[i];
 
     if (i != DIRECTION) {
       EXPECT_EQ(current_prop.set_by_user, false);
@@ -217,7 +217,7 @@ TEST(SelectionPropertiesUnitTest, SetsSetByUser) {
       case DIRECTION:
         EXPECT_EQ(current_prop.set_by_user, true);
         EXPECT_STREQ(current_prop.name, "direction");
-        EXPECT_EQ(current_prop.type, TYPE_DIRECTION_ENUM);
+        EXPECT_EQ(current_prop.type, TYPE_ENUM);
         EXPECT_EQ(current_prop.value.simple_preference, DIRECTION_UNIDIRECTIONAL_SEND);
         break;
       case SOFT_ERROR_NOTIFY:

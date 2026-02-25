@@ -148,6 +148,17 @@ CT_EXTERN int ct_add_log_file(const char* file_path, ct_log_level_t min_level);
 // =============================================================================
 // Selection Properties - Transport property preferences for protocol selection
 // =============================================================================
+//
+
+/**
+ * @brief Collection of all transport selection properties.
+ *
+ * This structure contains all selection properties that influence protocol selection
+ * during connection establishment. Properties are indexed by ct_selection_property_enum_t.
+ *
+ * This is an opaque type. Use the setter functions to configure selection properties.
+ */
+typedef struct ct_selection_properties_s ct_selection_properties_t;
 
 /**
  * @brief Preference levels for transport selection properties.
@@ -172,15 +183,13 @@ typedef enum {
   REQUIRE,            ///< Protocol MUST have this property (eliminates candidates)
 } ct_selection_preference_t;
 
-/**
- * @brief Type of value stored in a selection property.
- */
 typedef enum ct_property_type_t {
   TYPE_PREFERENCE,       ///< Simple preference value (PROHIBIT through REQUIRE)
   TYPE_PREFERENCE_SET,   ///< Set of preferences (e.g., interface preferences)
-  TYPE_MULTIPATH_ENUM,   ///< Multipath mode enumeration
-  TYPE_BOOLEAN,          ///< Boolean flag
-  TYPE_DIRECTION_ENUM    ///< Communication direction enumeration
+  TYPE_BOOL,          ///< Boolean flag
+  TYPE_UINT32,
+  TYPE_UINT64,
+  TYPE_ENUM    ///< Communication direction enumeration
 } ct_property_type_t;
 
 /**
@@ -201,15 +210,24 @@ typedef enum ct_multipath_enum_t {
   MULTIPATH_PASSIVE    ///< TBD
 } ct_multipath_enum_t;
 
+typedef struct ct_preference_combination_s {
+  char* value;
+  ct_selection_preference_t preference;
+} ct_preference_combination_t;
+
+typedef struct ct_preference_set_s {
+  ct_preference_combination_t* combinations;
+  size_t num_combinations;
+} ct_preference_set_t;
+
 /**
  * @brief Union holding the value of a selection property.
  */
 typedef union {
   ct_selection_preference_t simple_preference;              ///< For TYPE_PREFERENCE properties
-  void* preference_map;                                     ///< For TYPE_PREFERENCE_SET properties
-  ct_multipath_enum_t multipath_enum;                       ///< For TYPE_MULTIPATH_ENUM properties
-  bool boolean;                                             ///< For TYPE_BOOLEAN properties
-  ct_direction_of_communication_enum_t direction_enum;      ///< For TYPE_DIRECTION_ENUM properties
+  ct_preference_set_t preference_set_val;                                     ///< For TYPE_PREFERENCE_SET properties
+  uint32_t enum_val;
+  bool bool_val;                                             ///< For TYPE_BOOLEAN properties
 } ct_selection_property_value_t;
 
 /**
@@ -217,37 +235,57 @@ typedef union {
  */
 typedef struct ct_selection_property_s {
   char* name;                              ///< Property name string
-  ct_property_type_t type;                 ///< Type of value stored
   bool set_by_user;                        ///< True if user explicitly set this property
+  ct_property_type_t type;
   ct_selection_property_value_t value;     ///< Property value
 } ct_selection_property_t;
 
-#define EMPTY_PREFERENCE_SET_DEFAULT NO_PREFERENCE
-#define RUNTIME_DEPENDENT_DEFAULT NO_PREFERENCE
+#define EMPTY_PREFERENCE_SET_DEFAULT 0 
+#define RUNTIME_DEPENDENT_DEFAULT 0 
 
 // clang-format off
 #define get_selection_property_list(f)                                                                    \
-  f(RELIABILITY,                 "reliability",                TYPE_PREFERENCE,           REQUIRE)        \
-  f(PRESERVE_MSG_BOUNDARIES,     "preserveMsgBoundaries",      TYPE_PREFERENCE,           NO_PREFERENCE)  \
-  f(PER_MSG_RELIABILITY,         "perMsgReliability",          TYPE_PREFERENCE,           NO_PREFERENCE)  \
-  f(PRESERVE_ORDER,              "preserveOrder",              TYPE_PREFERENCE,           REQUIRE)        \
-  f(ZERO_RTT_MSG,                "zeroRttMsg",                 TYPE_PREFERENCE,           NO_PREFERENCE)  \
-  f(MULTISTREAMING,              "multistreaming",             TYPE_PREFERENCE,           PREFER)         \
-  f(FULL_CHECKSUM_SEND,          "fullChecksumSend",           TYPE_PREFERENCE,           REQUIRE)        \
-  f(FULL_CHECKSUM_RECV,          "fullChecksumRecv",           TYPE_PREFERENCE,           REQUIRE)        \
-  f(CONGESTION_CONTROL,          "congestionControl",          TYPE_PREFERENCE,           REQUIRE)        \
-  f(KEEP_ALIVE,                  "keepAlive",                  TYPE_PREFERENCE,           NO_PREFERENCE)  \
-  f(INTERFACE,                   "interface",                  TYPE_PREFERENCE_SET,       EMPTY_PREFERENCE_SET_DEFAULT)  \
-  f(PVD,                         "pvd",                        TYPE_PREFERENCE_SET,       EMPTY_PREFERENCE_SET_DEFAULT)  \
-  f(USE_TEMPORARY_LOCAL_ADDRESS, "useTemporaryLocalAddress",   TYPE_PREFERENCE,           RUNTIME_DEPENDENT_DEFAULT)         \
-  f(MULTIPATH,                   "multipath",                  TYPE_MULTIPATH_ENUM,       RUNTIME_DEPENDENT_DEFAULT)  \
-  f(ADVERTISES_ALT_ADDRES,       "advertisesAltAddr",          TYPE_BOOLEAN,              NO_PREFERENCE)  \
-  f(DIRECTION,                   "direction",                  TYPE_DIRECTION_ENUM,       DIRECTION_BIDIRECTIONAL)  \
-  f(SOFT_ERROR_NOTIFY,           "softErrorNotify",            TYPE_PREFERENCE,           NO_PREFERENCE)  \
-  f(ACTIVE_READ_BEFORE_SEND,     "activeReadBeforeSend",       TYPE_PREFERENCE,           NO_PREFERENCE)
+f(RELIABILITY,                 "reliability",                ct_selection_preference_t,           reliability,                 REQUIRE,                   TYPE_PREFERENCE)        \
+f(PRESERVE_MSG_BOUNDARIES,     "preserveMsgBoundaries",      ct_selection_preference_t,           preserve_msg_boundaries,     NO_PREFERENCE,             TYPE_PREFERENCE )  \
+f(PER_MSG_RELIABILITY,         "perMsgReliability",          ct_selection_preference_t,           per_msg_reliability,         NO_PREFERENCE,             TYPE_PREFERENCE)  \
+f(PRESERVE_ORDER,              "preserveOrder",              ct_selection_preference_t,           preserve_order,              REQUIRE,                   TYPE_PREFERENCE)        \
+f(ZERO_RTT_MSG,                "zeroRttMsg",                 ct_selection_preference_t,           zero_rtt_msg,                NO_PREFERENCE,             TYPE_PREFERENCE)  \
+f(MULTISTREAMING,              "multistreaming",             ct_selection_preference_t,           multistreaming,              PREFER,                    TYPE_PREFERENCE)         \
+f(FULL_CHECKSUM_SEND,          "fullChecksumSend",           ct_selection_preference_t,           full_checksum_send,          REQUIRE,                   TYPE_PREFERENCE)        \
+f(FULL_CHECKSUM_RECV,          "fullChecksumRecv",           ct_selection_preference_t,           full_checksum_recv,          REQUIRE,                   TYPE_PREFERENCE)        \
+f(CONGESTION_CONTROL,          "congestionControl",          ct_selection_preference_t,           congestion_control,          REQUIRE,                   TYPE_PREFERENCE)        \
+f(KEEP_ALIVE,                  "keepAlive",                  ct_selection_preference_t,           keep_alive,                  NO_PREFERENCE,             TYPE_PREFERENCE)  \
+f(USE_TEMPORARY_LOCAL_ADDRESS, "useTemporaryLocalAddress",   ct_selection_preference_t,           use_temporary_local_address, RUNTIME_DEPENDENT_DEFAULT, TYPE_PREFERENCE)         \
+f(MULTIPATH,                   "multipath",                  ct_multipath_enum_t,                 multipath,                   RUNTIME_DEPENDENT_DEFAULT, TYPE_ENUM)  \
+f(ADVERTISES_ALT_ADDRES,       "advertisesAltAddr",          bool,                                advertises_alt_addres,       false,                     TYPE_BOOL)  \
+f(DIRECTION,                   "direction",                  ct_direction_of_communication_enum_t,direction,                   DIRECTION_BIDIRECTIONAL,   TYPE_ENUM)  \
+f(SOFT_ERROR_NOTIFY,           "softErrorNotify",            ct_selection_preference_t,           soft_error_notify,           NO_PREFERENCE,             TYPE_PREFERENCE)  \
+f(ACTIVE_READ_BEFORE_SEND,     "activeReadBeforeSend",       ct_selection_preference_t,           active_read_before_send,     NO_PREFERENCE,             TYPE_PREFERENCE)  \
 // clang-format on
 
-#define output_enum(enum_name, string_name, property_type, default_value) enum_name,
+#define get_preference_set_selection_property_list(f)                                                                    \
+f(INTERFACE,                   "interface",                  ct_preference_set_t,                 interface,                   EMPTY_PREFERENCE_SET_DEFAULT, TYPE_PREFERENCE_SET)  \
+f(PVD,                         "pvd",                        ct_preference_set_t,                 pvd,                         EMPTY_PREFERENCE_SET_DEFAULT, TYPE_PREFERENCE_SET)  \
+
+#define output_selection_property_value_getter_declaration(enum_name, string_name, property_type, token_name, default_value, type) \
+  CT_EXTERN property_type ct_selection_properties_get_##token_name(const ct_selection_properties_t* sel_props); 
+
+#define output_selection_property_pointer_getter_declaration(enum_name, string_name, property_type, token_name, default_value, type) \
+  CT_EXTERN ct_selection_preference_t ct_selection_properties_get_##token_name_preference(const ct_selection_properties_t* sel_props, char* value);
+
+#define output_selection_property_value_setter_declaration(enum_name, string_name, property_type, token_name, default_value, type) \
+  CT_EXTERN void ct_selection_properties_set_##token_name(const ct_selection_properties_t* sel_props, property_type val);
+
+#define output_selection_property_preference_set_adder(enum_name, string_name, property_type, token_name, default_value, type) \
+  CT_EXTERN void ct_connection_properties_set_##token_name_preference(const ct_selection_properties_t* sel_props, const char* value, ct_selection_preference_t preference); 
+
+get_selection_property_list(output_selection_property_value_getter_declaration)
+get_selection_property_list(output_selection_property_pointer_getter_declaration)
+
+get_selection_property_list(output_selection_property_value_setter_declaration)
+get_selection_property_list(output_selection_property_preference_set_adder)
+
+#define output_enum(enum_name, string_name, property_type, token_name, default_value, type) enum_name,
 
 /**
  * @brief Enumeration of all available selection properties.
@@ -255,68 +293,14 @@ typedef struct ct_selection_property_s {
  * These properties control protocol selection by expressing preferences and requirements
  * for transport characteristics like reliability, ordering, and multistreaming.
  */
-typedef enum { get_selection_property_list(output_enum) SELECTION_PROPERTY_END } ct_selection_property_enum_t;
-
-/**
- * @brief Collection of all transport selection properties.
- *
- * This structure contains all selection properties that influence protocol selection
- * during connection establishment. Properties are indexed by ct_selection_property_enum_t.
- *
- * This is an opaque type. Use the setter functions to configure selection properties.
- */
-typedef struct ct_selection_properties_s ct_selection_properties_t;
-
-/**
- * @brief Set a selection property preference value.
- *
- * @param[in,out] props Pointer to selection properties structure
- * @param[in] prop_enum Which property to set
- * @param[in] val Preference level (PROHIBIT through REQUIRE)
- */
-CT_EXTERN void ct_set_sel_prop_preference(ct_selection_properties_t* props, ct_selection_property_enum_t prop_enum, ct_selection_preference_t val);
-
-/**
- * @brief Set the communication direction property.
- *
- * @param[in,out] props Pointer to selection properties structure
- * @param[in] prop_enum Must be DIRECTION property
- * @param[in] val Direction value (bidirectional, send-only, or receive-only)
- */
-CT_EXTERN void ct_set_sel_prop_direction(ct_selection_properties_t* props, ct_selection_property_enum_t prop_enum, ct_direction_of_communication_enum_t val);
-
-/**
- * @brief Set the multipath mode property.
- *
- * @param[in,out] props Pointer to selection properties structure
- * @param[in] prop_enum Must be MULTIPATH property
- * @param[in] val Multipath mode (disabled, active, or passive)
- */
-CT_EXTERN void ct_set_sel_prop_multipath(ct_selection_properties_t* props, ct_selection_property_enum_t prop_enum, ct_multipath_enum_t val);
-
-/**
- * @brief Set a boolean selection property.
- *
- * @param[in,out] props Pointer to selection properties structure
- * @param[in] prop_enum Which boolean property to set
- * @param[in] val Boolean value
- */
-CT_EXTERN void ct_set_sel_prop_bool(ct_selection_properties_t* props, ct_selection_property_enum_t prop_enum, bool val);
-
-/**
- * @brief Set interface preference for protocol selection.
- *
- * @param[in,out] props Pointer to selection properties structure
- * @param[in] interface_name Name of the network interface (e.g., "eth0", "wlan0")
- * @param[in] preference Preference level for using this interface
- */
-CT_EXTERN void ct_set_sel_prop_interface(ct_selection_properties_t* props, const char* interface_name, ct_selection_preference_t preference);
+typedef enum { 
+  get_selection_property_list(output_enum) 
+  get_preference_set_selection_property_list(output_enum)
+SELECTION_PROPERTY_END } ct_selection_property_enum_t;
 
 // =============================================================================
 // Connection Properties
 // =============================================================================
-
-
 /**
  * @brief Collection of all connection properties.
  *
@@ -376,39 +360,39 @@ typedef enum {
 } ct_multipath_policy_enum_t;
 
 // clang-format off
-#define get_writable_connection_property_list(f)                                                                    \
-f(RECV_CHECKSUM_LEN,          "recvChecksumLen",          uint32_t,                       recv_checksum_len,     CONN_CHECKSUM_FULL_COVERAGE)        \
-f(CONN_PRIORITY,              "connPriority",             uint32_t,                       conn_priority,         100)                                \
-f(CONN_TIMEOUT,               "connTimeout",              uint32_t,                       conn_timeout,          CONN_TIMEOUT_DISABLED)              \
-f(KEEP_ALIVE_TIMEOUT,         "keepAliveTimeout",         uint32_t,                       keep_alive_timeout,    CONN_TIMEOUT_DISABLED)              \
-f(CONN_SCHEDULER,             "connScheduler",            ct_connection_scheduler_enum_t, conn_scheduler,        CONN_SCHEDULER_WEIGHTED_FAIR_QUEUEING) \
-f(CONN_CAPACITY_PROFILE,      "connCapacityProfile",      ct_capacity_profile_enum_t,     conn_capacity_profile, CAPACITY_PROFILE_BEST_EFFORT)           \
-f(MULTIPATH_POLICY,           "multipathPolicy",          ct_multipath_policy_enum_t,     multipath_policy,      MULTIPATH_POLICY_HANDOVER)          \
-f(MIN_SEND_RATE,              "minSendRate",              uint64_t,                       min_send_rate,         CONN_RATE_UNLIMITED)                \
-f(MIN_RECV_RATE,              "minRecvRate",              uint64_t,                       min_recv_rate,         CONN_RATE_UNLIMITED)                \
-f(MAX_SEND_RATE,              "maxSendRate",              uint64_t,                       max_send_rate,         CONN_RATE_UNLIMITED)                \
-f(MAX_RECV_RATE,              "maxRecvRate",              uint64_t,                       max_recv_rate,         CONN_RATE_UNLIMITED)                \
-f(GROUP_CONN_LIMIT,           "groupConnLimit",           uint64_t,                       group_conn_limit,      CONN_RATE_UNLIMITED)                \
-f(ISOLATE_SESSION,            "isolateSession",           bool,                           isolate_session,       false)
+#define get_writable_connection_property_list(f)                                                                                   \
+f(RECV_CHECKSUM_LEN,     "recvChecksumLen",     uint32_t,                       recv_checksum_len,     CONN_CHECKSUM_FULL_COVERAGE,           TYPE_UINT32) \
+f(CONN_PRIORITY,         "connPriority",        uint32_t,                       conn_priority,         100,                                   TYPE_UINT32) \
+f(CONN_TIMEOUT,          "connTimeout",         uint32_t,                       conn_timeout,          CONN_TIMEOUT_DISABLED,                 TYPE_UINT32) \
+f(KEEP_ALIVE_TIMEOUT,    "keepAliveTimeout",    uint32_t,                       keep_alive_timeout,    CONN_TIMEOUT_DISABLED,                 TYPE_UINT32) \
+f(CONN_SCHEDULER,        "connScheduler",       ct_connection_scheduler_enum_t, conn_scheduler,        CONN_SCHEDULER_WEIGHTED_FAIR_QUEUEING, TYPE_ENUM)  \
+f(CONN_CAPACITY_PROFILE, "connCapacityProfile", ct_capacity_profile_enum_t,     conn_capacity_profile, CAPACITY_PROFILE_BEST_EFFORT,          TYPE_ENUM)  \
+f(MULTIPATH_POLICY,      "multipathPolicy",     ct_multipath_policy_enum_t,     multipath_policy,      MULTIPATH_POLICY_HANDOVER,             TYPE_ENUM)  \
+f(MIN_SEND_RATE,         "minSendRate",         uint64_t,                       min_send_rate,         CONN_RATE_UNLIMITED,                   TYPE_UINT64) \
+f(MIN_RECV_RATE,         "minRecvRate",         uint64_t,                       min_recv_rate,         CONN_RATE_UNLIMITED,                   TYPE_UINT64) \
+f(MAX_SEND_RATE,         "maxSendRate",         uint64_t,                       max_send_rate,         CONN_RATE_UNLIMITED,                   TYPE_UINT64) \
+f(MAX_RECV_RATE,         "maxRecvRate",         uint64_t,                       max_recv_rate,         CONN_RATE_UNLIMITED,                   TYPE_UINT64) \
+f(GROUP_CONN_LIMIT,      "groupConnLimit",      uint64_t,                       group_conn_limit,      CONN_RATE_UNLIMITED,                   TYPE_UINT64) \
+f(ISOLATE_SESSION,       "isolateSession",      bool,                           isolate_session,       false,                                 TYPE_BOOL)
 
-#define get_read_only_connection_properties(f)                                                                \
-f(STATE,                               "state",                               ct_connection_state_enum_t, state, 0)        \
-f(CAN_SEND,                            "canSend",                             bool,                       can_send, 0)        \
-f(CAN_RECEIVE,                         "canReceive",                          bool,                       can_receive, 0)        \
-f(SINGULAR_TRANSMISSION_MSG_MAX_LEN,   "singularTransmissionMsgMaxLen",       uint64_t,                   singular_transmission_msg_max_len, 0)        \
-f(SEND_MESSAGE_MAX_LEN,                "sendMsgMaxLen",                       uint64_t,                   send_message_max_len, 0)        \
-f(RECV_MESSAGE_MAX_LEN,                "recvMessageMaxLen",                   uint64_t,                   recv_message_max_len, 0)
+#define get_read_only_connection_properties(f)                                                                                          \
+f(STATE,                             "state",                         ct_connection_state_enum_t, state,                             0,     TYPE_ENUM)   \
+f(CAN_SEND,                          "canSend",                       bool,                       can_send,                          false, TYPE_BOOL)   \
+f(CAN_RECEIVE,                       "canReceive",                    bool,                       can_receive,                       false, TYPE_BOOL)   \
+f(SINGULAR_TRANSMISSION_MSG_MAX_LEN, "singularTransmissionMsgMaxLen", uint64_t,                   singular_transmission_msg_max_len, 0,     TYPE_UINT64) \
+f(SEND_MESSAGE_MAX_LEN,              "sendMsgMaxLen",                 uint64_t,                   send_message_max_len,              0,     TYPE_UINT64) \
+f(RECV_MESSAGE_MAX_LEN,              "recvMessageMaxLen",             uint64_t,                   recv_message_max_len,              0,     TYPE_UINT64)
 
-#define get_tcp_connection_properties(f)                                                                \
-f(USER_TIMEOUT_VALUE_MS,        "userTimeoutValueMs",      uint32_t, user_timeout_value_ms,   TCP_USER_TIMEOUT)        \
-f(USER_TIMEOUT_ENABLED,         "userTimeoutEnabled",      bool,     user_timeout_enabled,    false)        \
-f(USER_TIMEOUT_CHANGEABLE,      "userTimeoutChangeable",   bool,     user_timeout_changeable, true)
+#define get_tcp_connection_properties(f)                                                                              \
+f(USER_TIMEOUT_VALUE_MS,   "userTimeoutValueMs",   uint32_t, user_timeout_value_ms,   TCP_USER_TIMEOUT, TYPE_UINT32) \
+f(USER_TIMEOUT_ENABLED,    "userTimeoutEnabled",    bool,     user_timeout_enabled,    false,            TYPE_BOOL)   \
+f(USER_TIMEOUT_CHANGEABLE, "userTimeoutChangeable", bool,     user_timeout_changeable, true,             TYPE_BOOL)
 // clang-format on
 
-#define output_connection_property_getter_declaration(enum_name, string_name, property_type, token_name, default_value) \
+#define output_connection_property_getter_declaration(enum_name, string_name, property_type, token_name, default_value, type_enum) \
   CT_EXTERN property_type ct_connection_properties_get_##token_name(ct_connection_properties_t* conn_props); 
 
-#define output_connection_property_setter_declaration(enum_name, string_name, property_type, token_name, default_value) \
+#define output_connection_property_setter_declaration(enum_name, string_name, property_type, token_name, default_value, type_enum) \
   CT_EXTERN void ct_connection_properties_set_##token_name(ct_connection_properties_t* conn_props, property_type val); 
 
 get_writable_connection_property_list(output_connection_property_setter_declaration)
@@ -417,9 +401,6 @@ get_writable_connection_property_list(output_connection_property_getter_declarat
 get_read_only_connection_properties(output_connection_property_getter_declaration)
 get_tcp_connection_properties(output_connection_property_getter_declaration)
 
-
-#define output_con_enum(enum_name, string_name, property_type, token_name, default_value) enum_name,
-
 /**
  * @brief Enumeration of all available connection properties.
  *
@@ -427,17 +408,18 @@ get_tcp_connection_properties(output_connection_property_getter_declaration)
  * and TCP-specific properties.
  */
 typedef enum {
-  get_writable_connection_property_list(output_con_enum)
-  get_read_only_connection_properties(output_con_enum)
-  get_tcp_connection_properties(output_con_enum)
+  get_writable_connection_property_list(output_enum)
+  get_read_only_connection_properties(output_enum)
+  get_tcp_connection_properties(output_enum)
   CONNECTION_PROPERTY_END
 } ct_connection_property_enum_t;
 
 // Writable connection property setters
 
-#define create_con_property_initializer(enum_name, string_name, property_type, token_name, default_value) \
+#define create_con_property_initializer(enum_name, string_name, property_type, token_name, default_value, type_name) \
   [enum_name] = {                                                          \
     .name = (string_name),                                                   \
+    .type = (type_name), \
     .value = { (uint32_t)(default_value) }                     \
 },
 
@@ -470,22 +452,22 @@ typedef struct ct_message_properties_s ct_message_properties_t;
 
 // clang-format off
 #define get_message_property_list(f)                                                                    \
-f(MSG_LIFETIME,           "msgLifetime",          uint64_t,                       lifetime,          0)                  \
-f(MSG_PRIORITY,           "msgPriority",          uint32_t,                       priority,          100)                \
-f(MSG_ORDERED,            "msgOrdered",           bool,                           ordered,           true)               \
-f(MSG_SAFELY_REPLAYABLE,  "msgSafelyReplayable",  bool,                           safely_replayable, false)              \
-f(FINAL,                  "final",                bool,                           final,                 false)              \
-f(MSG_CHECKSUM_LEN,       "msgChecksumLen",       uint32_t,                       checksum_len,      MESSAGE_CHECKSUM_FULL_COVERAGE)                  \
-f(MSG_RELIABLE,           "msgReliable",          bool,                           reliable,          true)               \
-f(MSG_CAPACITY_PROFILE,   "msgCapacityProfile",   ct_capacity_profile_enum_t,     capacity_profile,  CAPACITY_PROFILE_BEST_EFFORT)    \
-f(NO_FRAGMENTATION,       "noFragmentation",      bool,                           no_fragmentation,      false)              \
-f(NO_SEGMENTATION,        "noSegmentation",       bool,                           no_segmentation,       false)
+f(MSG_LIFETIME,           "msgLifetime",          uint64_t,                       lifetime,          0, 0)                  \
+f(MSG_PRIORITY,           "msgPriority",          uint32_t,                       priority,          100, 0)                \
+f(MSG_ORDERED,            "msgOrdered",           bool,                           ordered,           true, 0)               \
+f(MSG_SAFELY_REPLAYABLE,  "msgSafelyReplayable",  bool,                           safely_replayable, false, 0)              \
+f(FINAL,                  "final",                bool,                           final,                 false, 0)              \
+f(MSG_CHECKSUM_LEN,       "msgChecksumLen",       uint32_t,                       checksum_len,      MESSAGE_CHECKSUM_FULL_COVERAGE, 0)                  \
+f(MSG_RELIABLE,           "msgReliable",          bool,                           reliable,          true, 0)               \
+f(MSG_CAPACITY_PROFILE,   "msgCapacityProfile",   ct_capacity_profile_enum_t,     capacity_profile,  CAPACITY_PROFILE_BEST_EFFORT, 0)    \
+f(NO_FRAGMENTATION,       "noFragmentation",      bool,                           no_fragmentation,      false, 0)              \
+f(NO_SEGMENTATION,        "noSegmentation",       bool,                           no_segmentation,       false, 0)
 // clang-format on
 
-#define output_message_property_getter_declaration(enum_name, string_name, property_type, token_name, default_value) \
+#define output_message_property_getter_declaration(enum_name, string_name, property_type, token_name, default_value, type_enum) \
   CT_EXTERN property_type ct_message_properties_get_##token_name(const ct_message_properties_t* msg_props); 
 
-#define output_message_property_setter_declaration(enum_name, string_name, property_type, token_name, default_value) \
+#define output_message_property_setter_declaration(enum_name, string_name, property_type, token_name, default_value, type_enum) \
   CT_EXTERN void ct_message_properties_set_##token_name(ct_message_properties_t* msg_props, property_type val); 
 
 get_message_property_list(output_message_property_getter_declaration)
@@ -494,7 +476,7 @@ get_message_property_list(output_message_property_setter_declaration)
 /**
  * @brief Enumeration of all available message properties.
  */
-typedef enum { get_message_property_list(output_con_enum) MESSAGE_PROPERTY_END } ct_message_properties_enum_t;
+typedef enum { get_message_property_list(output_enum) MESSAGE_PROPERTY_END } ct_message_properties_enum_t;
 
 // =============================================================================
 // Transport Properties - Combination of selection and connection properties
@@ -510,6 +492,32 @@ typedef enum { get_message_property_list(output_con_enum) MESSAGE_PROPERTY_END }
  * and the setter functions to configure properties.
  */
 typedef struct ct_transport_properties_s ct_transport_properties_t;
+
+#define output_transport_property_getter_declaration(enum_name, string_name, property_type, token_name, default_value, type_enum) \
+  CT_EXTERN property_type ct_transport_properties_get_##token_name(const ct_transport_properties_t* transport_props);
+
+#define output_transport_property_preference_getter_declaration(enum_name, string_name, property_type, token_name, default_value, type) \
+  CT_EXTERN ct_selection_preference_t ct_transport_properties_get_##token_name##_preference(const ct_transport_properties_t* transport_props, const char* value);
+
+#define output_transport_property_setter_declaration(enum_name, string_name, property_type, token_name, default_value, type_enum) \
+  CT_EXTERN void ct_transport_properties_set_##token_name(ct_transport_properties_t* transport_props, property_type val);
+
+#define output_transport_property_preference_set_adder(enum_name, string_name, property_type, token_name, default_value, type) \
+  CT_EXTERN void ct_transport_properties_set_##token_name_preference(const ct_transport_properties_t* transport_props, const char* value, ct_selection_preference_t preference); 
+
+get_selection_property_list(output_transport_property_getter_declaration)
+get_selection_property_list(output_transport_property_setter_declaration)
+
+get_preference_set_selection_property_list(output_transport_property_preference_getter_declaration)
+get_preference_set_selection_property_list(output_transport_property_preference_set_adder)
+
+get_writable_connection_property_list(output_transport_property_getter_declaration)
+get_writable_connection_property_list(output_transport_property_setter_declaration)
+
+get_tcp_connection_properties(output_transport_property_getter_declaration)
+get_tcp_connection_properties(output_transport_property_setter_declaration)
+
+get_read_only_connection_properties(output_transport_property_getter_declaration)
 
 // =============================================================================
 // Security Parameters
@@ -546,7 +554,7 @@ f(SESSION_TICKET_ENCRYPTION_KEY,  "sessionTicketEncryptionKey", TYPE_BYTE_ARRAY)
   CT_EXTERN property_type ct_security_parameters_get##token_name(const ct_message_properties_t* msg_props); 
 
 #define output_security_parameter_setter_declaration(enum_name, string_name, property_type, token_name, default_value) \
-  CT_EXTERN void ct_message_properties_set_##token_name(ct_message_properties_t* msg_props, property_type val); 
+  CT_EXTERN void ct_security_properties_set_##token_name(ct_message_properties_t* msg_props, property_type val); 
 
 /**
  * @brief Enumeration of all available security parameters.
@@ -600,52 +608,6 @@ CT_EXTERN ct_transport_properties_t* ct_transport_properties_new(void);
  * @param[in] props Pointer to transport properties to free. Does nothing if NULL.
  */
 CT_EXTERN void ct_transport_properties_free(ct_transport_properties_t* props);
-
-/**
- * @brief Set a selection property preference in transport properties.
- *
- * @param[in,out] props Pointer to transport properties structure
- * @param[in] prop_enum Which selection property to set
- * @param[in] val Preference level (PROHIBIT through REQUIRE)
- */
-CT_EXTERN void ct_tp_set_sel_prop_preference(ct_transport_properties_t* props, ct_selection_property_enum_t prop_enum, ct_selection_preference_t val);
-
-/**
- * @brief Set the multipath mode in transport properties.
- *
- * @param[in,out] props Pointer to transport properties structure
- * @param[in] prop_enum Must be MULTIPATH property
- * @param[in] val Multipath mode (disabled, active, or passive)
- */
-CT_EXTERN void ct_tp_set_sel_prop_multipath(ct_transport_properties_t* props, ct_selection_property_enum_t prop_enum, ct_multipath_enum_t val);
-
-/**
- * @brief Set the communication direction in transport properties.
- *
- * @param[in,out] props Pointer to transport properties structure
- * @param[in] prop_enum Must be DIRECTION property
- * @param[in] val Direction value (bidirectional, send-only, or receive-only)
- */
-CT_EXTERN void ct_tp_set_sel_prop_direction(ct_transport_properties_t* props, ct_selection_property_enum_t prop_enum, ct_direction_of_communication_enum_t val);
-
-/**
- * @brief Set a boolean selection property in transport properties.
- *
- * @param[in,out] props Pointer to transport properties structure
- * @param[in] prop_enum Which boolean property to set
- * @param[in] val Boolean value
- */
-CT_EXTERN void ct_tp_set_sel_prop_bool(ct_transport_properties_t* props, ct_selection_property_enum_t prop_enum, bool val);
-
-/**
- * @brief Set interface preference in transport properties.
- *
- * @param[in,out] props Pointer to transport properties structure
- * @param[in] interface_name Name of the network interface (e.g., "eth0", "wlan0")
- * @param[in] preference Preference level for using this interface
- */
-CT_EXTERN void ct_tp_set_sel_prop_interface(ct_transport_properties_t* props, char* interface_name, ct_selection_preference_t preference);
-
 
 // =============================================================================
 // Endpoints - Opaque types for local and remote endpoints

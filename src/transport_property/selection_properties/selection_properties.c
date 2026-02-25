@@ -2,22 +2,21 @@
 #include "ctaps_internal.h"
 #include "selection_properties.h"
 
-#include "glibconfig.h"
-#include <glib.h>
 #include <logging/log.h>
 #include <stddef.h>
 #include <string.h>
 
-#define create_sel_property_initializer(enum_name, string_name, property_type, default_value) \
+#define create_sel_property_initializer(enum_name, string_name, property_type, function_name, default_value, type_enum) \
   [enum_name] = {                                                          \
     .name = (string_name),                                                   \
-    .type = (property_type),                                                 \
+    .type = type_enum,                                                        \
     .set_by_user = false,                                                  \
     .value = { (ct_selection_preference_t)(default_value) }                     \
 },
 
 const ct_selection_properties_t DEFAULT_SELECTION_PROPERTIES = {
-  .selection_property = {
+  .list = {
+    get_preference_set_selection_property_list(create_sel_property_initializer)
     get_selection_property_list(create_sel_property_initializer)
   }
 };
@@ -30,86 +29,29 @@ void ct_selection_properties_cleanup(ct_selection_properties_t* selection_proper
   if (!selection_properties) {
     return;
   }
-
-  // Free the interface preference map if it was created
-  if (selection_properties->selection_property[INTERFACE].value.preference_map != NULL) {
-    g_hash_table_destroy((GHashTable*)selection_properties->selection_property[INTERFACE].value.preference_map);
-    selection_properties->selection_property[INTERFACE].value.preference_map = NULL;
+  for (size_t i = 0; i < SELECTION_PROPERTY_END; i++) {
+    if (selection_properties->list[i].type == TYPE_PREFERENCE_SET) {
+      for (size_t j = 0; j < selection_properties->list[i].value.preference_set_val.num_combinations; j++) {
+        free(selection_properties->list[i].value.preference_set_val.combinations[j].value);
+      }
+    }
   }
-}
-
-// Helper function for deep copying GHashTable entries
-static void copy_hash_table_entry(gpointer key, gpointer value, gpointer user_data) {
-  GHashTable* dest_table = (GHashTable*)user_data;
-  // Key is a string, value is an integer stored as pointer
-  g_hash_table_insert(dest_table, g_strdup((const char*)key), value);
 }
 
 void ct_selection_properties_deep_copy(ct_selection_properties_t* dest, const ct_selection_properties_t* src) {
-  if (!dest || !src) {
+  if (!src || !dest) {
     return;
   }
-
   memcpy(dest, src, sizeof(ct_selection_properties_t));
 
-  if (src->selection_property[INTERFACE].value.preference_map) {
-    GHashTable* src_map = (GHashTable*)src->selection_property[INTERFACE].value.preference_map;
-    GHashTable* dest_map = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
-
-    g_hash_table_foreach(src_map, copy_hash_table_entry, dest_map);
-
-    dest->selection_property[INTERFACE].value.preference_map = dest_map;
+  for (size_t i = 0; i < src->list[INTERFACE].value.preference_set_val.num_combinations; i++) {
+    dest->list[INTERFACE].value.preference_set_val.combinations[i].value = strdup(src->list[INTERFACE].value.preference_set_val.combinations[i].value);
+    dest->list[INTERFACE].value.preference_set_val.combinations[i].preference = src->list[INTERFACE].value.preference_set_val.combinations[i].preference;
+    dest->list[INTERFACE].value.preference_set_val.num_combinations++;
   }
-}
-
-void ct_set_sel_prop_preference(ct_selection_properties_t* props, ct_selection_property_enum_t prop_enum, ct_selection_preference_t val) {
-  if (props->selection_property[prop_enum].type != TYPE_PREFERENCE) {
-    log_error("Type mismatch for property %s", props->selection_property[prop_enum].name);
-    return;
+  for (size_t i = 0; i < src->list[PVD].value.preference_set_val.num_combinations; i++) {
+    dest->list[PVD].value.preference_set_val.combinations[i].value = strdup(src->list[PVD].value.preference_set_val.combinations[i].value);
+    dest->list[PVD].value.preference_set_val.combinations[i].preference = src->list[PVD].value.preference_set_val.combinations[i].preference;
+    dest->list[PVD].value.preference_set_val.num_combinations++;
   }
-  props->selection_property[prop_enum].value.simple_preference = val;
-  props->selection_property[prop_enum].set_by_user = true;
-}
-
-void ct_set_sel_prop_direction(ct_selection_properties_t* props, ct_selection_property_enum_t prop_enum, ct_direction_of_communication_enum_t val) {
-  if (props->selection_property[prop_enum].type != TYPE_DIRECTION_ENUM) {
-    log_error("Type mismatch for property %s", props->selection_property[prop_enum].name);
-    return;
-  }
-  props->selection_property[prop_enum].value.direction_enum = val;
-  props->selection_property[prop_enum].set_by_user = true;
-}
-
-void ct_set_sel_prop_multipath(ct_selection_properties_t* props, ct_selection_property_enum_t prop_enum, ct_multipath_enum_t val) {
-  if (props->selection_property[prop_enum].type != TYPE_MULTIPATH_ENUM) {
-    log_error("Type mismatch for property %s", props->selection_property[prop_enum].name);
-    return;
-  }
-  props->selection_property[prop_enum].value.multipath_enum = val;
-  props->selection_property[prop_enum].set_by_user = true;
-}
-
-void ct_set_sel_prop_bool(ct_selection_properties_t* props, ct_selection_property_enum_t prop_enum, bool val) {
-  if (props->selection_property[prop_enum].type != TYPE_BOOLEAN) {
-    log_error("Type mismatch for property %s", props->selection_property[prop_enum].name);
-    return;
-  }
-  props->selection_property[prop_enum].value.boolean = val;
-  props->selection_property[prop_enum].set_by_user = true;
-}
-
-void ct_set_sel_prop_interface(ct_selection_properties_t* props, const char* interface_name, ct_selection_preference_t preference) {
-  log_debug("Setting interface preference: %s -> %d", interface_name, preference);
-  // Check if the property has been initialized.
-  if (!props->selection_property[INTERFACE].value.preference_map) {
-    log_trace("No existing interface map, creating a new one.");
-    // This is an internal function to create the GHashTable.
-    // It is not exposed in the header file.
-    props->selection_property[INTERFACE].value.preference_map = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
-  }
-
-  GHashTable* interface_map = (GHashTable*)props->selection_property[INTERFACE].value.preference_map;
-
-  // Use g_strdup to create a new string to be owned by the hash table.
-  g_hash_table_insert(interface_map, g_strdup(interface_name), GINT_TO_POINTER(preference));
 }
