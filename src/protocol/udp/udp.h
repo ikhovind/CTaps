@@ -9,6 +9,12 @@ typedef struct ct_udp_socket_state_s {
   uv_udp_t* udp_handle;
 } ct_udp_socket_state_t;
 
+typedef struct udp_send_data_s {
+  ct_connection_t* connection;
+  ct_message_t* message;
+  ct_message_context_t* message_context;
+} udp_send_data_t;
+
 ct_udp_socket_state_t* ct_udp_socket_state_new(uv_udp_t* udp_handle);
 int udp_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks);
 int udp_init_with_send(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks, ct_message_t* initial_message, ct_message_context_t* initial_message_context);

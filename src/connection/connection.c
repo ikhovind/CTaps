@@ -347,6 +347,7 @@ int ct_send_message_full(ct_connection_t* connection, ct_message_t* message, ct_
   ct_message_t* message_copy = ct_message_deep_copy(message);
   if (!message_copy) {
     log_error("Failed to deep copy message");
+    ct_message_context_free(message_context_copy);
     return -ENOMEM;
   }
 
@@ -354,12 +355,15 @@ int ct_send_message_full(ct_connection_t* connection, ct_message_t* message, ct_
   if (connection->framer_impl != NULL) {
     log_debug("User sending message on connection with framer");
     rc = connection->framer_impl->encode_message(connection, message_copy, message_context_copy, ct_connection_send_to_protocol);
-    if (rc < 0) {
-      log_error("Framer encode_message failed: %d", rc);
-    }
   } else {
     log_debug("User sending message on connection without framer");
     rc = ct_connection_send_to_protocol(connection, message_copy, message_context_copy);
+  }
+
+  if (rc < 0) {
+    log_error("Synchronous error on sending message encode_message failed: %d", rc);
+    ct_message_free(message_copy);
+    ct_message_context_free(message_context_copy);
   }
 
   return rc;

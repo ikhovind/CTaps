@@ -17,6 +17,12 @@ typedef struct ct_tcp_socket_state_s {
   uv_tcp_t* tcp_handle;
 } ct_tcp_socket_state_t;
 
+typedef struct ct_tcp_send_data_s {
+  ct_connection_t* connection;
+  ct_message_t* message;
+  ct_message_context_t* message_context;
+} ct_tcp_send_data_t;
+
 int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks);
 int tcp_init_with_send(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks, ct_message_t* initial_message, ct_message_context_t* initial_message_context);
 int tcp_close(ct_connection_t* connection);

@@ -123,8 +123,32 @@ add_gtest(
             picoquic_close_immediate
 )
 add_gtest(remote_endpoint_unit_test SOURCES src/unit/endpoint/remote.cpp ${CTAPS_SOURCES})
-add_gtest(preconnection_unit_test SOURCES src/unit/connections/preconnection_unit_test.cpp ${CTAPS_SOURCES})
-add_gtest(connection_unit_test SOURCES src/unit/connections/connection_unit_test.cpp ${CTAPS_SOURCES})
+add_gtest(preconnection_unit_test 
+  SOURCES 
+    src/unit/connections/preconnection_unit_test.cpp 
+    ${CTAPS_SOURCES}
+)
+add_gtest(connection_unit_test
+  SOURCES 
+    src/unit/connections/connection_unit_test.cpp
+    ${CTAPS_SOURCES}
+  WRAP_FUNCTIONS
+    ct_message_deep_copy
+    ct_message_context_new_from_connection
+    ct_message_context_deep_copy
+    ct_message_context_free
+    ct_message_free
+)
+
+add_gtest(socket_manager_unit_test
+  SOURCES 
+    src/unit/connections/socket_manager_unit_test.cpp
+    ${CTAPS_SOURCES}
+  WRAP_FUNCTIONS
+    ct_message_context_free
+    ct_message_free
+)
+
 add_gtest(connection_group_unit_test SOURCES src/unit/connections/connection_group_test.cpp ${CTAPS_SOURCES})
 add_gtest(candidate_gathering_test
         SOURCES
@@ -222,6 +246,17 @@ add_gtest(tcp_unit_test
     WRAP_FUNCTIONS
       uv_tcp_close_reset
       uv_close
+      ct_message_free
+      free
+)
+
+add_gtest(udp_unit_test
+  SOURCES
+    src/unit/protocol/udp_unit_test.cpp
+    ${CTAPS_SOURCES}
+  WRAP_FUNCTIONS
+    ct_message_free
+    free
 )
 
 add_gtest(message_unit_test
