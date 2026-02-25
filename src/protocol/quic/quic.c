@@ -1456,16 +1456,12 @@ int quic_send(ct_connection_t* connection, ct_message_t* message, ct_message_con
 
   if (!cnx) {
     log_error("No picoquic connection available for sending");
-    ct_message_free(message);
-    ct_message_context_free(message_context);
     return -ENOTCONN;
   }
 
   // Check if connection is ready to send data
   if (picoquic_get_cnx_state(cnx) < picoquic_state_ready) {
     log_warn("ct_connection_t not ready to send data, state: %d", picoquic_get_cnx_state(cnx));
-    ct_message_free(message);
-    ct_message_context_free(message_context);
     return -EAGAIN;
   }
 
@@ -1492,8 +1488,6 @@ int quic_send(ct_connection_t* connection, ct_message_t* message, ct_message_con
     if (rc == PICOQUIC_ERROR_INVALID_STREAM_ID) {
       log_error("Invalid stream ID: %llu", (unsigned long long)stream_id);
     }
-    ct_message_free(message);
-    ct_message_context_free(message_context);
     return -EIO;
   }
 

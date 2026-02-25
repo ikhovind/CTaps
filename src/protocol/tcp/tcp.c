@@ -422,6 +422,7 @@ int tcp_send(ct_connection_t* connection, ct_message_t* message, ct_message_cont
 
   uv_write_t *req = malloc(sizeof(uv_write_t));
   if (!req) {
+    // caller frees on sync error
     log_error("Failed to allocate memory for write request");
     return -errno;
   }

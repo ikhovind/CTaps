@@ -295,7 +295,11 @@ typedef struct ct_protocol_impl_s {
   /** @brief Initialize a new connection using this protocol and attempt 0-rtt. */
   int (*init_with_send)(ct_connection_t*, const ct_connection_callbacks_t*, ct_message_t*, ct_message_context_t*);
 
-  /** @brief Send a message over the protocol. */
+  /** @brief Send a message over the protocol. 
+   *
+   * @note The caller is responsible for freeing on sync errors, the protocol implementation is responsible for freeing on async errors or success.
+   * @return 0 on successful send initiation, non-zero on error.
+   */
   int (*send)(ct_connection_t*, ct_message_t*, ct_message_context_t*);
 
   /** @brief Start listening for incoming connections. */
