@@ -50,22 +50,83 @@ ct_transport_properties_t* ct_transport_properties_deep_copy(const ct_transport_
   return dest;
 }
 
-void ct_tp_set_sel_prop_preference(ct_transport_properties_t* props, ct_selection_property_enum_t prop_enum, ct_selection_preference_t val) {
-  ct_set_sel_prop_preference(&props->selection_properties, prop_enum, val);  // Call the actual function to
+ct_selection_preference_t ct_transport_properties_get_interface_preference(const ct_transport_properties_t *transport_props, const char *value) {
+  if (!transport_props) {
+    return NO_PREFERENCE;
+  }
+  for (size_t i = 0; i < transport_props->selection_properties.list[INTERFACE].value.preference_set_val.num_combinations; i++) {
+    if (strcmp(value, transport_props->selection_properties.list->value.preference_set_val.combinations[i].value) == 0) {
+      return transport_props->selection_properties.list->value.preference_set_val.combinations[i].preference;
+    }
+  }
+  return NO_PREFERENCE;
 }
 
-void ct_tp_set_sel_prop_multipath(ct_transport_properties_t* props, ct_selection_property_enum_t prop_enum, ct_multipath_enum_t val) {
-  ct_set_sel_prop_multipath(&props->selection_properties, prop_enum, val);
+ct_selection_preference_t ct_transport_properties_get_pvd_preference(const ct_transport_properties_t *transport_props, const char *value) {
+  if (!transport_props) {
+    return NO_PREFERENCE;
+  }
+  for (size_t i = 0; i < transport_props->selection_properties.list[PVD].value.preference_set_val.num_combinations; i++) {
+    if (strcmp(value, transport_props->selection_properties.list->value.preference_set_val.combinations[i].value) == 0) {
+      return transport_props->selection_properties.list->value.preference_set_val.combinations[i].preference;
+    }
+  }
+  return NO_PREFERENCE;
 }
 
-void ct_tp_set_sel_prop_direction(ct_transport_properties_t* props, ct_selection_property_enum_t prop_enum, ct_direction_of_communication_enum_t val) {
-  ct_set_sel_prop_direction(&props->selection_properties, prop_enum, val);
-}
+// Map type tags to union members
+#define UNION_MEMBER_TYPE_UINT32  uint32_val
+#define UNION_MEMBER_TYPE_UINT64  uint64_val
+#define UNION_MEMBER_TYPE_BOOL    bool_val
+#define UNION_MEMBER_TYPE_ENUM    enum_val
+#define UNION_MEMBER_TYPE_PREFERENCE      enum_val
+#define UNION_MEMBER_TYPE_ENUM_VAL  enum_val
+#define UNION_MEMBER_TYPE_PREFERENCE_SET  preference_set_val
 
-void ct_tp_set_sel_prop_bool(ct_transport_properties_t* props, ct_selection_property_enum_t prop_enum, bool val) {
-  ct_set_sel_prop_bool(&props->selection_properties, prop_enum, val);
-}
+#define DEFINE_CONNECTION_PROPERTY_GETTER(ENUM, STRING, TYPE, FIELD, DEFAULT, TYPE_TAG)    \
+  TYPE ct_transport_properties_get_##FIELD(const ct_transport_properties_t* tp) {          \
+    if (!tp) {                                                                              \
+      log_warn("Null pointer passed to get_" #FIELD);                                      \
+      return (TYPE)(DEFAULT);                                                               \
+    }                                                                                       \
+    return tp->connection_properties.list[ENUM].value.UNION_MEMBER_##TYPE_TAG;             \
+  }
 
-void ct_tp_set_sel_prop_interface(ct_transport_properties_t* props, char* interface_name, ct_selection_preference_t preference) {
-   ct_set_sel_prop_interface(&props->selection_properties, interface_name, preference);
-}
+#define DEFINE_CONNECTION_PROPERTY_SETTER(ENUM, STRING, TYPE, FIELD, DEFAULT, TYPE_TAG)    \
+  void ct_transport_properties_set_##FIELD(ct_transport_properties_t* tp, TYPE val) {      \
+    if (!tp) {                                                                              \
+      log_warn("Null pointer passed to set_" #FIELD);                                      \
+      return;                                                                               \
+    }                                                                                       \
+    tp->connection_properties.list[ENUM].value.UNION_MEMBER_##TYPE_TAG = val;              \
+  }
+
+
+#define DEFINE_SELECTION_PROPERTY_GETTER(ENUM, STRING, TYPE, FIELD, DEFAULT, TYPE_TAG)  \
+  TYPE ct_transport_properties_get_##FIELD(const ct_transport_properties_t* tp) {        \
+    if (!tp) {                                                                            \
+      log_warn("Null pointer passed to get_" #FIELD);                                    \
+      return (TYPE)(DEFAULT);                                                             \
+    }                                                                                     \
+    return tp->selection_properties.list[ENUM].value.UNION_MEMBER_##TYPE_TAG;            \
+  }
+
+#define DEFINE_SELECTION_PROPERTY_SETTER(ENUM, STRING, TYPE, FIELD, DEFAULT, TYPE_TAG)  \
+  void ct_transport_properties_set_##FIELD(ct_transport_properties_t* tp, TYPE val) {   \
+    if (!tp) {                                                                            \
+      log_warn("Null pointer passed to set_" #FIELD);                                    \
+      return;                                                                             \
+    }                                                                                     \
+    tp->selection_properties.list[ENUM].value.UNION_MEMBER_##TYPE_TAG = val;             \
+  }
+
+
+get_writable_connection_property_list(DEFINE_CONNECTION_PROPERTY_GETTER)
+get_read_only_connection_properties(DEFINE_CONNECTION_PROPERTY_GETTER)
+get_tcp_connection_properties(DEFINE_CONNECTION_PROPERTY_GETTER)
+get_writable_connection_property_list(DEFINE_CONNECTION_PROPERTY_SETTER)
+get_tcp_connection_properties(DEFINE_CONNECTION_PROPERTY_SETTER)
+get_selection_property_list(DEFINE_SELECTION_PROPERTY_GETTER)
+get_selection_property_list(DEFINE_SELECTION_PROPERTY_SETTER)
+get_preference_set_selection_property_list(DEFINE_SELECTION_PROPERTY_SETTER)
+

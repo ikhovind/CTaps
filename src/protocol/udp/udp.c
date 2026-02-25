@@ -21,7 +21,7 @@ const ct_protocol_impl_t udp_protocol_interface = {
     .protocol_enum = CT_PROTOCOL_UDP,
     .supports_alpn = false,
     .selection_properties = {
-      .selection_property = {
+      .list = {
         [RELIABILITY] = {.value = {.simple_preference = PROHIBIT}},
         [PRESERVE_MSG_BOUNDARIES] = {.value = {.simple_preference = REQUIRE}},
         [PER_MSG_RELIABILITY] = {.value = {.simple_preference = PROHIBIT}},

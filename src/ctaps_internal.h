@@ -152,7 +152,7 @@ static const ct_security_parameters_t DEFAULT_SECURITY_PARAMETERS = {
  * during connection establishment. Properties are indexed by ct_selection_property_enum_t.
  */
 typedef struct ct_selection_properties_s {
-  ct_selection_property_t selection_property[SELECTION_PROPERTY_END];  ///< Array of selection properties
+  ct_selection_property_t list[SELECTION_PROPERTY_END];  ///< Array of selection properties
 } ct_selection_properties_t;
 
 
@@ -192,7 +192,7 @@ typedef struct ct_message_properties_s {
 } ct_message_properties_t;
 
 // The value cast is a hack to please the c++ compiler for our tests
-#define create_message_property_initializer(enum_name, string_name, property_type, token_name, default_value) \
+#define create_message_property_initializer(enum_name, string_name, property_type, token_name, default_value, type_name) \
   [enum_name] = {                                                          \
     .name = (string_name),                                                   \
     .set_by_user = false,                                                  \
@@ -204,7 +204,6 @@ static const ct_message_properties_t DEFAULT_MESSAGE_PROPERTIES = {
     get_message_property_list(create_message_property_initializer)
   }
 };
-
 
 
 /**
@@ -223,6 +222,7 @@ typedef union {
 typedef struct ct_connection_property_s {
   char* name;                              ///< Property name string
   bool read_only;                          ///< True if property cannot be modified by user
+  ct_property_type_t type;
   ct_connection_property_value_t value;    ///< Property value
 } ct_connection_property_t;
 
@@ -230,8 +230,6 @@ typedef struct ct_connection_property_s {
 typedef struct ct_connection_properties_s {
   ct_connection_property_t list[CONNECTION_PROPERTY_END];  ///< Array of connection properties
 } ct_connection_properties_t;
-
-
 
 extern const ct_connection_property_t DEFAULT_CONNECTION_PROPERTIES[];
 

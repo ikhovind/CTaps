@@ -106,8 +106,8 @@ bool protocol_implementation_supports_selection_properties(
   const ct_protocol_impl_t* protocol,
   const ct_selection_properties_t* selection_properties) {
   for (int i = 0; i < SELECTION_PROPERTY_END; i++) {
-    ct_selection_property_t desired_value = selection_properties->selection_property[i];
-    ct_selection_property_t protocol_value = protocol->selection_properties.selection_property[i];
+    ct_selection_property_t desired_value = selection_properties->list[i];
+    ct_selection_property_t protocol_value = protocol->selection_properties.list[i];
 
     if (desired_value.type == TYPE_PREFERENCE) {
       if (desired_value.value.simple_preference == REQUIRE && protocol_value.value.simple_preference == PROHIBIT) {
@@ -126,8 +126,8 @@ bool protocol_implementation_supports_selection_properties(
 bool interface_is_compatible(const char* interface_name, const ct_transport_properties_t* transport_properties) {
   log_trace("Checking if interface %s is compatible with transport properties", interface_name);
   // iterate over the interface preferences
-  GHashTable* interface_map = (GHashTable*)transport_properties->selection_properties.selection_property[INTERFACE].value.preference_map;
-  if (!interface_map) {
+  ct_preference_set_t preference_map = transport_properties->selection_properties.list[INTERFACE].value.preference_set_val;
+  if (preference_map.num_combinations == 0) {
     // No preferences set, all interfaces are compatible
     return true;
   }
@@ -135,22 +135,19 @@ bool interface_is_compatible(const char* interface_name, const ct_transport_prop
     return true;
   }
   // iterate each value in the hash table
-  GList* keys = g_hash_table_get_keys(interface_map);
   const char* interface_type = get_generic_interface_type(interface_name);
   if (!interface_type) {
     log_trace("Could not determine generic interface type for %s", interface_name);
     // Unknown interface type, consider it incompatible
-    g_list_free(keys);
     return false;
   }
   log_trace("Checking compatibility for generic interface type: %s", interface_type);
-  for (GList* iter = keys; iter != NULL; iter = iter->next) {
-    char* key = (char*)iter->data;
-    ct_selection_preference_t preference = GPOINTER_TO_INT(g_hash_table_lookup(interface_map, key));
+  for (size_t i = 0; i < preference_map.num_combinations; i++) {
+    char* key = preference_map.combinations[i].value;
+    ct_selection_preference_t preference = preference_map.combinations[i].preference;
     log_trace("Preference for interface type %s is %d", key, preference);
     if (strcmp(key, interface_type) == 0) {
       if (preference == PROHIBIT) {
-        g_list_free(keys);
         log_trace("Interface %s is prohibited", interface_name);
         return false;
       }
@@ -158,13 +155,11 @@ bool interface_is_compatible(const char* interface_name, const ct_transport_prop
     else {
       // If any other interface is set to REQUIRE, this one is incompatible
       if (preference == REQUIRE) {
-        g_list_free(keys);
         log_trace("Interface %s is incompatible due to %s being required", interface_name, key);
         return false;
       }
     }
   }
-  g_list_free(keys);
   log_trace("Interface %s is compatible", interface_name);
   return true;
 }
@@ -290,29 +285,29 @@ gint compare_prefer_and_avoid_preferences(gconstpointer a, gconstpointer b, gpoi
   int a_prefer_score = 0;
   int a_avoid_score = 0;
   for (int i = 0; i < SELECTION_PROPERTY_END; i++) {
-    if (selection_properties->selection_property[i].type == TYPE_PREFERENCE) {
-      if (selection_properties->selection_property[i].value.simple_preference == PREFER) {
+    if (selection_properties->list[i].type == TYPE_PREFERENCE) {
+      if (selection_properties->list[i].value.simple_preference == PREFER) {
         log_trace("Found PREFER property at index %d", i);
         // If A can provide this property then bump its score
-        if (candidate_a->protocol_candidate->protocol_impl->selection_properties.selection_property[i].value.simple_preference != PROHIBIT) {
+        if (candidate_a->protocol_candidate->protocol_impl->selection_properties.list[i].value.simple_preference != PROHIBIT) {
           log_trace("A could supply prefer property at index %d", i);
           a_prefer_score++;
         }
         // But if B can provide it too, then do not bump it after all
         // If A cannot provide but B can, then A's score should decrease
-        if (candidate_b->protocol_candidate->protocol_impl->selection_properties.selection_property[i].value.simple_preference != PROHIBIT) {
+        if (candidate_b->protocol_candidate->protocol_impl->selection_properties.list[i].value.simple_preference != PROHIBIT) {
           log_trace("B could supply prefer property at index %d", i);
           a_prefer_score--;
         }
       }
-      else if (selection_properties->selection_property[i].value.simple_preference == AVOID) {
+      else if (selection_properties->list[i].value.simple_preference == AVOID) {
         log_trace("Found AVOID property at index %d", i);
 
-        if (candidate_a->protocol_candidate->protocol_impl->selection_properties.selection_property[i].value.simple_preference != REQUIRE) {
+        if (candidate_a->protocol_candidate->protocol_impl->selection_properties.list[i].value.simple_preference != REQUIRE) {
           log_trace("A could unsupply avoid property at index %d", i);
           a_avoid_score++;
         }
-        if (candidate_b->protocol_candidate->protocol_impl->selection_properties.selection_property[i].value.simple_preference != REQUIRE) {
+        if (candidate_b->protocol_candidate->protocol_impl->selection_properties.list[i].value.simple_preference != REQUIRE) {
           log_trace("B could unsupply avoid property at index %d", i);
           a_avoid_score--;
         }
@@ -702,6 +697,7 @@ int get_ordered_candidate_nodes(const ct_preconnection_t* precon, ct_candidate_g
 
   int rc = build_candidate_tree(gather_context);
   if (rc != 0) {
+    free(gather_context);
     log_error("Could not build candidate tree");
     return rc;
   }

@@ -28,7 +28,7 @@ const ct_protocol_impl_t quic_protocol_interface = {
     .protocol_enum = CT_PROTOCOL_QUIC,
     .supports_alpn = true,
     .selection_properties = {
-      .selection_property = {
+      .list = {
         [RELIABILITY] = {.value = {.simple_preference = REQUIRE}},
         [PRESERVE_MSG_BOUNDARIES] = {.value = {.simple_preference = REQUIRE}},
         [PER_MSG_RELIABILITY] = {.value = {.simple_preference = PREFER}},
