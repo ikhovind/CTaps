@@ -282,11 +282,15 @@ int racing_on_attempt_ready(ct_connection_t* connection) {
     int rc = ct_send_message_full(connection, context->initial_message, context->initial_message_context);
     if (rc != 0) {
       log_error("Failed to send initial message on winning connection: %d", rc);
-      if (connection->connection_callbacks.send_error) {
-        connection->connection_callbacks.send_error(connection);
-      }
+      ct_socket_manager_t* socket_manager = connection->socket_manager;
+      socket_manager->callbacks.message_send_error(connection, NULL, rc);
     }
   }
+
+  if (ct_connection_sent_early_data(connection)) {
+    connection->socket_manager->callbacks.message_sent(connection, context->initial_message_context);
+  }
+
 
   // Call the user's ready callback with the winning connection
   if (connection->connection_callbacks.ready) {
@@ -470,9 +474,6 @@ int start_candidate_racing(ct_preconnection_t* preconnection,
 
   if (!context) {
     log_error("Failed to create racing context");
-    if (connection_callbacks.establishment_error) {
-      connection_callbacks.establishment_error(NULL);
-    }
     return -ENOMEM;
   }
 
@@ -486,9 +487,6 @@ int start_candidate_racing(ct_preconnection_t* preconnection,
   int rc = get_ordered_candidate_nodes(preconnection, gathering_callbacks);
   if (rc != 0) {
     log_error("Synchronous error in getting ordered candidate nodes: %d", rc);
-    if (connection_callbacks.establishment_error) {
-      connection_callbacks.establishment_error(NULL);
-    }
     return rc;
   }
   return 0;

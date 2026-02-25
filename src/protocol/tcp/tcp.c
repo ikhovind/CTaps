@@ -62,6 +62,24 @@ const ct_protocol_impl_t tcp_protocol_interface = {
     .free_connection_group_state = tcp_free_connection_group_state,
 };
 
+typedef struct ct_tcp_send_data_s {
+  ct_connection_t* connection;
+  ct_message_t* message;
+  ct_message_context_t* message_context;
+} ct_tcp_send_data_t;
+
+ct_tcp_send_data_t* ct_tcp_send_data_new(ct_connection_t* connection, ct_message_t* message, ct_message_context_t* message_context) {
+  ct_tcp_send_data_t* send_data = malloc(sizeof(ct_tcp_send_data_t));
+  if (!send_data) {
+    log_error("Failed to allocate memory for TCP send data");
+    return NULL;
+  }
+  send_data->connection = connection;
+  send_data->message = message;
+  send_data->message_context = message_context;
+  return send_data;
+}
+
 
 ct_tcp_socket_state_t* ct_tcp_socket_state_new(ct_connection_t* connection,
                                                  ct_listener_t* listener,
@@ -223,24 +241,21 @@ void on_write(uv_write_t* req, int status) {
   ct_socket_manager_t* socket_manager = req->handle->data;
   ct_tcp_socket_state_t* socket_state = socket_manager->internal_socket_manager_state;
   ct_connection_t* connection = socket_state->connection;
-  ct_message_t* message = (ct_message_t*)req->data;
+  ct_tcp_send_data_t* send_data = req->data;
 
   if (status < 0) {
     log_error("Write error: %s", uv_strerror(status));
-    if (connection->connection_callbacks.send_error) {
-      connection->connection_callbacks.send_error(connection);
-    }
+    socket_manager->callbacks.message_send_error(connection, send_data->message_context, status);
   } else {
-    if (connection->connection_callbacks.sent) {
-      connection->connection_callbacks.sent(connection);
-    }
+    socket_manager->callbacks.message_sent(connection, send_data->message_context);
     log_info("Successfully sent message over TCP");
   }
 
-  // Free the message after sending (or error)
-  if (message) {
-     ct_message_free(message);
+  // Free the message after sending (or error), context is freed by socket manager callbacks
+  if (send_data->message) {
+     ct_message_free(send_data->message);
   }
+  free(send_data);
   log_debug("Freeing write request");
   free(req);
 }
@@ -420,7 +435,12 @@ int tcp_send(ct_connection_t* connection, ct_message_t* message, ct_message_cont
   }
 
   // Attach message to request so it can be freed in the callback
-  req->data = message;
+  req->data = ct_tcp_send_data_new(connection, message, ctx);
+  if (!req->data) {
+    log_error("Failed to allocate memory for TCP send data");
+    free(req);
+    return -ENOMEM;
+  }
 
   ct_socket_manager_t* socket_manager = connection->socket_manager;
   ct_tcp_socket_state_t* socket_state = socket_manager->internal_socket_manager_state;

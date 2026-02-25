@@ -313,6 +313,27 @@ int ct_socket_manager_listener_stop(ct_socket_manager_t* socket_manager) {
   return 0;
 }
 
+void ct_socket_manager_message_sent_cb(ct_connection_t* connection, ct_message_context_t* message_context) {
+  log_trace("Socket manager message sent callback invoked for connection: %s", connection->uuid);
+  if (connection->connection_callbacks.sent) {
+    connection->connection_callbacks.sent(connection, message_context);
+  }
+  else {
+    log_trace("No message sent callback registered for connection: %s", connection->uuid);
+  }
+  ct_message_context_free(message_context);
+}
+
+void ct_socket_manager_message_send_error_cb(ct_connection_t* connection, ct_message_context_t* message_context, int reason) {
+  if (connection->connection_callbacks.send_error) {
+    connection->connection_callbacks.send_error(connection, message_context, reason);
+  }
+  else {
+    log_debug("No message send error callback registered for connection: %s", connection->uuid);
+  }
+  ct_message_context_free(message_context);
+}
+
 ct_socket_manager_t* ct_socket_manager_new(const ct_protocol_impl_t* protocol_impl, ct_listener_t* listener) {
   ct_socket_manager_t* socket_manager = malloc(sizeof(ct_socket_manager_t));
   if (!socket_manager) {
@@ -332,6 +353,8 @@ ct_socket_manager_t* ct_socket_manager_new(const ct_protocol_impl_t* protocol_im
   socket_manager->callbacks.establishment_error = ct_socket_manager_establishment_error_cb;
   socket_manager->callbacks.connection_ready = ct_socket_manager_connection_ready_cb;
   socket_manager->callbacks.socket_closed = ct_socket_manager_closed_socket_cb;
+  socket_manager->callbacks.message_sent = ct_socket_manager_message_sent_cb;
+  socket_manager->callbacks.message_send_error = ct_socket_manager_message_send_error_cb;
   log_debug("Created new socket manager: %p for protocol: %s", socket_manager, protocol_impl->name);
   return socket_manager;
 }
