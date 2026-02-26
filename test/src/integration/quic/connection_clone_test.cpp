@@ -160,7 +160,7 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     ct_transport_properties_free(client_props);
     ct_preconnection_free(client_precon);
 
-    // ct_local_endpoint_free(listener_endpoint);
+    ct_local_endpoint_free(listener_endpoint);
     ct_remote_endpoint_free(listener_remote);
     ct_preconnection_free(listener_precon);
     ct_transport_properties_free(listener_props);

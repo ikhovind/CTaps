@@ -348,7 +348,7 @@ typedef struct ct_transport_properties_s ct_transport_properties_t;
   CT_EXTERN void ct_transport_properties_set_##token_name(ct_transport_properties_t* transport_props, property_type val);
 
 #define output_transport_property_preference_set_adder(enum_name, string_name, property_type, token_name, default_value, type) \
-  CT_EXTERN void ct_transport_properties_add_##token_name##_preference(ct_transport_properties_t* transport_props, const char* value, ct_selection_preference_t preference); 
+  CT_EXTERN int ct_transport_properties_add_##token_name##_preference(ct_transport_properties_t* transport_props, const char* value, ct_selection_preference_t preference); 
 
 get_selection_property_list(output_transport_property_getter_declaration)
 get_selection_property_list(output_transport_property_setter_declaration)

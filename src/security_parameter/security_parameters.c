@@ -118,14 +118,15 @@ ct_security_parameters_t* ct_security_parameters_deep_copy(const ct_security_par
           }
           break;
         }
-        case TYPE_CERTIFICATE_BUNDLES:
-          dst_param->value.certificate_bundles = ct_certificate_bundles_deep_copy(src_param->value.certificate_bundles);
-          if (!dst_param->value.certificate_bundles.certificate_bundles) {
+        case TYPE_CERTIFICATE_BUNDLES: {
+          int rc = ct_certificate_bundles_deep_copy(src_param->value.certificate_bundles, &dst_param->value.certificate_bundles);
+          if (rc < 0) {
             log_error("Failed to deep copy certificate bundles security parameter");
             ct_security_parameters_free(copy);
             return NULL;
           }
           break;
+        }
         case TYPE_STRING:
           if (src_param->value.string) {
             dst_param->value.string = strdup(src_param->value.string);
@@ -234,31 +235,34 @@ int ct_security_parameters_clear_alpn(ct_security_parameters_t* sec) {
   return 0;
 }
 
-int ct_security_parameters_add_alpn(ct_security_parameters_t* sec, const char* alpn) {
-  if (!sec || !alpn) {
-    log_warn("Attempted to add alpn with NULL parameters");
-    log_debug("Security parameters: %p, alpn: %p", sec, alpn);
+int ct_security_parameters_add_to_array_of_strings(ct_security_parameters_t* sec, ct_security_property_enum_t type, const char* value) {
+  if (!sec || !value) {
+    log_warn("Attempted to add to array of strings with NULL parameters");
+    log_debug("Security parameters: %p, value: %p", sec, value);
     return -EINVAL;
   }
-  ct_string_array_t prev_alpns = sec->list[ALPN].value.array_of_strings;
+  ct_string_array_t prev_arr = sec->list[type].value.array_of_strings;
 
-  char** new_strings = realloc(prev_alpns.strings, (prev_alpns.num_strings + 1) * sizeof(char*));
+  char** new_strings = realloc(prev_arr.strings, (prev_arr.num_strings + 1) * sizeof(char*));
   if (!new_strings) {
     log_error("Could not allocate memory for server certificate array");
     return -ENOMEM;
   }
+  sec->list[type].value.array_of_strings.strings = new_strings;
+  new_strings[prev_arr.num_strings] = strdup(value);
 
-  new_strings[prev_alpns.num_strings] = strdup(alpn);
-  if (!new_strings[prev_alpns.num_strings]) {
+  if (!new_strings[prev_arr.num_strings]) {
     log_error("Could not allocate memory for server certificate file");
-    free(new_strings);
+    free(new_strings[prev_arr.num_strings]);
     return -ENOMEM;
   }
-
-  sec->list[ALPN].value.array_of_strings.strings = new_strings;
-  sec->list[ALPN].value.array_of_strings.num_strings++;
-  sec->list[ALPN].set_by_user = true;
+  sec->list[type].value.array_of_strings.num_strings++;
+  sec->list[type].set_by_user = true;
   return 0;
+}
+
+int ct_security_parameters_add_alpn(ct_security_parameters_t* sec, const char* alpn) {
+  return ct_security_parameters_add_to_array_of_strings(sec, ALPN, alpn);
 }
 
 const char** ct_security_parameters_get_alpns(const ct_security_parameters_t* sec, size_t* num_alpns) {
@@ -297,6 +301,10 @@ int ct_security_parameters_set_session_ticket_encryption_key(ct_security_paramet
   }
   if (key_len > 0) {
     sec->list[SESSION_TICKET_ENCRYPTION_KEY].value.byte_array.bytes = malloc(key_len);
+    if (!sec->list[SESSION_TICKET_ENCRYPTION_KEY].value.byte_array.bytes) {
+      log_error("Failed to allocate memory for session ticket encryption key");
+      return -ENOMEM;
+    }
     memset(sec->list[SESSION_TICKET_ENCRYPTION_KEY].value.byte_array.bytes, 0, key_len);
     memcpy(sec->list[SESSION_TICKET_ENCRYPTION_KEY].value.byte_array.bytes, key, key_len);
     sec->list[SESSION_TICKET_ENCRYPTION_KEY].value.byte_array.length = key_len;
@@ -367,8 +375,8 @@ const char* ct_security_parameters_get_key_file(const ct_security_parameters_t* 
     log_warn("Attempting to get key file from NULL security parameters");
     return NULL;
   }
-  if (sec->list[type].value.certificate_bundles.num_bundles < index) {
-    log_warn("Key file with index %llu does not exist", index);
+  if (sec->list[type].value.certificate_bundles.num_bundles <= index) {
+    log_warn("Key file with index %zu does not exist", index);
     return NULL;
   }
   return sec->list[type].value.certificate_bundles.certificate_bundles[index].private_key_file_name;
@@ -391,6 +399,10 @@ const char* ct_security_parameters_get_server_certificate_key_file(const ct_secu
 }
 
 size_t ct_security_parameters_get_client_certificate_count(const ct_security_parameters_t* sec) {
+  if (!sec) {
+    log_warn("Attempting to get client certificate count from NULL security parameters");
+    return 0;
+  }
   return sec->list[CLIENT_CERTIFICATE].value.certificate_bundles.num_bundles;
 }
 
@@ -421,26 +433,7 @@ int ct_security_parameters_set_server_name_identification(ct_security_parameters
 }
 
 int ct_security_parameters_add_supported_group(ct_security_parameters_t* sec, const char* group) {
-  if (!sec) {
-    log_warn("Attempted to add supported group to NULL security parameters");
-    return -EINVAL;
-  }
-
-  if (sec->list[SUPPORTED_GROUP].value.string) {
-    log_trace("Freeing existing server name identification before setting new value");
-    free(sec->list[SUPPORTED_GROUP].value.string);
-  }
-  sec->list[SUPPORTED_GROUP].set_by_user = true;
-  if (group) {
-    sec->list[SUPPORTED_GROUP].value.string = strdup(group);
-    if (!sec->list[SUPPORTED_GROUP].value.string) {
-      return -EINVAL;
-    }
-  }
-  else {
-    sec->list[SUPPORTED_GROUP].value.string = NULL;
-  }
-  return 0;
+  return ct_security_parameters_add_to_array_of_strings(sec, SUPPORTED_GROUP, group);
 }
 
 const char* ct_security_parameters_get_server_name_identification(const ct_security_parameters_t* sec) {

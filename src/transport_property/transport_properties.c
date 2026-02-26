@@ -50,54 +50,47 @@ ct_transport_properties_t* ct_transport_properties_deep_copy(const ct_transport_
   return dest;
 }
 
-void ct_transport_properties_add_interface_preference(ct_transport_properties_t* transport_props, const char* value, ct_selection_preference_t preference) {
-  if (!transport_props) {
+int ct_transport_properties_add_preference_map(ct_transport_properties_t* transport_props, ct_selection_property_enum_t type, const char* value, ct_selection_preference_t preference) {
+  if (!transport_props || !value) {
     log_warn("Null pointer passed to add_interface_preference");
-    return;
+    log_debug("Transport properties: %p, value: %p", transport_props, value);
+    return -EINVAL;
   }
-  ct_preference_set_t* set = &transport_props->selection_properties.list[INTERFACE].value.preference_set_val;
-  log_debug("Before adding num_combinations: %zu", set->num_combinations);
-  log_debug("Adding interface preference: %s with preference %d", value, preference);
+  ct_preference_set_t* set = &transport_props->selection_properties.list[type].value.preference_set_val;
   for (size_t i = 0; i < set->num_combinations; i++) {
+    if (!set->combinations[i].value) {
+      log_warn("Null value found in interface preference combinations at index %zu", i);
+      continue;
+    }
     if (strcmp(value, set->combinations[i].value) == 0) {
       set->combinations[i].preference = preference;
-      return;
+      return 0;
     }
   }
   
   ct_preference_combination_t* tmp = realloc(set->combinations, (set->num_combinations + 1) * sizeof(ct_preference_combination_t));
   if (!tmp) {
     log_error("Failed to allocate memory for new interface preference combination");
-    return;
+    return -ENOMEM;
   }
   set->combinations = tmp;
   set->combinations[set->num_combinations].value = strdup(value);
+  if (!set->combinations[set->num_combinations].value) {
+    log_error("Failed to allocate memory for interface preference value");
+    return -ENOMEM;
+  }
   set->combinations[set->num_combinations].preference = preference;
   set->num_combinations++;
-  log_debug("After adding num_combinations: %zu", set->num_combinations);
+  transport_props->selection_properties.list[type].set_by_user = true;
+  return 0;
 }
 
-void ct_transport_properties_add_pvd_preference(ct_transport_properties_t* transport_props, const char* value, ct_selection_preference_t preference) {
-  if (!transport_props) {
-    log_warn("Null pointer passed to add_pvd_preference");
-    return;
-  }
-  ct_preference_set_t* set = &transport_props->selection_properties.list[PVD].value.preference_set_val;
-  for (size_t i = 0; i < set->num_combinations; i++) {
-    if (strcmp(value, set->combinations[i].value) == 0) {
-      set->combinations[i].preference = preference;
-      return;
-    }
-  }
-  ct_preference_combination_t* tmp = realloc(set->combinations, (set->num_combinations + 1) * sizeof(ct_preference_combination_t));
-  if (!tmp) {
-    log_error("Failed to allocate memory for new interface preference combination");
-    return;
-  }
-  set->combinations = tmp;
-  set->combinations[set->num_combinations].value = strdup(value);
-  set->combinations[set->num_combinations].preference = preference;
-  set->num_combinations++;
+int ct_transport_properties_add_interface_preference(ct_transport_properties_t* transport_props, const char* value, ct_selection_preference_t preference) {
+  return ct_transport_properties_add_preference_map(transport_props, INTERFACE, value, preference);
+}
+
+int ct_transport_properties_add_pvd_preference(ct_transport_properties_t* transport_props, const char* value, ct_selection_preference_t preference) {
+  return ct_transport_properties_add_preference_map(transport_props, PVD, value, preference);
 }
 
 ct_selection_preference_t ct_transport_properties_get_interface_preference(const ct_transport_properties_t *transport_props, const char *value) {
@@ -129,7 +122,7 @@ ct_selection_preference_t ct_transport_properties_get_pvd_preference(const ct_tr
 #define UNION_MEMBER_TYPE_UINT64  uint64_val
 #define UNION_MEMBER_TYPE_BOOL    bool_val
 #define UNION_MEMBER_TYPE_ENUM    enum_val
-#define UNION_MEMBER_TYPE_PREFERENCE      enum_val
+#define UNION_MEMBER_TYPE_PREFERENCE     simple_preference 
 #define UNION_MEMBER_TYPE_ENUM_VAL  enum_val
 #define UNION_MEMBER_TYPE_PREFERENCE_SET  preference_set_val
 

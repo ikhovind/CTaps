@@ -81,7 +81,7 @@ TEST(MessagePropertiesUnitTests, IsFinalReturnsFalseForNullPointer) {
     EXPECT_FALSE(is_final);
 }
 
-TEST(MessagePropertiesUnitTests, SetFinalHandlesNullPointer) {
+TEST(MessagePropertiesUnitTests, GetFinalHandlesNullPointer) {
     ct_message_properties_get_final(nullptr);
 
     SUCCEED();

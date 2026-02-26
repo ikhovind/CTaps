@@ -101,7 +101,7 @@ TEST(SelectionPropertiesUnitTest, SetsDefaultValues) {
       case DIRECTION:
         EXPECT_STREQ(current_prop.name, "direction");
         EXPECT_EQ(current_prop.type, TYPE_ENUM);
-        EXPECT_EQ(current_prop.value.simple_preference, DIRECTION_BIDIRECTIONAL);
+        EXPECT_EQ(current_prop.value.enum_val, DIRECTION_BIDIRECTIONAL);
         break;
       case SOFT_ERROR_NOTIFY:
         EXPECT_STREQ(current_prop.name, "softErrorNotify");
@@ -218,7 +218,7 @@ TEST(SelectionPropertiesUnitTest, SetsSetByUser) {
         EXPECT_EQ(current_prop.set_by_user, true);
         EXPECT_STREQ(current_prop.name, "direction");
         EXPECT_EQ(current_prop.type, TYPE_ENUM);
-        EXPECT_EQ(current_prop.value.simple_preference, DIRECTION_UNIDIRECTIONAL_SEND);
+        EXPECT_EQ(current_prop.value.enum_val, DIRECTION_UNIDIRECTIONAL_SEND);
         break;
       case SOFT_ERROR_NOTIFY:
         EXPECT_STREQ(current_prop.name, "softErrorNotify");
