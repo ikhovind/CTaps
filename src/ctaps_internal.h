@@ -353,6 +353,7 @@ typedef struct ct_connection_group_s {
   GHashTable* connections;                ///< Map of UUID string → ct_connection_t*
   void* connection_group_state;           ///< Protocol-specific shared state
   size_t ref_count;                       ///< Reference count for this connection group
+  ct_transport_properties_t* transport_properties;      ///< Transport and connection properties
 } ct_connection_group_t;
 
 
@@ -490,13 +491,20 @@ typedef enum {
   CONNECTION_ROLE_SERVER,               ///< Connection accepted from remote endpoint
 } ct_connection_role_t;
 
+typedef struct ct_per_connection_properties_s {
+  ct_connection_state_enum_t state;
+  bool can_receive;
+  bool can_send;
+} ct_per_connection_properties_t;
+
 typedef struct ct_connection_s {
   char uuid[37];                                       ///< Unique identifier for this connection (UUID string)
   ct_connection_group_t* connection_group;             ///< Connection group (never NULL)
-  ct_transport_properties_t* transport_properties;      ///< Transport and connection properties
   ct_security_parameters_t* security_parameters;       ///< Security configuration (TLS/QUIC, owned copy)
   ct_local_endpoint_t* local_endpoint;                 ///< Local endpoint (bound address/port)
   ct_remote_endpoint_t* remote_endpoint;               ///< Remote endpoint (peer address/port)
+  
+  ct_per_connection_properties_t properties;
 
   void* internal_connection_state;                     ///< Protocol-specific per-connection state (opaque)
   ct_framer_impl_t* framer_impl;                       ///< Optional message framer (NULL = no framing)

@@ -285,7 +285,9 @@ int tcp_init_with_send(ct_connection_t* connection, const ct_connection_callback
 
   new_tcp_handle->data = connection->socket_manager;
 
-  uint32_t keepalive_timeout = connection->transport_properties->connection_properties.list[KEEP_ALIVE_TIMEOUT].value.uint32_val;
+  uint32_t keepalive_timeout = ct_transport_properties_get_keep_alive_timeout(
+    ct_connection_get_transport_properties(connection)
+  );
   if (keepalive_timeout != CONN_TIMEOUT_DISABLED) {
     log_info("Setting TCP keepalive with timeout: %u seconds", keepalive_timeout);
     rc = uv_tcp_keepalive(new_tcp_handle, true, keepalive_timeout);
@@ -357,7 +359,9 @@ int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
 
   log_debug("Initiated with new TCP handle: %p", new_tcp_handle);
 
-  uint32_t keepalive_timeout = connection->transport_properties->connection_properties.list[KEEP_ALIVE_TIMEOUT].value.uint32_val;
+  uint32_t keepalive_timeout = ct_transport_properties_get_keep_alive_timeout(
+    ct_connection_get_transport_properties(connection)
+  );
   if (keepalive_timeout != CONN_TIMEOUT_DISABLED) {
     log_info("Setting TCP keepalive with timeout: %u seconds", keepalive_timeout);
     rc = uv_tcp_keepalive(new_tcp_handle, true, keepalive_timeout);
@@ -625,8 +629,9 @@ int tcp_clone_connection(const struct ct_connection_s* source_connection,
   new_tcp_handle->data = socket_manager;
 
   // Copy TCP keepalive settings
-  uint32_t keepalive_timeout = target_connection->transport_properties
-      ->connection_properties.list[KEEP_ALIVE_TIMEOUT].value.uint32_val;
+  uint32_t keepalive_timeout = ct_transport_properties_get_keep_alive_timeout(
+    ct_connection_get_transport_properties(target_connection)
+  );
 
   if (keepalive_timeout != CONN_TIMEOUT_DISABLED) {
     log_info("Setting TCP keepalive with timeout: %u seconds", keepalive_timeout);

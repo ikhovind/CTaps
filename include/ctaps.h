@@ -310,9 +310,6 @@ f(GROUP_CONN_LIMIT,      "groupConnLimit",      uint64_t,                       
 f(ISOLATE_SESSION,       "isolateSession",      bool,                           isolate_session,       false,                                 TYPE_BOOL)
 
 #define get_read_only_connection_properties(f)                                                                                          \
-f(STATE,                             "state",                         ct_connection_state_enum_t, state,                             0,     TYPE_ENUM)   \
-f(CAN_SEND,                          "canSend",                       bool,                       can_send,                          false, TYPE_BOOL)   \
-f(CAN_RECEIVE,                       "canReceive",                    bool,                       can_receive,                       false, TYPE_BOOL)   \
 f(SINGULAR_TRANSMISSION_MSG_MAX_LEN, "singularTransmissionMsgMaxLen", uint64_t,                   singular_transmission_msg_max_len, 0,     TYPE_UINT64) \
 f(SEND_MESSAGE_MAX_LEN,              "sendMsgMaxLen",                 uint64_t,                   send_message_max_len,              0,     TYPE_UINT64) \
 f(RECV_MESSAGE_MAX_LEN,              "recvMessageMaxLen",             uint64_t,                   recv_message_max_len,              0,     TYPE_UINT64)
@@ -1254,6 +1251,8 @@ CT_EXTERN bool ct_connection_is_closed(const ct_connection_t* connection);
  * @return connection lifecycle state, -1 if connection is NULL
  */
 CT_EXTERN ct_connection_state_enum_t ct_connection_get_state(const ct_connection_t* connection);
+
+CT_EXTERN const ct_transport_properties_t* ct_connection_get_transport_properties(const ct_connection_t* connection);
 
 /**
  * @brief Get the connections callback context.
