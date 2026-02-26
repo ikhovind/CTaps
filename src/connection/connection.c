@@ -30,7 +30,6 @@ ct_connection_t* ct_connection_create_empty_with_uuid(void) {
 
   connection->received_callbacks = g_queue_new();
   connection->received_messages = g_queue_new();
-  connection->transport_properties = ct_transport_properties_new();
   return connection;
 }
 
@@ -55,7 +54,6 @@ ct_connection_t* ct_connection_create_server_connection(ct_socket_manager_t* soc
   ct_connection_group_add_connection(group, connection);
   // > Connection Properties can be set on Connections and Preconnections; 
   // > when set on Preconnections, they act as an initial default for the resulting Connections
-  connection->transport_properties = ct_transport_properties_deep_copy(&socket_manager->listener->transport_properties);
   connection->socket_manager = ct_socket_manager_ref(socket_manager);
   connection->local_endpoint = ct_local_endpoint_deep_copy(&socket_manager->listener->local_endpoint);
   connection->remote_endpoint = ct_remote_endpoint_deep_copy(remote_endpoint);
@@ -106,18 +104,6 @@ ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_
     return NULL;
   }
 
-  if (transport_properties) {
-    log_debug("Copying provided transport properties for client connection");
-    ct_transport_properties_free(connection->transport_properties);
-    connection->transport_properties = ct_transport_properties_deep_copy(transport_properties);
-  }
-  if (!connection->transport_properties) {
-    log_error("Failed to copy transport properties for client connection");
-    ct_connection_group_free(group);
-    ct_connection_free(connection);
-    ct_socket_manager_free(socket_manager);
-    return NULL;
-  }
   rc = socket_manager_insert_connection(socket_manager, remote_endpoint, connection);
   if (rc < 0) {
     log_error("Failed to insert connection into socket manager: %d", rc);
@@ -154,8 +140,7 @@ ct_connection_t* ct_connection_create_clone(const ct_connection_t* source_connec
     return NULL;
   }
 
-  clone->transport_properties = ct_transport_properties_deep_copy(source_connection->transport_properties); // TODO - some of these should be shared
-  clone->transport_properties->connection_properties.list[STATE].value.enum_val = CONN_STATE_ESTABLISHING;
+  clone->properties.state = CONN_STATE_ESTABLISHING;
   clone->security_parameters = ct_security_parameters_deep_copy(source_connection->security_parameters);
   clone->local_endpoint = ct_local_endpoint_deep_copy(source_connection->local_endpoint);
   clone->remote_endpoint = ct_remote_endpoint_deep_copy(source_connection->remote_endpoint);
@@ -181,77 +166,69 @@ ct_connection_t* ct_connection_create_clone(const ct_connection_t* source_connec
 }
 
 void ct_connection_set_can_receive(ct_connection_t* connection, bool can_receive) {
-  if (!connection || !connection->transport_properties) {
-    log_error("Connection or transport properties is NULL in ct_connection_set_can_receive");
-    log_debug("Connection: %p, connection->transport_properties: %p", (void*)connection, (void*)(connection ? connection->transport_properties : NULL));
+  if (!connection) {
+    log_error("Connection is NULL in ct_connection_set_can_receive");
     return;
   }
   log_trace("Setting canReceive to %s for connection %s", can_receive ? "true" : "false", connection->uuid);
-  connection->transport_properties->connection_properties.list[CAN_RECEIVE].value.enum_val = can_receive;
+  connection->properties.can_receive = can_receive;
 }
 
 void ct_connection_set_can_send(ct_connection_t* connection, bool can_send) {
-  if (!connection || !connection->transport_properties) {
-    log_error("Connection or transport properties is NULL in ct_connection_set_can_send");
-    log_debug("Connection: %p, connection->transport_properties: %p", (void*)connection, (void*)(connection ? connection->transport_properties : NULL));
+  if (!connection) {
+    log_error("Connection is NULL in ct_connection_set_can_send");
     return;
   }
-  connection->transport_properties->connection_properties.list[CAN_SEND].value.enum_val = can_send;
+  connection->properties.can_send = can_send;
 }
 
 void ct_connection_mark_as_established(ct_connection_t* connection) {
-  if (!connection || !connection->transport_properties) {
-    log_error("Connection or transport properties is NULL in ct_connection_mark_as_established");
-    log_debug("Connection: %p, connection->transport_properties: %p", (void*)connection, (void*)(connection ? connection->transport_properties : NULL));
+  if (!connection) {
+    log_error("Connection is NULL in ct_connection_mark_as_established");
     return;
   }
-  connection->transport_properties->connection_properties.list[STATE].value.enum_val = CONN_STATE_ESTABLISHED;
+  connection->properties.state = CONN_STATE_ESTABLISHED;
   ct_connection_set_can_send(connection, true);
   ct_connection_set_can_receive(connection, true);
   log_trace("Marked connection %s as established", connection->uuid);
 }
 
 void ct_connection_mark_as_closing(ct_connection_t* connection) {
-  if (!connection || !connection->transport_properties) {
-    log_error("Connection or transport properties is NULL in ct_connection_mark_as_closing");
-    log_debug("Connection: %p, connection->transport_properties: %p", (void*)connection, (void*)(connection ? connection->transport_properties : NULL));
+  if (!connection) {
+    log_error("Connection is NULL in ct_connection_mark_as_closing");
     return;
   }
-  connection->transport_properties->connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSING;
-  log_trace("Marked connection %s as closing", connection->uuid);
+  connection->properties.state = CONN_STATE_CLOSING;
 }
 
 void ct_connection_mark_as_closed(ct_connection_t* connection) {
-  if (!connection || !connection->transport_properties) {
-    log_error("Connection or transport properties is NULL in ct_connection_mark_as_closed");
-    log_debug("Connection: %p, connection->transport_properties: %p", (void*)connection, (void*)(connection ? connection->transport_properties : NULL));
+  if (!connection) {
+    log_error("Connection is NULL in ct_connection_mark_as_closed");
     return;
   }
-  connection->transport_properties->connection_properties.list[STATE].value.enum_val = CONN_STATE_CLOSED;
-  log_trace("Marked connection %s as closed", connection->uuid);
+  connection->properties.state = CONN_STATE_CLOSED;
 }
 
 bool ct_connection_is_closing(const ct_connection_t* connection) {
   if (!connection) {
     return false;
   }
-  return connection->transport_properties->connection_properties.list[STATE].value.enum_val == CONN_STATE_CLOSING;
+  return connection->properties.state == CONN_STATE_CLOSING;
 }
 
 bool ct_connection_is_closed(const ct_connection_t* connection) {
-  if (!connection || !connection->transport_properties) {
-    log_error("Connection or transport properties is NULL in ct_connection_is_closed");
-    log_debug("Connection: %p, connection->transport_properties: %p", (void*)connection, (void*)(connection ? connection->transport_properties : NULL));
+  if (!connection) {
+    log_error("Connection is NULL in ct_connection_is_closed");
     return false;
   }
-  return connection->transport_properties->connection_properties.list[STATE].value.enum_val == CONN_STATE_CLOSED;
+  return connection->properties.state == CONN_STATE_CLOSED;
 }
 
 bool ct_connection_is_established(const ct_connection_t* connection) {
   if (!connection) {
     return false;
   }
-  return connection->transport_properties->connection_properties.list[STATE].value.enum_val == CONN_STATE_ESTABLISHED;
+  return connection->properties.state == CONN_STATE_ESTABLISHED;
 }
 
 bool ct_connection_is_closed_or_closing(const ct_connection_t* connection) {
@@ -262,12 +239,11 @@ bool ct_connection_is_closed_or_closing(const ct_connection_t* connection) {
 }
 
 ct_connection_state_enum_t ct_connection_get_state(const ct_connection_t* connection) {
-  if (!connection || !connection->transport_properties) {
-    log_error("Connection or transport properties is NULL in ct_connection_get_state");
-    log_debug("Connection: %p, connection->transport_properties: %p", (void*)connection, (void*)(connection ? connection->transport_properties : NULL));
+  if (!connection) {
+    log_error("Connection is NULL in ct_connection_get_state");
     return -1;
   }
-  return connection->transport_properties->connection_properties.list[STATE].value.enum_val;
+  return connection->properties.state;
 }
 
 bool ct_connection_is_client(const ct_connection_t* connection) {
@@ -285,19 +261,19 @@ bool ct_connection_is_server(const ct_connection_t* connection) {
 }
 
 bool ct_connection_can_send(const ct_connection_t* connection) {
-  if (!connection || !connection->transport_properties) {
-    log_error("Connection or transport properties is NULL in ct_connection_can_send");
-    log_debug("Connection: %p, connection->transport_properties: %p", (void*)connection, (void*)(connection ? connection->transport_properties : NULL));
+  if (!connection) {
+    log_error("Connection is NULL in ct_connection_can_send");
     return false;
   }
-  return connection->transport_properties->connection_properties.list[CAN_SEND].value.enum_val;
+  return connection->properties.can_send;
 }
 
 bool ct_connection_can_receive(const ct_connection_t* connection) {
   if (!connection) {
+    log_error("Connection is NULL in ct_connection_can_receive");
     return false;
   }
-  return connection->transport_properties->connection_properties.list[CAN_RECEIVE].value.enum_val;
+  return connection->properties.can_receive;
 }
 
 // Passed as callbacks to framer implementations
@@ -438,11 +414,6 @@ void ct_connection_free_content(ct_connection_t* connection) {
     }
     g_queue_free(connection->received_messages);
     connection->received_messages = NULL;
-  }
-
-  if (connection->transport_properties) {
-    ct_transport_properties_free(connection->transport_properties);
-    connection->transport_properties = NULL;
   }
 
   ct_local_endpoint_free(connection->local_endpoint);
@@ -650,7 +621,7 @@ const ct_connection_properties_t* ct_connection_get_connection_properties(const 
     log_error("ct_get_connection_properties called with NULL connection");
     return NULL;
   }
-  return &connection->transport_properties->connection_properties;
+  return &connection->connection_group->transport_properties->connection_properties;
 }
 
 void connection_set_resolved_local_address(ct_connection_t* connection, const struct sockaddr_storage* addr) {
@@ -697,4 +668,16 @@ void* ct_connection_get_socket_state(const ct_connection_t* connection) {
     return NULL;
   }
   return connection->socket_manager->internal_socket_manager_state;
+}
+
+const ct_transport_properties_t* ct_connection_get_transport_properties(const ct_connection_t* connection) {
+  if (!connection || !connection->connection_group || !connection->connection_group->transport_properties) {
+    log_error("ct_connection_get_transport_properties called with NULL connection or missing transport properties");
+    log_debug("Connection pointer: %p, connection group pointer: %p, transport properties pointer: %p", 
+              (void*)connection, 
+              (void*)(connection ? connection->connection_group : NULL), 
+              (void*)(connection && connection->connection_group ? connection->connection_group->transport_properties : NULL));
+    return NULL;
+  }
+  return connection->connection_group->transport_properties;
 }
