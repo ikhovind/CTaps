@@ -44,6 +44,8 @@ void ct_selection_properties_deep_copy(ct_selection_properties_t* dest, const ct
     return;
   }
   memcpy(dest, src, sizeof(ct_selection_properties_t));
+  dest->list[INTERFACE].value.preference_set_val.combinations = NULL;
+  dest->list[INTERFACE].value.preference_set_val.num_combinations = 0;
 
   size_t interface_count = src->list[INTERFACE].value.preference_set_val.num_combinations;
   dest->list[INTERFACE].value.preference_set_val.combinations = malloc(interface_count * sizeof(ct_preference_combination_t));

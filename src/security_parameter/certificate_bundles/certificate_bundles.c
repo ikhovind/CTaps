@@ -46,29 +46,41 @@ void ct_certificate_bundles_free(ct_certificate_bundles_t bundles) {
   free(bundles.certificate_bundles);
 }
 
-ct_certificate_bundles_t ct_certificate_bundles_deep_copy(const ct_certificate_bundles_t bundles) {
-  ct_certificate_bundles_t copy = {0};
-  size_t num_bundles = bundles.num_bundles;
-  if (num_bundles == 0) {
-    return copy;
+int ct_certificate_bundles_deep_copy(ct_certificate_bundles_t src, ct_certificate_bundles_t* dest) {
+  if (!dest) {
+    log_error("Cannot deep copy certificate bundles, destination is NULL");
+    return -EINVAL;
   }
-  copy.certificate_bundles = malloc(sizeof(ct_certificate_bundle_t) * num_bundles);
-  if (!copy.certificate_bundles) {
-    return copy;
+  memset(dest, 0, sizeof(ct_certificate_bundles_t));
+  size_t num_bundles = src.num_bundles;
+  if (num_bundles == 0) {
+    return 0;
+  }
+  dest->certificate_bundles = malloc(sizeof(ct_certificate_bundle_t) * num_bundles);
+  if (!dest->certificate_bundles) {
+    return -ENOMEM;
   }
 
   for (size_t i = 0; i < num_bundles; i++) {
-    copy.certificate_bundles[i].certificate_file_name = strdup(bundles.certificate_bundles[i].certificate_file_name);
-    if (!copy.certificate_bundles[i].certificate_file_name) {
-      return copy;
+    dest->certificate_bundles[i].certificate_file_name = strdup(src.certificate_bundles[i].certificate_file_name);
+    if (!dest->certificate_bundles[i].certificate_file_name) {
+      for (size_t j = 0; j < i; j++) {
+        free(dest->certificate_bundles[j].certificate_file_name);
+        free(dest->certificate_bundles[j].private_key_file_name);
+      }
+      return -ENOMEM;
     }
-    copy.certificate_bundles[i].private_key_file_name = strdup(bundles.certificate_bundles[i].private_key_file_name);
-    if (!copy.certificate_bundles[i].private_key_file_name) {
+    dest->certificate_bundles[i].private_key_file_name = strdup(src.certificate_bundles[i].private_key_file_name);
+    if (!dest->certificate_bundles[i].private_key_file_name) {
       // Free previously allocated entries
-      free(copy.certificate_bundles[i].certificate_file_name);
-      return copy;
+      free(dest->certificate_bundles[i].certificate_file_name);
+      for (size_t j = 0; j < i; j++) {
+        free(dest->certificate_bundles[j].certificate_file_name);
+        free(dest->certificate_bundles[j].private_key_file_name);
+      }
+      return -ENOMEM;
     }
-    copy.num_bundles++;
+    dest->num_bundles++;
   }
-  return copy;
+  return 0;
 }

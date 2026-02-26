@@ -360,6 +360,24 @@ TEST(SecurityParametersTest, CopiesEmptyStringArray) {
     ct_security_parameters_free(copy);
 }
 
+TEST(SecurityParametersTest, CopiesEmptyCertBundle) {
+    // Bug 1: empty array should not be treated as failure
+    ct_security_parameters_t* src = ct_security_parameters_new();
+    // set_by_user = true but empty array
+    src->list[SERVER_CERTIFICATE].set_by_user = true;
+    src->list[SERVER_CERTIFICATE].value.byte_array.bytes = nullptr;
+    src->list[SERVER_CERTIFICATE].value.byte_array.length = 0;
+
+    ct_security_parameters_t* copy = ct_security_parameters_deep_copy(src);
+    ASSERT_NE(copy, nullptr);
+    EXPECT_EQ(copy->list[SERVER_CERTIFICATE].value.certificate_bundles.num_bundles, 0);
+    EXPECT_EQ(copy->list[SERVER_CERTIFICATE].value.certificate_bundles.certificate_bundles, nullptr);
+    EXPECT_TRUE(copy->list[SERVER_CERTIFICATE].set_by_user);
+
+    ct_security_parameters_free(src);
+    ct_security_parameters_free(copy);
+}
+
 TEST(SecurityParametersTest, CopiesSessionTicketEncryptionKey) {
     ct_security_parameters_t* src = ct_security_parameters_new();
     uint8_t key[] = {0x01, 0x02, 0x03, 0x04};

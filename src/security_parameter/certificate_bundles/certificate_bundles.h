@@ -10,6 +10,6 @@ int ct_certificate_bundles_add_cert(ct_certificate_bundles_t* bundles, const cha
 
 void ct_certificate_bundles_free(ct_certificate_bundles_t bundles);
 
-ct_certificate_bundles_t ct_certificate_bundles_deep_copy(ct_certificate_bundles_t bundles);
+int ct_certificate_bundles_deep_copy(ct_certificate_bundles_t src, ct_certificate_bundles_t* dest);
 
 #endif // CT_CERTIFICATE_BUNDLES_H
