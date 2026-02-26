@@ -139,7 +139,9 @@ ct_security_parameters_t* ct_security_parameters_deep_copy(const ct_security_par
           }
           break;
         case TYPE_BYTE_ARRAY:
-          log_debug("Mallocking byte array of length %zu for security parameter: %s", src_param->value.byte_array.length, src_param->name);
+          if (src_param->value.byte_array.length == 0) {
+            break;
+          }
           dst_param->value.byte_array.bytes = malloc(src_param->value.byte_array.length);
           if (!dst_param->value.byte_array.bytes) {
             log_error("Failed to deep copy byte array security parameter");
@@ -219,6 +221,7 @@ ct_string_array_t* ct_string_array_value_new(char** strings, size_t num_strings)
 int ct_security_parameters_clear_alpn(ct_security_parameters_t* sec) {
   if (!sec) {
     log_warn("Attempted to clear alpn on NULL security parameters");
+    return -EINVAL;
   }
   for (size_t i = 0; i < sec->list[ALPN].value.array_of_strings.num_strings; i++) {
     free(sec->list[ALPN].value.array_of_strings.strings[i]);
