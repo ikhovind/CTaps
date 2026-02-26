@@ -1,6 +1,7 @@
 #include "ctaps.h"
 #include "ctaps_internal.h"
 #include "message_context.h"
+#include "transport_property/message_properties/message_properties.h"
 
 #include <logging/log.h>
 #include <stdlib.h>
@@ -82,17 +83,24 @@ const ct_local_endpoint_t* ct_message_context_get_local_endpoint(const ct_messag
   return message_context->local_endpoint;
 }
 
-void ct_message_context_set_safely_replayable(ct_message_context_t* message_context, bool value) {
-  if (!message_context) {
-    return;
+#define DEFINE_MSG_CONTEXT_PROPERTY_GETTER(ENUM, STRING, TYPE, FIELD, DEFAULT, TYPE_TAG)  \
+  TYPE ct_message_context_get_##FIELD(const ct_message_context_t* ctx) {        \
+    if (!ctx) {                                                                            \
+      log_warn("Null pointer passed to get_" #FIELD);                                    \
+      return (TYPE)(DEFAULT);                                                             \
+    }                                                                                     \
+    return ctx->message_properties.message_property[ENUM].value.UNION_MEMBER_##TYPE_TAG;            \
   }
-  ct_message_properties_set_safely_replayable(&message_context->message_properties, value);
-}
 
-void ct_message_context_set_final(ct_message_context_t* message_context, bool value) {
-  if (!message_context) {
-    log_warn("Tried to set FINAL property on NULL message context");
-    return;
+#define DEFINE_MSG_CONTEXT_PROPERTY_SETTER(ENUM, STRING, TYPE, FIELD, DEFAULT, TYPE_TAG)  \
+  void ct_message_context_set_##FIELD(ct_message_context_t* ctx, TYPE val) {   \
+    if (!ctx) {                                                                            \
+      log_warn("Null pointer passed to set_" #FIELD);                                    \
+      return;                                                                             \
+    }                                                                                     \
+    ctx->message_properties.message_property[ENUM].value.UNION_MEMBER_##TYPE_TAG = val;             \
+    ctx->message_properties.message_property[ENUM].set_by_user = true;                             \
   }
-  ct_message_properties_set_final(&message_context->message_properties, value);
-}
+
+get_message_property_list(DEFINE_MSG_CONTEXT_PROPERTY_GETTER)
+get_message_property_list(DEFINE_MSG_CONTEXT_PROPERTY_SETTER)

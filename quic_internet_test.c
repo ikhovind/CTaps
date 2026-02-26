@@ -54,11 +54,10 @@ int main() {
     //
    ct_security_parameters_t* security_parameters = ct_security_parameters_new();
    const char* alpn_strings = "h3";
-   ct_sec_param_set_property_string_array(security_parameters, ALPN, &alpn_strings, 1);
+   ct_security_parameters_add_alpn(security_parameters, alpn_strings);
 
-   ct_certificate_bundles_t* client_bundles = ct_certificate_bundles_new();
-   ct_certificate_bundles_add_cert(client_bundles, "/home/ikhovind/Documents/Skole/taps/test/quic/cert.pem", "/home/ikhovind/Documents/Skole/taps/test/quic/key.pem");
-   ct_sec_param_set_property_certificate_bundles(security_parameters, CLIENT_CERTIFICATE, client_bundles);
+
+   ct_security_parameters_add_client_certificate(security_parameters, "/home/ikhovind/Documents/Skole/taps/test/quic/cert.pem", "/home/ikhovind/Documents/Skole/taps/test/quic/key.pem");
 
    // Create preconnection
    ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, security_parameters);
@@ -81,8 +80,7 @@ int main() {
    ct_preconnection_free(preconnection);
    ct_transport_properties_free(transport_properties);
    ct_remote_endpoint_free(remote_endpoint);
-   ct_sec_param_free(security_parameters);
-   ct_certificate_bundles_free(client_bundles);
+   ct_security_parameters_free(security_parameters);
    ct_close();
 
    return 0;

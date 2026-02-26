@@ -212,6 +212,7 @@ int ct_preconnection_initiate_with_send(ct_preconnection_t* preconnection, ct_co
 }
 
 void ct_preconnection_free(ct_preconnection_t* preconnection) {
+  log_trace("Freeing preconnection");
   if (!preconnection) {
     return;
   }
@@ -230,7 +231,7 @@ void ct_preconnection_free(ct_preconnection_t* preconnection) {
   ct_selection_properties_cleanup(&preconnection->transport_properties.selection_properties);
 
   if (preconnection->security_parameters) {
-    ct_sec_param_free(preconnection->security_parameters);
+    ct_security_parameters_free(preconnection->security_parameters);
   }
 
   free(preconnection);

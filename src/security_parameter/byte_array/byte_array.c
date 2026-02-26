@@ -20,13 +20,10 @@ ct_byte_array_t* ct_byte_array_new_from_data(const uint8_t* data, size_t length)
   return byte_array;
 }
 
-void ct_byte_array_free(ct_byte_array_t* byte_array) {
-  if (!byte_array) {
-    return;
-  }
-  free(byte_array->bytes);
-  byte_array->bytes = NULL;
-  free(byte_array);
+void ct_byte_array_free(ct_byte_array_t byte_array) {
+  free(byte_array.bytes);
+  byte_array.bytes = NULL;
+  byte_array.length = 0;
 }
 
 ct_byte_array_t* ct_byte_array_copy(const ct_byte_array_t* source) {

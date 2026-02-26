@@ -31,7 +31,7 @@ typedef struct ct_protocol_impl_array_s {
   */
 typedef struct ct_protocol_options_s {
   ct_protocol_impl_array_t protocol_arr; // List of supported protocol implementations
-  ct_string_array_t* alpns; // e.g., ALPN strings
+  ct_string_array_t alpns; // e.g., ALPN strings
 } ct_protocol_options_t;
 
 ct_remote_resolve_call_context_t* ct_remote_resolve_call_context_new(GNode* root_node, ct_gather_context_t* gather_context);
@@ -63,9 +63,8 @@ ct_protocol_options_t* ct_protocol_options_new(const ct_preconnection_t* precon)
     return NULL;
   }
   memset(options, 0, sizeof(ct_protocol_options_t));
-  if (precon->security_parameters && precon->security_parameters->security_parameters[ALPN].value.array_of_strings) {
-    options->alpns = precon->security_parameters->security_parameters[ALPN].value.array_of_strings;
-  }
+  // TODO is this cast necessary or can we make the options contain const?
+  options->alpns.strings = (char**)ct_security_parameters_get_alpns(precon->security_parameters, &options->alpns.num_strings);
   options->protocol_arr.protocols = ct_supported_protocols;
   options->protocol_arr.num_protocols = ct_num_protocols;
   return options;
@@ -520,24 +519,23 @@ int branch_by_protocol_options(GNode* parent, ct_protocol_options_t* protocol_op
 
   for (size_t i = 0; i < protocol_options->protocol_arr.num_protocols; i++) {
     if (ct_protocol_supports_alpn(protocol_options->protocol_arr.protocols[i])
-        && protocol_options->alpns
-        && protocol_options->alpns->num_strings > 0) {
+        && protocol_options->alpns.num_strings > 0) {
       // If the current protocol supports ALPN, create a candidate for each ALPN value
       // Picoquic does support passing multiple ALPNs as a single connection attempt,
       // but not if we want to support 0-rtt because then the alpn has to be passed to 
       // the picoquic_create invocation, which only takes a single value.
       // It was therefore decided to create separate
       // candidates for each ALPN value, as the added overhead is assumed to not be too high
-      for (size_t j = 0; j < protocol_options->alpns->num_strings; j++) {
+      for (size_t j = 0; j < protocol_options->alpns.num_strings; j++) {
         log_trace("Checking QUIC protocol against selection properties");
         ct_protocol_candidate_t* candidate = ct_protocol_candidate_new(
           protocol_options->protocol_arr.protocols[i],
-          protocol_options->alpns->strings[j]
+          protocol_options->alpns.strings[j]
         );
         if (!candidate) {
           log_error("Could not create protocol candidate for protocol %s with ALPN %s",
                     protocol_options->protocol_arr.protocols[i]->name,
-                    protocol_options->alpns->strings[j]);
+                    protocol_options->alpns.strings[j]);
           return -1;
         }
 

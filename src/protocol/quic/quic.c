@@ -137,7 +137,7 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
     return NULL;
   }
 
-  const char* ticket_store_path = ct_sec_param_get_ticket_store_path(security_parameters);
+  const char* ticket_store_path = ct_security_parameters_get_ticket_store_path(security_parameters);
 
   ct_quic_socket_state_t* socket_state = malloc(sizeof(ct_quic_socket_state_t));
   if (!socket_state) {
@@ -185,7 +185,7 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
 
   size_t out_num_alpns = 0;
 
-  const char** alpn_strings = ct_sec_param_get_alpn_strings(security_parameters, &out_num_alpns);
+  const char** alpn_strings = ct_security_parameters_get_alpns(security_parameters, &out_num_alpns);
   if (!alpn_strings) {
     log_error("No ALPN strings specified in security parameters for QUIC context");
     free(socket_state->ticket_store_path);
@@ -201,15 +201,16 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
     return NULL;
   }
 
-  uint8_t* ticket_key = NULL;
+  const uint8_t* ticket_key = NULL;
   size_t ticket_key_length = 0;
 
-  const ct_byte_array_t* stek = ct_sec_param_get_session_ticket_encryption_key(security_parameters);
+  size_t stek_len = 0;
+  const uint8_t* stek = ct_security_parameters_get_session_ticket_encryption_key(security_parameters, &stek_len);
   log_info("Stek address: %p", (void*)stek);
   if (stek) {
     log_trace("Using session ticket encryption key of length %zu from security parameters", ticket_key_length);
-    ticket_key = stek->bytes;
-    ticket_key_length = stek->length;
+    ticket_key = stek;
+    ticket_key_length = stek_len;
   }
 
   // Create picoquic context
@@ -397,16 +398,16 @@ size_t quic_alpn_select_cb(picoquic_quic_t* quic, ptls_iovec_t* list, size_t cou
 
   ct_listener_t* listener = quic_context->socket_manager->listener;
 
-  if (!listener->security_parameters->security_parameters[ALPN].value.array_of_strings) {
+  size_t num_alpns = 0;
+  const char** listener_alpns = ct_security_parameters_get_alpns(listener->security_parameters, &num_alpns);
+  if (num_alpns == 0) {
     log_warn("Listener has no ALPNs configured for selection");
     return count;
   }
 
-  const ct_string_array_t* listener_alpns = listener->security_parameters->security_parameters[ALPN].value.array_of_strings;
-
   for (size_t i = 0; i < count; i++) {
-    for (size_t j = 0; j < listener_alpns->num_strings; j++) {
-      if (strcmp((const char*)list[i].base, listener_alpns->strings[j]) == 0) {
+    for (size_t j = 0; j < num_alpns; j++) {
+      if (strcmp((const char*)list[i].base, listener_alpns[j]) == 0) {
         log_trace("Selected ALPN: %.*s", (int)list[i].len, list[i].base);
         return i;
       }
@@ -1091,16 +1092,15 @@ int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbac
     return -EINVAL;
   }
 
-  const ct_certificate_bundles_t* cert_bundles =
-      connection->security_parameters->security_parameters[CLIENT_CERTIFICATE].value.certificate_bundles;
+  size_t bundle_count = ct_security_parameters_get_client_certificate_count(connection->security_parameters);
 
-  if (!cert_bundles || cert_bundles->num_bundles == 0) {
-    log_error("No certificate bundle configured for QUIC client connection");
+  if (bundle_count == 0) {
+    log_error("No client certificate configured for QUIC init");
     return -EINVAL;
   }
 
-  const char* cert_file = cert_bundles->certificate_bundles[0].certificate_file_name;
-  const char* key_file = cert_bundles->certificate_bundles[0].private_key_file_name;
+  const char* cert_file = ct_security_parameters_get_client_certificate_file(connection->security_parameters, 0);
+  const char* key_file = ct_security_parameters_get_client_certificate_key_file(connection->security_parameters, 0);
 
   if (!cert_file || !key_file) {
     log_error("Certificate or key file not configured in security parameters");
@@ -1165,7 +1165,7 @@ int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbac
   }
 
   size_t alpn_count = 0;
-  const char** alpn_strings = ct_sec_param_get_alpn_strings(connection->security_parameters, &alpn_count);
+  const char** alpn_strings = ct_security_parameters_get_alpns(connection->security_parameters, &alpn_count);
   if (alpn_count == 0) {
     log_error("No ALPN strings configured for QUIC connection");
     free(connection->connection_group->connection_group_state);
@@ -1183,7 +1183,7 @@ int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbac
     (struct sockaddr*) &connection->remote_endpoint->data.resolved_address,
     current_time,
     1,
-    ct_sec_param_get_server_name_identification(connection->security_parameters),
+    ct_security_parameters_get_server_name_identification(connection->security_parameters),
     alpn_strings[0], // We create separate candidates for each ALPN to support 0-rtt (see candidate gathering code)
     1
   );
@@ -1242,16 +1242,15 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
     return -EINVAL;
   }
 
-  const ct_certificate_bundles_t* cert_bundles =
-      connection->security_parameters->security_parameters[CLIENT_CERTIFICATE].value.certificate_bundles;
+  size_t bundle_count = ct_security_parameters_get_client_certificate_count(connection->security_parameters);
 
-  if (!cert_bundles || cert_bundles->num_bundles == 0) {
-    log_error("No certificate bundle configured for QUIC client connection");
+  if (bundle_count == 0) {
+    log_error("No client certificate configured for QUIC client");
     return -EINVAL;
   }
 
-  const char* cert_file = cert_bundles->certificate_bundles[0].certificate_file_name;
-  const char* key_file = cert_bundles->certificate_bundles[0].private_key_file_name;
+  const char* cert_file = ct_security_parameters_get_client_certificate_file(connection->security_parameters, 0);
+  const char* key_file = ct_security_parameters_get_client_certificate_key_file(connection->security_parameters, 0);
 
   if (!cert_file || !key_file) {
     log_error("Certificate or key file not configured in security parameters");
@@ -1311,7 +1310,7 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
   }
 
   size_t alpn_count = 0;
-  const char** alpn_strings = ct_sec_param_get_alpn_strings(connection->security_parameters, &alpn_count);
+  const char** alpn_strings = ct_security_parameters_get_alpns(connection->security_parameters, &alpn_count);
   if (alpn_count == 0) {
     log_error("No ALPN strings configured for QUIC connection");
     free(connection->connection_group->connection_group_state);
@@ -1328,7 +1327,7 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
     (struct sockaddr*) &connection->remote_endpoint->data.resolved_address,
     current_time,
     1,
-    ct_sec_param_get_server_name_identification(connection->security_parameters),
+    ct_security_parameters_get_server_name_identification(connection->security_parameters),
     alpn_strings[0], // We create separate candidates for each ALPN to support 0-rtt (see candidate gathering code)
     1
   );
@@ -1513,16 +1512,15 @@ int quic_listen(ct_socket_manager_t* socket_manager) {
     return -EINVAL;
   }
 
-  const ct_certificate_bundles_t* cert_bundles =
-      listener->security_parameters->security_parameters[SERVER_CERTIFICATE].value.certificate_bundles;
+  size_t bundle_count = ct_security_parameters_get_server_certificate_count(listener->security_parameters);
 
-  if (!cert_bundles || cert_bundles->num_bundles == 0) {
+  if (bundle_count == 0) {
     log_error("No certificate bundle configured for QUIC listener");
     return -EINVAL;
   }
 
-  const char* cert_file = cert_bundles->certificate_bundles[0].certificate_file_name;
-  const char* key_file = cert_bundles->certificate_bundles[0].private_key_file_name;
+  const char* cert_file = ct_security_parameters_get_server_certificate_file(listener->security_parameters, 0);
+  const char* key_file = ct_security_parameters_get_server_certificate_key_file(listener->security_parameters, 0);
 
   if (!cert_file || !key_file) {
     log_error("Certificate or key file not configured in listener security parameters");

@@ -25,16 +25,13 @@ TEST_F(ConnectionCloneTest, clonesConnectionSendsOnBothAndReceivesIndividualResp
     ct_security_parameters_t* security_parameters = ct_security_parameters_new();
     ASSERT_NE(security_parameters, nullptr);
     const char* alpn_strings = "simple-ping";
-    ct_sec_param_set_property_string_array(security_parameters, ALPN, (const char**)&alpn_strings, 1);
+    ct_security_parameters_add_alpn(security_parameters, alpn_strings);
 
-    ct_certificate_bundles_t* client_bundles = ct_certificate_bundles_new();
-    ct_certificate_bundles_add_cert(client_bundles, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
-    ct_sec_param_set_property_certificate_bundles(security_parameters, CLIENT_CERTIFICATE, client_bundles);
-    ct_certificate_bundles_free(client_bundles);
+    ct_security_parameters_add_client_certificate(security_parameters, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
 
     ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, security_parameters);
     ASSERT_NE(preconnection, nullptr);
-    ct_sec_param_free(security_parameters);
+    ct_security_parameters_free(security_parameters);
 
     ct_connection_callbacks_t connection_callbacks = {
         .establishment_error = on_establishment_error,
@@ -82,15 +79,16 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
 
     ct_security_parameters_t* server_security_parameters = ct_security_parameters_new();
     const char* alpn_strings = "simple-ping";
-    ct_sec_param_set_property_string_array(server_security_parameters, ALPN, (const char**)&alpn_strings, 1);
+    int rc = ct_security_parameters_add_alpn(server_security_parameters, alpn_strings);
+    log_info("Added ALPN to server security parameters, rc=%d", rc);
+    ct_security_parameters_add_server_certificate(server_security_parameters, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
+    size_t server_cert = ct_security_parameters_get_server_certificate_count(server_security_parameters);
+    log_info("Added server certificate to server security parameters, total server certs=%zu", server_cert);
 
-    ct_certificate_bundles_t* server_bundles = ct_certificate_bundles_new();
-    ct_certificate_bundles_add_cert(server_bundles, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
-    ct_sec_param_set_property_certificate_bundles(server_security_parameters, SERVER_CERTIFICATE, server_bundles);
-    ct_certificate_bundles_free(server_bundles);
 
     ct_preconnection_t* listener_precon = ct_preconnection_new(listener_remote, 1, listener_props, server_security_parameters);
-    ct_sec_param_free(server_security_parameters);
+    log_debug("checking if i get here");
+    ct_security_parameters_free(server_security_parameters);
     ct_preconnection_set_local_endpoint(listener_precon, listener_endpoint);
 
     ct_listener_callbacks_t listener_callbacks = {
@@ -114,15 +112,14 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     ct_transport_properties_set_multistreaming(client_props, REQUIRE);
 
     ct_security_parameters_t* client_security_parameters = ct_security_parameters_new();
-    ct_sec_param_set_property_string_array(client_security_parameters, ALPN, (const char**)&alpn_strings, 1);
+    ct_security_parameters_add_alpn(client_security_parameters, alpn_strings);
 
-    ct_certificate_bundles_t* client_bundles = ct_certificate_bundles_new();
-    ct_certificate_bundles_add_cert(client_bundles, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
-    ct_sec_param_set_property_certificate_bundles(client_security_parameters, CLIENT_CERTIFICATE, client_bundles);
-    ct_certificate_bundles_free(client_bundles);
+    ct_security_parameters_add_client_certificate(client_security_parameters, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
+    size_t client_certs = ct_security_parameters_get_client_certificate_count(client_security_parameters);
+    log_debug("Added client certificate to client security parameters, total client certs=%zu", client_certs);
 
     ct_preconnection_t* client_precon = ct_preconnection_new(client_remote, 1, client_props, client_security_parameters);
-    ct_sec_param_free(client_security_parameters);
+    ct_security_parameters_free(client_security_parameters);
 
     ct_connection_callbacks_t client_callbacks = {
         .establishment_error = on_establishment_error,
@@ -130,7 +127,7 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
         .user_connection_context = &test_context,
     };
 
-    int rc = ct_preconnection_initiate(client_precon, client_callbacks);
+    rc = ct_preconnection_initiate(client_precon, client_callbacks);
     ASSERT_EQ(rc, 0);
 
     // --- RUN EVENT LOOP ---
@@ -159,11 +156,12 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     log_info("Test completed successfully");
 
     // --- CLEANUP ---
-    ct_local_endpoint_free(listener_endpoint);
-    ct_remote_endpoint_free(listener_remote);
     ct_remote_endpoint_free(client_remote);
-    ct_preconnection_free(client_precon);
     ct_transport_properties_free(client_props);
+    ct_preconnection_free(client_precon);
+
+    // ct_local_endpoint_free(listener_endpoint);
+    ct_remote_endpoint_free(listener_remote);
     ct_preconnection_free(listener_precon);
     ct_transport_properties_free(listener_props);
     ct_close();

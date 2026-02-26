@@ -3,6 +3,7 @@
 #include "connection/connection.h"
 #include "connection/connection_group.h"
 #include "connection/socket_manager/socket_manager.h"
+#include "connection/listener.h"
 #include "ctaps.h"
 #include "ctaps_internal.h"
 #include <errno.h>
