@@ -193,6 +193,11 @@ add_gtest(message_properties_test
     src/unit/transport_properties/message_properties/message_properties_test.cpp
     ${CTAPS_SOURCES}
 )
+add_gtest(transport_properties_test
+  SOURCES
+    src/unit/transport_properties/transport_properties_unit_test.cpp
+    ${CTAPS_SOURCES}
+)
 add_gtest(candidate_racing_test
   SOURCES
     src/integration/candidate_racing_test.cpp

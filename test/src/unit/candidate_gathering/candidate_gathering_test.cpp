@@ -132,7 +132,8 @@ TEST_F(CandidateGatheringTest, CreatesAndResolvesFullTree) {
 
 TEST_F(CandidateGatheringTest, PrunesPathAndProtocol) {
     ct_transport_properties_set_reliability(props, REQUIRE); // UDP pruned
-    ct_transport_properties_add_interface_preference(props, "Ethernet", REQUIRE);
+    int rc = ct_transport_properties_add_interface_preference(props, "Ethernet", REQUIRE);
+    ASSERT_EQ(rc, 0);
     BuildPreconnection();
 
     GArray* candidates = GatherCandidates();
