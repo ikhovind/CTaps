@@ -268,7 +268,7 @@ typedef struct ct_message_property_s {
  * characteristics. Properties are indexed by ct_message_property_enum_t.
  */
 typedef struct ct_message_properties_s {
-  ct_message_property_t message_property[MESSAGE_PROPERTY_END];  ///< Array of message properties
+  ct_message_property_t list[MESSAGE_PROPERTY_END];  ///< Array of message properties
 } ct_message_properties_t;
 
 // The value cast is a hack to please the c++ compiler for our tests
@@ -280,7 +280,7 @@ typedef struct ct_message_properties_s {
 },
 
 static const ct_message_properties_t DEFAULT_MESSAGE_PROPERTIES = {
-  .message_property = {
+  .list = {
     get_message_property_list(create_message_property_initializer)
   }
 };

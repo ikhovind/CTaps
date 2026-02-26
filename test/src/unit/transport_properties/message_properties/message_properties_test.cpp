@@ -11,21 +11,21 @@ TEST(MessagePropertiesUnitTests, NewInitializesWithDefaultValues) {
     ASSERT_NE(message_properties, nullptr);
 
     // Verify default boolean properties
-    EXPECT_EQ(message_properties->message_property[MSG_ORDERED].value.bool_val, true);
-    EXPECT_EQ(message_properties->message_property[MSG_SAFELY_REPLAYABLE].value.bool_val, false);
-    EXPECT_EQ(message_properties->message_property[MSG_RELIABLE].value.bool_val, true);
-    EXPECT_EQ(message_properties->message_property[NO_FRAGMENTATION].value.bool_val, false);
-    EXPECT_EQ(message_properties->message_property[NO_SEGMENTATION].value.bool_val, false);
+    EXPECT_EQ(message_properties->list[MSG_ORDERED].value.bool_val, true);
+    EXPECT_EQ(message_properties->list[MSG_SAFELY_REPLAYABLE].value.bool_val, false);
+    EXPECT_EQ(message_properties->list[MSG_RELIABLE].value.bool_val, true);
+    EXPECT_EQ(message_properties->list[NO_FRAGMENTATION].value.bool_val, false);
+    EXPECT_EQ(message_properties->list[NO_SEGMENTATION].value.bool_val, false);
 
     // Verify default integer properties
-    EXPECT_EQ(message_properties->message_property[MSG_PRIORITY].value.uint32_val, 100);
-    EXPECT_EQ(message_properties->message_property[MSG_CHECKSUM_LEN].value.uint32_val, MESSAGE_CHECKSUM_FULL_COVERAGE);
+    EXPECT_EQ(message_properties->list[MSG_PRIORITY].value.uint32_val, 100);
+    EXPECT_EQ(message_properties->list[MSG_CHECKSUM_LEN].value.uint32_val, MESSAGE_CHECKSUM_FULL_COVERAGE);
 
     // Verify default uint64 properties
-    EXPECT_EQ(message_properties->message_property[MSG_LIFETIME].value.uint64_val, 0);
+    EXPECT_EQ(message_properties->list[MSG_LIFETIME].value.uint64_val, 0);
 
     // Verify default enum properties
-    EXPECT_EQ(message_properties->message_property[MSG_CAPACITY_PROFILE].value.enum_val, CAPACITY_PROFILE_BEST_EFFORT);
+    EXPECT_EQ(message_properties->list[MSG_CAPACITY_PROFILE].value.enum_val, CAPACITY_PROFILE_BEST_EFFORT);
 
     // Cleanup
     ct_message_properties_free(message_properties);
@@ -35,16 +35,16 @@ TEST(MessagePropertiesUnitTests, NewSetsPropertyNames) {
     ct_message_properties_t* message_properties = ct_message_properties_new();
     ASSERT_NE(message_properties, nullptr);
 
-    EXPECT_STREQ(message_properties->message_property[MSG_LIFETIME].name, "msgLifetime");
-    EXPECT_STREQ(message_properties->message_property[MSG_PRIORITY].name, "msgPriority");
-    EXPECT_STREQ(message_properties->message_property[MSG_ORDERED].name, "msgOrdered");
-    EXPECT_STREQ(message_properties->message_property[MSG_SAFELY_REPLAYABLE].name, "msgSafelyReplayable");
-    EXPECT_STREQ(message_properties->message_property[FINAL].name, "final");
-    EXPECT_STREQ(message_properties->message_property[MSG_CHECKSUM_LEN].name, "msgChecksumLen");
-    EXPECT_STREQ(message_properties->message_property[MSG_RELIABLE].name, "msgReliable");
-    EXPECT_STREQ(message_properties->message_property[MSG_CAPACITY_PROFILE].name, "msgCapacityProfile");
-    EXPECT_STREQ(message_properties->message_property[NO_FRAGMENTATION].name, "noFragmentation");
-    EXPECT_STREQ(message_properties->message_property[NO_SEGMENTATION].name, "noSegmentation");
+    EXPECT_STREQ(message_properties->list[MSG_LIFETIME].name, "msgLifetime");
+    EXPECT_STREQ(message_properties->list[MSG_PRIORITY].name, "msgPriority");
+    EXPECT_STREQ(message_properties->list[MSG_ORDERED].name, "msgOrdered");
+    EXPECT_STREQ(message_properties->list[MSG_SAFELY_REPLAYABLE].name, "msgSafelyReplayable");
+    EXPECT_STREQ(message_properties->list[FINAL].name, "final");
+    EXPECT_STREQ(message_properties->list[MSG_CHECKSUM_LEN].name, "msgChecksumLen");
+    EXPECT_STREQ(message_properties->list[MSG_RELIABLE].name, "msgReliable");
+    EXPECT_STREQ(message_properties->list[MSG_CAPACITY_PROFILE].name, "msgCapacityProfile");
+    EXPECT_STREQ(message_properties->list[NO_FRAGMENTATION].name, "noFragmentation");
+    EXPECT_STREQ(message_properties->list[NO_SEGMENTATION].name, "noSegmentation");
 
     // Cleanup
     ct_message_properties_free(message_properties);
@@ -94,7 +94,7 @@ TEST(MessagePropertiesUnitTests, SetUint64SetsLifetime) {
 
     ct_message_properties_set_lifetime(message_properties, 5000);
 
-    EXPECT_EQ(message_properties->message_property[MSG_LIFETIME].value.uint64_val, 5000);
+    EXPECT_EQ(message_properties->list[MSG_LIFETIME].value.uint64_val, 5000);
 
     ct_message_properties_free(message_properties);
 }
@@ -111,7 +111,7 @@ TEST(MessagePropertiesUnitTests, SetPriority) {
 
     ct_message_properties_set_priority(message_properties, 50);
 
-    EXPECT_EQ(message_properties->message_property[MSG_PRIORITY].value.uint32_val, 50);
+    EXPECT_EQ(message_properties->list[MSG_PRIORITY].value.uint32_val, 50);
 
     ct_message_properties_free(message_properties);
 }
@@ -122,7 +122,7 @@ TEST(MessagePropertiesUnitTests, SetUint32SetsChecksumLen) {
 
     ct_message_properties_set_checksum_len(message_properties, 128);
 
-    EXPECT_EQ(message_properties->message_property[MSG_CHECKSUM_LEN].value.uint32_val, 128);
+    EXPECT_EQ(message_properties->list[MSG_CHECKSUM_LEN].value.uint32_val, 128);
 
     ct_message_properties_free(message_properties);
 }
@@ -133,7 +133,7 @@ TEST(MessagePropertiesUnitTests, SetsOrdered) {
 
     ct_message_properties_set_ordered(message_properties, false);
 
-    EXPECT_FALSE(message_properties->message_property[MSG_ORDERED].value.bool_val);
+    EXPECT_FALSE(message_properties->list[MSG_ORDERED].value.bool_val);
 
     ct_message_properties_free(message_properties);
 }
@@ -144,7 +144,7 @@ TEST(MessagePropertiesUnitTests, SetBooleanSetsSafelyReplayable) {
 
     ct_message_properties_set_safely_replayable(message_properties, true);
 
-    EXPECT_TRUE(message_properties->message_property[MSG_SAFELY_REPLAYABLE].value.bool_val);
+    EXPECT_TRUE(message_properties->list[MSG_SAFELY_REPLAYABLE].value.bool_val);
 
     ct_message_properties_free(message_properties);
 }
@@ -155,7 +155,7 @@ TEST(MessagePropertiesUnitTests, SetBooleanSetsReliable) {
 
     ct_message_properties_set_reliable(message_properties, false);
 
-    EXPECT_FALSE(message_properties->message_property[MSG_RELIABLE].value.bool_val);
+    EXPECT_FALSE(message_properties->list[MSG_RELIABLE].value.bool_val);
 
     ct_message_properties_free(message_properties);
 }
@@ -166,7 +166,7 @@ TEST(MessagePropertiesUnitTests, SetBooleanSetsNoFragmentation) {
 
     ct_message_properties_set_no_fragmentation(message_properties, true);
 
-    EXPECT_TRUE(message_properties->message_property[NO_FRAGMENTATION].value.bool_val);
+    EXPECT_TRUE(message_properties->list[NO_FRAGMENTATION].value.bool_val);
 
     ct_message_properties_free(message_properties);
 }
@@ -177,7 +177,7 @@ TEST(MessagePropertiesUnitTests, SetBooleanSetsNoSegmentation) {
 
     ct_message_properties_set_no_segmentation(message_properties, true);
 
-    EXPECT_TRUE(message_properties->message_property[NO_SEGMENTATION].value.bool_val);
+    EXPECT_TRUE(message_properties->list[NO_SEGMENTATION].value.bool_val);
 
     ct_message_properties_free(message_properties);
 }
@@ -195,7 +195,7 @@ TEST(MessagePropertiesUnitTests, SetCapacityProfileSetsValue) {
 
     ct_message_properties_set_capacity_profile(message_properties, CAPACITY_PROFILE_LOW_LATENCY_INTERACTIVE);
 
-    EXPECT_EQ(message_properties->message_property[MSG_CAPACITY_PROFILE].value.enum_val, CAPACITY_PROFILE_LOW_LATENCY_INTERACTIVE);
+    EXPECT_EQ(message_properties->list[MSG_CAPACITY_PROFILE].value.enum_val, CAPACITY_PROFILE_LOW_LATENCY_INTERACTIVE);
 
     ct_message_properties_free(message_properties);
 }

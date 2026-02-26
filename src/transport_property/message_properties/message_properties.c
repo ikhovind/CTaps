@@ -46,7 +46,7 @@ void ct_message_properties_free(ct_message_properties_t* message_properties) {
       log_warn("Null pointer passed to get_" #FIELD);                                    \
       return (TYPE)(DEFAULT);                                                             \
     }                                                                                     \
-    return msg_prop->message_property[ENUM].value.UNION_MEMBER_##TYPE_TAG;            \
+    return msg_prop->list[ENUM].value.UNION_MEMBER_##TYPE_TAG;            \
   }
 
 #define DEFINE_MSG_PROPERTY_SETTER(ENUM, STRING, TYPE, FIELD, DEFAULT, TYPE_TAG)  \
@@ -55,8 +55,8 @@ void ct_message_properties_free(ct_message_properties_t* message_properties) {
       log_warn("Null pointer passed to set_" #FIELD);                                    \
       return;                                                                             \
     }                                                                                     \
-    msg_prop->message_property[ENUM].value.UNION_MEMBER_##TYPE_TAG = val;             \
-    msg_prop->message_property[ENUM].set_by_user = true;                             \
+    msg_prop->list[ENUM].value.UNION_MEMBER_##TYPE_TAG = val;             \
+    msg_prop->list[ENUM].set_by_user = true;                             \
   }
 
 
