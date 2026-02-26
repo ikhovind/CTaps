@@ -89,7 +89,7 @@ const ct_local_endpoint_t* ct_message_context_get_local_endpoint(const ct_messag
       log_warn("Null pointer passed to get_" #FIELD);                                    \
       return (TYPE)(DEFAULT);                                                             \
     }                                                                                     \
-    return ctx->message_properties.message_property[ENUM].value.UNION_MEMBER_##TYPE_TAG;            \
+    return ctx->message_properties.list[ENUM].value.UNION_MEMBER_##TYPE_TAG;            \
   }
 
 #define DEFINE_MSG_CONTEXT_PROPERTY_SETTER(ENUM, STRING, TYPE, FIELD, DEFAULT, TYPE_TAG)  \
@@ -98,8 +98,8 @@ const ct_local_endpoint_t* ct_message_context_get_local_endpoint(const ct_messag
       log_warn("Null pointer passed to set_" #FIELD);                                    \
       return;                                                                             \
     }                                                                                     \
-    ctx->message_properties.message_property[ENUM].value.UNION_MEMBER_##TYPE_TAG = val;             \
-    ctx->message_properties.message_property[ENUM].set_by_user = true;                             \
+    ctx->message_properties.list[ENUM].value.UNION_MEMBER_##TYPE_TAG = val;             \
+    ctx->message_properties.list[ENUM].set_by_user = true;                             \
   }
 
 get_message_property_list(DEFINE_MSG_CONTEXT_PROPERTY_GETTER)
