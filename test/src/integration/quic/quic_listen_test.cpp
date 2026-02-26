@@ -30,16 +30,13 @@ TEST_F(QuicListenTests, QuicReceivesConnectionFromListenerAndExchangesMessages) 
     ct_security_parameters_t* server_security_parameters = ct_security_parameters_new();
     ASSERT_NE(server_security_parameters, nullptr);
     const char* alpn_strings = "simple-ping";
-    ct_sec_param_set_property_string_array(server_security_parameters, ALPN, &alpn_strings, 1);
+    ct_security_parameters_add_alpn(server_security_parameters, alpn_strings);
 
-    ct_certificate_bundles_t* server_bundles = ct_certificate_bundles_new();
-    ct_certificate_bundles_add_cert(server_bundles, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
-    ct_sec_param_set_property_certificate_bundles(server_security_parameters, SERVER_CERTIFICATE, server_bundles);
-    ct_certificate_bundles_free(server_bundles);
+    ct_security_parameters_add_server_certificate(server_security_parameters, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
 
     ct_preconnection_t* listener_precon = ct_preconnection_new(listener_remote, 1, listener_props, server_security_parameters);
     ASSERT_NE(listener_precon, nullptr);
-    ct_sec_param_free(server_security_parameters);
+    ct_security_parameters_free(server_security_parameters);
     ct_preconnection_set_local_endpoint(listener_precon, listener_endpoint);
 
     ct_listener_callbacks_t listener_callbacks = {
@@ -64,16 +61,13 @@ TEST_F(QuicListenTests, QuicReceivesConnectionFromListenerAndExchangesMessages) 
 
     ct_security_parameters_t* client_security_parameters = ct_security_parameters_new();
     ASSERT_NE(client_security_parameters, nullptr);
-    ct_sec_param_set_property_string_array(client_security_parameters, ALPN, &alpn_strings, 1);
+    ct_security_parameters_add_alpn(client_security_parameters, alpn_strings);
 
-    ct_certificate_bundles_t* client_bundles = ct_certificate_bundles_new();
-    ct_certificate_bundles_add_cert(client_bundles, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
-    ct_sec_param_set_property_certificate_bundles(client_security_parameters, CLIENT_CERTIFICATE, client_bundles);
-    ct_certificate_bundles_free(client_bundles);
+    ct_security_parameters_add_client_certificate(client_security_parameters, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
 
     ct_preconnection_t* client_precon = ct_preconnection_new(client_remote, 1, client_props, client_security_parameters);
     ASSERT_NE(client_precon, nullptr);
-    ct_sec_param_free(client_security_parameters);
+    ct_security_parameters_free(client_security_parameters);
 
 
     ct_connection_callbacks_t client_callbacks {
@@ -136,16 +130,13 @@ TEST_F(QuicListenTests, ServerInitiatesStreamByWritingFirst) {
     ct_security_parameters_t* server_security_parameters = ct_security_parameters_new();
     ASSERT_NE(server_security_parameters, nullptr);
     const char* alpn_strings = "simple-ping";
-    ct_sec_param_set_property_string_array(server_security_parameters, ALPN, &alpn_strings, 1);
+    ct_security_parameters_add_alpn(server_security_parameters, alpn_strings);
 
-    ct_certificate_bundles_t* server_bundles = ct_certificate_bundles_new();
-    ct_certificate_bundles_add_cert(server_bundles, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
-    ct_sec_param_set_property_certificate_bundles(server_security_parameters, SERVER_CERTIFICATE, server_bundles);
-    ct_certificate_bundles_free(server_bundles);
+    ct_security_parameters_add_server_certificate(server_security_parameters, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
 
     ct_preconnection_t* listener_precon = ct_preconnection_new(listener_remote, 1, listener_props, server_security_parameters);
     ASSERT_NE(listener_precon, nullptr);
-    ct_sec_param_free(server_security_parameters);
+    ct_security_parameters_free(server_security_parameters);
     ct_preconnection_set_local_endpoint(listener_precon, listener_endpoint);
 
     ct_listener_callbacks_t listener_callbacks = {
@@ -171,16 +162,13 @@ TEST_F(QuicListenTests, ServerInitiatesStreamByWritingFirst) {
 
     ct_security_parameters_t* client_security_parameters = ct_security_parameters_new();
     ASSERT_NE(client_security_parameters, nullptr);
-    ct_sec_param_set_property_string_array(client_security_parameters, ALPN, &alpn_strings, 1);
+    ct_security_parameters_add_alpn(client_security_parameters, alpn_strings);
 
-    ct_certificate_bundles_t* client_bundles = ct_certificate_bundles_new();
-    ct_certificate_bundles_add_cert(client_bundles, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
-    ct_sec_param_set_property_certificate_bundles(client_security_parameters, CLIENT_CERTIFICATE, client_bundles);
-    ct_certificate_bundles_free(client_bundles);
+    ct_security_parameters_add_client_certificate(client_security_parameters, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
 
     ct_preconnection_t* client_precon = ct_preconnection_new(client_remote, 1, client_props, client_security_parameters);
     ASSERT_NE(client_precon, nullptr);
-    ct_sec_param_free(client_security_parameters);
+    ct_security_parameters_free(client_security_parameters);
 
 
     ct_connection_callbacks_t client_callbacks {
@@ -240,20 +228,18 @@ TEST_F(QuicListenTests, ListenerCanReceive0RttMessage) {
     ct_security_parameters_t* server_security_parameters = ct_security_parameters_new();
 
     const char* alpn_strings = "simple-ping";
-    ct_sec_param_set_property_string_array(server_security_parameters, ALPN, &alpn_strings, 1);
+    ct_security_parameters_add_alpn(server_security_parameters, alpn_strings);
 
-    ct_byte_array_t* stek = ct_byte_array_new_from_data((const uint8_t*)"0123456789abcdef", 16);
-    ct_sec_param_set_session_ticket_encryption_key(server_security_parameters, stek);
-    ct_byte_array_free(stek);
+    const uint8_t* data = (const uint8_t*)"0123456789abcdef";
+    ct_security_parameters_set_session_ticket_encryption_key(server_security_parameters,
+                                                             data,
+                                                             16);
 
-    ct_certificate_bundles_t* server_bundles = ct_certificate_bundles_new();
-    ct_certificate_bundles_add_cert(server_bundles, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
-    ct_sec_param_set_property_certificate_bundles(server_security_parameters, SERVER_CERTIFICATE, server_bundles);
-    ct_certificate_bundles_free(server_bundles);
+    ct_security_parameters_add_server_certificate(server_security_parameters, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
 
     ct_preconnection_t* listener_precon = ct_preconnection_new(listener_remote, 1, listener_props, server_security_parameters);
     ASSERT_NE(listener_precon, nullptr);
-    ct_sec_param_free(server_security_parameters);
+    ct_security_parameters_free(server_security_parameters);
     ct_preconnection_set_local_endpoint(listener_precon, listener_endpoint);
 
     ct_listener_callbacks_t listener_callbacks = {
@@ -278,19 +264,16 @@ TEST_F(QuicListenTests, ListenerCanReceive0RttMessage) {
 
     ct_security_parameters_t* client_security_parameters = ct_security_parameters_new();
     ASSERT_NE(client_security_parameters, nullptr);
-    ct_sec_param_set_property_string_array(client_security_parameters, ALPN, &alpn_strings, 1);
-    ct_sec_param_set_server_name_identification(client_security_parameters, "localhost");
+    ct_security_parameters_add_alpn(client_security_parameters, alpn_strings);
+    ct_security_parameters_set_server_name_identification(client_security_parameters, "localhost");
 
-    ct_certificate_bundles_t* client_bundles = ct_certificate_bundles_new();
-    ct_certificate_bundles_add_cert(client_bundles, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
-    ct_sec_param_set_property_certificate_bundles(client_security_parameters, CLIENT_CERTIFICATE, client_bundles);
-    ct_certificate_bundles_free(client_bundles);
+    ct_security_parameters_add_client_certificate(client_security_parameters, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
 
-    ct_sec_param_set_ticket_store_path(client_security_parameters, TEST_CLIENT_TICKET_STORE);
+  ct_security_parameters_set_ticket_store_path(client_security_parameters, TEST_CLIENT_TICKET_STORE);
 
     ct_preconnection_t* client_precon = ct_preconnection_new(client_remote, 1, client_props, client_security_parameters);
     ASSERT_NE(client_precon, nullptr);
-    ct_sec_param_free(client_security_parameters);
+    ct_security_parameters_free(client_security_parameters);
 
 
     ct_connection_callbacks_t client_callbacks {

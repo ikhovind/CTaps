@@ -38,62 +38,37 @@ int ct_certificate_bundles_add_cert(ct_certificate_bundles_t* bundles, const cha
   return 0;
 }
 
-void ct_certificate_bundles_free(ct_certificate_bundles_t* bundles) {
-  if (!bundles) {
-    return;
+void ct_certificate_bundles_free(ct_certificate_bundles_t bundles) {
+  for (size_t i = 0; i < bundles.num_bundles; i++) {
+    free(bundles.certificate_bundles[i].certificate_file_name);
+    free(bundles.certificate_bundles[i].private_key_file_name);
   }
-  for (size_t i = 0; i < bundles->num_bundles; i++) {
-    free(bundles->certificate_bundles[i].certificate_file_name);
-    free(bundles->certificate_bundles[i].private_key_file_name);
-  }
-  free(bundles->certificate_bundles);
-  free(bundles);
+  free(bundles.certificate_bundles);
 }
 
-ct_certificate_bundles_t* ct_certificate_bundles_deep_copy(const ct_certificate_bundles_t* bundles) {
-  if (!bundles) {
-    return NULL;
-  }
-  ct_certificate_bundles_t* copy = ct_certificate_bundles_new();
-  if (!copy) {
-    return NULL;
-  }
-  size_t num_bundles = bundles->num_bundles;
+ct_certificate_bundles_t ct_certificate_bundles_deep_copy(const ct_certificate_bundles_t bundles) {
+  ct_certificate_bundles_t copy = {0};
+  size_t num_bundles = bundles.num_bundles;
   if (num_bundles == 0) {
     return copy;
   }
-  copy->certificate_bundles = malloc(sizeof(ct_certificate_bundle_t) * num_bundles);
-  if (!copy->certificate_bundles) {
-    free(copy);
-    return NULL;
+  copy.certificate_bundles = malloc(sizeof(ct_certificate_bundle_t) * num_bundles);
+  if (!copy.certificate_bundles) {
+    return copy;
   }
-  copy->num_bundles = num_bundles;
 
   for (size_t i = 0; i < num_bundles; i++) {
-    copy->certificate_bundles[i].certificate_file_name = strdup(bundles->certificate_bundles[i].certificate_file_name);
-    if (!copy->certificate_bundles[i].certificate_file_name) {
-      // Free previously allocated entries
-      for (size_t j = 0; j < i; j++) {
-        free(copy->certificate_bundles[j].certificate_file_name);
-        free(copy->certificate_bundles[j].private_key_file_name);
-      }
-      free(copy->certificate_bundles);
-      free(copy);
-      return NULL;
+    copy.certificate_bundles[i].certificate_file_name = strdup(bundles.certificate_bundles[i].certificate_file_name);
+    if (!copy.certificate_bundles[i].certificate_file_name) {
+      return copy;
     }
-    copy->certificate_bundles[i].private_key_file_name = strdup(bundles->certificate_bundles[i].private_key_file_name);
-    if (!copy->certificate_bundles[i].private_key_file_name) {
+    copy.certificate_bundles[i].private_key_file_name = strdup(bundles.certificate_bundles[i].private_key_file_name);
+    if (!copy.certificate_bundles[i].private_key_file_name) {
       // Free previously allocated entries
-      for (size_t j = 0; j <= i; j++) {
-        free(copy->certificate_bundles[j].certificate_file_name);
-      }
-      for (size_t j = 0; j < i; j++) {
-        free(copy->certificate_bundles[j].private_key_file_name);
-      }
-      free(copy->certificate_bundles);
-      free(copy);
-      return NULL;
+      free(copy.certificate_bundles[i].certificate_file_name);
+      return copy;
     }
+    copy.num_bundles++;
   }
   return copy;
 }

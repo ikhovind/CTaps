@@ -4,6 +4,7 @@
 extern "C" {
 #include "ctaps.h"
 #include "ctaps_internal.h"
+#include "security_parameter/security_parameters.h"
 }
 
 // =============================================================================
@@ -15,7 +16,7 @@ TEST(SecurityParametersTest, newReturnsNonNull) {
 
     ASSERT_NE(params, nullptr);
 
-    ct_sec_param_free(params);
+    ct_security_parameters_free(params);
 }
 
 TEST(SecurityParametersTest, newInitializesWithDefaultValues) {
@@ -24,49 +25,49 @@ TEST(SecurityParametersTest, newInitializesWithDefaultValues) {
 
     // All parameters should have set_by_user = false initially
     for (int i = 0; i < SEC_PROPERTY_END; i++) {
-        EXPECT_FALSE(params->security_parameters[i].set_by_user);
+        EXPECT_FALSE(params->list[i].set_by_user);
     }
 
-    ct_sec_param_free(params);
+    ct_security_parameters_free(params);
 }
 
 TEST(SecurityParametersTest, newInitializesCorrectNames) {
     ct_security_parameters_t* params = ct_security_parameters_new();
     ASSERT_NE(params, nullptr);
 
-    EXPECT_STREQ(params->security_parameters[SUPPORTED_GROUP].name, "supportedGroup");
-    EXPECT_STREQ(params->security_parameters[CIPHERSUITE].name, "ciphersuite");
-    EXPECT_STREQ(params->security_parameters[SERVER_CERTIFICATE].name, "serverCertificate");
-    EXPECT_STREQ(params->security_parameters[CLIENT_CERTIFICATE].name, "clientCertificate");
-    EXPECT_STREQ(params->security_parameters[SIGNATURE_ALGORITHM].name, "signatureAlgorithm");
-    EXPECT_STREQ(params->security_parameters[ALPN].name, "alpn");
-    EXPECT_STREQ(params->security_parameters[TICKET_STORE_PATH].name, "ticketStorePath");
-    EXPECT_STREQ(params->security_parameters[SERVER_NAME_IDENTIFICATION].name, "serverNameIdentification");
-    EXPECT_STREQ(params->security_parameters[SESSION_TICKET_ENCRYPTION_KEY].name, "sessionTicketEncryptionKey");
+    EXPECT_STREQ(params->list[SUPPORTED_GROUP].name, "supportedGroup");
+    EXPECT_STREQ(params->list[CIPHERSUITE].name, "ciphersuite");
+    EXPECT_STREQ(params->list[SERVER_CERTIFICATE].name, "serverCertificate");
+    EXPECT_STREQ(params->list[CLIENT_CERTIFICATE].name, "clientCertificate");
+    EXPECT_STREQ(params->list[SIGNATURE_ALGORITHM].name, "signatureAlgorithm");
+    EXPECT_STREQ(params->list[ALPN].name, "alpn");
+    EXPECT_STREQ(params->list[TICKET_STORE_PATH].name, "ticketStorePath");
+    EXPECT_STREQ(params->list[SERVER_NAME_IDENTIFICATION].name, "serverNameIdentification");
+    EXPECT_STREQ(params->list[SESSION_TICKET_ENCRYPTION_KEY].name, "sessionTicketEncryptionKey");
 
 
-    ct_sec_param_free(params);
+    ct_security_parameters_free(params);
 }
 
 TEST(SecurityParametersTest, newInitializesCorrectTypes) {
     ct_security_parameters_t* params = ct_security_parameters_new();
     ASSERT_NE(params, nullptr);
 
-    EXPECT_EQ(params->security_parameters[SUPPORTED_GROUP].type, TYPE_STRING_ARRAY);
-    EXPECT_EQ(params->security_parameters[CIPHERSUITE].type, TYPE_STRING_ARRAY);
-    EXPECT_EQ(params->security_parameters[SERVER_CERTIFICATE].type, TYPE_CERTIFICATE_BUNDLES);
-    EXPECT_EQ(params->security_parameters[CLIENT_CERTIFICATE].type, TYPE_CERTIFICATE_BUNDLES);
-    EXPECT_EQ(params->security_parameters[SIGNATURE_ALGORITHM].type, TYPE_STRING_ARRAY);
-    EXPECT_EQ(params->security_parameters[ALPN].type, TYPE_STRING_ARRAY);
-    EXPECT_EQ(params->security_parameters[TICKET_STORE_PATH].type, TYPE_STRING);
-    EXPECT_EQ(params->security_parameters[SESSION_TICKET_ENCRYPTION_KEY].type, TYPE_BYTE_ARRAY);
-    EXPECT_EQ(params->security_parameters[SERVER_NAME_IDENTIFICATION].type, TYPE_STRING);
+    EXPECT_EQ(params->list[SUPPORTED_GROUP].type, TYPE_STRING_ARRAY);
+    EXPECT_EQ(params->list[CIPHERSUITE].type, TYPE_STRING_ARRAY);
+    EXPECT_EQ(params->list[SERVER_CERTIFICATE].type, TYPE_CERTIFICATE_BUNDLES);
+    EXPECT_EQ(params->list[CLIENT_CERTIFICATE].type, TYPE_CERTIFICATE_BUNDLES);
+    EXPECT_EQ(params->list[SIGNATURE_ALGORITHM].type, TYPE_STRING_ARRAY);
+    EXPECT_EQ(params->list[ALPN].type, TYPE_STRING_ARRAY);
+    EXPECT_EQ(params->list[TICKET_STORE_PATH].type, TYPE_STRING);
+    EXPECT_EQ(params->list[SESSION_TICKET_ENCRYPTION_KEY].type, TYPE_BYTE_ARRAY);
+    EXPECT_EQ(params->list[SERVER_NAME_IDENTIFICATION].type, TYPE_STRING);
 
-    ct_sec_param_free(params);
+    ct_security_parameters_free(params);
 }
 
 TEST(SecurityParametersTest, freeHandlesNullPointer) {
-    ct_sec_param_free(nullptr);
+    ct_security_parameters_free(nullptr);
     // Test passes if no crash occurs
 }
 
@@ -79,126 +80,40 @@ TEST(SecurityParametersTest, setAlpnSetsCorrectValue) {
     ASSERT_NE(params, nullptr);
 
     const char* alpn_strings[] = {(char*)"h2", (char*)"http/1.1"};
-    int result = ct_sec_param_set_property_string_array(params, ALPN, alpn_strings, 2);
-
+    int result = ct_security_parameters_add_alpn(params, "h2");
     EXPECT_EQ(result, 0);
-    EXPECT_TRUE(params->security_parameters[ALPN].set_by_user);
-    ASSERT_NE(params->security_parameters[ALPN].value.array_of_strings, nullptr);
-    EXPECT_EQ(params->security_parameters[ALPN].value.array_of_strings->num_strings, 2);
-    EXPECT_STREQ(params->security_parameters[ALPN].value.array_of_strings->strings[0], "h2");
-    EXPECT_STREQ(params->security_parameters[ALPN].value.array_of_strings->strings[1], "http/1.1");
+    result = ct_security_parameters_add_alpn(params, "http/1.1");
 
-    ct_sec_param_free(params);
+
+    EXPECT_TRUE(params->list[ALPN].set_by_user);
+    ASSERT_NE(params->list[ALPN].value.array_of_strings.strings, nullptr);
+    EXPECT_EQ(params->list[ALPN].value.array_of_strings.num_strings, 2);
+    EXPECT_STREQ(params->list[ALPN].value.array_of_strings.strings[0], "h2");
+    EXPECT_STREQ(params->list[ALPN].value.array_of_strings.strings[1], "http/1.1");
+
+    ct_security_parameters_free(params);
 }
 
-TEST(SecurityParametersTest, setCiphersuiteSetsCorrectValue) {
+TEST(SecurityParametersTest, clearAlpnClearsPreviousValue) {
     ct_security_parameters_t* params = ct_security_parameters_new();
     ASSERT_NE(params, nullptr);
 
-    const char* ciphersuite_strings[] = {(char*)"TLS_AES_128_GCM_SHA256", (char*)"TLS_AES_256_GCM_SHA384"};
-    int result = ct_sec_param_set_property_string_array(params, CIPHERSUITE, ciphersuite_strings, 2);
+    ct_security_parameters_add_alpn(params, "h2");
+    
+    size_t num_alpn = 0;
+    const char** alpns = ct_security_parameters_get_alpns(params, &num_alpn);
 
-    EXPECT_EQ(result, 0);
-    EXPECT_TRUE(params->security_parameters[CIPHERSUITE].set_by_user);
-    ASSERT_NE(params->security_parameters[CIPHERSUITE].value.array_of_strings, nullptr);
-    EXPECT_EQ(params->security_parameters[CIPHERSUITE].value.array_of_strings->num_strings, 2);
-    EXPECT_STREQ(params->security_parameters[CIPHERSUITE].value.array_of_strings->strings[0], "TLS_AES_128_GCM_SHA256");
-    EXPECT_STREQ(params->security_parameters[CIPHERSUITE].value.array_of_strings->strings[1], "TLS_AES_256_GCM_SHA384");
+    ASSERT_EQ(num_alpn, 1);
+    ASSERT_STREQ(alpns[0], "h2");
 
-    ct_sec_param_free(params);
-}
+    int result = ct_security_parameters_clear_alpn(params);
 
-TEST(SecurityParametersTest, setSupportedGroupSetsCorrectValue) {
-    ct_security_parameters_t* params = ct_security_parameters_new();
-    ASSERT_NE(params, nullptr);
+    alpns = ct_security_parameters_get_alpns(params, &num_alpn);
 
-    const char* group_strings[] = {(char*)"x25519", (char*)"secp256r1", (char*)"secp384r1"};
-    int result = ct_sec_param_set_property_string_array(params, SUPPORTED_GROUP, group_strings, 3);
+    ASSERT_EQ(num_alpn, 0);
+    ASSERT_EQ(alpns, nullptr);
 
-    EXPECT_EQ(result, 0);
-    EXPECT_TRUE(params->security_parameters[SUPPORTED_GROUP].set_by_user);
-    ASSERT_NE(params->security_parameters[SUPPORTED_GROUP].value.array_of_strings, nullptr);
-    EXPECT_EQ(params->security_parameters[SUPPORTED_GROUP].value.array_of_strings->num_strings, 3);
-    EXPECT_STREQ(params->security_parameters[SUPPORTED_GROUP].value.array_of_strings->strings[0], "x25519");
-    EXPECT_STREQ(params->security_parameters[SUPPORTED_GROUP].value.array_of_strings->strings[1], "secp256r1");
-    EXPECT_STREQ(params->security_parameters[SUPPORTED_GROUP].value.array_of_strings->strings[2], "secp384r1");
-
-    ct_sec_param_free(params);
-}
-
-TEST(SecurityParametersTest, setSignatureAlgorithmSetsCorrectValue) {
-    ct_security_parameters_t* params = ct_security_parameters_new();
-    ASSERT_NE(params, nullptr);
-
-    const char* sig_strings[] = {(char*)"ecdsa_secp256r1_sha256", (char*)"rsa_pss_rsae_sha256"};
-    int result = ct_sec_param_set_property_string_array(params, SIGNATURE_ALGORITHM, sig_strings, 2);
-
-    EXPECT_EQ(result, 0);
-    EXPECT_TRUE(params->security_parameters[SIGNATURE_ALGORITHM].set_by_user);
-    ASSERT_NE(params->security_parameters[SIGNATURE_ALGORITHM].value.array_of_strings, nullptr);
-    EXPECT_EQ(params->security_parameters[SIGNATURE_ALGORITHM].value.array_of_strings->num_strings, 2);
-    EXPECT_STREQ(params->security_parameters[SIGNATURE_ALGORITHM].value.array_of_strings->strings[0], "ecdsa_secp256r1_sha256");
-    EXPECT_STREQ(params->security_parameters[SIGNATURE_ALGORITHM].value.array_of_strings->strings[1], "rsa_pss_rsae_sha256");
-
-    ct_sec_param_free(params);
-}
-
-TEST(SecurityParametersTest, setStringArrayWithSingleElement) {
-    ct_security_parameters_t* params = ct_security_parameters_new();
-    ASSERT_NE(params, nullptr);
-
-    const char* alpn_strings[] = {(char*)"h3"};
-    int result = ct_sec_param_set_property_string_array(params, ALPN, alpn_strings, 1);
-
-    EXPECT_EQ(result, 0);
-    ASSERT_NE(params->security_parameters[ALPN].value.array_of_strings, nullptr);
-    EXPECT_EQ(params->security_parameters[ALPN].value.array_of_strings->num_strings, 1);
-    EXPECT_STREQ(params->security_parameters[ALPN].value.array_of_strings->strings[0], "h3");
-
-    ct_sec_param_free(params);
-}
-
-TEST(SecurityParametersTest, setStringArrayOverwritesPreviousValue) {
-    ct_security_parameters_t* params = ct_security_parameters_new();
-    ASSERT_NE(params, nullptr);
-
-    const char* alpn_strings1[] = {(char*)"h2"};
-    ct_sec_param_set_property_string_array(params, ALPN, alpn_strings1, 1);
-
-    const char* alpn_strings2[] = {(char*)"h3", (char*)"h2"};
-    int result = ct_sec_param_set_property_string_array(params, ALPN, alpn_strings2, 2);
-
-    EXPECT_EQ(result, 0);
-    EXPECT_EQ(params->security_parameters[ALPN].value.array_of_strings->num_strings, 2);
-    EXPECT_STREQ(params->security_parameters[ALPN].value.array_of_strings->strings[0], "h3");
-    EXPECT_STREQ(params->security_parameters[ALPN].value.array_of_strings->strings[1], "h2");
-
-    ct_sec_param_free(params);
-}
-
-TEST(SecurityParametersTest, setStringArrayReturnsErrorForInvalidProperty) {
-    ct_security_parameters_t* params = ct_security_parameters_new();
-    ASSERT_NE(params, nullptr);
-
-    const char* strings[] = {(char*)"test"};
-    int result = ct_sec_param_set_property_string_array(params, SEC_PROPERTY_END, strings, 1);
-
-    EXPECT_NE(result, 0);
-
-    ct_sec_param_free(params);
-}
-
-TEST(SecurityParametersTest, setStringArrayReturnsErrorForWrongType) {
-    ct_security_parameters_t* params = ct_security_parameters_new();
-    ASSERT_NE(params, nullptr);
-
-    // SERVER_CERTIFICATE is TYPE_CERTIFICATE_BUNDLES, not TYPE_STRING_ARRAY
-    const char* strings[] = {(char*)"test"};
-    int result = ct_sec_param_set_property_string_array(params, SERVER_CERTIFICATE, strings, 1);
-
-    EXPECT_NE(result, 0);
-
-    ct_sec_param_free(params);
+    ct_security_parameters_free(params);
 }
 
 // =============================================================================
@@ -209,121 +124,40 @@ TEST(SecurityParametersTest, setServerCertificateSetsCorrectValue) {
     ct_security_parameters_t* params = ct_security_parameters_new();
     ASSERT_NE(params, nullptr);
 
-    ct_certificate_bundles_t* bundles = ct_certificate_bundles_new();
-    ASSERT_NE(bundles, nullptr);
-    ct_certificate_bundles_add_cert(bundles, "/path/to/cert.pem", "/path/to/key.pem");
+    int rc = ct_security_parameters_add_server_certificate(params, "test.c", "test.b");
 
-    int result = ct_sec_param_set_property_certificate_bundles(params, SERVER_CERTIFICATE, bundles);
+    ASSERT_EQ(rc, 0);
 
-    EXPECT_EQ(result, 0);
-    EXPECT_TRUE(params->security_parameters[SERVER_CERTIFICATE].set_by_user);
-    ASSERT_NE(params->security_parameters[SERVER_CERTIFICATE].value.certificate_bundles, nullptr);
-    EXPECT_EQ(params->security_parameters[SERVER_CERTIFICATE].value.certificate_bundles->num_bundles, 1);
+    int count = ct_security_parameters_get_server_certificate_count(params);
+    ASSERT_EQ(count, 1);
 
-    ct_certificate_bundles_free(bundles);
-    ct_sec_param_free(params);
+    const char* certificate_file = ct_security_parameters_get_server_certificate_file(params, 0);
+    const char* key_file = ct_security_parameters_get_server_certificate_key_file(params, 0);
+
+    ASSERT_STREQ(certificate_file, "test.c");
+    ASSERT_STREQ(key_file, "test.b");
+
+    ct_security_parameters_free(params);
 }
 
 TEST(SecurityParametersTest, setClientCertificateSetsCorrectValue) {
     ct_security_parameters_t* params = ct_security_parameters_new();
     ASSERT_NE(params, nullptr);
 
-    ct_certificate_bundles_t* bundles = ct_certificate_bundles_new();
-    ASSERT_NE(bundles, nullptr);
-    ct_certificate_bundles_add_cert(bundles, "/path/to/client_cert.pem", "/path/to/client_key.pem");
+    int rc = ct_security_parameters_add_client_certificate(params, "test.c", "test.b");
 
-    int result = ct_sec_param_set_property_certificate_bundles(params, CLIENT_CERTIFICATE, bundles);
+    ASSERT_EQ(rc, 0);
 
-    EXPECT_EQ(result, 0);
-    EXPECT_TRUE(params->security_parameters[CLIENT_CERTIFICATE].set_by_user);
-    ASSERT_NE(params->security_parameters[CLIENT_CERTIFICATE].value.certificate_bundles, nullptr);
-    EXPECT_EQ(params->security_parameters[CLIENT_CERTIFICATE].value.certificate_bundles->num_bundles, 1);
+    int count = ct_security_parameters_get_client_certificate_count(params);
+    ASSERT_EQ(count, 1);
 
-    ct_certificate_bundles_free(bundles);
-    ct_sec_param_free(params);
-}
+    const char* certificate_file = ct_security_parameters_get_client_certificate_file(params, 0);
+    const char* key_file = ct_security_parameters_get_client_certificate_key_file(params, 0);
 
-TEST(SecurityParametersTest, setCertificateBundlesWithMultipleBundles) {
-    GTEST_SKIP(); // Multiple certificate bundles not yet supported in ct_certificate_bundles_add_cert
-    ct_security_parameters_t* params = ct_security_parameters_new();
-    ASSERT_NE(params, nullptr);
+    ASSERT_STREQ(certificate_file, "test.c");
+    ASSERT_STREQ(key_file, "test.b");
 
-    ct_certificate_bundles_t* bundles = ct_certificate_bundles_new();
-    ASSERT_NE(bundles, nullptr);
-    ct_certificate_bundles_add_cert(bundles, "/path/to/cert1.pem", "/path/to/key1.pem");
-    ct_certificate_bundles_add_cert(bundles, "/path/to/cert2.pem", "/path/to/key2.pem");
-
-    int result = ct_sec_param_set_property_certificate_bundles(params, SERVER_CERTIFICATE, bundles);
-
-    EXPECT_EQ(result, 0);
-    EXPECT_EQ(params->security_parameters[SERVER_CERTIFICATE].value.certificate_bundles->num_bundles, 2);
-
-    ct_certificate_bundles_free(bundles);
-    ct_sec_param_free(params);
-}
-
-TEST(SecurityParametersTest, setCertificateBundlesOverwritesPreviousValue) {
-    ct_security_parameters_t* params = ct_security_parameters_new();
-    ASSERT_NE(params, nullptr);
-
-    ct_certificate_bundles_t* bundles1 = ct_certificate_bundles_new();
-    ct_certificate_bundles_add_cert(bundles1, "/path/to/cert1.pem", "/path/to/key1.pem");
-    ct_sec_param_set_property_certificate_bundles(params, SERVER_CERTIFICATE, bundles1);
-
-    ct_certificate_bundles_t* bundles2 = ct_certificate_bundles_new();
-    ct_certificate_bundles_add_cert(bundles2, "/path/to/cert2.pem", "/path/to/key2.pem");
-
-    int result = ct_sec_param_set_property_certificate_bundles(params, SERVER_CERTIFICATE, bundles2);
-
-    EXPECT_EQ(result, 0);
-    EXPECT_EQ(params->security_parameters[SERVER_CERTIFICATE].value.certificate_bundles->num_bundles, 1);
-    EXPECT_STREQ(params->security_parameters[SERVER_CERTIFICATE].value.certificate_bundles->certificate_bundles[0].certificate_file_name, "/path/to/cert2.pem");
-
-    ct_certificate_bundles_free(bundles1);
-    ct_certificate_bundles_free(bundles2);
-    ct_sec_param_free(params);
-}
-
-TEST(SecurityParametersTest, setCertificateBundlesReturnsErrorForInvalidProperty) {
-    ct_security_parameters_t* params = ct_security_parameters_new();
-    ASSERT_NE(params, nullptr);
-
-    ct_certificate_bundles_t* bundles = ct_certificate_bundles_new();
-    ct_certificate_bundles_add_cert(bundles, "/path/to/cert.pem", "/path/to/key.pem");
-
-    int result = ct_sec_param_set_property_certificate_bundles(params, SEC_PROPERTY_END, bundles);
-
-    EXPECT_NE(result, 0);
-
-    ct_certificate_bundles_free(bundles);
-    ct_sec_param_free(params);
-}
-
-TEST(SecurityParametersTest, setCertificateBundlesReturnsErrorForWrongType) {
-    ct_security_parameters_t* params = ct_security_parameters_new();
-    ASSERT_NE(params, nullptr);
-
-    ct_certificate_bundles_t* bundles = ct_certificate_bundles_new();
-    ct_certificate_bundles_add_cert(bundles, "/path/to/cert.pem", "/path/to/key.pem");
-
-    // ALPN is TYPE_STRING_ARRAY, not TYPE_CERTIFICATE_BUNDLES
-    int result = ct_sec_param_set_property_certificate_bundles(params, ALPN, bundles);
-
-    EXPECT_NE(result, 0);
-
-    ct_certificate_bundles_free(bundles);
-    ct_sec_param_free(params);
-}
-
-TEST(SecurityParametersTest, setCertificateBundlesReturnsErrorForNullBundles) {
-    ct_security_parameters_t* params = ct_security_parameters_new();
-    ASSERT_NE(params, nullptr);
-
-    int result = ct_sec_param_set_property_certificate_bundles(params, SERVER_CERTIFICATE, nullptr);
-
-    EXPECT_NE(result, 0);
-
-    ct_sec_param_free(params);
+    ct_security_parameters_free(params);
 }
 
 // =============================================================================
@@ -334,45 +168,45 @@ TEST(SecurityParametersTest, setTicketStorePathSetsCorrectValue) {
     ct_security_parameters_t* params = ct_security_parameters_new();
     ASSERT_NE(params, nullptr);
 
-    int result = ct_sec_param_set_ticket_store_path(params, "/path/to/tickets.bin");
+    int result = ct_security_parameters_set_ticket_store_path(params, "/path/to/tickets.bin");
 
     EXPECT_EQ(result, 0);
-    EXPECT_TRUE(params->security_parameters[TICKET_STORE_PATH].set_by_user);
-    ASSERT_NE(params->security_parameters[TICKET_STORE_PATH].value.string, nullptr);
-    EXPECT_STREQ(params->security_parameters[TICKET_STORE_PATH].value.string, "/path/to/tickets.bin");
+    EXPECT_TRUE(params->list[TICKET_STORE_PATH].set_by_user);
+    ASSERT_NE(params->list[TICKET_STORE_PATH].value.string, nullptr);
+    EXPECT_STREQ(params->list[TICKET_STORE_PATH].value.string, "/path/to/tickets.bin");
 
-    ct_sec_param_free(params);
+    ct_security_parameters_free(params);
 }
 
 TEST(SecurityParametersTest, setTicketStorePathOverwritesPreviousValue) {
     ct_security_parameters_t* params = ct_security_parameters_new();
     ASSERT_NE(params, nullptr);
 
-    ct_sec_param_set_ticket_store_path(params, "/path/to/old_tickets.bin");
-    int result = ct_sec_param_set_ticket_store_path(params, "/path/to/new_tickets.bin");
+    ct_security_parameters_set_ticket_store_path(params, "/path/to/old_tickets.bin");
+    int result = ct_security_parameters_set_ticket_store_path(params, "/path/to/new_tickets.bin");
 
     EXPECT_EQ(result, 0);
-    EXPECT_STREQ(params->security_parameters[TICKET_STORE_PATH].value.string, "/path/to/new_tickets.bin");
+    EXPECT_STREQ(params->list[TICKET_STORE_PATH].value.string, "/path/to/new_tickets.bin");
 
-    ct_sec_param_free(params);
+    ct_security_parameters_free(params);
 }
 
 TEST(SecurityParametersTest, setTicketStorePathAcceptsNullToClear) {
     ct_security_parameters_t* params = ct_security_parameters_new();
     ASSERT_NE(params, nullptr);
 
-    ct_sec_param_set_ticket_store_path(params, "/path/to/tickets.bin");
-    int result = ct_sec_param_set_ticket_store_path(params, nullptr);
+    ct_security_parameters_set_ticket_store_path(params, "/path/to/tickets.bin");
+    int result = ct_security_parameters_set_ticket_store_path(params, nullptr);
 
     EXPECT_EQ(result, 0);
-    EXPECT_TRUE(params->security_parameters[TICKET_STORE_PATH].set_by_user);
-    EXPECT_EQ(params->security_parameters[TICKET_STORE_PATH].value.string, nullptr);
+    EXPECT_TRUE(params->list[TICKET_STORE_PATH].set_by_user);
+    EXPECT_EQ(params->list[TICKET_STORE_PATH].value.string, nullptr);
 
-    ct_sec_param_free(params);
+    ct_security_parameters_free(params);
 }
 
 TEST(SecurityParametersTest, setTicketStorePathHandlesNullSecurityParameters) {
-    int result = ct_sec_param_set_ticket_store_path(nullptr, "/path/to/tickets.bin");
+    int result = ct_security_parameters_set_ticket_store_path(nullptr, "/path/to/tickets.bin");
 
     EXPECT_NE(result, 0);
 }
@@ -381,13 +215,13 @@ TEST(SecurityParametersTest, setTicketStorePathWithEmptyString) {
     ct_security_parameters_t* params = ct_security_parameters_new();
     ASSERT_NE(params, nullptr);
 
-    int result = ct_sec_param_set_ticket_store_path(params, "");
+    int result = ct_security_parameters_set_ticket_store_path(params, "");
 
     EXPECT_EQ(result, 0);
-    EXPECT_TRUE(params->security_parameters[TICKET_STORE_PATH].set_by_user);
-    EXPECT_STREQ(params->security_parameters[TICKET_STORE_PATH].value.string, "");
+    EXPECT_TRUE(params->list[TICKET_STORE_PATH].set_by_user);
+    EXPECT_STREQ(params->list[TICKET_STORE_PATH].value.string, "");
 
-    ct_sec_param_free(params);
+    ct_security_parameters_free(params);
 }
 
 // =============================================================================
@@ -398,44 +232,44 @@ TEST(SecurityParametersTest, setServerNameIdentificationSetsCorrectValue) {
     ct_security_parameters_t* params = ct_security_parameters_new();
     ASSERT_NE(params, nullptr);
 
-    int result = ct_sec_param_set_server_name_identification(params, "localhost123");
+    int result = ct_security_parameters_set_server_name_identification(params, "localhost123");
 
     EXPECT_EQ(result, 0);
-    EXPECT_TRUE(params->security_parameters[SERVER_NAME_IDENTIFICATION].set_by_user);
-    EXPECT_STREQ(params->security_parameters[SERVER_NAME_IDENTIFICATION].value.string, "localhost123");
+    EXPECT_TRUE(params->list[SERVER_NAME_IDENTIFICATION].set_by_user);
+    EXPECT_STREQ(params->list[SERVER_NAME_IDENTIFICATION].value.string, "localhost123");
 
-    ct_sec_param_free(params);
+    ct_security_parameters_free(params);
 }
 
 TEST(SecurityParametersTest, setServerNameIdentificationOverwritesPreviousValue) {
     ct_security_parameters_t* params = ct_security_parameters_new();
 
-    ct_sec_param_set_server_name_identification(params, "localhost123");
-    EXPECT_STREQ(params->security_parameters[SERVER_NAME_IDENTIFICATION].value.string, "localhost123");
-    int result = ct_sec_param_set_server_name_identification(params, "localhost321");
+    ct_security_parameters_set_server_name_identification(params, "localhost123");
+    EXPECT_STREQ(params->list[SERVER_NAME_IDENTIFICATION].value.string, "localhost123");
+    int result = ct_security_parameters_set_server_name_identification(params, "localhost321");
 
     EXPECT_EQ(result, 0);
-    EXPECT_STREQ(params->security_parameters[SERVER_NAME_IDENTIFICATION].value.string, "localhost321");
+    EXPECT_STREQ(params->list[SERVER_NAME_IDENTIFICATION].value.string, "localhost321");
 
-    ct_sec_param_free(params);
+    ct_security_parameters_free(params);
 }
 
 TEST(SecurityParametersTest, setServerNameIdentificationAcceptsNullToClear) {
     ct_security_parameters_t* params = ct_security_parameters_new();
 
-    ct_sec_param_set_server_name_identification(params, "localhost");
-    EXPECT_STREQ(params->security_parameters[SERVER_NAME_IDENTIFICATION].value.string, "localhost");
-    int result = ct_sec_param_set_server_name_identification(params, nullptr);
+    ct_security_parameters_set_server_name_identification(params, "localhost");
+    EXPECT_STREQ(params->list[SERVER_NAME_IDENTIFICATION].value.string, "localhost");
+    int result = ct_security_parameters_set_server_name_identification(params, nullptr);
 
     EXPECT_EQ(result, 0);
-    EXPECT_TRUE(params->security_parameters[SERVER_NAME_IDENTIFICATION].set_by_user);
-    EXPECT_EQ(params->security_parameters[SERVER_NAME_IDENTIFICATION].value.string, nullptr);
+    EXPECT_TRUE(params->list[SERVER_NAME_IDENTIFICATION].set_by_user);
+    EXPECT_EQ(params->list[SERVER_NAME_IDENTIFICATION].value.string, nullptr);
 
-    ct_sec_param_free(params);
+    ct_security_parameters_free(params);
 }
 
 TEST(SecurityParametersTest, setServerNameIdentificationHandlesNullSecurityParameters) {
-    int result = ct_sec_param_set_server_name_identification(nullptr, "localhost");
+    int result = ct_security_parameters_set_server_name_identification(nullptr, "localhost");
 
     EXPECT_NE(result, 0);
 }
@@ -444,25 +278,151 @@ TEST(SecurityParametersTest, setServerNameIdentificationWithEmptyString) {
     ct_security_parameters_t* params = ct_security_parameters_new();
     ASSERT_NE(params, nullptr);
 
-    int result = ct_sec_param_set_server_name_identification(params, "");
+    int result = ct_security_parameters_set_server_name_identification(params, "");
 
     EXPECT_EQ(result, 0);
-    EXPECT_TRUE(params->security_parameters[SERVER_NAME_IDENTIFICATION].set_by_user);
-    EXPECT_STREQ(params->security_parameters[SERVER_NAME_IDENTIFICATION].value.string, "");
+    EXPECT_TRUE(params->list[SERVER_NAME_IDENTIFICATION].set_by_user);
+    EXPECT_STREQ(params->list[SERVER_NAME_IDENTIFICATION].value.string, "");
 
-    ct_sec_param_free(params);
+    ct_security_parameters_free(params);
 }
 
 TEST(SecurityParametersTest, setServerNameIdentificationTakesDeepCopy) {
     ct_security_parameters_t* params = ct_security_parameters_new();
 
     char sni[] = "abcdef";
-    int result = ct_sec_param_set_server_name_identification(params, "abcdef");
-    EXPECT_STREQ(params->security_parameters[SERVER_NAME_IDENTIFICATION].value.string, "abcdef");
+    int result = ct_security_parameters_set_server_name_identification(params, "abcdef");
+    EXPECT_STREQ(params->list[SERVER_NAME_IDENTIFICATION].value.string, "abcdef");
     sni[0] = 'x'; // Modify original string after setting
 
-    EXPECT_TRUE(params->security_parameters[SERVER_NAME_IDENTIFICATION].set_by_user);
-    EXPECT_STREQ(params->security_parameters[SERVER_NAME_IDENTIFICATION].value.string, "abcdef");
+    EXPECT_TRUE(params->list[SERVER_NAME_IDENTIFICATION].set_by_user);
+    EXPECT_STREQ(params->list[SERVER_NAME_IDENTIFICATION].value.string, "abcdef");
 
-    ct_sec_param_free(params);
+    ct_security_parameters_free(params);
+}
+
+TEST(SecurityParametersTest, CopiesServerNameIdentification) {
+    ct_security_parameters_t* src = ct_security_parameters_new();
+    ct_security_parameters_set_server_name_identification(src, "example.com");
+
+    ct_security_parameters_t* copy = ct_security_parameters_deep_copy(src);
+    ASSERT_NE(copy, nullptr);
+    EXPECT_STREQ(copy->list[SERVER_NAME_IDENTIFICATION].value.string, "example.com");
+    // Must be a distinct allocation
+    EXPECT_NE(copy->list[SERVER_NAME_IDENTIFICATION].value.string,
+              src->list[SERVER_NAME_IDENTIFICATION].value.string);
+    EXPECT_TRUE(copy->list[SERVER_NAME_IDENTIFICATION].set_by_user);
+
+    ct_security_parameters_free(src);
+    ct_security_parameters_free(copy);
+}
+
+TEST(SecurityParametersTest, CopiesAlpn) {
+    ct_security_parameters_t* src = ct_security_parameters_new();
+    ct_security_parameters_add_alpn(src, "h2");
+    ct_security_parameters_add_alpn(src, "http/1.1");
+
+    ct_security_parameters_t* copy = ct_security_parameters_deep_copy(src);
+    ASSERT_NE(copy, nullptr);
+
+    size_t num_alpns = 0;
+    const char** alpns = ct_security_parameters_get_alpns(copy, &num_alpns);
+    ASSERT_EQ(num_alpns, 2);
+    EXPECT_STREQ(alpns[0], "h2");
+    EXPECT_STREQ(alpns[1], "http/1.1");
+    // Must be distinct allocations
+    EXPECT_NE(alpns, ct_security_parameters_get_alpns(src, &num_alpns));
+
+    ct_security_parameters_free(src);
+    ct_security_parameters_free(copy);
+}
+
+TEST(SecurityParametersTest, CopiesEmptyStringArray) {
+    // Bug 1: empty array should not be treated as failure
+    ct_security_parameters_t* src = ct_security_parameters_new();
+    // set_by_user = true but empty array
+    src->list[ALPN].set_by_user = true;
+    src->list[ALPN].value.array_of_strings.strings = nullptr;
+    src->list[ALPN].value.array_of_strings.num_strings = 0;
+
+    ct_security_parameters_t* copy = ct_security_parameters_deep_copy(src);
+    ASSERT_NE(copy, nullptr);
+    EXPECT_EQ(copy->list[ALPN].value.array_of_strings.num_strings, 0);
+    EXPECT_TRUE(copy->list[ALPN].set_by_user);
+
+    ct_security_parameters_free(src);
+    ct_security_parameters_free(copy);
+}
+
+TEST(SecurityParametersTest, CopiesSessionTicketEncryptionKey) {
+    ct_security_parameters_t* src = ct_security_parameters_new();
+    uint8_t key[] = {0x01, 0x02, 0x03, 0x04};
+    ct_security_parameters_set_session_ticket_encryption_key(src, key, sizeof(key));
+
+    ct_security_parameters_t* copy = ct_security_parameters_deep_copy(src);
+    ASSERT_NE(copy, nullptr);
+
+    size_t key_len = 0;
+    const uint8_t* copied_key = ct_security_parameters_get_session_ticket_encryption_key(copy, &key_len);
+    ASSERT_EQ(key_len, sizeof(key));
+    EXPECT_EQ(memcmp(copied_key, key, key_len), 0);
+    EXPECT_NE(copied_key, key);
+
+    ct_security_parameters_free(src);
+    ct_security_parameters_free(copy);
+}
+
+TEST(SecurityParametersTest, CopiesZeroLengthByteArray) {
+    // Bug 2: zero-length byte array should not trigger error path
+    ct_security_parameters_t* src = ct_security_parameters_new();
+    src->list[SESSION_TICKET_ENCRYPTION_KEY].set_by_user = true;
+    src->list[SESSION_TICKET_ENCRYPTION_KEY].value.byte_array.bytes = NULL;
+    src->list[SESSION_TICKET_ENCRYPTION_KEY].value.byte_array.length = 0;
+
+    ct_security_parameters_t* copy = ct_security_parameters_deep_copy(src);
+    ASSERT_NE(copy, nullptr);
+    EXPECT_EQ(copy->list[SESSION_TICKET_ENCRYPTION_KEY].value.byte_array.length, 0);
+    EXPECT_TRUE(copy->list[SESSION_TICKET_ENCRYPTION_KEY].set_by_user);
+
+    ct_security_parameters_free(src);
+    ct_security_parameters_free(copy);
+}
+
+TEST(SecurityParametersTest, CopiesServerCertificate) {
+    ct_security_parameters_t* src = ct_security_parameters_new();
+    ct_security_parameters_add_server_certificate(src, "cert.pem", "key.pem");
+
+    ct_security_parameters_t* copy = ct_security_parameters_deep_copy(src);
+    ASSERT_NE(copy, nullptr);
+
+    ASSERT_EQ(ct_security_parameters_get_server_certificate_count(copy), 1);
+    EXPECT_STREQ(ct_security_parameters_get_server_certificate_file(copy, 0), "cert.pem");
+    EXPECT_STREQ(ct_security_parameters_get_server_certificate_key_file(copy, 0), "key.pem");
+    // Must be distinct allocations
+    EXPECT_NE(ct_security_parameters_get_server_certificate_file(copy, 0),
+              ct_security_parameters_get_server_certificate_file(src, 0));
+
+    ct_security_parameters_free(src);
+    ct_security_parameters_free(copy);
+}
+
+TEST(SecurityParametersTest, NullSourceReturnsNull) {
+    EXPECT_EQ(ct_security_parameters_deep_copy(nullptr), nullptr);
+}
+
+TEST(SecurityParametersTest, ModifyingSourceDoesNotAffectCopy) {
+    ct_security_parameters_t* src = ct_security_parameters_new();
+    ct_security_parameters_add_alpn(src, "h2");
+
+    ct_security_parameters_t* copy = ct_security_parameters_deep_copy(src);
+    ASSERT_NE(copy, nullptr);
+
+    ct_security_parameters_add_alpn(src, "http/1.1");
+
+    size_t num_alpns = 0;
+    ct_security_parameters_get_alpns(copy, &num_alpns);
+    EXPECT_EQ(num_alpns, 1);
+
+    ct_security_parameters_free(src);
+    ct_security_parameters_free(copy);
 }

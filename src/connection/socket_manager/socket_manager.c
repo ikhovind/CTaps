@@ -162,7 +162,8 @@ void ct_socket_manager_closed_socket_cb(ct_socket_manager_t* socket_manager) {
       if(conn->connection_callbacks.closed) {
         conn->connection_callbacks.closed(conn);
       }
-      // Only one open connection should be possible
+      // This is needed to avoid concurrent modification
+      // But only one open connection should be possible anyways
       return;
     }
   }

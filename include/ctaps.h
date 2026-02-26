@@ -150,15 +150,6 @@ CT_EXTERN int ct_add_log_file(const char* file_path, ct_log_level_t min_level);
 // =============================================================================
 //
 
-/**
- * @brief Collection of all transport selection properties.
- *
- * This structure contains all selection properties that influence protocol selection
- * during connection establishment. Properties are indexed by ct_selection_property_enum_t.
- *
- * This is an opaque type. Use the setter functions to configure selection properties.
- */
-typedef struct ct_selection_properties_s ct_selection_properties_t;
 
 /**
  * @brief Preference levels for transport selection properties.
@@ -189,8 +180,13 @@ typedef enum ct_property_type_t {
   TYPE_BOOL,          ///< Boolean flag
   TYPE_UINT32,
   TYPE_UINT64,
-  TYPE_ENUM    ///< Communication direction enumeration
+  TYPE_ENUM,    ///< Communication direction enumeration
+  TYPE_STRING_ARRAY,  ///< Array of strings (e.g., ALPN protocols, cipher suites)
+  TYPE_CERTIFICATE_BUNDLES,  ///< ct_certificate_bundles_t for certificate configuration
+  TYPE_STRING,  ///< Single string value
+  TYPE_BYTE_ARRAY  ///< Byte array value
 } ct_property_type_t;
+
 
 /**
  * @brief Direction of communication for a connection.
@@ -209,36 +205,6 @@ typedef enum ct_multipath_enum_t {
   MULTIPATH_ACTIVE,    ///< Actively use multiple paths simultaneously
   MULTIPATH_PASSIVE    ///< TBD
 } ct_multipath_enum_t;
-
-typedef struct ct_preference_combination_s {
-  char* value;
-  ct_selection_preference_t preference;
-} ct_preference_combination_t;
-
-typedef struct ct_preference_set_s {
-  ct_preference_combination_t* combinations;
-  size_t num_combinations;
-} ct_preference_set_t;
-
-/**
- * @brief Union holding the value of a selection property.
- */
-typedef union {
-  ct_selection_preference_t simple_preference;              ///< For TYPE_PREFERENCE properties
-  ct_preference_set_t preference_set_val;                                     ///< For TYPE_PREFERENCE_SET properties
-  uint32_t enum_val;
-  bool bool_val;                                             ///< For TYPE_BOOLEAN properties
-} ct_selection_property_value_t;
-
-/**
- * @brief A single transport selection property.
- */
-typedef struct ct_selection_property_s {
-  char* name;                              ///< Property name string
-  bool set_by_user;                        ///< True if user explicitly set this property
-  ct_property_type_t type;
-  ct_selection_property_value_t value;     ///< Property value
-} ct_selection_property_t;
 
 #define EMPTY_PREFERENCE_SET_DEFAULT 0 
 #define RUNTIME_DEPENDENT_DEFAULT 0 
@@ -269,25 +235,11 @@ f(PVD,                         "pvd",                        ct_preference_set_t
 
 #define output_enum(enum_name, string_name, property_type, token_name, default_value, type) enum_name,
 
-/**
- * @brief Enumeration of all available selection properties.
- *
- * These properties control protocol selection by expressing preferences and requirements
- * for transport characteristics like reliability, ordering, and multistreaming.
- */
-typedef enum { 
-  get_selection_property_list(output_enum) 
-  get_preference_set_selection_property_list(output_enum)
-SELECTION_PROPERTY_END } ct_selection_property_enum_t;
-
 // =============================================================================
 // Connection Properties
 // =============================================================================
 /**
  * @brief Collection of all connection properties.
- *
- * Contains both configurable and read-only properties for an active connection.
- * Properties are indexed by ct_connection_property_enum_t.
  */
 typedef struct ct_connection_properties_s ct_connection_properties_t;
 
@@ -370,28 +322,6 @@ f(USER_TIMEOUT_VALUE_MS,   "userTimeoutValueMs",   uint32_t, user_timeout_value_
 f(USER_TIMEOUT_ENABLED,    "userTimeoutEnabled",    bool,     user_timeout_enabled,    false,            TYPE_BOOL)   \
 f(USER_TIMEOUT_CHANGEABLE, "userTimeoutChangeable", bool,     user_timeout_changeable, true,             TYPE_BOOL)
 // clang-format on
-//
-/**
- * @brief Enumeration of all available connection properties.
- *
- * Includes writable properties (configurable), read-only properties (status),
- * and TCP-specific properties.
- */
-typedef enum {
-  get_writable_connection_property_list(output_enum)
-  get_read_only_connection_properties(output_enum)
-  get_tcp_connection_properties(output_enum)
-  CONNECTION_PROPERTY_END
-} ct_connection_property_enum_t;
-
-// Writable connection property setters
-
-#define create_con_property_initializer(enum_name, string_name, property_type, token_name, default_value, type_name) \
-  [enum_name] = {                                                          \
-    .name = (string_name),                                                   \
-    .type = (type_name), \
-    .value = { (uint32_t)(default_value) }                     \
-},
 
 // =============================================================================
 // Transport Properties - Combination of selection and connection properties
@@ -459,21 +389,24 @@ get_read_only_connection_properties(output_transport_property_getter_declaration
  */
 typedef struct ct_message_properties_s ct_message_properties_t;
 
+// =============================================================================
+// Message Properties - Properties for individual messages
+// =============================================================================
 
 #define MESSAGE_CHECKSUM_FULL_COVERAGE UINT32_MAX  ///< Special value: checksum entire message
 
 // clang-format off
-#define get_message_property_list(f)                                                                    \
-f(MSG_LIFETIME,           "msgLifetime",          uint64_t,                       lifetime,          0, 0)                  \
-f(MSG_PRIORITY,           "msgPriority",          uint32_t,                       priority,          100, 0)                \
-f(MSG_ORDERED,            "msgOrdered",           bool,                           ordered,           true, 0)               \
-f(MSG_SAFELY_REPLAYABLE,  "msgSafelyReplayable",  bool,                           safely_replayable, false, 0)              \
-f(FINAL,                  "final",                bool,                           final,                 false, 0)              \
-f(MSG_CHECKSUM_LEN,       "msgChecksumLen",       uint32_t,                       checksum_len,      MESSAGE_CHECKSUM_FULL_COVERAGE, 0)                  \
-f(MSG_RELIABLE,           "msgReliable",          bool,                           reliable,          true, 0)               \
-f(MSG_CAPACITY_PROFILE,   "msgCapacityProfile",   ct_capacity_profile_enum_t,     capacity_profile,  CAPACITY_PROFILE_BEST_EFFORT, 0)    \
-f(NO_FRAGMENTATION,       "noFragmentation",      bool,                           no_fragmentation,      false, 0)              \
-f(NO_SEGMENTATION,        "noSegmentation",       bool,                           no_segmentation,       false, 0)
+#define get_message_property_list(f)                                                                                                    \
+f(MSG_LIFETIME,          "msgLifetime",         uint64_t,                   lifetime,          0,                             TYPE_UINT64) \
+f(MSG_PRIORITY,          "msgPriority",         uint32_t,                   priority,          100,                           TYPE_UINT32) \
+f(MSG_ORDERED,           "msgOrdered",          bool,                       ordered,           true,                          TYPE_BOOL)   \
+f(MSG_SAFELY_REPLAYABLE, "msgSafelyReplayable", bool,                       safely_replayable, false,                         TYPE_BOOL)   \
+f(FINAL,                 "final",               bool,                       final,             false,                         TYPE_BOOL)   \
+f(MSG_CHECKSUM_LEN,      "msgChecksumLen",      uint32_t,                   checksum_len,      MESSAGE_CHECKSUM_FULL_COVERAGE, TYPE_UINT32) \
+f(MSG_RELIABLE,          "msgReliable",         bool,                       reliable,          true,                          TYPE_BOOL)   \
+f(MSG_CAPACITY_PROFILE,  "msgCapacityProfile",  ct_capacity_profile_enum_t, capacity_profile,  CAPACITY_PROFILE_BEST_EFFORT,  TYPE_ENUM)   \
+f(NO_FRAGMENTATION,      "noFragmentation",     bool,                       no_fragmentation,  false,                         TYPE_BOOL)   \
+f(NO_SEGMENTATION,       "noSegmentation",      bool,                       no_segmentation,   false,                         TYPE_BOOL)
 // clang-format on
 
 #define output_message_property_getter_declaration(enum_name, string_name, property_type, token_name, default_value, type_enum) \
@@ -485,53 +418,9 @@ f(NO_SEGMENTATION,        "noSegmentation",       bool,                         
 get_message_property_list(output_message_property_getter_declaration)
 get_message_property_list(output_message_property_setter_declaration)
 
-/**
- * @brief Enumeration of all available message properties.
- */
-typedef enum { get_message_property_list(output_enum) MESSAGE_PROPERTY_END } ct_message_properties_enum_t;
-
-
 // =============================================================================
 // Security Parameters
 // =============================================================================
-
-/**
- * @brief Union holding security parameter values.
- * Opaque type - full definition is in ctaps_internal.h.
- */
-typedef union ct_sec_property_value_u ct_sec_property_value_t;
-
-/**
- * @brief A single security parameter.
- * Opaque type - full definition is in ctaps_internal.h.
- */
-typedef struct ct_sec_property_s ct_security_parameter_t;
-
-// clang-format off
-#define get_security_parameter_list(f)                                        \
-f(SUPPORTED_GROUP,                "supportedGroup",             TYPE_STRING_ARRAY)               \
-f(CIPHERSUITE,                    "ciphersuite",                TYPE_STRING_ARRAY)               \
-f(SERVER_CERTIFICATE,             "serverCertificate",          TYPE_CERTIFICATE_BUNDLES)        \
-f(CLIENT_CERTIFICATE,             "clientCertificate",          TYPE_CERTIFICATE_BUNDLES)        \
-f(SIGNATURE_ALGORITHM,            "signatureAlgorithm",         TYPE_STRING_ARRAY)               \
-f(ALPN,                           "alpn",                       TYPE_STRING_ARRAY)               \
-f(TICKET_STORE_PATH,              "ticketStorePath",            TYPE_STRING)                     \
-f(SERVER_NAME_IDENTIFICATION,     "serverNameIdentification",   TYPE_STRING)                     \
-f(SESSION_TICKET_ENCRYPTION_KEY,  "sessionTicketEncryptionKey", TYPE_BYTE_ARRAY) // Optional parameter to allow for session resumption 
-// clang-format on
-
-#define output_sec_enum(enum_name, string_name, property_type) enum_name,
-
-#define output_security_parameter_getter_declaration(enum_name, string_name, property_type, token_name, default_value) \
-  CT_EXTERN property_type ct_security_parameters_get##token_name(const ct_message_properties_t* msg_props); 
-
-#define output_security_parameter_setter_declaration(enum_name, string_name, property_type, token_name, default_value) \
-  CT_EXTERN void ct_security_properties_set_##token_name(ct_message_properties_t* msg_props, property_type val); 
-
-/**
- * @brief Enumeration of all available security parameters.
- */
-typedef enum { get_security_parameter_list(output_sec_enum) SEC_PROPERTY_END } ct_security_property_enum_t;
 
 /**
  * @brief Collection of all security parameters.
@@ -550,12 +439,34 @@ typedef enum { get_security_parameter_list(output_sec_enum) SEC_PROPERTY_END } c
  *
  * ### Lifecycle
  * - Create with ct_security_parameters_new()
- * - Configure with ct_sec_param_set_property_string_array()
  * - Pass to preconnection/connection functions (CTaps deep copies internally)
  * - Free your copy with ct_security_parameters_free() when done
  * - CTaps-owned copies are freed automatically when preconnections/connections are freed
  */
 typedef struct ct_security_parameters_s ct_security_parameters_t;
+
+CT_EXTERN int ct_security_parameters_set_ticket_store_path(ct_security_parameters_t* sec, const char* ticket_store_path);
+CT_EXTERN int ct_security_parameters_set_server_name_identification(ct_security_parameters_t* sec, const char* sni);
+CT_EXTERN int ct_security_parameters_add_server_certificate(ct_security_parameters_t* sec, const char* cert_file, const char* key_file);
+CT_EXTERN int ct_security_parameters_add_client_certificate(ct_security_parameters_t* sec, const char* cert_file, const char* key_file);
+CT_EXTERN int ct_security_parameters_add_alpn(ct_security_parameters_t* sec, const char* alpn);
+CT_EXTERN int ct_security_parameters_clear_alpn(ct_security_parameters_t* sec);
+CT_EXTERN int ct_security_parameters_set_session_ticket_encryption_key(ct_security_parameters_t* sec, const uint8_t* key, size_t key_len);
+
+CT_EXTERN const char* ct_security_parameters_get_ticket_store_path(const ct_security_parameters_t* sec);
+CT_EXTERN const char* ct_security_parameters_get_server_name_identification(const ct_security_parameters_t* sec);
+
+CT_EXTERN size_t ct_security_parameters_get_server_certificate_count(const ct_security_parameters_t* sec);
+CT_EXTERN const char* ct_security_parameters_get_server_certificate_file(const ct_security_parameters_t* sec, size_t index);
+CT_EXTERN const char* ct_security_parameters_get_server_certificate_key_file(const ct_security_parameters_t* sec, size_t index);
+
+CT_EXTERN size_t ct_security_parameters_get_client_certificate_count(const ct_security_parameters_t* sec);
+CT_EXTERN const char* ct_security_parameters_get_client_certificate_file(const ct_security_parameters_t* sec, size_t index);
+CT_EXTERN const char* ct_security_parameters_get_client_certificate_key_file(const ct_security_parameters_t* sec, size_t index);
+
+CT_EXTERN const char** ct_security_parameters_get_alpns(const ct_security_parameters_t* sec, size_t* num_alpns);
+CT_EXTERN const uint8_t* ct_security_parameters_get_session_ticket_encryption_key(const ct_security_parameters_t* sec, size_t* key_len);
+
 
 
 /**
@@ -677,6 +588,15 @@ typedef struct ct_message_s ct_message_t;
  * - Free your copy with ct_message_context_free() when done
  */
 typedef struct ct_message_context_s ct_message_context_t;
+
+#define output_message_context_getter_declaration(enum_name, string_name, property_type, token_name, default_value, type_enum) \
+  CT_EXTERN property_type ct_message_context_get_##token_name(const ct_message_context_t* msg_ctx); 
+
+#define output_message_conxtex_setter_declaration(enum_name, string_name, property_type, token_name, default_value, type_enum) \
+  CT_EXTERN void ct_message_context_set_##token_name(ct_message_context_t* msg_ctx, property_type val); 
+
+get_message_property_list(output_message_context_getter_declaration)
+get_message_property_list(output_message_conxtex_setter_declaration)
 
 // =============================================================================
 // Callbacks - Connection and Listener callback structures
@@ -863,24 +783,6 @@ struct ct_framer_impl_s {
 // =============================================================================
 
 // =============================================================================
-// Public API Functions
-// =============================================================================
-
-/**
- * @brief Set a selection property value directly.
- * @param[in,out] selection_properties structure to modify
- * @param[in] property Which property to set
- * @param[in] value Property value
- */
-CT_EXTERN void ct_selection_properties_set(ct_selection_properties_t* selection_properties, ct_selection_property_enum_t property, ct_selection_property_value_t value);
-
-/**
- * @brief Free resources in selection properties.
- * @param[in] selection_properties structure to free
- */
-CT_EXTERN void ct_selection_properties_free(ct_selection_properties_t* selection_properties);
-
-// =============================================================================
 // Message Properties
 // =============================================================================
 
@@ -901,22 +803,6 @@ CT_EXTERN ct_message_properties_t* ct_message_properties_new(void);
  */
 CT_EXTERN void ct_message_properties_free(ct_message_properties_t* message_properties);
 
-// Certificate bundles
-typedef struct ct_certificate_bundles_s ct_certificate_bundles_t;
-
-CT_EXTERN ct_certificate_bundles_t* ct_certificate_bundles_new(void);
-
-CT_EXTERN int ct_certificate_bundles_add_cert(ct_certificate_bundles_t* bundles, const char* cert_file_path, const char* key_file_path);
-
-CT_EXTERN void ct_certificate_bundles_free(ct_certificate_bundles_t* bundles);
-
-typedef struct ct_byte_array_s ct_byte_array_t;
-
-CT_EXTERN ct_byte_array_t* ct_byte_array_new_from_data(const uint8_t* data, size_t length);
-
-CT_EXTERN void ct_byte_array_free(ct_byte_array_t* byte_array);
-
-
 // Security Parameters
 /**
  * @brief Allocate a new security parameters object on the heap.
@@ -928,38 +814,7 @@ CT_EXTERN ct_security_parameters_t* ct_security_parameters_new(void);
  * @brief Free resources in security parameters including the structure itself.
  * @param[in] security_parameters structure to free
  */
-CT_EXTERN void ct_sec_param_free(ct_security_parameters_t* security_parameters);
-
-
-// TODO - change these to be per-value not per-type
-/**
- * @brief Set a string array security parameter (e.g., ALPN, ciphersuites).
- * @param[in,out] security_parameters structure to modify
- * @param[in] property Which security parameter to set
- * @param[in] strings Array of string values
- * @param[in] num_strings Number of strings in the array
- * @return 0 on success, non-zero on error
- */
-CT_EXTERN int ct_sec_param_set_property_string_array(ct_security_parameters_t* security_parameters, ct_security_property_enum_t property, const char** strings, size_t num_strings);
-
-CT_EXTERN int ct_sec_param_set_property_certificate_bundles(ct_security_parameters_t* security_parameters, ct_security_property_enum_t property, ct_certificate_bundles_t* bundles);
-
-CT_EXTERN int ct_sec_param_set_property_byte_array(ct_security_parameters_t* security_parameters, ct_security_property_enum_t property, const ct_byte_array_t* byte_array);
-
-CT_EXTERN int ct_sec_param_set_ticket_store_path(ct_security_parameters_t* security_parameters, const char* ticket_store_path);
-
-CT_EXTERN int ct_sec_param_set_server_name_identification(ct_security_parameters_t* security_parameters, const char* sni);
-
-CT_EXTERN int ct_sec_param_set_session_ticket_encryption_key(ct_security_parameters_t* security_parameters, const ct_byte_array_t* key);
-
-CT_EXTERN const char* ct_sec_param_get_ticket_store_path(const ct_security_parameters_t* security_parameters);
-
-CT_EXTERN const char** ct_sec_param_get_alpn_strings(const ct_security_parameters_t* security_parameters, size_t* out_num_strings);
-
-CT_EXTERN const ct_byte_array_t* ct_sec_param_get_session_ticket_encryption_key(const ct_security_parameters_t* security_parameters);
-
-CT_EXTERN const char* ct_sec_param_get_server_name_identification(const ct_security_parameters_t* security_parameters);
-
+CT_EXTERN void ct_security_parameters_free(ct_security_parameters_t* security_parameters);
 
 // ==============================================================================
 // ENDPOINT OWNERSHIP MODEL
@@ -1049,12 +904,6 @@ CT_EXTERN int ct_local_endpoint_with_service(ct_local_endpoint_t* local_endpoint
  * @param[in] local_endpoint Endpoint to free
  */
 CT_EXTERN void ct_local_endpoint_free(ct_local_endpoint_t* local_endpoint);
-
-/**
- * @brief Free string fields in a local endpoint without freeing the structure.
- * @param[in] local_endpoint Endpoint whose strings to free
- */
-CT_EXTERN void ct_local_endpoint_free_strings(ct_local_endpoint_t* local_endpoint);
 
 /**
  * @brief Create a heap-allocated copy of a local endpoint.
@@ -1227,7 +1076,7 @@ CT_EXTERN void ct_message_set_content(ct_message_t* message, const char* content
  * @brief Initialize a message context with default values.
  * @param[out] message_context Context structure to initialize
  */
-CT_EXTERN ct_message_context_t* ct_message_context_new();
+CT_EXTERN ct_message_context_t* ct_message_context_new(void);
 
 
 
@@ -1265,12 +1114,6 @@ CT_EXTERN const ct_remote_endpoint_t* ct_message_context_get_remote_endpoint(con
  */
 CT_EXTERN const ct_local_endpoint_t* ct_message_context_get_local_endpoint(const ct_message_context_t* message_context);
 
-CT_EXTERN void ct_message_context_set_capacity_profile(ct_message_context_t* message_context, ct_capacity_profile_enum_t value);
-
-CT_EXTERN void ct_message_context_set_safely_replayable(ct_message_context_t* message_context, bool value);
-
-CT_EXTERN void ct_message_context_set_final(ct_message_context_t* message_context, bool value);
-
 /**
  * @brief Create a new preconnection with transport properties and endpoints.
  *
@@ -1286,7 +1129,7 @@ CT_EXTERN void ct_message_context_set_final(ct_message_context_t* message_contex
  */
 CT_EXTERN ct_preconnection_t* ct_preconnection_new(
     const ct_remote_endpoint_t* remote_endpoints,
-    const size_t num_remote_endpoints,
+    size_t num_remote_endpoints,
     const ct_transport_properties_t* transport_properties,
     const ct_security_parameters_t* security_parameters);
 
@@ -1321,12 +1164,6 @@ CT_EXTERN void ct_preconnection_set_local_endpoint(ct_preconnection_t* preconnec
  * @param[in] framer_impl Framer implementation to use, or NULL for no framing
  */
 CT_EXTERN void ct_preconnection_set_framer(ct_preconnection_t* preconnection, ct_framer_impl_t* framer_impl);
-
-/**
- * @brief Free resources in a preconnection.
- * @param[in] preconnection Preconnection to free
- */
-CT_EXTERN void ct_preconnection_free(ct_preconnection_t* preconnection);
 
 /**
  * @brief Initiate a connection
@@ -1634,13 +1471,6 @@ CT_EXTERN void ct_listener_close(ct_listener_t* listener);
  * @param[in] listener Listener to free
  */
 CT_EXTERN void ct_listener_free(ct_listener_t* listener);
-
-/**
- * @brief Get the local endpoint a listener is bound to.
- * @param[in] listener The listener
- * @return Local endpoint structure (copy)
- */
-ct_local_endpoint_t ct_listener_get_local_endpoint(const ct_listener_t* listener);
 
 // =============================================================================
 // Connection functions

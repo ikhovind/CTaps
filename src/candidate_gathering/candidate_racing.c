@@ -228,7 +228,8 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
     // So to make sure that this connection attempt uses the ALPN from the candidate node
     // we just overwrite this (deeply copied) ALPN value
     // The old ALPN value is freed in the setter.
-    ct_sec_param_set_property_string_array(attempt->connection->security_parameters, ALPN, (const char**)&attempt->candidate.protocol_candidate->alpn, 1);
+    ct_security_parameters_clear_alpn(attempt->connection->security_parameters);
+    ct_security_parameters_add_alpn(attempt->connection->security_parameters, attempt->candidate.protocol_candidate->alpn);
   }
 
   int rc = 0;
@@ -340,10 +341,13 @@ static void cancel_all_other_attempts(ct_racing_context_t* context, size_t winni
       attempt->connection->connection_callbacks.closed = raced_connection_close_cb;
       ct_connection_close_group(attempt->connection);
     }
-    if (attempt->state == ATTEMPT_STATE_PENDING) {
+    else if (attempt->state == ATTEMPT_STATE_PENDING) {
       // This attempt hasn't started yet, so just mark it as canceled
       log_debug("Marking pending attempt %zu as canceled", i);
       register_canceled_attempt(context, attempt);
+    }
+    else {
+      log_debug("Not handling attempt %zu with state %d in cancel_all_other_attempts", i, attempt->state);
     }
   }
 

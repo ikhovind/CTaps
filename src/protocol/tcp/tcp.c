@@ -3,6 +3,7 @@
 
 #include "connection/connection.h"
 #include "connection/connection_group.h"
+#include "connection/listener.h"
 #include "endpoint/remote_endpoint.h"
 #include "endpoint/local_endpoint.h"
 #include "protocol/common/socket_utils.h"

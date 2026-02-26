@@ -5,6 +5,13 @@
 #include <stdint.h>
 #include <string.h>
 
+#define create_con_property_initializer(enum_name, string_name, property_type, token_name, default_value, type_name) \
+  [enum_name] = {                                                          \
+    .name = (string_name),                                                   \
+    .type = (type_name), \
+    .value = { (uint32_t)(default_value) }                     \
+},
+
 const ct_connection_property_t DEFAULT_CONNECTION_PROPERTIES[] = {
     get_writable_connection_property_list(create_con_property_initializer)
     get_read_only_connection_properties(create_con_property_initializer)

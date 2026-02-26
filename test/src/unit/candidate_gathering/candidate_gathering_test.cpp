@@ -204,10 +204,11 @@ TEST_F(CandidateGatheringTest, GivesNoCandidateNodesWhenAllProtocolsProhibited) 
 TEST_F(CandidateGatheringTest, AlpnIsOnlySetWhenSupportedByProtocol) {
     ct_security_parameters_t* sec = ct_security_parameters_new();
     const char* alpns[] = { "simple-ping", "complicated-ping" };
-    ct_sec_param_set_property_string_array(sec, ALPN, alpns, 2);
+    ct_security_parameters_add_alpn(sec, alpns[0]);
+    ct_security_parameters_add_alpn(sec, alpns[1]);
 
     BuildPreconnection(sec);
-    ct_sec_param_free(sec);
+    ct_security_parameters_free(sec);
 
     GArray* candidates = GatherCandidates();
     // QUIC (ALPN): 2 local * 2 ALPNs × 1 protos = 4

@@ -41,6 +41,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Failed to allocate remote endpoint\n");
         return 1;
     }
+
     ct_remote_endpoint_with_hostname(remote_endpoint, client_ctx.host);
     ct_remote_endpoint_with_port(remote_endpoint, client_ctx.port);
 
@@ -63,22 +64,19 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     char* alpn_strings = "benchmark";
-    ct_sec_param_set_property_string_array(security_parameters, ALPN, &alpn_strings, 1);
+    ct_security_parameters_add_alpn(security_parameters, alpn_strings);
 
-    ct_certificate_bundles_t* client_bundles = ct_certificate_bundles_new();
-    ct_certificate_bundles_add_cert(client_bundles, RESOURCE_FOLDER "/cert.pem", RESOURCE_FOLDER "/key.pem");
-    ct_sec_param_set_property_certificate_bundles(security_parameters, CLIENT_CERTIFICATE, client_bundles);
-    ct_certificate_bundles_free(client_bundles);
+    ct_security_parameters_add_client_certificate(security_parameters, RESOURCE_FOLDER "/cert.pem", RESOURCE_FOLDER "/key.pem");
 
     ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, security_parameters);
     if (!preconnection) {
         fprintf(stderr, "Failed to allocate preconnection\n");
-        ct_sec_param_free(security_parameters);
+        ct_security_parameters_free(security_parameters);
         ct_transport_properties_free(transport_properties);
         ct_remote_endpoint_free(remote_endpoint);
         return 1;
     }
-    ct_sec_param_free(security_parameters);
+    ct_security_parameters_free(security_parameters);
 
     ct_connection_callbacks_t connection_callbacks = {
         .ready = on_connection_ready,

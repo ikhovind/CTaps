@@ -3,6 +3,13 @@
 #include <stdint.h>
 #include <ctaps.h>
 
+
+/**
+ * @brief Free string fields in a local endpoint without freeing the structure.
+ * @param[in] local_endpoint Endpoint whose strings to free
+ */
+void ct_local_endpoint_free_strings(ct_local_endpoint_t* local_endpoint);
+
 void ct_local_endpoint_build(ct_local_endpoint_t* local_endpoint);
 
 int32_t local_endpoint_get_service_port(const ct_local_endpoint_t* local_endpoint);

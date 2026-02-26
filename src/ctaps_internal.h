@@ -1,7 +1,7 @@
 #ifndef CT_CTAPS_INTERNAL_H
 #define CT_CTAPS_INTERNAL_H
-#include "glib.h"
-#include <ctaps.h>
+#include "ctaps.h"
+#include <glib.h>
 #include <uv.h>
 
 extern uv_loop_t* event_loop;
@@ -64,16 +64,46 @@ typedef struct ct_message_s {
 // =============================================================================
 // Security Parameters Internal Definitions
 // =============================================================================
+//
 
 /**
- * @brief Type of value stored in a security parameter.
+ * @brief Union holding security parameter values.
+ * Opaque type - full definition is in ctaps_internal.h.
  */
-typedef enum ct_sec_property_type_e {
-  TYPE_STRING_ARRAY,  ///< Array of strings (e.g., ALPN protocols, cipher suites)
-  TYPE_CERTIFICATE_BUNDLES,  ///< ct_certificate_bundles_t for certificate configuration
-  TYPE_STRING,  ///< Single string value
-  TYPE_BYTE_ARRAY  ///< Byte array value
-} ct_sec_property_type_t;
+typedef union ct_sec_property_value_u ct_sec_property_value_t;
+
+/**
+ * @brief A single security parameter.
+ * Opaque type - full definition is in ctaps_internal.h.
+ */
+typedef struct ct_sec_property_s ct_security_parameter_t;
+
+// clang-format off
+#define get_security_parameter_scalar_list(f)                                                                                                           \
+f(TICKET_STORE_PATH,          "ticketStorePath",          char*,                     ticket_store_path,          NULL, TYPE_STRING)              \
+f(SERVER_NAME_IDENTIFICATION, "serverNameIdentification", char*,                     server_name_identification, NULL, TYPE_STRING)
+
+#define get_security_parameter_array_list(f)                                                                                                            \
+f(SUPPORTED_GROUP,               "supportedGroup",             ct_string_array_t*,        supported_group,               NULL, TYPE_STRING_ARRAY)        \
+f(CIPHERSUITE,                   "ciphersuite",                ct_string_array_t*,        ciphersuite,                   NULL, TYPE_STRING_ARRAY)        \
+f(SERVER_CERTIFICATE,            "serverCertificate",          ct_certificate_bundles_t*, server_certificate,            NULL, TYPE_CERTIFICATE_BUNDLES) \
+f(CLIENT_CERTIFICATE,            "clientCertificate",          ct_certificate_bundles_t*, client_certificate,            NULL, TYPE_CERTIFICATE_BUNDLES) \
+f(SIGNATURE_ALGORITHM,           "signatureAlgorithm",         ct_string_array_t*,        signature_algorithm,           NULL, TYPE_STRING_ARRAY)        \
+f(ALPN,                          "alpn",                       ct_string_array_t*,        alpn,                          NULL, TYPE_STRING_ARRAY)        \
+f(SESSION_TICKET_ENCRYPTION_KEY, "sessionTicketEncryptionKey", ct_byte_array_t*,          session_ticket_encryption_key, NULL, TYPE_BYTE_ARRAY)
+// clang-format on
+
+/**
+ * @brief Enumeration of all available security parameters.
+ */
+typedef enum { 
+  get_security_parameter_array_list(output_enum) 
+  get_security_parameter_scalar_list(output_enum)
+  SEC_PROPERTY_END 
+} ct_security_property_enum_t;
+
+
+
 
 typedef struct ct_certificate_bundle_s {
   char* certificate_file_name;
@@ -105,10 +135,10 @@ ct_string_array_t* ct_string_array_value_new(char** strings, size_t num_strings)
  * @brief Union holding security parameter values.
  */
 typedef union ct_sec_property_value_u {
-  ct_string_array_t* array_of_strings;  ///< For TYPE_STRING_ARRAY properties
-  ct_certificate_bundles_t* certificate_bundles; ///< For TYPE_CERTIFICATE_BUNDLES properties
+  ct_string_array_t array_of_strings;  ///< For TYPE_STRING_ARRAY properties
+  ct_certificate_bundles_t certificate_bundles; ///< For TYPE_CERTIFICATE_BUNDLES properties
   char* string;                         ///< For TYPE_STRING properties
-  ct_byte_array_t* byte_array;          ///< For TYPE_BYTE_ARRAY properties
+  ct_byte_array_t byte_array;          ///< For TYPE_BYTE_ARRAY properties
 } ct_sec_property_value_t;
 
 /**
@@ -116,7 +146,7 @@ typedef union ct_sec_property_value_u {
  */
 typedef struct ct_sec_property_s {
   char* name;                        ///< Parameter name string
-  ct_sec_property_type_t type;       ///< Type of value stored
+  ct_property_type_t type;       ///< Type of value stored
   bool set_by_user;                  ///< True if user explicitly set this parameter
   ct_sec_property_value_t value;     ///< Parameter value
 } ct_security_parameter_t;
@@ -125,26 +155,72 @@ typedef struct ct_sec_property_s {
  * @brief Collection of all security parameters.
  */
 typedef struct ct_security_parameters_s {
-  ct_security_parameter_t security_parameters[SEC_PROPERTY_END];  ///< Array of security parameters
+  ct_security_parameter_t list[SEC_PROPERTY_END];  ///< Array of security parameters
 } ct_security_parameters_t;
 
-#define create_sec_property_initializer(enum_name, string_name, property_type) \
-{                                                                              \
-    .name = string_name,                                                       \
-    .type = property_type,                                                     \
+#define create_sec_property_initializer(enum_name, string_name, property_type, token_name, default_value, type_tag) \
+  [enum_name] = {                                                          \
+    .name = (string_name),                                                       \
+    .type = (type_tag),                                                     \
     .set_by_user = false,                                                      \
-    .value = {0}                                                               \
+    .value = {{0}}                                                               \
 },
 
 static const ct_security_parameters_t DEFAULT_SECURITY_PARAMETERS = {
-  .security_parameters = {
-    get_security_parameter_list(create_sec_property_initializer)
+  .list = {
+    get_security_parameter_array_list(create_sec_property_initializer)
+    get_security_parameter_scalar_list(create_sec_property_initializer)
   }
 };
+
 
 // =============================================================================
 // Transport Properties Internal Definitions
 // =============================================================================
+
+typedef struct ct_preference_combination_s {
+  char* value;
+  ct_selection_preference_t preference;
+} ct_preference_combination_t;
+
+typedef struct ct_preference_set_s {
+  ct_preference_combination_t* combinations;
+  size_t num_combinations;
+} ct_preference_set_t;
+
+/**
+ * @brief Enumeration of all available selection properties.
+ *
+ * These properties control protocol selection by expressing preferences and requirements
+ * for transport characteristics like reliability, ordering, and multistreaming.
+ */
+typedef enum { 
+  get_selection_property_list(output_enum) 
+  get_preference_set_selection_property_list(output_enum)
+  SELECTION_PROPERTY_END
+} ct_selection_property_enum_t;
+
+/**
+ * @brief Union holding the value of a selection property.
+ */
+typedef union {
+  ct_selection_preference_t simple_preference;              ///< For TYPE_PREFERENCE properties
+  ct_preference_set_t preference_set_val;                                     ///< For TYPE_PREFERENCE_SET properties
+  uint32_t enum_val;
+  bool bool_val;                                             ///< For TYPE_BOOLEAN properties
+} ct_selection_property_value_t;
+
+/**
+ * @brief A single transport selection property.
+ */
+typedef struct ct_selection_property_s {
+  char* name;                              ///< Property name string
+  bool set_by_user;                        ///< True if user explicitly set this property
+  ct_property_type_t type;
+  ct_selection_property_value_t value;     ///< Property value
+} ct_selection_property_t;
+
+
 /**
  * @brief Collection of all transport selection properties.
  *
@@ -158,18 +234,22 @@ typedef struct ct_selection_properties_s {
 
 extern const ct_selection_properties_t DEFAULT_SELECTION_PROPERTIES;
 
-// =============================================================================
-// Message Properties - Properties for individual messages
-// =============================================================================
+
+/**
+ * @brief Enumeration of all available message properties.
+ */
+typedef enum { get_message_property_list(output_enum) MESSAGE_PROPERTY_END } ct_message_properties_enum_t;
+
+
 
 /**
  * @brief Union holding message property values.
  */
 typedef union {
-  uint32_t uint32_value;
-  bool boolean_value;
-  uint64_t uint64_value;
-  ct_capacity_profile_enum_t capacity_profile_enum_value;
+  uint32_t uint32_val;
+  bool bool_val;
+  uint64_t uint64_val;
+  uint32_t enum_val;
 } ct_message_property_value_t;
 
 /**
@@ -205,6 +285,20 @@ static const ct_message_properties_t DEFAULT_MESSAGE_PROPERTIES = {
   }
 };
 
+
+
+/**
+ * @brief Enumeration of all available connection properties.
+ *
+ * Includes writable properties (configurable), read-only properties (status),
+ * and TCP-specific properties.
+ */
+typedef enum {
+  get_writable_connection_property_list(output_enum)
+  get_read_only_connection_properties(output_enum)
+  get_tcp_connection_properties(output_enum)
+  CONNECTION_PROPERTY_END
+} ct_connection_property_enum_t;
 
 /**
  * @brief Union holding connection property values.
