@@ -116,6 +116,12 @@ TEST(SecurityParametersTest, clearAlpnClearsPreviousValue) {
     ct_security_parameters_free(params);
 }
 
+TEST(SecurityParametersTest, clearAlpnHandlesNullPointer) {
+    int result = ct_security_parameters_clear_alpn(nullptr);
+
+    ASSERT_NE(result, 0);
+}
+
 // =============================================================================
 // Certificate Bundles Setter Tests
 // =============================================================================
@@ -378,11 +384,13 @@ TEST(SecurityParametersTest, CopiesZeroLengthByteArray) {
     src->list[SESSION_TICKET_ENCRYPTION_KEY].set_by_user = true;
     src->list[SESSION_TICKET_ENCRYPTION_KEY].value.byte_array.bytes = NULL;
     src->list[SESSION_TICKET_ENCRYPTION_KEY].value.byte_array.length = 0;
+    src->list[SESSION_TICKET_ENCRYPTION_KEY].set_by_user = true;
 
     ct_security_parameters_t* copy = ct_security_parameters_deep_copy(src);
     ASSERT_NE(copy, nullptr);
     EXPECT_EQ(copy->list[SESSION_TICKET_ENCRYPTION_KEY].value.byte_array.length, 0);
     EXPECT_TRUE(copy->list[SESSION_TICKET_ENCRYPTION_KEY].set_by_user);
+    ASSERT_EQ(copy->list[SESSION_TICKET_ENCRYPTION_KEY].value.byte_array.bytes, nullptr);
 
     ct_security_parameters_free(src);
     ct_security_parameters_free(copy);

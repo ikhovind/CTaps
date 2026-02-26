@@ -1,9 +1,9 @@
 #include "ctaps.h"
 #include "ctaps_internal.h"
 #include "selection_properties.h"
-
 #include <logging/log.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define create_sel_property_initializer(enum_name, string_name, property_type, function_name, default_value, type_enum) \
