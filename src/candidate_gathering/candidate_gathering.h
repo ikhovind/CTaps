@@ -45,6 +45,7 @@ typedef struct ct_gather_context_s {
     GNode* root_node;
     const ct_preconnection_t* preconnection;
     size_t pending_resolutions;
+    size_t num_in_flight;
     ct_candidate_gathering_callbacks_t gathering_callbacks;
     bool failed;
 } ct_gather_context_t;

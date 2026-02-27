@@ -433,36 +433,42 @@ int build_candidate_tree(ct_gather_context_t* gather_context) {
   leaves = NULL;
 
   g_node_traverse(root_node, G_IN_ORDER, G_TRAVERSE_LEAVES, -1, collect_leaves, &leaves);
-  gather_context->pending_resolutions = g_list_length(leaves);
-  if (gather_context->pending_resolutions == 0) {
-    log_trace("No remote endpoint resolutions needed, candidate tree is complete");
+  // We have this early check to make sure we invoke the completion callback no matter what
+  if (g_list_length(leaves) == 0) {
+    log_trace("No candidate leaf nodes found after branching by protocol options, finishing candidate tree building");
     build_candidate_tree_is_complete_cb(gather_context);
     return 0;
   }
+
+  gather_context->pending_resolutions = g_list_length(leaves) * precon->num_remote_endpoints;
   for (GList* iter = leaves; iter != NULL; iter = iter->next) {
     GNode* leaf_node = (GNode*)iter->data;
-    ct_remote_resolve_call_context_t* context = ct_remote_resolve_call_context_new(leaf_node, gather_context);
-    if (!context) {
-      log_error("Could not create context for remote endpoint resolution");
-      gather_context->failed = true;
-      gather_context->pending_resolutions -= g_list_length(iter);
-      if (gather_context->pending_resolutions == 0) {
-        build_candidate_tree_is_complete_cb(gather_context);
+    for (size_t precon_remote = 0; precon_remote < precon->num_remote_endpoints; precon_remote++) {
+      ct_remote_resolve_call_context_t* context = ct_remote_resolve_call_context_new(leaf_node, gather_context);
+      if (!context) {
+        log_error("Could not create context for remote endpoint resolution");
+        gather_context->failed = true;
+        gather_context->pending_resolutions = gather_context->num_in_flight;
+        if (gather_context->pending_resolutions == 0) {
+          build_candidate_tree_is_complete_cb(gather_context);
+        }
+        g_list_free(leaves);
+        return -ENOMEM;
       }
-      g_list_free(leaves);
-      return -ENOMEM;
-    }
-    int rc = branch_by_remote(leaf_node, precon->remote_endpoints, context);
-    if (rc != 0) {
-      log_error("Error branching by remote endpoint: %d", rc);
-      ct_remote_resolve_call_context_free(context);
-      gather_context->failed = true;
-      gather_context->pending_resolutions -= g_list_length(iter);
-      if (gather_context->pending_resolutions == 0) {
-        build_candidate_tree_is_complete_cb(gather_context);
+      gather_context->num_in_flight++;
+      int rc = branch_by_remote(leaf_node, &precon->remote_endpoints[precon_remote], context);
+      if (rc != 0) {
+        gather_context->num_in_flight--;
+        log_error("Error branching by remote endpoint: %d", rc);
+        gather_context->failed = true;
+        gather_context->pending_resolutions = gather_context->num_in_flight;
+        if (gather_context->pending_resolutions == 0) {
+          build_candidate_tree_is_complete_cb(gather_context);
+        }
+        ct_remote_resolve_call_context_free(context);
+        g_list_free(leaves);
+        return rc;
       }
-      g_list_free(leaves);
-      return rc;
     }
   }
   g_list_free(leaves);
@@ -609,6 +615,7 @@ void ct_remote_endpoint_resolve_cb(ct_remote_endpoint_t* remote_endpoint, size_t
     free(remote_endpoint);
   }
 
+  context->gather_context->num_in_flight--;
   context->gather_context->pending_resolutions--;
   if (context->gather_context->pending_resolutions == 0) {
     log_trace("All remote endpoint resolutions complete");
@@ -691,6 +698,7 @@ int get_ordered_candidate_nodes(const ct_preconnection_t* precon, ct_candidate_g
   memset(gather_context, 0, sizeof(ct_gather_context_t));
   gather_context->gathering_callbacks = callbacks;
   gather_context->pending_resolutions = 0;
+  gather_context->num_in_flight = 0;
   gather_context->root_node = NULL;
   gather_context->preconnection = precon;
 

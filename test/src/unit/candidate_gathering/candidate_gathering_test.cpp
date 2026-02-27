@@ -130,6 +130,28 @@ TEST_F(CandidateGatheringTest, CreatesAndResolvesFullTree) {
     free_candidate_array(candidates);
 }
 
+TEST_F(CandidateGatheringTest, resolvesMultipleRemotes) {
+    BuildPreconnection();
+    preconnection->num_remote_endpoints += 1;
+    preconnection->remote_endpoints = (ct_remote_endpoint_t*)realloc(preconnection->remote_endpoints, sizeof(ct_remote_endpoint_t) * preconnection->num_remote_endpoints);
+    memset(&preconnection->remote_endpoints[1], 0, sizeof(ct_remote_endpoint_t));
+
+    ct_remote_endpoint_with_hostname(&preconnection->remote_endpoints[1], "test2.com");
+
+
+    GArray* candidates = GatherCandidates();
+    ASSERT_NE(candidates, nullptr);
+    EXPECT_EQ(candidates->len, 2 * 3 * 2); // 2 local, 3 protocols, 2 remote
+
+    EXPECT_EQ(faked_ct_local_endpoint_resolve_fake.call_count, 1);
+    EXPECT_EQ(faked_ct_remote_endpoint_resolve_fake.call_count, 12);
+
+    ct_candidate_node_t first = g_array_index(candidates, ct_candidate_node_t, 0);
+    EXPECT_EQ(first.type, NODE_TYPE_ENDPOINT);
+
+    free_candidate_array(candidates);
+}
+
 TEST_F(CandidateGatheringTest, PrunesPathAndProtocol) {
     ct_transport_properties_set_reliability(props, REQUIRE); // UDP pruned
     int rc = ct_transport_properties_add_interface_preference(props, "Ethernet", REQUIRE);
