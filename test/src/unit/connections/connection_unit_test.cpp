@@ -5,6 +5,7 @@ extern "C" {
 #include "fff.h"
 #include "ctaps.h"
 #include "ctaps_internal.h"
+#include "connection/connection_group.h"
 #include <connection/socket_manager/socket_manager.h>
 #include <message/message.h>
 #include <connection/connection.h>
@@ -46,7 +47,9 @@ protected:
 
         dummy_connection.socket_manager = &dummy_socket_manager;
         dummy_connection.local_endpoint = &dummy_local_endpoint;
-        dummy_connection.remote_endpoint = &dummy_remote_endpoint;
+        dummy_connection.all_remote_endpoints = &dummy_remote_endpoint;
+        dummy_connection.num_remote_endpoints = 1;
+        dummy_connection.active_remote_endpoint = 0;
         dummy_connection.properties.priority = CT_CONNECTION_DEFAULT_PRIORITY;
 
         dummy_socket_manager.protocol_impl = &dummy_protocol_impl;
@@ -78,7 +81,8 @@ protected:
             // Avoid freeing stack-allocated dummy data
             clone->socket_manager = nullptr;
             clone->local_endpoint = nullptr;
-            clone->remote_endpoint = nullptr;
+            clone->all_remote_endpoints = nullptr;
+            clone->num_remote_endpoints = 0;
             clone->connection_group = nullptr;
             ct_connection_free(clone);
         }
@@ -319,7 +323,7 @@ TEST_F(ConnectionUnitTests, cloneSocketManagerIsSetWhenProvided) {
 
     ASSERT_EQ(__wrap_socket_manager_insert_connection_fake.call_count, 1);
     ASSERT_EQ(__wrap_socket_manager_insert_connection_fake.arg0_val, &dummy_socket_manager);
-    ASSERT_EQ(__wrap_socket_manager_insert_connection_fake.arg1_val, clone->remote_endpoint);
+    ASSERT_EQ(__wrap_socket_manager_insert_connection_fake.arg1_val, &clone->all_remote_endpoints[clone->active_remote_endpoint]);
     ASSERT_EQ(__wrap_socket_manager_insert_connection_fake.arg2_val, clone);
 
     ASSERT_EQ(__wrap_ct_socket_manager_ref_fake.call_count, 1);

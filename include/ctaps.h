@@ -912,13 +912,6 @@ CT_EXTERN void ct_local_endpoint_free(ct_local_endpoint_t* local_endpoint);
 ct_local_endpoint_t* local_endpoint_copy(const ct_local_endpoint_t* local_endpoint);
 
 /**
- * @brief Create a stack copy of a local endpoint's content.
- * @param[in] local_endpoint Source endpoint
- * @return Copy of the endpoint structure
- */
-ct_local_endpoint_t ct_local_endpoint_copy_content(const ct_local_endpoint_t* local_endpoint);
-
-/**
  * @brief Resolve a local endpoint to concrete addresses.
  * @param[in] local_endpoint Endpoint to resolve
  * @param[out] out_list Output array of resolved endpoints (caller must free)
@@ -1000,13 +993,6 @@ CT_EXTERN int ct_remote_endpoint_from_sockaddr(ct_remote_endpoint_t* remote_endp
  * @return Pointer to newly allocated copy, or NULL on error
  */
 ct_remote_endpoint_t* ct_remote_endpoint_deep_copy(const ct_remote_endpoint_t* remote_endpoint);
-
-/**
- * @brief Create a stack copy of a remote endpoint's content.
- * @param[in] remote_endpoint Source endpoint
- * @return Copy of the endpoint structure
- */
-ct_remote_endpoint_t ct_remote_endpoint_copy_content(const ct_remote_endpoint_t* remote_endpoint);
 
 /**
  * @brief Set the IPv4 address for a remote endpoint.
@@ -1308,7 +1294,7 @@ CT_EXTERN const char* ct_connection_get_protocol_name(const ct_connection_t* con
  * @param[in] connection connection to get remote endpoint for
  * @return Pointer to remote endpoint, NULL of connection is NULL 
  */
-CT_EXTERN const ct_remote_endpoint_t* ct_connection_get_remote_endpoint(const ct_connection_t* connection);
+CT_EXTERN const ct_remote_endpoint_t* ct_connection_get_active_remote_endpoint(const ct_connection_t* connection);
 
 /**
  * @brief Check if a connection is established.

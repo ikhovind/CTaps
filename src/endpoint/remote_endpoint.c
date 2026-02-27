@@ -184,21 +184,39 @@ void ct_remote_endpoint_free(ct_remote_endpoint_t* remote_endpoint) {
   free(remote_endpoint);
 }
 
-ct_remote_endpoint_t ct_remote_endpoint_copy_content(const ct_remote_endpoint_t* remote_endpoint) {
-  ct_remote_endpoint_t res = {0};
-  res = *remote_endpoint;
-  if (remote_endpoint->hostname) {
-    res.hostname = strdup(remote_endpoint->hostname);
+int ct_remote_endpoint_copy_content(const ct_remote_endpoint_t* src, ct_remote_endpoint_t* dest) {
+  memset(dest, 0, sizeof(ct_remote_endpoint_t));
+  *dest = *src;
+  dest->service = NULL;
+  dest->hostname = NULL;
+  if (src->hostname) {
+    dest->hostname = strdup(src->hostname);
+    if (!dest->hostname) {
+      log_error("Could not allocate memory for hostname in copy_content2");
+      return -ENOMEM;
+    }
   }
-  if (remote_endpoint->service) {
-    res.service = strdup(remote_endpoint->service);
+  if (src->service) {
+    dest->service = strdup(src->service);
+    if (!dest->service) {
+      log_error("Could not allocate memory for service in copy_content2");
+      free(dest->hostname);
+      dest->hostname = NULL;
+      return -ENOMEM;
+    }
   }
-  return res;
+  return 0;
 }
 
 ct_remote_endpoint_t* ct_remote_endpoint_deep_copy(const ct_remote_endpoint_t* remote_endpoint) {
   ct_remote_endpoint_t* res = malloc(sizeof(ct_remote_endpoint_t));
-  *res = ct_remote_endpoint_copy_content(remote_endpoint);
+  int rc = ct_remote_endpoint_copy_content(remote_endpoint, res);
+  if (rc != 0) {
+    log_error("Failed to copy content for remote endpoint: %s", strerror(-rc));
+    free(res);
+    return NULL;
+  }
+
   return res;
 }
 
@@ -216,4 +234,35 @@ const struct sockaddr_storage* remote_endpoint_get_resolved_address(const ct_rem
     return NULL;
   }
   return &remote_endpoint->data.resolved_address;
+}
+
+ct_remote_endpoint_t* ct_remote_endpoints_deep_copy(const ct_remote_endpoint_t* remote_endpoints, size_t num_remote_endpoints) {
+  if (!remote_endpoints || num_remote_endpoints == 0) {
+    return NULL;
+  }
+  ct_remote_endpoint_t* res = malloc(sizeof(ct_remote_endpoint_t) * num_remote_endpoints);
+  if (!res) {
+    log_error("Failed to allocate memory for deep copy of remote endpoints");
+    return NULL;
+  }
+  for (size_t i = 0; i < num_remote_endpoints; i++) {
+    int rc = ct_remote_endpoint_copy_content(&remote_endpoints[i], &res[i]);
+    if (rc != 0) {
+      log_error("Failed to copy content for remote endpoint at index %zu: %s", i, strerror(-rc));
+      // Free any previously copied endpoints before returning
+      for (size_t j = 0; j < i; j++) {
+        ct_remote_endpoint_free_strings(&res[j]);
+      }
+      free(res);
+      return NULL;
+    }
+  }
+  return res;
+}
+
+void ct_remote_endpoints_free(ct_remote_endpoint_t* remote_endpoints, size_t num_remote_endpoints) {
+  for (size_t i = 0; i < num_remote_endpoints; i++) {
+    ct_remote_endpoint_free_strings(&remote_endpoints[i]);
+  }
+  free(remote_endpoints);
 }

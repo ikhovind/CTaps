@@ -131,19 +131,6 @@ void ct_local_endpoint_free(ct_local_endpoint_t* local_endpoint) {
   free(local_endpoint);
 }
 
-ct_local_endpoint_t ct_local_endpoint_copy_content(const ct_local_endpoint_t* local_endpoint) {
-  ct_local_endpoint_t res = {0};
-  res = *local_endpoint;
-
-  if (local_endpoint->interface_name) {
-    res.interface_name = strdup(local_endpoint->interface_name);
-  }
-  if (local_endpoint->service) {
-    res.service = strdup(local_endpoint->service);
-  }
-  return res;
-}
-
 ct_local_endpoint_t* ct_local_endpoint_deep_copy(const ct_local_endpoint_t* local_endpoint) {
   ct_local_endpoint_t* res = malloc(sizeof(ct_local_endpoint_t));
   if (!res) {
@@ -151,7 +138,12 @@ ct_local_endpoint_t* ct_local_endpoint_deep_copy(const ct_local_endpoint_t* loca
     return NULL;
   }
   memset(res, 0, sizeof(ct_local_endpoint_t));
-  *res = ct_local_endpoint_copy_content(local_endpoint);
+  int rc = ct_local_endpoint_copy_content(local_endpoint, res);
+  if (rc != 0) {
+    log_error("Failed to copy local endpoint content for deep copy: %s", strerror(-rc));
+    free(res);
+    return NULL;
+  }
   return res;
 }
 
@@ -198,4 +190,30 @@ void local_endpoint_set_resolved_address(ct_local_endpoint_t* local_endpoint, co
     return;
   }
   local_endpoint->data.resolved_address = *resolved_address;
+}
+
+int ct_local_endpoint_copy_content(const ct_local_endpoint_t* src, ct_local_endpoint_t* dest) {
+  if (!src || !dest) {
+    log_error("Cannot copy local endpoint content from or to NULL pointer");
+    return -EINVAL;
+  }
+  *dest = *src;
+  dest->service = NULL;
+  dest->interface_name = NULL;
+  if (src->service) {
+    dest->service = strdup(src->service);
+    if (!dest->service) {
+      log_error("Failed to allocate memory for local endpoint service copy");
+      return -ENOMEM;
+    }
+  }
+  if (src->interface_name) {
+    dest->interface_name = strdup(src->interface_name);
+    if (!dest->interface_name) {
+      log_error("Failed to allocate memory for local endpoint interface name copy");
+      free(dest->service);
+      return -ENOMEM;
+    }
+  }
+  return 0;
 }
