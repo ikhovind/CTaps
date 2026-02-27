@@ -493,6 +493,7 @@ typedef enum {
 
 typedef struct ct_per_connection_properties_s {
   ct_connection_state_enum_t state;
+  uint32_t priority;             ///< Relative priority of this compared to others in the same connection group, lower is higher
   bool can_receive;
   bool can_send;
 } ct_per_connection_properties_t;

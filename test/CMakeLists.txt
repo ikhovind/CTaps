@@ -138,6 +138,8 @@ add_gtest(connection_unit_test
     ct_message_context_deep_copy
     ct_message_context_free
     ct_message_free
+    socket_manager_insert_connection
+    ct_socket_manager_ref
 )
 
 add_gtest(socket_manager_unit_test

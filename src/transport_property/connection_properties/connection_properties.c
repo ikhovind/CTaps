@@ -160,30 +160,6 @@ bool ct_connection_properties_get_isolate_session(ct_connection_properties_t* co
   return conn_props->list[ISOLATE_SESSION].value.bool_val;
 }
 
-ct_connection_state_enum_t ct_connection_properties_get_state(ct_connection_properties_t* conn_props) {
-  if (!conn_props) {
-    log_warn("Null pointer passed to get_state");
-    return CONN_STATE_CLOSED;
-  }
-  return (ct_connection_state_enum_t)conn_props->list[STATE].value.enum_val;
-}
-
-bool ct_connection_properties_get_can_send(ct_connection_properties_t* conn_props) {
-  if (!conn_props) {
-    log_warn("Null pointer passed to get_can_send");
-    return false;
-  }
-  return conn_props->list[CAN_SEND].value.bool_val;
-}
-
-bool ct_connection_properties_get_can_receive(ct_connection_properties_t* conn_props) {
-  if (!conn_props) {
-    log_warn("Null pointer passed to get_can_receive");
-    return false;
-  }
-  return conn_props->list[CAN_RECEIVE].value.bool_val;
-}
-
 uint64_t ct_connection_properties_get_singular_transmission_msg_max_len(ct_connection_properties_t* conn_props) {
   if (!conn_props) {
     log_warn("Null pointer passed to get_singular_transmission_msg_max_len");

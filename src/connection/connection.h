@@ -7,7 +7,6 @@
 ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_impl,
                                              const ct_local_endpoint_t* local_endpoint,
                                              const ct_remote_endpoint_t* remote_endpoint,
-                                             const ct_transport_properties_t* transport_properties,
                                              const ct_security_parameters_t* security_parameters,
                                              const ct_connection_callbacks_t* connection_callbacks,
                                              ct_framer_impl_t* framer_impl);

@@ -30,6 +30,7 @@ ct_connection_t* ct_connection_create_empty_with_uuid(void) {
 
   connection->received_callbacks = g_queue_new();
   connection->received_messages = g_queue_new();
+  connection->properties.priority = CT_CONNECTION_DEFAULT_PRIORITY; // Default priority
   return connection;
 }
 
@@ -70,7 +71,6 @@ ct_connection_t* ct_connection_create_server_connection(ct_socket_manager_t* soc
 ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_impl,
                                              const ct_local_endpoint_t* local_endpoint,
                                              const ct_remote_endpoint_t* remote_endpoint,
-                                             const ct_transport_properties_t* transport_properties,
                                              const ct_security_parameters_t* security_parameters,
                                              const ct_connection_callbacks_t* connection_callbacks,
                                              ct_framer_impl_t* framer_impl) {
@@ -133,7 +133,6 @@ ct_connection_t* ct_connection_create_clone(const ct_connection_t* source_connec
                                             ct_framer_impl_t* framer_impl,
                                             void* internal_connection_state
                                             ) {
-  (void)socket_manager; // TODO - use socket manager for clone when we have protocols that need it
   ct_connection_t* clone = ct_connection_create_empty_with_uuid();
   if (!clone) {
     log_error("Failed to create empty connection for clone");
@@ -144,7 +143,8 @@ ct_connection_t* ct_connection_create_clone(const ct_connection_t* source_connec
   clone->security_parameters = ct_security_parameters_deep_copy(source_connection->security_parameters);
   clone->local_endpoint = ct_local_endpoint_deep_copy(source_connection->local_endpoint);
   clone->remote_endpoint = ct_remote_endpoint_deep_copy(source_connection->remote_endpoint);
-  clone->socket_manager = NULL;
+  // In the cases where a socket manager isn't provided, the protocol will insert
+  // a custom one to the new connection after cloning
   if (socket_manager) {
     clone->socket_manager = ct_socket_manager_ref(socket_manager);
     socket_manager_insert_connection(clone->socket_manager, clone->remote_endpoint, clone);
@@ -416,8 +416,12 @@ void ct_connection_free_content(ct_connection_t* connection) {
     connection->received_messages = NULL;
   }
 
-  ct_local_endpoint_free(connection->local_endpoint);
-  ct_remote_endpoint_free(connection->remote_endpoint);
+  if (connection->local_endpoint) {
+    ct_local_endpoint_free(connection->local_endpoint);
+  }
+  if (connection->remote_endpoint) {
+    ct_remote_endpoint_free(connection->remote_endpoint);
+  }
 
   // Free security parameters (connection owns a deep copy)
   if (connection->security_parameters) {
@@ -617,8 +621,12 @@ ct_connection_group_t* ct_connection_get_connection_group(const ct_connection_t*
 }
 
 const ct_connection_properties_t* ct_connection_get_connection_properties(const ct_connection_t* connection) {
-  if (!connection) {
+  if (!connection || !connection->connection_group || !connection->connection_group->transport_properties) {
     log_error("ct_get_connection_properties called with NULL connection");
+    log_debug("Connection pointer: %p, connection group pointer: %p, transport properties pointer: %p", 
+              (void*)connection, 
+              (void*)(connection ? connection->connection_group : NULL), 
+              (void*)(connection && connection->connection_group ? connection->connection_group->transport_properties : NULL));
     return NULL;
   }
   return &connection->connection_group->transport_properties->connection_properties;
@@ -680,4 +688,12 @@ const ct_transport_properties_t* ct_connection_get_transport_properties(const ct
     return NULL;
   }
   return connection->connection_group->transport_properties;
+}
+
+void ct_connection_set_priority(ct_connection_t* connection, uint32_t priority) {
+  if (!connection) {
+    log_error("ct_connection_set_priority called with NULL connection");
+    return;
+  }
+  connection->properties.priority = priority;
 }

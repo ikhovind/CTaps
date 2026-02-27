@@ -117,6 +117,10 @@ void ct_connection_group_free(ct_connection_group_t* group) {
     g_hash_table_destroy(group->connections);
     group->connections = NULL;
   }
+  if (group->transport_properties) {
+    ct_transport_properties_free(group->transport_properties);
+    group->transport_properties = NULL;
+  }
 
   free(group);
 }
@@ -245,6 +249,7 @@ ct_connection_group_t* ct_connection_group_new(void) {
   memset(group, 0, sizeof(ct_connection_group_t));
   generate_uuid_string(group->connection_group_id);
   group->connections = g_hash_table_new(g_str_hash, g_str_equal);
+  group->transport_properties = ct_transport_properties_new();
 
   return group;
 }
