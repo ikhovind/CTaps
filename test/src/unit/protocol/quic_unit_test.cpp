@@ -15,6 +15,8 @@ FAKE_VALUE_FUNC(int, __wrap_picoquic_set_stream_priority, picoquic_cnx_t*, uint6
 class QuicUnitTest : public ::testing::Test {
 protected:
     void SetUp() override {
+        RESET_FAKE(__wrap_picoquic_set_stream_priority);
+        FFF_RESET_HISTORY();
         dummy_group_state.picoquic_connection = dummy_cnx;
         dummy_group.connection_group_state = &dummy_group_state;
         dummy_connection.connection_group = &dummy_group;

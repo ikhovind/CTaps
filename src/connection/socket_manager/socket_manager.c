@@ -347,6 +347,11 @@ ct_socket_manager_t* ct_socket_manager_new(const ct_protocol_impl_t* protocol_im
 
   if (protocol_impl->protocol_enum == CT_PROTOCOL_UDP) {
     socket_manager->demux_table = g_hash_table_new(g_bytes_hash, g_bytes_equal);
+    if (!socket_manager->demux_table) {
+      log_error("Failed to create demux table for UDP socket manager");
+      free(socket_manager);
+      return NULL;
+    }
   }
   socket_manager->all_connections = NULL;
   socket_manager->callbacks.closed_connection = ct_socket_manager_closed_connection_cb;
@@ -375,5 +380,4 @@ int ct_socket_manager_notify_protocol_of_priority_change(ct_connection_t* connec
     log_debug("Protocol: %s does not support setting connection priority", socket_manager->protocol_impl->name);
     return -ENOTSUP;
   }
-  return 0;
 }

@@ -21,7 +21,7 @@ FAKE_VOID_FUNC(fake_on_sent, ct_connection_t*, ct_message_context_t*);
 FAKE_VOID_FUNC(fake_send_error, ct_connection_t*, ct_message_context_t*, int);
 FAKE_VOID_FUNC(__wrap_ct_message_free, ct_message_t*);
 FAKE_VOID_FUNC(__wrap_ct_message_context_free, ct_message_context_t*);
-FAKE_VALUE_FUNC(int, fake_set_connection_priority, ct_connection_t*, uint8_t)
+FAKE_VALUE_FUNC(int, fake_set_connection_priority, ct_connection_t*, uint8_t);
 }
 
 class SocketManagerUnitTests : public ::testing::Test {
