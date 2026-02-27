@@ -506,7 +506,9 @@ typedef struct ct_connection_s {
   ct_connection_group_t* connection_group;             ///< Connection group (never NULL)
   ct_security_parameters_t* security_parameters;       ///< Security configuration (TLS/QUIC, owned copy)
   ct_local_endpoint_t* local_endpoint;                 ///< Local endpoint (bound address/port)
+
   ct_remote_endpoint_t* remote_endpoint;               ///< Remote endpoint (peer address/port)
+  size_t num_remote_endpoints;
   
   ct_per_connection_properties_t properties;
 

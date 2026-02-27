@@ -19,12 +19,26 @@ FAKE_VOID_FUNC(fake_on_ready_counter);
 FAKE_VOID_FUNC(fake_on_establishment_error_counter);
 
 extern "C" {
+  typedef struct ct_candidate_racing_test_context_s {
+    ct_connection_t* captured_connection;
+    bool connection_succeeded;
+    char* successful_protocol;
+  } ct_candidate_racing_test_context_t;
+
   // ct_callback_t that marks connection as successful
   int racing_test_on_ready(struct ct_connection_s* connection) {
     fake_on_ready_counter();
     log_info("ct_connection_t succeeded via protocol: %s", ct_connection_get_protocol_name(connection));
-    bool* connection_succeeded = (bool*)ct_connection_get_callback_context(connection);
-    *connection_succeeded = true;
+    ct_candidate_racing_test_context_t* context = (ct_candidate_racing_test_context_t*)ct_connection_get_callback_context(connection);
+    context->connection_succeeded = true;
+    ct_connection_close(connection);
+    return 0;
+  }
+
+  int capture_connection_on_close(struct ct_connection_s* connection) {
+    fake_on_ready_counter();
+    ct_candidate_racing_test_context_t* test_context = (ct_candidate_racing_test_context_t*)ct_connection_get_callback_context(connection);
+    test_context->captured_connection = connection;
     ct_connection_close(connection);
     return 0;
   }
@@ -37,16 +51,16 @@ extern "C" {
       return 0;
     }
     log_error("ct_connection_t failed");
-    bool* connection_succeeded = (bool*)ct_connection_get_callback_context(connection);
-    *connection_succeeded = false;
+    ct_candidate_racing_test_context_t* context = (ct_candidate_racing_test_context_t*)ct_connection_get_callback_context(connection);
+    context->connection_succeeded = false;
     return 0;
   }
 
   // ct_callback_t that tracks which protocol succeeded
   int racing_test_on_ready_track_protocol(struct ct_connection_s* connection) {
     log_info("ct_connection_t succeeded via protocol: %s", ct_connection_get_protocol_name(connection));
-    char** protocol_name = (char**)ct_connection_get_callback_context(connection);
-    *protocol_name = strdup(ct_connection_get_protocol_name(connection));
+    ct_candidate_racing_test_context_t* ctx = (ct_candidate_racing_test_context_t*)ct_connection_get_callback_context(connection);
+    ctx->successful_protocol = strdup(ct_connection_get_protocol_name(connection));
     ct_connection_close(connection);
     return 0;
   }
@@ -75,7 +89,17 @@ protected:
     void TearDown() override {
       int rc = ct_close();
       EXPECT_EQ(rc, 0);
+      
+      if (test_context.successful_protocol) {
+        free(test_context.successful_protocol);
+      }
     }
+
+    ct_candidate_racing_test_context_t test_context = {
+      .captured_connection = nullptr,
+      .connection_succeeded = false,
+      .successful_protocol = nullptr,
+    };
 };
 
 /**
@@ -94,13 +118,11 @@ TEST_F(CandidateRacingTests, FirstCandidateSucceeds) {
 
   ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
 
-  bool connection_succeeded = false;
-
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = racing_test_on_establishment_error,
     .ready = racing_test_on_ready,
     .closed = free_on_close,
-    .user_connection_context = &connection_succeeded,
+    .user_connection_context = &test_context,
   };
 
   // Execute
@@ -111,9 +133,48 @@ TEST_F(CandidateRacingTests, FirstCandidateSucceeds) {
   ct_start_event_loop();
 
   // Verify
-  ASSERT_TRUE(connection_succeeded);
+  ASSERT_TRUE(test_context.connection_succeeded);
 
   ct_remote_endpoint_free(remote_endpoint);
+  ct_preconnection_free(preconnection);
+  ct_transport_properties_free(transport_properties);
+}
+
+TEST_F(CandidateRacingTests, connectionContainsSeveralRemotes) {
+  ct_remote_endpoint_t remotes[2] = {0};
+  ct_remote_endpoint_with_ipv4(&remotes[0], inet_addr("127.0.0.1"));
+  ct_remote_endpoint_with_port(&remotes[0], TCP_PING_PORT);
+
+  ct_remote_endpoint_with_ipv4(&remotes[1], inet_addr("127.0.0.1"));
+  ct_remote_endpoint_with_port(&remotes[1], UDP_PING_PORT);
+
+  ct_transport_properties_t* transport_properties = ct_transport_properties_new();
+
+  ct_transport_properties_set_reliability(transport_properties, PREFER);
+
+  ct_preconnection_t* preconnection = ct_preconnection_new(remotes, 2, transport_properties, NULL);
+
+  ct_connection_callbacks_t connection_callbacks = {
+    .establishment_error = racing_test_on_establishment_error,
+    .ready = racing_test_on_ready,
+    .closed = capture_connection_on_close,
+    .user_connection_context = &test_context,
+  };
+
+  // Execute
+  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+
+  ASSERT_EQ(rc, 0);
+
+  ct_start_event_loop();
+
+  ASSERT_NE(test_context.captured_connection, nullptr);
+  EXPECT_EQ(test_context.captured_connection->num_remote_endpoints, 2);
+  // Verify
+  EXPECT_TRUE(test_context.connection_succeeded);
+
+  ct_remote_endpoint_free_strings(&remotes[0]);
+  ct_remote_endpoint_free_strings(&remotes[1]);
   ct_preconnection_free(preconnection);
   ct_transport_properties_free(transport_properties);
 }
@@ -130,13 +191,11 @@ TEST_F(CandidateRacingTests, AllCandidatesFail) {
 
   ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
 
-  bool connection_succeeded = false;
-
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = racing_test_on_establishment_error,
     .ready = racing_test_on_ready,
     .closed = free_on_close,
-    .user_connection_context = &connection_succeeded,
+    .user_connection_context = &test_context,
   };
 
   // Execute
@@ -146,7 +205,7 @@ TEST_F(CandidateRacingTests, AllCandidatesFail) {
 
   ct_start_event_loop();
 
-  ASSERT_FALSE(connection_succeeded);
+  ASSERT_FALSE(test_context.connection_succeeded);
   ASSERT_EQ(fake_on_ready_counter_fake.call_count, 0);
   ASSERT_EQ(fake_on_establishment_error_counter_fake.call_count, 1);
 
@@ -174,13 +233,12 @@ TEST_F(CandidateRacingTests, RespectsProtocolPreferences) {
   ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
   ASSERT_NE(preconnection, nullptr);
 
-  char* winning_protocol = NULL;
 
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = racing_test_on_establishment_error,
     .ready = racing_test_on_ready_track_protocol,
     .closed = free_on_close,
-    .user_connection_context = &winning_protocol,
+    .user_connection_context = &test_context,
   };
 
   // Execute
@@ -191,10 +249,9 @@ TEST_F(CandidateRacingTests, RespectsProtocolPreferences) {
   ct_start_event_loop();
 
   // Verify - should use TCP due to reliability requirement
-  ASSERT_NE(winning_protocol, nullptr);
-  ASSERT_STREQ(winning_protocol, "TCP");
+  ASSERT_NE(test_context.successful_protocol, nullptr);
+  ASSERT_STREQ(test_context.successful_protocol, "TCP");
 
-  free(winning_protocol);
   ct_remote_endpoint_free(remote_endpoint);
   ct_preconnection_free(preconnection);
   ct_transport_properties_free(transport_properties);
@@ -214,13 +271,11 @@ TEST_F(CandidateRacingTests, WorksWithHostnameResolution) {
   ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
   ASSERT_NE(preconnection, nullptr);
 
-  bool connection_succeeded = false;
-
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = racing_test_on_establishment_error,
     .ready = racing_test_on_ready,
     .closed = free_on_close,
-    .user_connection_context = &connection_succeeded,
+    .user_connection_context = &test_context,
   };
 
   // Execute
@@ -231,7 +286,7 @@ TEST_F(CandidateRacingTests, WorksWithHostnameResolution) {
   ct_start_event_loop();
 
   // Verify
-  ASSERT_TRUE(connection_succeeded);
+  ASSERT_TRUE(test_context.connection_succeeded);
   ASSERT_EQ(fake_on_ready_counter_fake.call_count, 1);
   ASSERT_EQ(fake_on_establishment_error_counter_fake.call_count, 0);
 
@@ -258,13 +313,11 @@ TEST_F(CandidateRacingTests, SingleCandidateOptimization) {
 
   ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
 
-  bool connection_succeeded = false;
-
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = racing_test_on_establishment_error,
     .ready = racing_test_on_ready,
     .closed = free_on_close,
-    .user_connection_context = &connection_succeeded,
+    .user_connection_context = &test_context,
   };
 
   // Execute - should use single-candidate path
@@ -275,7 +328,7 @@ TEST_F(CandidateRacingTests, SingleCandidateOptimization) {
   ct_start_event_loop();
 
   // Verify
-  ASSERT_TRUE(connection_succeeded);
+  ASSERT_TRUE(test_context.connection_succeeded);
   ASSERT_EQ(fake_on_ready_counter_fake.call_count, 1);
   ASSERT_EQ(fake_on_establishment_error_counter_fake.call_count, 0);
 
@@ -296,13 +349,17 @@ TEST_F(CandidateRacingTests, HandlesNoCandidates) {
 
   ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
 
-  bool connection_succeeded = false;
+  ct_candidate_racing_test_context_t test_context = {
+    .captured_connection = nullptr,
+    .connection_succeeded = false,
+    .successful_protocol = nullptr,
+  };
 
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = racing_test_on_establishment_error,
     .ready = racing_test_on_ready,
     .closed = free_on_close,
-    .user_connection_context = &connection_succeeded,
+    .user_connection_context = &test_context,
   };
 
   // Execute
@@ -313,7 +370,7 @@ TEST_F(CandidateRacingTests, HandlesNoCandidates) {
   ct_start_event_loop();
 
   // Verify - all attempts should fail
-  ASSERT_FALSE(connection_succeeded);
+  ASSERT_FALSE(test_context.connection_succeeded);
   ASSERT_EQ(fake_on_ready_counter_fake.call_count, 0);
   ASSERT_EQ(fake_on_establishment_error_counter_fake.call_count, 1);
 
