@@ -1,9 +1,9 @@
 #ifndef SOCKET_MANAGER_H
 #define SOCKET_MANAGER_H
-#include <uv.h>
 #include "ctaps.h"
 #include "ctaps_internal.h"
 #include <glib.h>
+#include <uv.h>
 
 ct_socket_manager_t* ct_socket_manager_ref(ct_socket_manager_t* socket_manager);
 
@@ -30,5 +30,7 @@ int ct_socket_manager_close_group(ct_socket_manager_t* socket_manager, ct_connec
 int ct_socket_manager_listener_stop(ct_socket_manager_t* socket_manager);
 
 void ct_socket_manager_free(ct_socket_manager_t* socket_manager);
+
+int ct_socket_manager_notify_protocol_of_priority_change(ct_connection_t* connection, uint8_t priority);
 
 #endif //SOCKET_MANAGER_H

@@ -69,6 +69,7 @@ int quic_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* reso
 int quic_clone_connection(const struct ct_connection_s* source_connection, struct ct_connection_s* target_connection);
 int quic_free_state(ct_connection_t* connection);
 int quic_close_connection_group(ct_connection_group_t* connection_group);
+int quic_set_connection_priority(ct_connection_t* connection_group, uint8_t priority);
 
 ct_quic_socket_state_t* ct_quic_context_ref(ct_quic_socket_state_t* context);
 ct_quic_socket_state_t* ct_quic_context_deref(ct_quic_socket_state_t* context);

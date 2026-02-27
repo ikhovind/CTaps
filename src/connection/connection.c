@@ -690,10 +690,33 @@ const ct_transport_properties_t* ct_connection_get_transport_properties(const ct
   return connection->connection_group->transport_properties;
 }
 
-void ct_connection_set_priority(ct_connection_t* connection, uint32_t priority) {
+int ct_connection_set_priority(ct_connection_t* connection, uint8_t priority) {
   if (!connection) {
     log_error("ct_connection_set_priority called with NULL connection");
-    return;
+    return -EINVAL;
   }
+  int rc = ct_socket_manager_notify_protocol_of_priority_change(connection, priority);
+  if (rc == -ENOTSUP) {
+    log_debug("Protocol does not support priority changes, ignoring ct_connection_set_priority call");
+    // We are recording *intent*, so even when ignoring the value we store it
+    connection->properties.priority = priority;
+    // But not supporting it at the protocol level is not an actual error
+    return 0;
+  }
+  if (rc < 0) {
+    log_error("Failed to notify protocol of priority change: %d", rc);
+    // But supporting it but failing to set it *is* a real error
+    return rc;
+  }
+  // Only set if we suceeded in setting it for the protocol
   connection->properties.priority = priority;
+  return 0;
+}
+
+uint8_t ct_connection_get_priority(const ct_connection_t* connection) {
+  if (!connection) {
+    log_error("ct_connection_get_priority called with NULL connection");
+    return UINT8_MAX;
+  }
+  return connection->properties.priority;
 }

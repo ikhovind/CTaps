@@ -1263,10 +1263,10 @@ CT_EXTERN const ct_transport_properties_t* ct_connection_get_transport_propertie
  *
  * Defaults to 100.
  *
- * @return Priority value, or UINT32_MAX if connection is NULL
+ * @return Priority value, or UINT8_MAX if connection is NULL
  */
-CT_EXTERN uint32_t ct_connection_get_priority(const ct_connection_t* connection);
-CT_EXTERN void ct_connection_set_priority(ct_connection_t* connection, uint32_t priority);
+CT_EXTERN uint8_t ct_connection_get_priority(const ct_connection_t* connection);
+CT_EXTERN int ct_connection_set_priority(ct_connection_t* connection, uint8_t priority);
 
 /**
  * @brief Get the connections callback context.

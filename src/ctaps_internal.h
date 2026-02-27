@@ -412,6 +412,8 @@ typedef struct ct_protocol_impl_s {
 
   int (*close_connection_group)(ct_connection_group_t* connection_group);
 
+  int (*set_connection_priority)(ct_connection_t* connection, uint8_t priority);
+
   /** @brief Free protocol-specific shared state in a connection group, useful for multiplexing */
   int (*free_connection_group_state)(ct_connection_group_t* connection_group);
 
@@ -493,7 +495,8 @@ typedef enum {
 
 typedef struct ct_per_connection_properties_s {
   ct_connection_state_enum_t state;
-  uint32_t priority;             ///< Relative priority of this compared to others in the same connection group, lower is higher
+  // 8-bit because that is the resolution used by picoquic
+  uint8_t priority;             ///< Relative priority of this compared to others in the same connection group, 0 is highest.
   bool can_receive;
   bool can_send;
 } ct_per_connection_properties_t;

@@ -60,6 +60,7 @@ const ct_protocol_impl_t quic_protocol_interface = {
     .clone_connection = quic_clone_connection,
     .remote_endpoint_from_peer = quic_remote_endpoint_from_peer,
     .close_connection_group = quic_close_connection_group,
+    .set_connection_priority = quic_set_connection_priority,
     .free_connection_state = quic_free_state
 };
 
@@ -231,6 +232,7 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
       ticket_key,
       ticket_key_length
   );
+  picoquic_set_default_priority(socket_state->picoquic_ctx, CT_CONNECTION_DEFAULT_PRIORITY);
 
   if (!socket_state->picoquic_ctx) {
     log_error("Failed to create picoquic context");
@@ -372,6 +374,7 @@ picoquic_cnx_t* ct_connection_get_picoquic_connection(const ct_connection_t* con
     log_error("Cannot get picoquic connection, group state is NULL");
     return NULL;
   }
+  log_debug("Retrieved picoquic connection %p for connection", (void*)group_state->picoquic_connection);
   return group_state->picoquic_connection;
 }
 
@@ -1625,5 +1628,30 @@ int quic_close_socket(ct_socket_manager_t* socket_manager) {
 int quic_close_connection_group(ct_connection_group_t* connection_group) {
   log_debug("Closing connection group: %s", connection_group->connection_group_id);
   ct_quic_connection_group_state_t* group_state = (ct_quic_connection_group_state_t*)connection_group->connection_group_state;
-  return picoquic_close(group_state->picoquic_connection, 0);
+  int rc = picoquic_close(group_state->picoquic_connection, 0);
+  if (rc != 0) {
+    log_error("Error closing picoquic connection: %d", rc);
+    return -EIO;
+  }
+  return 0;
+}
+
+int quic_set_connection_priority(ct_connection_t* connection, uint8_t priority) {
+  picoquic_cnx_t* cnx = ct_connection_get_picoquic_connection(connection);
+  if (!cnx) {
+    log_error("No picoquic connection available for setting priority");
+    return -ENOTCONN;
+  }
+  ct_quic_stream_state_t* stream_state = (ct_quic_stream_state_t*)connection->internal_connection_state;
+  if (!stream_state || !stream_state->stream_initialized) {
+    log_error("Stream state not initialized for connection %s, cannot set priority", connection->uuid);
+    return -EINVAL;
+  }
+
+  int rc = picoquic_set_stream_priority(cnx, stream_state->stream_id, priority);
+  if (rc != 0) {
+    log_error("Error setting QUIC stream priority: %d", rc);
+    return -EIO;
+  }
+  return 0;
 }
