@@ -199,6 +199,7 @@ void ct_connection_mark_as_closing(ct_connection_t* connection) {
     return;
   }
   connection->properties.state = CONN_STATE_CLOSING;
+  log_trace("Marked connection %s as closing", connection->uuid);
 }
 
 void ct_connection_mark_as_closed(ct_connection_t* connection) {
@@ -207,6 +208,7 @@ void ct_connection_mark_as_closed(ct_connection_t* connection) {
     return;
   }
   connection->properties.state = CONN_STATE_CLOSED;
+  log_trace("Marked connection %s as closed", connection->uuid);
 }
 
 bool ct_connection_is_closing(const ct_connection_t* connection) {
@@ -708,7 +710,8 @@ int ct_connection_set_priority(ct_connection_t* connection, uint8_t priority) {
     // But supporting it but failing to set it *is* a real error
     return rc;
   }
-  // Only set if we suceeded in setting it for the protocol
+  // If we actually support it on the protocol level then do not set
+  // it if there was an error.
   connection->properties.priority = priority;
   return 0;
 }

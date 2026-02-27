@@ -249,7 +249,18 @@ ct_connection_group_t* ct_connection_group_new(void) {
   memset(group, 0, sizeof(ct_connection_group_t));
   generate_uuid_string(group->connection_group_id);
   group->connections = g_hash_table_new(g_str_hash, g_str_equal);
+  if (!group->connections) {
+    log_error("Failed to create hash table for connection group");
+    free(group);
+    return NULL;
+  }
   group->transport_properties = ct_transport_properties_new();
+  if (!group->transport_properties) {
+    log_error("Failed to create transport properties for connection group");
+    g_hash_table_destroy(group->connections);
+    free(group);
+    return NULL;
+  }
 
   return group;
 }

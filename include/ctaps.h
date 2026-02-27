@@ -1254,6 +1254,10 @@ CT_EXTERN bool ct_connection_is_closed(const ct_connection_t* connection);
  */
 CT_EXTERN ct_connection_state_enum_t ct_connection_get_state(const ct_connection_t* connection);
 
+
+/**
+ * @brief get shared connection properties for a connection
+ */
 CT_EXTERN const ct_transport_properties_t* ct_connection_get_transport_properties(const ct_connection_t* connection);
 
 /**
@@ -1266,6 +1270,13 @@ CT_EXTERN const ct_transport_properties_t* ct_connection_get_transport_propertie
  * @return Priority value, or UINT8_MAX if connection is NULL
  */
 CT_EXTERN uint8_t ct_connection_get_priority(const ct_connection_t* connection);
+
+/**
+ * @brief Set relative priority for a connection compared to other connections in the same group.
+ *
+ * @return 0 if the priority was set successfully, non-zero on error (e.g., connection is NULL)
+ * @note If a protocol does not support prioritization this does not return any error, but the value is not used.
+ */
 CT_EXTERN int ct_connection_set_priority(ct_connection_t* connection, uint8_t priority);
 
 /**

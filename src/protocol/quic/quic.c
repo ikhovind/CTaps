@@ -131,7 +131,7 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
                                           const char* key_file,
                                           ct_socket_manager_t* socket_manager,
                                           const ct_security_parameters_t* security_parameters,
-                                          ct_message_t* initial_message // to be freed in case this connection suceeds
+                                          ct_message_t* initial_message // to be freed in case this connection succeeds
                                           ) {
   if (!cert_file || !key_file || !security_parameters) {
     log_error("Certificate, key files and security parameters are required for QUIC context creation");
@@ -232,8 +232,6 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
       ticket_key,
       ticket_key_length
   );
-  picoquic_set_default_priority(socket_state->picoquic_ctx, CT_CONNECTION_DEFAULT_PRIORITY);
-
   if (!socket_state->picoquic_ctx) {
     log_error("Failed to create picoquic context");
     free(socket_state->ticket_store_path);
@@ -242,6 +240,9 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
     free(socket_state);
     return NULL;
   }
+
+  picoquic_set_default_priority(socket_state->picoquic_ctx, CT_CONNECTION_DEFAULT_PRIORITY);
+
 
   // Set up timer handle for this context
   socket_state->timer_handle = malloc(sizeof(uv_timer_t));

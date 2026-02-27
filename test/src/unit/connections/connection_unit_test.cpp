@@ -35,6 +35,7 @@ protected:
         RESET_FAKE(__wrap_ct_message_context_free);
         RESET_FAKE(__wrap_socket_manager_insert_connection);
         RESET_FAKE(__wrap_ct_socket_manager_ref);
+        RESET_FAKE(__wrap_ct_socket_manager_notify_protocol_of_priority_change);
         FFF_RESET_HISTORY();
 
         __wrap_ct_socket_manager_ref_fake.return_val = &dummy_socket_manager;
