@@ -22,6 +22,8 @@
 #  define CT_EXTERN
 #endif
 
+#define CT_CONNECTION_DEFAULT_PRIORITY 100
+
 // =============================================================================
 // Library State and Configuration
 // =============================================================================
@@ -1253,6 +1255,18 @@ CT_EXTERN bool ct_connection_is_closed(const ct_connection_t* connection);
 CT_EXTERN ct_connection_state_enum_t ct_connection_get_state(const ct_connection_t* connection);
 
 CT_EXTERN const ct_transport_properties_t* ct_connection_get_transport_properties(const ct_connection_t* connection);
+
+/**
+ * @brief Get relative priority when compared to other connections in the same group.
+ *
+ * Lower values are higher priority.
+ *
+ * Defaults to 100.
+ *
+ * @return Priority value, or UINT32_MAX if connection is NULL
+ */
+CT_EXTERN uint32_t ct_connection_get_priority(const ct_connection_t* connection);
+CT_EXTERN void ct_connection_set_priority(ct_connection_t* connection, uint32_t priority);
 
 /**
  * @brief Get the connections callback context.

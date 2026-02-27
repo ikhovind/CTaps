@@ -123,6 +123,9 @@ void ct_local_endpoint_free_strings(ct_local_endpoint_t* local_endpoint) {
 }
 
 void ct_local_endpoint_free(ct_local_endpoint_t* local_endpoint) {
+  if (!local_endpoint) {
+    return;
+  }
   log_trace("Freeing local endpoint");
   ct_local_endpoint_free_strings(local_endpoint);
   free(local_endpoint);
