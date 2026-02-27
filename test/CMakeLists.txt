@@ -140,6 +140,7 @@ add_gtest(connection_unit_test
     ct_message_free
     socket_manager_insert_connection
     ct_socket_manager_ref
+    ct_socket_manager_notify_protocol_of_priority_change
 )
 
 add_gtest(socket_manager_unit_test
@@ -249,6 +250,14 @@ add_gtest(tcp_unit_test
       uv_close
       ct_message_free
       free
+)
+
+add_gtest(quic_unit_test
+  SOURCES
+    src/unit/protocol/quic_unit_test.cpp
+    ${CTAPS_SOURCES}
+    WRAP_FUNCTIONS
+      picoquic_set_stream_priority
 )
 
 add_gtest(udp_unit_test

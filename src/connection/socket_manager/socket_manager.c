@@ -360,3 +360,20 @@ ct_socket_manager_t* ct_socket_manager_new(const ct_protocol_impl_t* protocol_im
   return socket_manager;
 }
 
+
+int ct_socket_manager_notify_protocol_of_priority_change(ct_connection_t* connection, uint8_t priority) {
+  if (!connection || !connection->socket_manager) {
+    log_error("NULL parameter passed to ct_socket_manager_notify_protocol_of_priority_change");
+    log_debug("connection: %p, socket manager: %p", connection, connection ? connection->socket_manager : NULL);
+    return -EINVAL;
+  }
+  ct_socket_manager_t* socket_manager = connection->socket_manager;
+  if (socket_manager->protocol_impl->set_connection_priority) {
+    return socket_manager->protocol_impl->set_connection_priority(connection, priority);
+  }
+  else {
+    log_debug("Protocol: %s does not support setting connection priority", socket_manager->protocol_impl->name);
+    return -ENOTSUP;
+  }
+  return 0;
+}
