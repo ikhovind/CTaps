@@ -7,6 +7,16 @@ extern "C" {
 #include "ctaps_internal.h"  // Needed to access selection_properties internals
 }
 
+TEST(SelectionPropertiesUnitTest, setsAdvertisesAltAddrCorrectly) {
+  ct_transport_properties_t* props = ct_transport_properties_new();
+  ASSERT_NE(props, nullptr);
+  ASSERT_EQ(ct_transport_properties_get_advertises_alt_address(props), false);
+
+  ct_transport_properties_set_advertises_alt_address(props, true);
+
+  ASSERT_EQ(ct_transport_properties_get_advertises_alt_address(props), true);
+  ASSERT_TRUE(props->selection_properties.list[ADVERTISES_ALT_ADDRES].set_by_user);
+}
 
 TEST(SelectionPropertiesUnitTest, SetsDefaultValues) {
   // 1. Setup

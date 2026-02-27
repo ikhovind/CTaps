@@ -186,9 +186,9 @@ add_gtest(remote_endpoint_resolve_test
 )
 add_gtest(udp_listen_test SOURCES src/integration/udp/udp_listen_test.cpp ${CTAPS_SOURCES})
 add_gtest(tcp_listen_test SOURCES src/integration/tcp/tcp_listen_test.cpp ${CTAPS_SOURCES})
-add_gtest(selection_property_test
+add_gtest(selection_properties_unit_test
   SOURCES
-    src/unit/transport_properties/selection_properties/selection_properties_test.cpp
+    src/unit/transport_properties/selection_properties/selection_properties_unit_test.cpp
     ${CTAPS_SOURCES}
 )
 add_gtest(message_properties_test

@@ -225,7 +225,7 @@ f(CONGESTION_CONTROL,          "congestionControl",          ct_selection_prefer
 f(KEEP_ALIVE,                  "keepAlive",                  ct_selection_preference_t,           keep_alive,                  NO_PREFERENCE,             TYPE_PREFERENCE)  \
 f(USE_TEMPORARY_LOCAL_ADDRESS, "useTemporaryLocalAddress",   ct_selection_preference_t,           use_temporary_local_address, RUNTIME_DEPENDENT_DEFAULT, TYPE_PREFERENCE)         \
 f(MULTIPATH,                   "multipath",                  ct_multipath_enum_t,                 multipath,                   RUNTIME_DEPENDENT_DEFAULT, TYPE_ENUM)  \
-f(ADVERTISES_ALT_ADDRES,       "advertisesAltAddr",          bool,                                advertises_alt_addres,       false,                     TYPE_BOOL)  \
+f(ADVERTISES_ALT_ADDRES,       "advertisesAltAddr",          bool,                                advertises_alt_address,       false,                     TYPE_BOOL)  \
 f(DIRECTION,                   "direction",                  ct_direction_of_communication_enum_t,direction,                   DIRECTION_BIDIRECTIONAL,   TYPE_ENUM)  \
 f(SOFT_ERROR_NOTIFY,           "softErrorNotify",            ct_selection_preference_t,           soft_error_notify,           NO_PREFERENCE,             TYPE_PREFERENCE)  \
 f(ACTIVE_READ_BEFORE_SEND,     "activeReadBeforeSend",       ct_selection_preference_t,           active_read_before_send,     NO_PREFERENCE,             TYPE_PREFERENCE)  \
