@@ -6,6 +6,7 @@
 #include "ctaps.h"
 #include "ctaps_internal.h"
 #include "endpoint/local_endpoint.h"
+#include "endpoint/remote_endpoint.h"
 #include "message/message.h"
 #include "message/message_context.h"
 #include "transport_property/transport_properties.h"
@@ -55,9 +56,11 @@ ct_connection_t* ct_connection_create_server_connection(ct_socket_manager_t* soc
   ct_connection_group_add_connection(group, connection);
   // > Connection Properties can be set on Connections and Preconnections; 
   // > when set on Preconnections, they act as an initial default for the resulting Connections
+  connection->all_remote_endpoints = ct_remote_endpoints_deep_copy(remote_endpoint, 1);
+  connection->num_remote_endpoints = 1;
+  connection->active_remote_endpoint = 0;
   connection->socket_manager = ct_socket_manager_ref(socket_manager);
   connection->local_endpoint = ct_local_endpoint_deep_copy(&socket_manager->listener->local_endpoint);
-  connection->remote_endpoint = ct_remote_endpoint_deep_copy(remote_endpoint);
   connection->role = CONNECTION_ROLE_SERVER;
 
   connection->security_parameters = ct_security_parameters_deep_copy(security_parameters);
@@ -70,7 +73,9 @@ ct_connection_t* ct_connection_create_server_connection(ct_socket_manager_t* soc
 
 ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_impl,
                                              const ct_local_endpoint_t* local_endpoint,
-                                             const ct_remote_endpoint_t* remote_endpoint,
+                                             ct_remote_endpoint_t* remote_endpoints,
+                                             size_t num_remote_endpoints,
+                                             size_t remote_endpoint_index,
                                              const ct_security_parameters_t* security_parameters,
                                              const ct_connection_callbacks_t* connection_callbacks,
                                              ct_framer_impl_t* framer_impl) {
@@ -80,8 +85,16 @@ ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_
     log_error("Failed to create empty connection");
     return NULL;
   }
-  if (remote_endpoint->data.resolved_address.ss_family != AF_INET6 &&
-      remote_endpoint->data.resolved_address.ss_family != AF_INET) {
+
+  connection->local_endpoint = ct_local_endpoint_deep_copy(local_endpoint);
+  connection->all_remote_endpoints = remote_endpoints;
+  connection->active_remote_endpoint = remote_endpoint_index;
+  connection->num_remote_endpoints = num_remote_endpoints;
+
+  ct_remote_endpoint_t* active_remote_endpoint = &connection->all_remote_endpoints[connection->active_remote_endpoint];
+
+  if (active_remote_endpoint->data.resolved_address.ss_family != AF_INET6 &&
+      active_remote_endpoint->data.resolved_address.ss_family != AF_INET) {
     log_error("Remote endpoint has unsupported address family");
     ct_connection_free(connection);
     return NULL;
@@ -104,7 +117,7 @@ ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_
     return NULL;
   }
 
-  rc = socket_manager_insert_connection(socket_manager, remote_endpoint, connection);
+  rc = socket_manager_insert_connection(socket_manager, active_remote_endpoint, connection);
   if (rc < 0) {
     log_error("Failed to insert connection into socket manager: %d", rc);
     ct_connection_group_free(group);
@@ -114,8 +127,6 @@ ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_
   }
 
   
-  connection->local_endpoint = ct_local_endpoint_deep_copy(local_endpoint);
-  connection->remote_endpoint = ct_remote_endpoint_deep_copy(remote_endpoint);
   connection->security_parameters = ct_security_parameters_deep_copy(security_parameters);
   if (connection_callbacks) {
     connection->connection_callbacks = *connection_callbacks;
@@ -141,13 +152,17 @@ ct_connection_t* ct_connection_create_clone(const ct_connection_t* source_connec
 
   clone->properties.state = CONN_STATE_ESTABLISHING;
   clone->security_parameters = ct_security_parameters_deep_copy(source_connection->security_parameters);
+
+  clone->all_remote_endpoints = ct_remote_endpoints_deep_copy(source_connection->all_remote_endpoints, source_connection->num_remote_endpoints);
+  clone->num_remote_endpoints = source_connection->num_remote_endpoints;
+  clone->active_remote_endpoint = source_connection->active_remote_endpoint;
+
   clone->local_endpoint = ct_local_endpoint_deep_copy(source_connection->local_endpoint);
-  clone->remote_endpoint = ct_remote_endpoint_deep_copy(source_connection->remote_endpoint);
   // In the cases where a socket manager isn't provided, the protocol will insert
   // a custom one to the new connection after cloning
   if (socket_manager) {
     clone->socket_manager = ct_socket_manager_ref(socket_manager);
-    socket_manager_insert_connection(clone->socket_manager, clone->remote_endpoint, clone);
+    socket_manager_insert_connection(clone->socket_manager, &clone->all_remote_endpoints[clone->active_remote_endpoint], clone);
   }
 
 
@@ -421,8 +436,8 @@ void ct_connection_free_content(ct_connection_t* connection) {
   if (connection->local_endpoint) {
     ct_local_endpoint_free(connection->local_endpoint);
   }
-  if (connection->remote_endpoint) {
-    ct_remote_endpoint_free(connection->remote_endpoint);
+  if (connection->all_remote_endpoints) {
+    ct_remote_endpoints_free(connection->all_remote_endpoints, connection->num_remote_endpoints);
   }
 
   // Free security parameters (connection owns a deep copy)
@@ -602,12 +617,12 @@ const char* ct_connection_get_protocol_name(const ct_connection_t* connection) {
   return connection->socket_manager->protocol_impl->name;
 }
 
-const ct_remote_endpoint_t* ct_connection_get_remote_endpoint(const ct_connection_t* connection) {
+const ct_remote_endpoint_t* ct_connection_get_active_remote_endpoint(const ct_connection_t* connection) {
   if (!connection) {
     log_error("ct_connection_get_remote_endpoint called with NULL connection");
     return NULL;
   }
-  return connection->remote_endpoint;
+  return &connection->all_remote_endpoints[connection->active_remote_endpoint];
 }
 
 ct_connection_group_t* ct_connection_get_connection_group(const ct_connection_t* connection) {

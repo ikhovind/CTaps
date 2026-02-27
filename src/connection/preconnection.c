@@ -34,7 +34,18 @@ int copy_remote_endpoints(ct_preconnection_t* preconnection,
   }
   // Deep copy each remote endpoint (copies all strings)
   for (size_t i = 0; i < num_remote_endpoints; i++) {
-    preconnection->remote_endpoints[i] = ct_remote_endpoint_copy_content(&remote_endpoints[i]);
+    int rc = ct_remote_endpoint_copy_content(&remote_endpoints[i], &preconnection->remote_endpoints[i]);
+    if (rc != 0) {
+      log_error("Failed to copy remote endpoint content for index %zu: %s", i, strerror(-rc));
+      // Free any previously copied remote endpoints
+      for (size_t j = 0; j < i; j++) {
+        ct_remote_endpoint_free_strings(&preconnection->remote_endpoints[j]);
+      }
+      free(preconnection->remote_endpoints);
+      preconnection->remote_endpoints = NULL;
+      preconnection->num_remote_endpoints = 0;
+      return rc;
+    }
   }
   return 0;
 }
@@ -244,7 +255,7 @@ void ct_preconnection_set_local_endpoint(ct_preconnection_t* preconnection, cons
   // First free any existing strings in preconnection->local
   ct_local_endpoint_free_strings(&preconnection->local);
   // Then do a deep copy
-  preconnection->local = ct_local_endpoint_copy_content(local_endpoint);
+  ct_local_endpoint_copy_content(local_endpoint, &preconnection->local);
   preconnection->num_local_endpoints = 1;
 }
 

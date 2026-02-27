@@ -1180,11 +1180,13 @@ int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbac
 
   ct_quic_connection_group_state_t* group_state = (ct_quic_connection_group_state_t*)connection->connection_group->connection_group_state;
 
+  const ct_remote_endpoint_t* remote_endpoint = ct_connection_get_active_remote_endpoint(connection);
+
   group_state->picoquic_connection = picoquic_create_cnx(
     quic_context->picoquic_ctx,
     picoquic_null_connection_id,
     picoquic_null_connection_id,
-    (struct sockaddr*) &connection->remote_endpoint->data.resolved_address,
+    (struct sockaddr*) &remote_endpoint->data.resolved_address,
     current_time,
     1,
     ct_security_parameters_get_server_name_identification(connection->security_parameters),
@@ -1328,7 +1330,7 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
     quic_context->picoquic_ctx,
     picoquic_null_connection_id,
     picoquic_null_connection_id,
-    (struct sockaddr*) &connection->remote_endpoint->data.resolved_address,
+    (struct sockaddr*) &ct_connection_get_active_remote_endpoint(connection)->data.resolved_address,
     current_time,
     1,
     ct_security_parameters_get_server_name_identification(connection->security_parameters),
@@ -1438,7 +1440,7 @@ void quic_abort(ct_connection_t* connection) {
 int quic_clone_connection(const struct ct_connection_s* source_connection, struct ct_connection_s* target_connection) {
   log_debug("Creating clone of QUIC connection using multistreaming");
   ct_socket_manager_t* socket_manager = source_connection->socket_manager;
-  int rc = socket_manager_insert_connection(socket_manager, target_connection->remote_endpoint, target_connection);
+  int rc = socket_manager_insert_connection(socket_manager, ct_connection_get_active_remote_endpoint(target_connection), target_connection);
   if (rc < 0) {
     log_error("Failed to insert cloned connection into socket manager: %d", rc);
     return rc;

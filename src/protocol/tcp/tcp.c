@@ -298,7 +298,7 @@ int tcp_init_with_send(ct_connection_t* connection, const ct_connection_callback
 
   rc = uv_tcp_connect(connect_req,
                  new_tcp_handle,
-                 (const struct sockaddr*)remote_endpoint_get_resolved_address(ct_connection_get_remote_endpoint(connection)),
+                 (const struct sockaddr*)remote_endpoint_get_resolved_address(ct_connection_get_active_remote_endpoint(connection)),
                  on_connect);
   if (rc < 0) {
     log_error("Error initiating TCP connection: %s", uv_strerror(rc));
@@ -370,7 +370,7 @@ int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
     }
   }
 
-  const ct_remote_endpoint_t* remote_endpoint = ct_connection_get_remote_endpoint(connection);
+  const ct_remote_endpoint_t* remote_endpoint = ct_connection_get_active_remote_endpoint(connection);
   struct sockaddr_storage tmp = remote_endpoint->data.resolved_address;
   if (tmp.ss_family == AF_INET) {
     log_info("Connecting to remote endpoint %d via TCP", ntohs(((struct sockaddr_in*)&tmp)->sin_port));
@@ -381,7 +381,7 @@ int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* conne
 
   rc = uv_tcp_connect(connect_req,
                  new_tcp_handle,
-                 (const struct sockaddr*)remote_endpoint_get_resolved_address(ct_connection_get_remote_endpoint(connection)),
+                 (const struct sockaddr*)remote_endpoint_get_resolved_address(ct_connection_get_active_remote_endpoint(connection)),
                  on_connect);
   if (rc < 0) {
     log_error("Error initiating TCP connection: %s", uv_strerror(rc));
@@ -650,7 +650,7 @@ int tcp_clone_connection(const struct ct_connection_s* source_connection,
   rc = uv_tcp_connect(
       connect_req,
       new_tcp_handle,
-      (const struct sockaddr*)remote_endpoint_get_resolved_address(ct_connection_get_remote_endpoint(target_connection)),
+      (const struct sockaddr*)remote_endpoint_get_resolved_address(ct_connection_get_active_remote_endpoint(target_connection)),
       on_clone_connect
   );
 
@@ -660,7 +660,7 @@ int tcp_clone_connection(const struct ct_connection_s* source_connection,
     uv_close((uv_handle_t*)new_tcp_handle, on_libuv_close);
     return rc;
   }
-  socket_manager_insert_connection(socket_manager, ct_connection_get_remote_endpoint(target_connection), target_connection);
+  socket_manager_insert_connection(socket_manager, ct_connection_get_active_remote_endpoint(target_connection), target_connection);
 
   log_info("TCP clone connection initiated, establishing asynchronously");
   return 0;

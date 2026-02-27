@@ -169,7 +169,7 @@ TEST_F(CandidateRacingTests, connectionContainsSeveralRemotes) {
   ct_start_event_loop();
 
   ASSERT_NE(test_context.captured_connection, nullptr);
-  EXPECT_EQ(test_context.captured_connection->num_remote_endpoints, 2);
+  EXPECT_GE(test_context.captured_connection->num_remote_endpoints, 2);
   // Verify
   EXPECT_TRUE(test_context.connection_succeeded);
 

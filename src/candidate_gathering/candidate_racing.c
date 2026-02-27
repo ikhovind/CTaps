@@ -206,11 +206,31 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
     .user_connection_context = attempt,
   };
 
+  ct_remote_endpoint_t* remote_endpoints = malloc(sizeof(ct_remote_endpoint_t) * context->num_attempts);
+  if (!remote_endpoints) {
+    log_error("Failed to allocate remote endpoints array for connection attempt");
+    return -ENOMEM;
+  }
+  memset(remote_endpoints, 0, sizeof(ct_remote_endpoint_t) * context->num_attempts);
+  for (size_t i = 0; i < context->num_attempts; i++) {
+    int rc = ct_remote_endpoint_copy_content(context->attempts[i].candidate.remote_endpoint, &remote_endpoints[i]);
+    if (rc != 0) {
+      log_error("Failed to copy remote endpoint for attempt %zu: %s", i, strerror(-rc));
+      for (size_t j = 0; j < i; j++) {
+        ct_remote_endpoint_free_strings(&remote_endpoints[j]);
+      }
+      free(remote_endpoints);
+      return rc;
+    }
+  }
+
   // Allocate connection for this attempt
   attempt->connection = ct_connection_create_client(
     candidate->protocol_candidate->protocol_impl,
     candidate->local_endpoint,
-    candidate->remote_endpoint,
+    remote_endpoints,
+    context->num_attempts,
+    attempt->attempt_index,
     context->preconnection->security_parameters,
     &attempt_callbacks,
     context->preconnection->framer_impl
@@ -436,11 +456,6 @@ void start_candidate_racing_on_nodes_ready(GArray* candidate_nodes, void* contex
     }
     racing_context_free(racing_context);
     return;
-  }
-
-  ct_candidate_node_t* first_node = &g_array_index(candidate_nodes, ct_candidate_node_t, 0);
-  if (first_node->remote_endpoint->data.resolved_address.ss_family == AF_INET) {
-    log_debug("First candidate has port %d", ntohs(((struct sockaddr_in*)&first_node->remote_endpoint->data.resolved_address)->sin_port));
   }
 
   racing_context_initialize_attempt_array(racing_context, candidate_nodes);
