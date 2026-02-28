@@ -33,7 +33,7 @@ int ct_connection_group_add_connection(ct_connection_group_t* group, ct_connecti
   return 0;
 }
 
-ct_connection_t* ct_connection_group_get_first(ct_connection_group_t* group) {
+ct_connection_t* ct_connection_group_get_first(const ct_connection_group_t* group) {
   if (!group || !group->connections) {
     log_error("ct_connection_group_get_first called with NULL parameter");
     return NULL;

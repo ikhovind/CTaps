@@ -28,7 +28,7 @@ void get_interface_addresses(const char *interface_name, int *num_found_addresse
         if (interfaces[i].address.address4.sin_family == AF_INET) {
           memcpy(&output_interface_addrs[(*num_found_addresses)++], &interfaces[i].address, sizeof(struct sockaddr_in));
         }
-        if (interfaces[i].address.address4.sin_family == AF_INET6) {
+        if (interfaces[i].address.address6.sin6_family == AF_INET6) {
           memcpy(&output_interface_addrs[(*num_found_addresses)++], &interfaces[i].address, sizeof(struct sockaddr_in6));
         }
         if (*num_found_addresses >= MAX_FOUND_INTERFACE_ADDRS) {

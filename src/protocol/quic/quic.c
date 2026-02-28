@@ -80,6 +80,20 @@ void ct_quic_connection_group_set_close_initiated(ct_connection_group_t* group, 
   }
 }
 
+picoquic_cnx_t* ct_quic_connection_group_get_picoquic_cnx(const ct_connection_group_t* group) {
+  const ct_quic_connection_group_state_t* group_state = group->connection_group_state;
+  return group_state ? group_state->picoquic_connection : NULL;
+}
+
+picoquic_quic_t* ct_connection_get_picoquic_instance(ct_connection_t* connection) {
+  if (!connection || !connection->socket_manager || !connection->socket_manager->internal_socket_manager_state) {
+    log_error("ct_quic_connection_get_picoquic_instance called with NULL connection or missing socket manager state");
+    return NULL;
+  }
+  ct_quic_socket_state_t* socket_state = ct_connection_get_quic_socket_state(connection);
+  return socket_state->picoquic_ctx;
+}
+
 
 ct_quic_connection_group_state_t* ct_create_quic_group_state(void) {
   ct_quic_connection_group_state_t* state = malloc(sizeof(ct_quic_connection_group_state_t));
@@ -242,6 +256,7 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
   }
 
   picoquic_set_default_priority(socket_state->picoquic_ctx, CT_CONNECTION_DEFAULT_PRIORITY);
+  picoquic_enable_path_callbacks_default(socket_state->picoquic_ctx, 1);
 
 
   // Set up timer handle for this context
@@ -645,6 +660,38 @@ static int resolve_or_create_stream_connection(
     return 0;
 }
 
+int probe_all_paths(const ct_connection_group_t* group) {
+  // This has made me realize that endpoints should really be in the socket manager
+  ct_connection_t* connection = ct_connection_group_get_first(group);
+
+  int at_least_one_success = 0;
+
+  for (size_t i = 0; i < ct_connection_get_num_remote_endpoints(connection); i++) {
+    const ct_remote_endpoint_t* remote_endpoint = &ct_connection_get_remote_endpoints_list(connection)[i];
+    if (i == connection->active_remote_endpoint) {
+      continue;
+    }
+
+    int rc = picoquic_probe_new_path(
+        ct_quic_connection_group_get_picoquic_cnx(group),
+        (const struct sockaddr*)&remote_endpoint->data.resolved_address,
+        (const struct sockaddr*)&ct_connection_get_local_endpoint(connection)->data.resolved_address,
+        picoquic_get_quic_time(ct_connection_get_picoquic_instance(connection))
+    );
+    if (rc < 0) {
+      log_warn("Failed to probe path to remote endpoint");
+    }
+    else {
+      at_least_one_success = 1;
+    }
+  }
+  if (!at_least_one_success) {
+    log_error("Failed to probe any paths for connection group %s", group->connection_group_id);
+    return -EIO;
+  }
+  return at_least_one_success;
+}
+
 int picoquic_callback(picoquic_cnx_t* cnx,
     uint64_t stream_id, uint8_t* bytes, size_t length,
     picoquic_call_back_event_t fin_or_event, void* callback_ctx, void* v_stream_ctx)
@@ -827,6 +874,22 @@ int picoquic_callback(picoquic_cnx_t* cnx,
       log_warn("ALPN list requested in callback, should never happen");
       return -EINVAL;
       break;
+    case picoquic_callback_path_suspended: { /* An available path is suspended */
+      int rc = probe_all_paths(connection_group);
+      if (rc < 0) {
+        log_error("Failed to probe paths after path suspended callback: %d", rc);
+        return rc;
+      }
+      break;
+    }
+    case picoquic_callback_path_deleted: { /* An existing path has been deleted */
+      int rc = probe_all_paths(connection_group);
+      if (rc < 0) {
+        log_error("Failed to probe paths after path suspended callback: %d", rc);
+        return rc;
+      }
+      break;
+    }
     default:
       log_debug("Unhandled callback event: %d", fin_or_event);
       break;
@@ -1337,7 +1400,6 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
     alpn_strings[0], // We create separate candidates for each ALPN to support 0-rtt (see candidate gathering code)
     1
   );
-
   log_trace("Setting callback context to connection group: %p", (void*)connection->connection_group);
 
   // Set picoquic callback to connection group
