@@ -2,14 +2,12 @@
 #include "ctaps.h"
 
 #include "connection/connection.h"
-#include "connection/connection_group.h"
 #include "connection/listener.h"
-#include "endpoint/remote_endpoint.h"
-#include "endpoint/local_endpoint.h"
-#include "protocol/common/socket_utils.h"
 #include "connection/socket_manager/socket_manager.h"
-#include "ctaps.h"
 #include "ctaps_internal.h"
+#include "endpoint/local_endpoint.h"
+#include "endpoint/remote_endpoint.h"
+#include "protocol/common/socket_utils.h"
 #include <errno.h>
 #include <logging/log.h>
 #include <stdbool.h>

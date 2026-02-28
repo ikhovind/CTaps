@@ -26,7 +26,7 @@ ct_message_context_t* ct_message_context_new_from_connection(const ct_connection
   if (!ctx) {
     return NULL;
   }
-  ctx->local_endpoint = connection->local_endpoint;
+  ctx->local_endpoint = &connection->all_local_endpoints[connection->active_local_endpoint];
   ctx->remote_endpoint = &connection->all_remote_endpoints[connection->active_remote_endpoint];
   return ctx;
 }

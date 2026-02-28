@@ -505,12 +505,14 @@ typedef struct ct_connection_s {
   char uuid[37];                                       ///< Unique identifier for this connection (UUID string)
   ct_connection_group_t* connection_group;             ///< Connection group (never NULL)
   ct_security_parameters_t* security_parameters;       ///< Security configuration (TLS/QUIC, owned copy)
-  ct_local_endpoint_t* local_endpoint;                 ///< Local endpoint (bound address/port)
 
-  size_t active_remote_endpoint;        ///< index into all_remote_endpoints for currently active remote endpoint
-  ct_remote_endpoint_t* all_remote_endpoints;
+  size_t num_local_endpoints;
+  size_t active_local_endpoint;                        ///< index into all_local_endpoints for currently active local endpoint
+  ct_local_endpoint_t* all_local_endpoints;            ///< Local endpoint (bound address/port)
 
   size_t num_remote_endpoints;
+  size_t active_remote_endpoint;                       ///< index into all_remote_endpoints for currently active remote endpoint
+  ct_remote_endpoint_t* all_remote_endpoints;
   
   ct_per_connection_properties_t properties;
 

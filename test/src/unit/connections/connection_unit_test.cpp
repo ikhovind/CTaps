@@ -46,7 +46,11 @@ protected:
         ASSERT_EQ(rc, 0);
 
         dummy_connection.socket_manager = &dummy_socket_manager;
-        dummy_connection.local_endpoint = &dummy_local_endpoint;
+
+        dummy_connection.all_local_endpoints = &dummy_local_endpoint;
+        dummy_connection.num_local_endpoints = 1;
+        dummy_connection.active_local_endpoint = 0;
+
         dummy_connection.all_remote_endpoints = &dummy_remote_endpoint;
         dummy_connection.num_remote_endpoints = 1;
         dummy_connection.active_remote_endpoint = 0;
@@ -80,7 +84,9 @@ protected:
         if (clone) {
             // Avoid freeing stack-allocated dummy data
             clone->socket_manager = nullptr;
-            clone->local_endpoint = nullptr;
+            clone->all_local_endpoints = nullptr;
+            clone->active_local_endpoint = 0;
+            clone->num_local_endpoints = 0;
             clone->all_remote_endpoints = nullptr;
             clone->num_remote_endpoints = 0;
             clone->connection_group = nullptr;

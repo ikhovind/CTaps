@@ -217,3 +217,34 @@ int ct_local_endpoint_copy_content(const ct_local_endpoint_t* src, ct_local_endp
   }
   return 0;
 }
+
+ct_local_endpoint_t* ct_local_endpoints_deep_copy(const ct_local_endpoint_t* local_endpoints, size_t num_local_endpoints) {
+  if (!local_endpoints || num_local_endpoints == 0) {
+    return NULL;
+  }
+  ct_local_endpoint_t* res = malloc(sizeof(ct_local_endpoint_t) * num_local_endpoints);
+  if (!res) {
+    log_error("Failed to allocate memory for deep copy of local endpoints");
+    return NULL;
+  }
+  for (size_t i = 0; i < num_local_endpoints; i++) {
+    int rc = ct_local_endpoint_copy_content(&local_endpoints[i], &res[i]);
+    if (rc != 0) {
+      log_error("Failed to copy content for local endpoint at index %zu: %s", i, strerror(-rc));
+      // Free any previously copied endpoints before returning
+      for (size_t j = 0; j < i; j++) {
+        ct_local_endpoint_free_strings(&res[j]);
+      }
+      free(res);
+      return NULL;
+    }
+  }
+  return res;
+}
+
+void ct_local_endpoints_free(ct_local_endpoint_t* local_endpoints, size_t num_local_endpoints) {
+  for (size_t i = 0; i < num_local_endpoints; i++) {
+    ct_local_endpoint_free_strings(&local_endpoints[i]);
+  }
+  free(local_endpoints);
+}

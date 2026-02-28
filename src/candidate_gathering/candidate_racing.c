@@ -224,10 +224,31 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
     }
   }
 
+  ct_local_endpoint_t* local_endpoints = malloc(sizeof(ct_local_endpoint_t) * context->num_attempts);
+  if (!local_endpoints) {
+    log_error("Failed to allocate local endpoints array for connection attempt");
+    return -ENOMEM;
+  }
+  memset(local_endpoints, 0, sizeof(ct_local_endpoint_t) * context->num_attempts);
+  for (size_t i = 0; i < context->num_attempts; i++) {
+    int rc = ct_local_endpoint_copy_content(context->attempts[i].candidate.local_endpoint, &local_endpoints[i]);
+    if (rc != 0) {
+      log_error("Failed to copy local endpoint for attempt %zu: %s", i, strerror(-rc));
+      for (size_t j = 0; j < i; j++) {
+        ct_local_endpoint_free_strings(&local_endpoints[j]);
+      }
+      free(local_endpoints);
+      ct_remote_endpoints_free(remote_endpoints, context->num_attempts);
+      return rc;
+    }
+  }
+
   // Allocate connection for this attempt
   attempt->connection = ct_connection_create_client(
     candidate->protocol_candidate->protocol_impl,
-    candidate->local_endpoint,
+    local_endpoints,
+    context->num_attempts,
+    attempt->attempt_index,
     remote_endpoints,
     context->num_attempts,
     attempt->attempt_index,
