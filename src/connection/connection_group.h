@@ -21,7 +21,7 @@ int ct_connection_group_add_connection(ct_connection_group_t* group, ct_connecti
   *
   * @return Pointer to first connection, or NULL if group is NULL or empty
   */
-ct_connection_t* ct_connection_group_get_first(ct_connection_group_t* group);
+ct_connection_t* ct_connection_group_get_first(const ct_connection_group_t* group);
 
 /**
  * @brief Get the number of active connections in a connection group.
