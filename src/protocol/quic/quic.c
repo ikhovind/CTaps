@@ -675,7 +675,7 @@ int probe_all_paths(const ct_connection_group_t* group) {
     int rc = picoquic_probe_new_path(
         ct_quic_connection_group_get_picoquic_cnx(group),
         (const struct sockaddr*)&remote_endpoint->data.resolved_address,
-        (const struct sockaddr*)&ct_connection_get_local_endpoint(connection)->data.resolved_address,
+        (const struct sockaddr*)&ct_connection_get_active_local_endpoint(connection)->data.resolved_address,
         picoquic_get_quic_time(ct_connection_get_picoquic_instance(connection))
     );
     if (rc < 0) {
@@ -1190,7 +1190,7 @@ int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbac
 
   uint64_t current_time = picoquic_get_quic_time(quic_context->picoquic_ctx);
 
-  uv_udp_t* udp_handle = create_udp_listening_on_local(connection->local_endpoint, alloc_quic_buf, on_quic_udp_read);
+  uv_udp_t* udp_handle = create_udp_listening_on_local(ct_connection_get_active_local_endpoint(connection), alloc_quic_buf, on_quic_udp_read);
   if (!udp_handle) {
     log_error("Failed to create UDP handle for QUIC connection");
     ct_close_quic_context(quic_context);
@@ -1341,7 +1341,7 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
 
   uint64_t current_time = picoquic_get_quic_time(quic_context->picoquic_ctx);
 
-  uv_udp_t* udp_handle = create_udp_listening_on_local(connection->local_endpoint, alloc_quic_buf, on_quic_udp_read);
+  uv_udp_t* udp_handle = create_udp_listening_on_local(ct_connection_get_active_local_endpoint(connection), alloc_quic_buf, on_quic_udp_read);
   if (!udp_handle) {
     log_error("Failed to create UDP handle for QUIC connection");
     ct_close_quic_context(quic_context);

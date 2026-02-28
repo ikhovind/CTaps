@@ -5,7 +5,9 @@
 #include "ctaps_internal.h"
 
 ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_impl,
-                                             const ct_local_endpoint_t* local_endpoint,
+                                             ct_local_endpoint_t* local_endpoints,
+                                             size_t num_local_endpoints,
+                                             size_t local_endpoint_index,
                                              ct_remote_endpoint_t* remote_endpoints,
                                              size_t num_remote_endpoints,
                                              size_t remote_endpoint_index,
@@ -144,7 +146,5 @@ void* ct_connection_get_socket_state(const ct_connection_t* connection);
 size_t ct_connection_get_num_remote_endpoints(const ct_connection_t* connection);
 
 const ct_remote_endpoint_t* ct_connection_get_remote_endpoints_list(const ct_connection_t* connection);
-
-const ct_local_endpoint_t* ct_connection_get_local_endpoint(const ct_connection_t* connection);
 
 #endif // CONNECTION_H

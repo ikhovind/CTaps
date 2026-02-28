@@ -10,7 +10,7 @@
 #include <uv.h>
 
 
-uv_udp_t* create_udp_listening_on_local(ct_local_endpoint_t* local_endpoint, uv_alloc_cb alloc_cb, uv_udp_recv_cb on_read_cb) {
+uv_udp_t* create_udp_listening_on_local(const ct_local_endpoint_t* local_endpoint, uv_alloc_cb alloc_cb, uv_udp_recv_cb on_read_cb) {
   bool is_ephemeral = local_endpoint_get_resolved_port(local_endpoint) == 0;
   if (!is_ephemeral) {
     log_debug("Creating UDP socket for set local endpoint");

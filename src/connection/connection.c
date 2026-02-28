@@ -60,7 +60,10 @@ ct_connection_t* ct_connection_create_server_connection(ct_socket_manager_t* soc
   connection->num_remote_endpoints = 1;
   connection->active_remote_endpoint = 0;
   connection->socket_manager = ct_socket_manager_ref(socket_manager);
-  connection->local_endpoint = ct_local_endpoint_deep_copy(&socket_manager->listener->local_endpoint);
+  connection->all_local_endpoints = ct_local_endpoints_deep_copy(&socket_manager->listener->local_endpoint, socket_manager->listener->num_local_endpoints);
+  connection->num_local_endpoints = 1;
+  connection->active_local_endpoint = 0;
+
   connection->role = CONNECTION_ROLE_SERVER;
 
   connection->security_parameters = ct_security_parameters_deep_copy(security_parameters);
@@ -72,7 +75,9 @@ ct_connection_t* ct_connection_create_server_connection(ct_socket_manager_t* soc
 }
 
 ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_impl,
-                                             const ct_local_endpoint_t* local_endpoint,
+                                             ct_local_endpoint_t* local_endpoints,
+                                             size_t num_local_endpoints,
+                                             size_t local_endpoint_index,
                                              ct_remote_endpoint_t* remote_endpoints,
                                              size_t num_remote_endpoints,
                                              size_t remote_endpoint_index,
@@ -86,7 +91,10 @@ ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_
     return NULL;
   }
 
-  connection->local_endpoint = ct_local_endpoint_deep_copy(local_endpoint);
+  connection->all_local_endpoints = local_endpoints; 
+  connection->active_local_endpoint = local_endpoint_index;
+  connection->num_local_endpoints = num_local_endpoints;
+
   connection->all_remote_endpoints = remote_endpoints;
   connection->active_remote_endpoint = remote_endpoint_index;
   connection->num_remote_endpoints = num_remote_endpoints;
@@ -157,7 +165,9 @@ ct_connection_t* ct_connection_create_clone(const ct_connection_t* source_connec
   clone->num_remote_endpoints = source_connection->num_remote_endpoints;
   clone->active_remote_endpoint = source_connection->active_remote_endpoint;
 
-  clone->local_endpoint = ct_local_endpoint_deep_copy(source_connection->local_endpoint);
+  clone->all_local_endpoints = ct_local_endpoints_deep_copy(source_connection->all_local_endpoints, source_connection->num_local_endpoints);
+  clone->num_local_endpoints = source_connection->num_local_endpoints;
+  clone->active_local_endpoint = source_connection->active_local_endpoint;
   // In the cases where a socket manager isn't provided, the protocol will insert
   // a custom one to the new connection after cloning
   if (socket_manager) {
@@ -433,8 +443,8 @@ void ct_connection_free_content(ct_connection_t* connection) {
     connection->received_messages = NULL;
   }
 
-  if (connection->local_endpoint) {
-    ct_local_endpoint_free(connection->local_endpoint);
+  if (connection->all_local_endpoints) {
+    ct_local_endpoints_free(connection->all_local_endpoints, connection->num_local_endpoints);
   }
   if (connection->all_remote_endpoints) {
     ct_remote_endpoints_free(connection->all_remote_endpoints, connection->num_remote_endpoints);
@@ -625,6 +635,14 @@ const ct_remote_endpoint_t* ct_connection_get_active_remote_endpoint(const ct_co
   return &connection->all_remote_endpoints[connection->active_remote_endpoint];
 }
 
+const ct_local_endpoint_t* ct_connection_get_active_local_endpoint(const ct_connection_t* connection) {
+  if (!connection) {
+    log_error("ct_connection_get_local_endpoint called with NULL connection");
+    return NULL;
+  }
+  return &connection->all_local_endpoints[connection->active_local_endpoint];
+}
+
 ct_connection_group_t* ct_connection_get_connection_group(const ct_connection_t* connection) {
   if (!connection) {
     log_error("ct_connection_get_connection_group called with NULL connection");
@@ -650,7 +668,8 @@ const ct_connection_properties_t* ct_connection_get_connection_properties(const 
 }
 
 void connection_set_resolved_local_address(ct_connection_t* connection, const struct sockaddr_storage* addr) {
-  memcpy(&connection->local_endpoint->data.resolved_address, addr, sizeof(struct sockaddr_storage));
+  // TODO - this is probably wrong we should maybe set the index instead?
+  connection->all_local_endpoints[connection->active_local_endpoint].data.resolved_address = *addr;
 }
 
 ct_protocol_enum_t ct_connection_get_transport_protocol(const ct_connection_t* connection) {
@@ -745,8 +764,4 @@ size_t ct_connection_get_num_remote_endpoints(const ct_connection_t* connection)
 
 const ct_remote_endpoint_t* ct_connection_get_remote_endpoints_list(const ct_connection_t* connection) {
   return connection ? connection->all_remote_endpoints : NULL;
-}
-
-const ct_local_endpoint_t* ct_connection_get_local_endpoint(const ct_connection_t* connection) {
-  return connection ? connection->local_endpoint : NULL;
 }

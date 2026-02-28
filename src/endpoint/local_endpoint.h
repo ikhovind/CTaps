@@ -26,4 +26,8 @@ int ct_local_endpoint_copy_content(const ct_local_endpoint_t* src, ct_local_endp
 
 ct_local_endpoint_t* ct_local_endpoint_deep_copy(const ct_local_endpoint_t* local_endpoint);
 
+ct_local_endpoint_t* ct_local_endpoints_deep_copy(const ct_local_endpoint_t* local_endpoints, size_t num_local_endpoints);
+
+void ct_local_endpoints_free(ct_local_endpoint_t* local_endpoints, size_t num_local_endpoints);
+
 #endif

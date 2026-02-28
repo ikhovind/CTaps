@@ -224,7 +224,7 @@ int udp_init_with_send(ct_connection_t* connection, const ct_connection_callback
   log_debug("Initiating UDP connection\n");
 
   ct_socket_manager_t* socket_manager = connection->socket_manager;
-  uv_udp_t* new_udp_handle = create_udp_listening_on_local(connection->local_endpoint, alloc_buffer, on_read);
+  uv_udp_t* new_udp_handle = create_udp_listening_on_local(ct_connection_get_active_local_endpoint(connection), alloc_buffer, on_read);
   if (!new_udp_handle) {
     log_error("Failed to create UDP handle for connection");
     return -EIO;
