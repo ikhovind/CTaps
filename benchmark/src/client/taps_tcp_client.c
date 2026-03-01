@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
     ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PROHIBIT);
     ct_transport_properties_set_multistreaming(transport_properties, PROHIBIT);
 
-    ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
+    ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties,NULL);
     if (!preconnection) {
         fprintf(stderr, "Failed to allocate preconnection\n");
         ct_transport_properties_free(transport_properties);
