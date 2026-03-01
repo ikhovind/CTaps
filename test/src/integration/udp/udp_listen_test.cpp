@@ -32,15 +32,14 @@ TEST_F(UdpListenTests, ReceivesConnectionFromListenerAndExchangesMessages) {
     ct_transport_properties_set_preserve_order(udp_props, PROHIBIT);
     ct_transport_properties_set_congestion_control(udp_props, PROHIBIT);
 
-    ct_preconnection_t* listener_precon = ct_preconnection_new(listener_remote, 1, udp_props, NULL);
-    ct_preconnection_set_local_endpoint(listener_precon, listener_endpoint);
+    ct_preconnection_t* listener_precon = ct_preconnection_new(listener_endpoint, 1, listener_remote, 1, udp_props,NULL);
 
     // Set up the client preconnection ahead of time, but don't initiate yet
     ct_remote_endpoint_t* client_remote = ct_remote_endpoint_new();
     ct_remote_endpoint_with_hostname(client_remote, "127.0.0.1");
     ct_remote_endpoint_with_port(client_remote, 1239);
 
-    ct_preconnection_t* client_precon = ct_preconnection_new(client_remote, 1, udp_props, NULL);
+    ct_preconnection_t* client_precon = ct_preconnection_new(NULL, 0, client_remote, 1, udp_props,NULL);
     ASSERT_NE(client_precon, nullptr);
 
     ct_connection_callbacks_t client_callbacks {

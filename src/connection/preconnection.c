@@ -51,10 +51,10 @@ int copy_remote_endpoints(ct_preconnection_t* preconnection,
 }
 
 ct_preconnection_t* ct_preconnection_new(
-    const ct_remote_endpoint_t* remote_endpoints,
-    const size_t num_remote_endpoints,
-    const ct_transport_properties_t* transport_properties,
-    const ct_security_parameters_t* security_parameters) {
+  const ct_local_endpoint_t *local_endpoints,
+  size_t num_local_endpoints,
+  const ct_remote_endpoint_t* remote_endpoints,
+  const size_t num_remote_endpoints, const ct_transport_properties_t* transport_properties, const ct_security_parameters_t* security_parameters) {
 
   ct_preconnection_t* precon = malloc(sizeof(ct_preconnection_t));
   if (!precon) {
@@ -78,7 +78,16 @@ ct_preconnection_t* ct_preconnection_new(
 
   // Deep copy security parameters so preconnection owns its own copy
   precon->security_parameters = ct_security_parameters_deep_copy(security_parameters);
-  ct_local_endpoint_build(&precon->local);
+  
+  if (num_local_endpoints > 0) {
+    if (!local_endpoints) {
+      log_error("num_local_endpoints is greater than 0 but local_endpoints is NULL");
+      free(precon);
+      return NULL;
+    }
+    precon->num_local_endpoints = num_local_endpoints;
+    precon->local_endpoints = ct_local_endpoints_deep_copy(local_endpoints, num_local_endpoints);
+  }
 
   // Copy remote endpoints if provided
   if (remote_endpoints && num_remote_endpoints > 0) {
@@ -236,7 +245,9 @@ void ct_preconnection_free(ct_preconnection_t* preconnection) {
     preconnection->remote_endpoints = NULL;
   }
 
-  ct_local_endpoint_free_strings(&preconnection->local);
+  if (preconnection->local_endpoints) {
+    ct_local_endpoints_free(preconnection->local_endpoints, preconnection->num_local_endpoints);
+  }
 
   ct_selection_properties_cleanup(&preconnection->transport_properties.selection_properties);
 
@@ -247,18 +258,6 @@ void ct_preconnection_free(ct_preconnection_t* preconnection) {
   free(preconnection);
 }
 
-void ct_preconnection_set_local_endpoint(ct_preconnection_t* preconnection, const ct_local_endpoint_t* local_endpoint) {
-  if (!preconnection || !local_endpoint) {
-    return;
-  }
-  // Deep copy the local endpoint so preconnection owns its own copy
-  // First free any existing strings in preconnection->local
-  ct_local_endpoint_free_strings(&preconnection->local);
-  // Then do a deep copy
-  ct_local_endpoint_copy_content(local_endpoint, &preconnection->local);
-  preconnection->num_local_endpoints = 1;
-}
-
 void ct_preconnection_set_framer(ct_preconnection_t* preconnection, ct_framer_impl_t* framer_impl) {
   if (!preconnection) {
     return;
@@ -266,8 +265,15 @@ void ct_preconnection_set_framer(ct_preconnection_t* preconnection, ct_framer_im
   preconnection->framer_impl = framer_impl;
 }
 
-const ct_local_endpoint_t* preconnection_get_local_endpoint(const ct_preconnection_t* preconnection) {
-  return &preconnection->local;
+const ct_local_endpoint_t* preconnection_get_local_endpoints(const ct_preconnection_t* preconnection, size_t* out_count) {
+  log_debug("Getting local endpoints from preconnection");
+  if (!preconnection) {
+    *out_count = 0;
+    return NULL;
+  }
+
+  *out_count = preconnection->num_local_endpoints;
+  return preconnection->local_endpoints;
 }
 
 ct_remote_endpoint_t* const * preconnection_get_remote_endpoints(const ct_preconnection_t* preconnection, size_t* out_count) {

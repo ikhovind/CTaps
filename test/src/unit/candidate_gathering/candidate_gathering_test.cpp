@@ -87,7 +87,7 @@ protected:
         remote_endpoint = ct_remote_endpoint_new();
         ASSERT_NE(remote_endpoint, nullptr);
         ct_remote_endpoint_with_hostname(remote_endpoint, "test.com");
-        preconnection = ct_preconnection_new(remote_endpoint, 1, props, sec_params);
+        preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, props, sec_params);
         ASSERT_NE(preconnection, nullptr);
     }
 

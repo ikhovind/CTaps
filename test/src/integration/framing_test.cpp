@@ -151,7 +151,7 @@ TEST_F(FramingTest, LengthPrependFramerSendsCorrectFormat) {
     ct_remote_endpoint_with_hostname(remote_endpoint, "127.0.0.1");
     ct_remote_endpoint_with_port(remote_endpoint, 5006);
 
-    ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, nullptr);
+    ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties, nullptr);
     ASSERT_NE(preconnection, nullptr);
     ct_preconnection_set_framer(preconnection, &length_prepend_framer);
 
@@ -189,7 +189,7 @@ TEST_F(FramingTest, StripFirstCharFramerReceivesStrippedMessage) {
     ct_remote_endpoint_with_hostname(remote_endpoint, "127.0.0.1");
     ct_remote_endpoint_with_port(remote_endpoint, 5006);
 
-    ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, nullptr);
+    ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties, nullptr);
     ASSERT_NE(preconnection, nullptr);
     ct_preconnection_set_framer(preconnection, &strip_first_char_framer);
 
@@ -233,7 +233,7 @@ TEST_F(FramingTest, AsyncFramerDefersSendCallback) {
     ct_remote_endpoint_with_hostname(remote_endpoint, "127.0.0.1");
     ct_remote_endpoint_with_port(remote_endpoint, 5006);
 
-    ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, nullptr);
+    ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties, nullptr);
     ASSERT_NE(preconnection, nullptr);
     ct_preconnection_set_framer(preconnection, &async_framer);
 

@@ -448,7 +448,7 @@ typedef struct ct_listener_s {
 typedef struct ct_preconnection_s {
   ct_transport_properties_t transport_properties;     ///< Transport property preferences
   ct_security_parameters_t* security_parameters;       ///< Security configuration (owned copy)
-  ct_local_endpoint_t local;                          ///< Local endpoint specification
+  ct_local_endpoint_t* local_endpoints;                ///< Local endpoint specification
   size_t num_local_endpoints;                         ///< Number of local endpoints
   ct_remote_endpoint_t* remote_endpoints;             ///< Array of remote endpoints
   size_t num_remote_endpoints;                        ///< Number of remote endpoints

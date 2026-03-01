@@ -123,9 +123,8 @@ TEST_F(LocalEndpointInitTest, UsesInterfaceAddress_whenInterfaceIsSpecified) {
     ct_transport_properties_set_preserve_order(transport_properties, PROHIBIT);
     ct_transport_properties_set_congestion_control(transport_properties, PROHIBIT);
 
-    ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
+    ct_preconnection_t* preconnection = ct_preconnection_new(&local_endpoint, 1, remote_endpoint, 1, transport_properties,NULL);
     ASSERT_NE(preconnection, nullptr);
-    ct_preconnection_set_local_endpoint(preconnection, &local_endpoint);
 
     ct_connection_callbacks_t connection_callbacks = {
         .ready = on_connection_ready,

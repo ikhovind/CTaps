@@ -28,7 +28,7 @@ TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnRec
     ct_transport_properties_set_congestion_control(transport_properties, PROHIBIT);
 
     // Create preconnection
-    ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, nullptr);
+    ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties, nullptr);
     ASSERT_NE(preconnection, nullptr);
 
     // Set expected remote port for verification
@@ -71,7 +71,7 @@ TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnRec
     ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PROHIBIT); // force tcp
 
     // Create preconnection
-    ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, nullptr);
+    ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties, nullptr);
     ASSERT_NE(preconnection, nullptr);
 
     // Set expected remote port for verification
@@ -122,7 +122,7 @@ TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnRec
     ct_security_parameters_add_client_certificate(security_parameters, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
 
     // Create preconnection
-    ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, security_parameters);
+    ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties, security_parameters);
     ASSERT_NE(preconnection, nullptr);
 
     // Set expected remote port for verification
@@ -171,9 +171,8 @@ TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnRec
     ct_transport_properties_set_preserve_msg_boundaries(listener_props, PROHIBIT);
     ct_transport_properties_set_multistreaming(listener_props, PROHIBIT);
 
-    ct_preconnection_t* listener_precon = ct_preconnection_new(listener_remote, 1, listener_props, NULL);
+    ct_preconnection_t* listener_precon = ct_preconnection_new(listener_endpoint, 1, listener_remote, 1, listener_props,NULL);
     ASSERT_NE(listener_precon, nullptr);
-    ct_preconnection_set_local_endpoint(listener_precon, listener_endpoint);
 
     ct_listener_callbacks_t listener_callbacks = {
         .connection_received = receive_message_verify_and_close_listener_on_connection_received,
@@ -195,7 +194,7 @@ TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnRec
     ct_transport_properties_set_preserve_msg_boundaries(client_props, PROHIBIT);
     ct_transport_properties_set_multistreaming(client_props, PROHIBIT);
 
-    ct_preconnection_t* client_precon = ct_preconnection_new(client_remote, 1, client_props, NULL);
+    ct_preconnection_t* client_precon = ct_preconnection_new(NULL, 0, client_remote, 1, client_props,NULL);
     ASSERT_NE(client_precon, nullptr);
 
     // Custom ready callback that saves connection and calls original ready

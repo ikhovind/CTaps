@@ -34,10 +34,9 @@ TEST_F(QuicListenTests, QuicReceivesConnectionFromListenerAndExchangesMessages) 
 
     ct_security_parameters_add_server_certificate(server_security_parameters, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
 
-    ct_preconnection_t* listener_precon = ct_preconnection_new(listener_remote, 1, listener_props, server_security_parameters);
+    ct_preconnection_t* listener_precon = ct_preconnection_new(listener_endpoint, 1, listener_remote, 1, listener_props, server_security_parameters);
     ASSERT_NE(listener_precon, nullptr);
     ct_security_parameters_free(server_security_parameters);
-    ct_preconnection_set_local_endpoint(listener_precon, listener_endpoint);
 
     ct_listener_callbacks_t listener_callbacks = {
         .connection_received = receive_message_respond_and_close_listener_on_connection_received,
@@ -65,7 +64,7 @@ TEST_F(QuicListenTests, QuicReceivesConnectionFromListenerAndExchangesMessages) 
 
     ct_security_parameters_add_client_certificate(client_security_parameters, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
 
-    ct_preconnection_t* client_precon = ct_preconnection_new(client_remote, 1, client_props, client_security_parameters);
+    ct_preconnection_t* client_precon = ct_preconnection_new(NULL, 0, client_remote, 1, client_props, client_security_parameters);
     ASSERT_NE(client_precon, nullptr);
     ct_security_parameters_free(client_security_parameters);
 
@@ -134,10 +133,9 @@ TEST_F(QuicListenTests, ServerInitiatesStreamByWritingFirst) {
 
     ct_security_parameters_add_server_certificate(server_security_parameters, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
 
-    ct_preconnection_t* listener_precon = ct_preconnection_new(listener_remote, 1, listener_props, server_security_parameters);
+    ct_preconnection_t* listener_precon = ct_preconnection_new(listener_endpoint, 1, listener_remote, 1, listener_props, server_security_parameters);
     ASSERT_NE(listener_precon, nullptr);
     ct_security_parameters_free(server_security_parameters);
-    ct_preconnection_set_local_endpoint(listener_precon, listener_endpoint);
 
     ct_listener_callbacks_t listener_callbacks = {
         .connection_received = server_sends_first_and_waits_for_response,
@@ -166,7 +164,7 @@ TEST_F(QuicListenTests, ServerInitiatesStreamByWritingFirst) {
 
     ct_security_parameters_add_client_certificate(client_security_parameters, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
 
-    ct_preconnection_t* client_precon = ct_preconnection_new(client_remote, 1, client_props, client_security_parameters);
+    ct_preconnection_t* client_precon = ct_preconnection_new(NULL, 0, client_remote, 1, client_props, client_security_parameters);
     ASSERT_NE(client_precon, nullptr);
     ct_security_parameters_free(client_security_parameters);
 
@@ -237,10 +235,9 @@ TEST_F(QuicListenTests, ListenerCanReceive0RttMessage) {
 
     ct_security_parameters_add_server_certificate(server_security_parameters, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
 
-    ct_preconnection_t* listener_precon = ct_preconnection_new(listener_remote, 1, listener_props, server_security_parameters);
+    ct_preconnection_t* listener_precon = ct_preconnection_new(listener_endpoint, 1, listener_remote, 1, listener_props, server_security_parameters);
     ASSERT_NE(listener_precon, nullptr);
     ct_security_parameters_free(server_security_parameters);
-    ct_preconnection_set_local_endpoint(listener_precon, listener_endpoint);
 
     ct_listener_callbacks_t listener_callbacks = {
         .connection_received = receive_message_respond_and_close_listener_on_connection_received,
@@ -271,7 +268,7 @@ TEST_F(QuicListenTests, ListenerCanReceive0RttMessage) {
 
   ct_security_parameters_set_ticket_store_path(client_security_parameters, TEST_CLIENT_TICKET_STORE);
 
-    ct_preconnection_t* client_precon = ct_preconnection_new(client_remote, 1, client_props, client_security_parameters);
+    ct_preconnection_t* client_precon = ct_preconnection_new(NULL, 0, client_remote, 1, client_props, client_security_parameters);
     ASSERT_NE(client_precon, nullptr);
     ct_security_parameters_free(client_security_parameters);
 

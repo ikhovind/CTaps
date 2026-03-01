@@ -394,6 +394,7 @@ static gboolean collect_leaves(GNode *node, gpointer user_data) {
 
 int build_candidate_tree(ct_gather_context_t* gather_context) {
   const ct_preconnection_t* precon = gather_context->preconnection;
+  log_debug("Building candidate tree for preconnection: %p", precon);
   struct ct_candidate_node_t* root = candidate_node_new(
     NODE_TYPE_ROOT,
     NULL, 
@@ -417,12 +418,42 @@ int build_candidate_tree(ct_gather_context_t* gather_context) {
 
   gather_context->root_node = root_node;
 
-  branch_by_path(root_node, preconnection_get_local_endpoint(precon));  
+  size_t num_local_eps = 0;
+  const ct_local_endpoint_t* local_eps = preconnection_get_local_endpoints(precon, &num_local_eps);
+  ct_local_endpoint_t* ephemeral_local_ep = NULL;
+  if (num_local_eps == 0) {
+    ephemeral_local_ep = ct_local_endpoint_new();
+    num_local_eps = 1;
+    local_eps = ephemeral_local_ep;
+  }
+
+  log_debug("Branching candidate tree by path for %zu local endpoints", num_local_eps);
+  for (size_t i = 0; i < num_local_eps; i++) {
+    int rc = branch_by_path(root_node, &local_eps[i]);
+    if (rc != 0) {
+      log_error("Error branching by path for local endpoint at index %zu: %d", i, rc);
+      if (ephemeral_local_ep) {
+        ct_local_endpoint_free(ephemeral_local_ep);
+      }
+      g_node_traverse(root_node, G_IN_ORDER, G_TRAVERSE_ALL, -1, free_data_in_tree_node_and_children, NULL);
+      g_node_destroy(root_node);
+      return rc;
+    }
+  }
+  if (ephemeral_local_ep) {
+    ct_local_endpoint_free(ephemeral_local_ep);
+  }
 
   GList* leaves = NULL; 
   g_node_traverse(root_node, G_IN_ORDER, G_TRAVERSE_LEAVES, -1, collect_leaves, &leaves);
 
   ct_protocol_options_t* protocol_options = ct_protocol_options_new(precon);
+  if (!protocol_options) {
+    log_error("Could not create protocol options for branching by protocol options");
+    g_node_traverse(root_node, G_IN_ORDER, G_TRAVERSE_ALL, -1, free_data_in_tree_node_and_children, NULL);
+    g_node_destroy(root_node);
+    return -ENOMEM;
+  }
   for (GList* iter = leaves; iter != NULL; iter = iter->next) {
     GNode* leaf_node = (GNode*)iter->data;
     branch_by_protocol_options(leaf_node, protocol_options);
@@ -433,8 +464,8 @@ int build_candidate_tree(ct_gather_context_t* gather_context) {
   leaves = NULL;
 
   g_node_traverse(root_node, G_IN_ORDER, G_TRAVERSE_LEAVES, -1, collect_leaves, &leaves);
-  // We have this early check to make sure we invoke the completion callback no matter what
-  if (g_list_length(leaves) == 0) {
+  // null list means zero length, We have this early check to make sure we invoke the completion callback no matter what
+  if (leaves == NULL) {
     log_trace("No candidate leaf nodes found after branching by protocol options, finishing candidate tree building");
     build_candidate_tree_is_complete_cb(gather_context);
     return 0;
@@ -684,7 +715,7 @@ void build_candidate_tree_is_complete_cb(ct_gather_context_t* gather_context) {
 }
 
 int get_ordered_candidate_nodes(const ct_preconnection_t* precon, ct_candidate_gathering_callbacks_t callbacks) {
-  log_info("Creating candidate node tree from preconnection");
+  log_info("Creating candidate node array from preconnection: %p", (void*)precon);
   if (!precon) {
     log_error("NULL preconnection provided");
     return -EINVAL;
@@ -702,6 +733,7 @@ int get_ordered_candidate_nodes(const ct_preconnection_t* precon, ct_candidate_g
   gather_context->root_node = NULL;
   gather_context->preconnection = precon;
 
+  // This is async and calls the ready function on completion or failure
   int rc = build_candidate_tree(gather_context);
   if (rc != 0) {
     free(gather_context);

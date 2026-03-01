@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
 
     ct_security_parameters_add_client_certificate(security_parameters, RESOURCE_FOLDER "/cert.pem", RESOURCE_FOLDER "/key.pem");
 
-    ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, security_parameters);
+    ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties, security_parameters);
     if (!preconnection) {
         fprintf(stderr, "Failed to allocate preconnection\n");
         ct_security_parameters_free(security_parameters);

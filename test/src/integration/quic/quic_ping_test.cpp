@@ -40,7 +40,7 @@ TEST_F(QuicPingTest, successfullyPingsQuicServerWithout0Rtt) {
   ct_security_parameters_add_alpn(security_parameters, alpn_strings);
   ct_security_parameters_add_client_certificate(security_parameters, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, security_parameters);
+  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties, security_parameters);
 
   ASSERT_NE(preconnection, nullptr);
   ct_security_parameters_free(security_parameters);
@@ -96,7 +96,7 @@ TEST_F(QuicPingTest, ConnectionFailsIfAlpnDoesNotMatch) {
 
   ct_security_parameters_add_client_certificate(security_parameters, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, security_parameters);
+  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties, security_parameters);
 
   ASSERT_NE(preconnection, nullptr);
   ct_security_parameters_free(security_parameters);
@@ -140,7 +140,7 @@ TEST_F(QuicPingTest, SuccessfullyPingsQuicServerEvenIfFirstAlpnDoesNotMatch) {
 
   ct_security_parameters_add_client_certificate(security_parameters, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, security_parameters);
+  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties, security_parameters);
 
   ASSERT_NE(preconnection, nullptr);
   ct_security_parameters_free(security_parameters);
@@ -198,7 +198,7 @@ TEST_F(QuicPingTest, successfullyPingsQuicServerWith0Rtt) {
   ct_security_parameters_add_client_certificate(security_parameters, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
   ct_security_parameters_set_ticket_store_path(security_parameters, TEST_CLIENT_TICKET_STORE);
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, security_parameters);
+  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties, security_parameters);
 
   ASSERT_NE(preconnection, nullptr);
   ct_security_parameters_free(security_parameters);
@@ -295,7 +295,7 @@ TEST_F(QuicPingTest, doesNotUse0rttWithNormalInitiate) {
 
   ct_security_parameters_set_ticket_store_path(security_parameters, TEST_CLIENT_TICKET_STORE);
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, security_parameters);
+  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties, security_parameters);
 
   ASSERT_NE(preconnection, nullptr);
   ct_security_parameters_free(security_parameters);
@@ -371,7 +371,7 @@ TEST_F(QuicPingTest, doesNotUse0rttWhenReplayableNotSet) {
 
   ct_security_parameters_set_ticket_store_path(security_parameters, TEST_CLIENT_TICKET_STORE);
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, security_parameters);
+  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties, security_parameters);
 
   ASSERT_NE(preconnection, nullptr);
   ct_security_parameters_free(security_parameters);

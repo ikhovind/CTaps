@@ -854,12 +854,6 @@ CT_EXTERN void ct_security_parameters_free(ct_security_parameters_t* security_pa
  *   ct_preconnection_free(precon1);  // Frees precon1's endpoint copy
  *   ct_preconnection_free(precon2);  // Frees precon2's endpoint copy
  * @endcode
- *
- * This model ensures:
- * - Clear ownership boundaries (user owns originals, CTaps owns copies)
- * - No use-after-free bugs (each object owns its own endpoint data)
- * - Easy resource management (free endpoints when you're done with them)
- * - Endpoint reusability (use same endpoint for multiple preconnections)
  */
 
 // Local Endpoint
@@ -868,7 +862,6 @@ CT_EXTERN void ct_security_parameters_free(ct_security_parameters_t* security_pa
  *
  * The caller owns the returned endpoint and must free it with ct_local_endpoint_free()
  * when done. The endpoint can be safely freed after passing to ct_preconnection_new()
- * or ct_preconnection_set_local_endpoint(), as CTaps makes internal copies.
  *
  * @return Pointer to newly allocated endpoint, or NULL on error
  * @see endpoint_ownership
@@ -1106,6 +1099,8 @@ CT_EXTERN const ct_local_endpoint_t* ct_message_context_get_local_endpoint(const
  * The returned object must be freed with ct_preconnection_free().
  * This follows the RFC 9622 pattern: Preconnection := NewPreconnection(...)
  *
+ * @param local_endpoints
+ * @param num_local_endpoints
  * @param[in] remote_endpoints Array of remote endpoints to connect to, or NULL
  * @param[in] num_remote_endpoints Number of remote endpoints (0 if remote_endpoints is NULL)
  * @param[in] transport_properties Transport property preferences, or NULL for defaults
@@ -1113,10 +1108,10 @@ CT_EXTERN const ct_local_endpoint_t* ct_message_context_get_local_endpoint(const
  * @return Pointer to newly allocated preconnection, or NULL on allocation failure
  */
 CT_EXTERN ct_preconnection_t* ct_preconnection_new(
-    const ct_remote_endpoint_t* remote_endpoints,
-    size_t num_remote_endpoints,
-    const ct_transport_properties_t* transport_properties,
-    const ct_security_parameters_t* security_parameters);
+ const ct_local_endpoint_t *local_endpoints,
+ size_t num_local_endpoints,
+ const ct_remote_endpoint_t* remote_endpoints,
+ size_t num_remote_endpoints, const ct_transport_properties_t* transport_properties, const ct_security_parameters_t* security_parameters);
 
 /**
  * @brief Free a preconnection object.
@@ -1128,20 +1123,6 @@ CT_EXTERN ct_preconnection_t* ct_preconnection_new(
  * @param[in] preconnection Pointer to preconnection to free. Does nothing if NULL.
  */
 CT_EXTERN void ct_preconnection_free(ct_preconnection_t* preconnection);
-
-/**
- * @brief Add an additional remote endpoint to a preconnection.
- * @param[in,out] preconnection Preconnection to modify
- * @param[in] remote_endpoint Endpoint to add
- */
-CT_EXTERN void ct_preconnection_add_remote_endpoint(ct_preconnection_t* preconnection, const ct_remote_endpoint_t* remote_endpoint);
-
-/**
- * @brief Set the local endpoint for a preconnection.
- * @param[in,out] preconnection Preconnection to modify
- * @param[in] local_endpoint Local endpoint to set
- */
-CT_EXTERN void ct_preconnection_set_local_endpoint(ct_preconnection_t* preconnection, const ct_local_endpoint_t* local_endpoint);
 
 /**
  * @brief Set a message framer for the preconnection.
