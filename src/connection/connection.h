@@ -145,6 +145,10 @@ void* ct_connection_get_socket_state(const ct_connection_t* connection);
 
 size_t ct_connection_get_num_remote_endpoints(const ct_connection_t* connection);
 
+size_t ct_connection_get_num_local_endpoints(const ct_connection_t* connection);
+
 const ct_remote_endpoint_t* ct_connection_get_remote_endpoints_list(const ct_connection_t* connection);
+
+const ct_local_endpoint_t* ct_connection_get_local_endpoints_list(const ct_connection_t* connection);
 
 #endif // CONNECTION_H

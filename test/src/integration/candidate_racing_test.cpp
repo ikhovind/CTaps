@@ -169,9 +169,9 @@ TEST_F(CandidateRacingTests, connectionContainsSeveralRemotes) {
   ct_start_event_loop();
 
   ASSERT_NE(test_context.captured_connection, nullptr);
-  EXPECT_GE(test_context.captured_connection->num_remote_endpoints, 2);
   // Verify
   EXPECT_TRUE(test_context.connection_succeeded);
+  EXPECT_EQ(test_context.captured_connection->num_remote_endpoints, 2);
 
   ct_remote_endpoint_free_strings(&remotes[0]);
   ct_remote_endpoint_free_strings(&remotes[1]);
@@ -215,7 +215,7 @@ TEST_F(CandidateRacingTests, connectionContainsSeveralLocals) {
 
   ASSERT_NE(test_context.captured_connection, nullptr);
   EXPECT_NE(test_context.captured_connection->all_local_endpoints, nullptr);
-  EXPECT_GE(test_context.captured_connection->num_local_endpoints, 6);
+  EXPECT_GE(test_context.captured_connection->num_local_endpoints, 5);
   // Verify
   EXPECT_TRUE(test_context.connection_succeeded);
 

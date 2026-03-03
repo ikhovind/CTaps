@@ -14,6 +14,7 @@
 #include <uv.h>
 
 void get_interface_addresses(const char *interface_name, int *num_found_addresses, struct sockaddr_storage *output_interface_addrs) {
+  log_debug("Getting interface addresses for interface name: %s", interface_name ? interface_name : "NULL");
   *num_found_addresses = 0;
   if (interface_name != NULL) {
     uv_interface_address_t* interfaces = NULL;
@@ -22,14 +23,17 @@ void get_interface_addresses(const char *interface_name, int *num_found_addresse
     if (rc != 0) {
       return;
     }
+    log_debug("Found %d interfaces on the system", count);
 
     for (int i = 0; i < count; i++) {
       if (strcmp("any", interface_name) == 0 || strcmp(interfaces[i].name, interface_name) == 0) {
         if (interfaces[i].address.address4.sin_family == AF_INET) {
-          memcpy(&output_interface_addrs[(*num_found_addresses)++], &interfaces[i].address, sizeof(struct sockaddr_in));
+          memcpy(&output_interface_addrs[*num_found_addresses], &interfaces[i].address.address4, sizeof(struct sockaddr_in));
+          (*num_found_addresses)++;
         }
         if (interfaces[i].address.address6.sin6_family == AF_INET6) {
-          memcpy(&output_interface_addrs[(*num_found_addresses)++], &interfaces[i].address, sizeof(struct sockaddr_in6));
+          memcpy(&output_interface_addrs[*num_found_addresses], &interfaces[i].address.address6, sizeof(struct sockaddr_in6));
+          (*num_found_addresses)++;
         }
         if (*num_found_addresses >= MAX_FOUND_INTERFACE_ADDRS) {
           break;
@@ -38,6 +42,7 @@ void get_interface_addresses(const char *interface_name, int *num_found_addresse
     }
     uv_free_interface_addresses(interfaces, count);
   }
+  log_debug("Found %d addresses for interface name: %s", *num_found_addresses, interface_name ? interface_name : "NULL");
 }
 
 void on_uv_getaddrinfo_cb(uv_getaddrinfo_t* req, int status, struct addrinfo* res) {

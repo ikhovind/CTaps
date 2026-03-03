@@ -762,6 +762,14 @@ size_t ct_connection_get_num_remote_endpoints(const ct_connection_t* connection)
   return connection ? connection->num_remote_endpoints : 0;
 }
 
+size_t ct_connection_get_num_local_endpoints(const ct_connection_t* connection) {
+  return connection ? connection->num_local_endpoints : 0;
+}
+
 const ct_remote_endpoint_t* ct_connection_get_remote_endpoints_list(const ct_connection_t* connection) {
   return connection ? connection->all_remote_endpoints : NULL;
+}
+
+const ct_local_endpoint_t* ct_connection_get_local_endpoints_list(const ct_connection_t* connection) {
+  return connection ? connection->all_local_endpoints : NULL;
 }

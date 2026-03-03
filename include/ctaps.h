@@ -891,6 +891,8 @@ CT_EXTERN void ct_local_endpoint_with_port(ct_local_endpoint_t* local_endpoint, 
  */
 CT_EXTERN int ct_local_endpoint_with_service(ct_local_endpoint_t* local_endpoint, char* service);
 
+CT_EXTERN int ct_local_endpoint_with_ipv4(ct_local_endpoint_t* local_endpoint, in_addr_t ipv4_addr);
+
 /**
  * @brief Free all resources in a local endpoint.
  * @param[in] local_endpoint Endpoint to free
@@ -903,17 +905,6 @@ CT_EXTERN void ct_local_endpoint_free(ct_local_endpoint_t* local_endpoint);
  * @return Pointer to newly allocated copy, or NULL on error
  */
 ct_local_endpoint_t* local_endpoint_copy(const ct_local_endpoint_t* local_endpoint);
-
-/**
- * @brief Resolve a local endpoint to concrete addresses.
- * @param[in] local_endpoint Endpoint to resolve
- * @param[out] out_list Output array of resolved endpoints (caller must free)
- * @param[out] out_count Number of endpoints in output array
- * @return 0 on success, non-zero on error
- *
- * TODO - this shouldn't be public?
- */
-CT_EXTERN int ct_local_endpoint_resolve(const ct_local_endpoint_t* local_endpoint, ct_local_endpoint_t** out_list, size_t* out_count);
 
 /**
  * @brief Get the service for a local endpoint

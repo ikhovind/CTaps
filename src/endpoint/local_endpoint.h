@@ -30,4 +30,13 @@ ct_local_endpoint_t* ct_local_endpoints_deep_copy(const ct_local_endpoint_t* loc
 
 void ct_local_endpoints_free(ct_local_endpoint_t* local_endpoints, size_t num_local_endpoints);
 
+/**
+ * @brief Resolve a local endpoint to concrete addresses.
+ * @param[in] local_endpoint Endpoint to resolve
+ * @param[out] out_list Output array of resolved endpoints (caller must free)
+ * @param[out] out_count Number of endpoints in output array
+ * @return number of resolved endpoints
+ */
+ct_local_endpoint_t* ct_local_endpoint_resolve(const ct_local_endpoint_t* local_endpoint, size_t* out_count);
+
 #endif
