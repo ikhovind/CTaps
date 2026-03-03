@@ -275,6 +275,17 @@ add_gtest(message_unit_test
     ${CTAPS_SOURCES}
 )
 
+# Because we need root access
+option(CTAPS_ENABLE_MIGRATION_TESTS "Enable migration tests (requires CAP_NET_ADMIN)" OFF)
+
+if(CTAPS_ENABLE_MIGRATION_TESTS)
+    add_gtest(quic_migration_test
+        SOURCES
+            src/integration/quic/quic_migration_test.cpp
+            ${CTAPS_SOURCES}
+    )
+endif()
+
 get_property(all_tests GLOBAL PROPERTY CTAPS_TEST_TARGETS)
 add_custom_target(ctaps_tests
     DEPENDS ${all_tests}

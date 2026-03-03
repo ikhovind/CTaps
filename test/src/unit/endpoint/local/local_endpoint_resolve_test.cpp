@@ -6,6 +6,7 @@
 extern "C" {
   #include "ctaps.h"
   #include "ctaps_internal.h"
+  #include "endpoint/local_endpoint.h"
   #include <logging/log.h>
   #include "fff.h"
   DEFINE_FFF_GLOBALS;
@@ -41,6 +42,18 @@ void custom_get_interface_addresses_success(const char* interface_name, int* num
   inet_pton(AF_INET, "192.168.1.101", &ipv4_addr->sin_addr);
 }
 
+void custom_get_two_interface_addresses_success(const char* interface_name, int* num_found, struct sockaddr_storage* found_addrs) {
+  *num_found = 2;
+
+  struct sockaddr_in* ipv4_addr = (struct sockaddr_in*)&found_addrs[0];
+  ipv4_addr->sin_family = AF_INET;
+  inet_pton(AF_INET, "192.168.1.101", &ipv4_addr->sin_addr);
+
+  struct sockaddr_in* ipv4_addr2 = (struct sockaddr_in*)&found_addrs[1];
+  ipv4_addr2->sin_family = AF_INET;
+  inet_pton(AF_INET, "192.168.1.201", &ipv4_addr2->sin_addr);
+}
+
 // --- Custom Fake for when NO interface is found ---
 void custom_get_interface_addresses_fail(const char* interface_name, int* num_found, struct sockaddr_storage* found_addrs) {
   // Simulate finding zero interfaces
@@ -61,12 +74,11 @@ TEST_F(LocalEndpointResolveTest, UsesInterfaceAddress_whenInterfaceIsSpecified) 
   // --- ACT ---
   ct_local_endpoint_t* out_list = nullptr;
   size_t num_found = 0;
-  int result = ct_local_endpoint_resolve(input_endpoint, &out_list, &num_found);
+  out_list = ct_local_endpoint_resolve(input_endpoint, &num_found);
   ct_local_endpoint_t endpoint = out_list[0];
 
   // --- ASSERT ---
   ASSERT_EQ(num_found, 1);
-  ASSERT_EQ(result, 0);
   ASSERT_EQ(get_interface_addresses_fake.call_count, 1);
   ASSERT_EQ(get_service_port_fake.call_count, 1);
 
@@ -102,28 +114,57 @@ TEST_F(LocalEndpointResolveTest, DefaultsToAnyAddress_WhenNoInterfaceIsFound) {
   // --- ACT ---
   ct_local_endpoint_t* out_list = nullptr;
   size_t num_found = 0;
-  int result = ct_local_endpoint_resolve(input_endpoint, &out_list, &num_found);
+  out_list = ct_local_endpoint_resolve(input_endpoint, &num_found);
   ct_local_endpoint_t endpoint = out_list[0];
 
   // --- ASSERT ---
-  // 1. Verify behavior
-  ASSERT_EQ(result, 0);
   ASSERT_EQ(get_interface_addresses_fake.call_count, 1);
   ASSERT_STREQ(get_interface_addresses_fake.arg0_val, "any");
   ASSERT_EQ(get_service_port_fake.call_count, 0); // Verify it was NOT called
 
-  // 2. Inspect the modified ct_local_endpoint_t struct
   ASSERT_EQ(endpoint.data.resolved_address.ss_family, AF_INET);
 
   struct sockaddr_in* final_addr = (struct sockaddr_in*)&endpoint.data.resolved_address;
 
-  // Check that the port was correctly applied
   EXPECT_EQ(ntohs(final_addr->sin_port), 9090);
 
-  // Check that the IP defaulted to 0.0.0.0 (INADDR_ANY)
   char ip_str[INET_ADDRSTRLEN];
   inet_ntop(AF_INET, &final_addr->sin_addr, ip_str, sizeof(ip_str));
   EXPECT_STREQ(ip_str, "192.168.1.101");
+  free(out_list);
+  ct_local_endpoint_free(input_endpoint);
+}
+
+TEST_F(LocalEndpointResolveTest, resolvesEphemeralLocalEndpoint) {
+  // --- ARRANGE ---
+  get_interface_addresses_fake.custom_fake = custom_get_two_interface_addresses_success;
+
+  ct_local_endpoint_t* input_endpoint = ct_local_endpoint_new();
+
+  // --- ACT ---
+  ct_local_endpoint_t* out_list = nullptr;
+  size_t num_found = 0;
+  out_list = ct_local_endpoint_resolve(input_endpoint, &num_found);
+  ct_local_endpoint_t* endpoint = &out_list[0];
+  ct_local_endpoint_t* endpoint2 = &out_list[1];
+
+  // --- ASSERT ---
+  ASSERT_EQ(num_found, 2);
+  ASSERT_EQ(get_interface_addresses_fake.call_count, 1);
+  ASSERT_EQ(get_service_port_fake.call_count, 0);
+
+  ASSERT_EQ(endpoint->data.resolved_address.ss_family, AF_INET);
+
+  struct sockaddr_in* final_addr = (struct sockaddr_in*)&endpoint->data.resolved_address;
+  char ip_str[INET_ADDRSTRLEN] = {0};
+  inet_ntop(AF_INET, &final_addr->sin_addr, ip_str, sizeof(ip_str));
+  EXPECT_STREQ(ip_str, "192.168.1.101");
+
+  struct sockaddr_in* final_addr2 = (struct sockaddr_in*)&endpoint2->data.resolved_address;
+  inet_ntop(AF_INET, &final_addr2->sin_addr, ip_str, sizeof(ip_str));
+  EXPECT_STREQ(ip_str, "192.168.1.201");
+
+  // Cleanup
   free(out_list);
   ct_local_endpoint_free(input_endpoint);
 }

@@ -31,6 +31,7 @@ int ct_remote_endpoint_with_ipv4(ct_remote_endpoint_t* remote_endpoint, in_addr_
     log_error("Cannot specify both hostname and IP address on single remote endpoint");
     return -EINVAL;
   }
+  memset(&remote_endpoint->data.resolved_address, 0, sizeof(struct sockaddr_storage));
   struct sockaddr_in* addr = (struct sockaddr_in*)&remote_endpoint->data.resolved_address;
   addr->sin_family = AF_INET;
   addr->sin_addr.s_addr = ipv4_addr;
@@ -144,7 +145,7 @@ int ct_remote_endpoint_resolve(const ct_remote_endpoint_t* remote_endpoint, ct_r
       log_error("Could not allocate memory for ct_remote_endpoint_t output list");
       return -ENOMEM;
     }
-    ct_remote_endpoint_build(&(out_list)[0]);
+    memset(out_list, 0, sizeof(ct_remote_endpoint_t));
     memcpy(out_list, remote_endpoint, sizeof(ct_remote_endpoint_t));
     // set port in resolved_address
     if (out_list[0].data.resolved_address.ss_family == AF_INET) {

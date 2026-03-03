@@ -46,6 +46,21 @@ class QuicEchoProtocol(QuicConnectionProtocol):
     def quic_event_received(self, event: QuicEvent) -> None:
         """Handle incoming QUIC events."""
 
+
+
+        # current_path = self._quic._network_paths[0]
+        # current_addr = current_path.addr # This is the client's address
+        #
+        # if self._last_peer_addr is None:
+        #     self._last_peer_addr = current_addr
+        #     logging.info("[PATH] Initial path established: %s", self._last_peer_addr)
+        # elif self._last_peer_addr != current_addr:
+        #     logging.info("[MIGRATION] Path changed! Old: %s, New: %s", 
+        #                  self._last_peer_addr, current_addr)
+        #     self._last_peer_addr = current_addr
+
+
+
         # Check if the protocol was successfully negotiated (optional for a simple server)
         if isinstance(event, ProtocolNegotiated):
             logging.info("Protocol negotiated: %s", event.alpn_protocol)

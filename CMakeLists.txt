@@ -90,6 +90,7 @@ set_target_properties(CTaps PROPERTIES
 target_compile_options(CTaps PRIVATE
      -Wall -Wextra -Wpedantic -Werror
      $<$<CONFIG:Debug>:-O0 -g3>
+     $<$<CONFIG:DebugMig>:-O0 -g3>
      $<$<CONFIG:Release>:-O2 -DNDEBUG>
 )
 
@@ -133,3 +134,7 @@ add_subdirectory (benchmark)
 add_executable(quic_internet_test quic_internet_test.c)
 
 target_link_libraries(quic_internet_test PRIVATE CTaps)
+
+add_executable(ping_server quic_ping_server.c)
+
+target_link_libraries(ping_server PRIVATE picoquic-core)

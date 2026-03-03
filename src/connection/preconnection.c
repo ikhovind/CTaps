@@ -32,6 +32,7 @@ int copy_remote_endpoints(ct_preconnection_t* preconnection,
     log_error("Could not allocate memory for remote endpoints: %s");
     return errno;
   }
+  memset(preconnection->remote_endpoints, 0, num_remote_endpoints * sizeof(ct_remote_endpoint_t));
   // Deep copy each remote endpoint (copies all strings)
   for (size_t i = 0; i < num_remote_endpoints; i++) {
     int rc = ct_remote_endpoint_copy_content(&remote_endpoints[i], &preconnection->remote_endpoints[i]);

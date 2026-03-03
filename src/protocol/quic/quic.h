@@ -27,6 +27,7 @@ typedef struct ct_quic_socket_state_s {
   char* ticket_store_path;             // Path for 0-RTT session ticket persistence
   ct_message_t* initial_message;          // For freeing when a client connection is done
   ct_message_context_t* initial_message_context; // For freeing when a client connection is done
+  bool probing;
 } ct_quic_socket_state_t;
 
 // Shared state across all streams in a QUIC connection group
@@ -52,6 +53,8 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
                                           const ct_security_parameters_t* security_parameters,
                                           ct_message_t* initial_message
                                           );
+
+void ct_quic_socket_state_free(ct_quic_socket_state_t* socket_state);
 void ct_close_quic_context(ct_quic_socket_state_t* ctx);
 void ct_free_quic_connection_group_state(ct_quic_connection_group_state_t* group_state);
 
@@ -70,6 +73,7 @@ int quic_clone_connection(const struct ct_connection_s* source_connection, struc
 int quic_free_state(ct_connection_t* connection);
 int quic_close_connection_group(ct_connection_group_t* connection_group);
 int quic_set_connection_priority(ct_connection_t* connection, uint8_t priority);
+int quic_free_socket_state(struct ct_socket_manager_s* socket_manager);
 
 ct_quic_socket_state_t* ct_quic_context_ref(ct_quic_socket_state_t* context);
 ct_quic_socket_state_t* ct_quic_context_deref(ct_quic_socket_state_t* context);

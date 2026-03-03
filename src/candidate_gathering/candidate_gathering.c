@@ -347,6 +347,7 @@ struct ct_candidate_node_t* candidate_node_new(ct_node_type_t type,
   node->type = type;
   node->score = 0;
   if (local_ep) {
+    log_debug("Copying local endpoint for candidate node %p", local_ep);
     node->local_endpoint = ct_local_endpoint_deep_copy(local_ep);
     if (!node->local_endpoint) {
       log_error("Could not copy local endpoint for ct_candidate_node_t");
@@ -422,9 +423,13 @@ int build_candidate_tree(ct_gather_context_t* gather_context) {
   const ct_local_endpoint_t* local_eps = preconnection_get_local_endpoints(precon, &num_local_eps);
   ct_local_endpoint_t* ephemeral_local_ep = NULL;
   if (num_local_eps == 0) {
+    log_debug("No local endpoints specified in preconnection, using ephemeral local endpoint for candidate tree building");
     ephemeral_local_ep = ct_local_endpoint_new();
     num_local_eps = 1;
     local_eps = ephemeral_local_ep;
+  }
+  else {
+    log_debug("Found %zu local endpoints in preconnection for candidate tree building", num_local_eps);
   }
 
   log_debug("Branching candidate tree by path for %zu local endpoints", num_local_eps);
@@ -507,22 +512,21 @@ int build_candidate_tree(ct_gather_context_t* gather_context) {
 }
 
 int branch_by_path(GNode* parent, const ct_local_endpoint_t* local_ep) {
-  ct_local_endpoint_t* local_endpoint_list = NULL;
-  size_t num_found_local = 0;
   struct ct_candidate_node_t* parent_data = (struct ct_candidate_node_t*)parent->data;
   if (parent_data->type != NODE_TYPE_ROOT) {
     log_error("branch_by_path called on non-ROOT node");
     return -1;
   }
+  if (!local_ep) {
+    log_error("branch_by_path called with NULL local endpoint");
+    return -1;
+  }
 
   // Resolve the local endpoint. The `ct_local_endpoint_resolve` function
   // will find all available interfaces when the interface is not specified.
-  int rc = ct_local_endpoint_resolve(local_ep, &local_endpoint_list, &num_found_local);
-  if (rc != 0) {
-    log_error("Error resolving local endpoint");
-    return rc;
-  }
-  log_trace("Found %zu local endpoints, adding as children to ROOT node", num_found_local);
+  size_t num_found_local = 0;
+  ct_local_endpoint_t* local_endpoint_list = ct_local_endpoint_resolve(local_ep, &num_found_local);
+  log_debug("Found %zu local endpoints, adding as children to ROOT node", num_found_local);
 
   for (size_t i = 0; i < num_found_local; i++) {
     // Create a child node for each local endpoint found.
