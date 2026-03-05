@@ -122,7 +122,7 @@ add_gtest(
             picoquic_reset_stream
             picoquic_close_immediate
 )
-add_gtest(remote_endpoint_unit_test SOURCES src/unit/endpoint/remote.cpp ${CTAPS_SOURCES})
+add_gtest(remote_endpoint_unit_test SOURCES src/unit/endpoint/remote_endpoint_unit_test.cpp ${CTAPS_SOURCES})
 add_gtest(preconnection_unit_test 
   SOURCES 
     src/unit/connections/preconnection_unit_test.cpp 

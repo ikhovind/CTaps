@@ -107,3 +107,21 @@ TEST(RemoteEndpointUnitTests, FailsWhenSpecifyingIpv6AfterHostname) {
 
     ct_remote_endpoint_free(remote_endpoint);
 }
+
+TEST(RemoteEndpointUnitTests, FailsWhenSpecifyingIpv6AfterHostname) {
+    int rc;
+    ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
+    ASSERT_NE(remote_endpoint, nullptr);
+
+    in6_addr ipv6_addr = { .__in6_u = { .__u6_addr8 = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1} } };
+
+    rc = ct_remote_endpoint_with_hostname(remote_endpoint, "hello.com");
+
+    ASSERT_EQ(rc, 0);
+    rc = ct_remote_endpoint_with_ipv6(remote_endpoint, ipv6_addr);
+    ASSERT_EQ(rc, -EINVAL);
+    EXPECT_STREQ(remote_endpoint->hostname, "hello.com");
+    EXPECT_EQ(remote_endpoint->data.resolved_address.ss_family, AF_UNSPEC);
+
+    ct_remote_endpoint_free(remote_endpoint);
+}
