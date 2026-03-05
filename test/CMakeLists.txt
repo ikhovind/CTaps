@@ -21,8 +21,12 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(fff)
 
 add_executable(picoquic_ping_server picoquic_ping_server.c)
-
 target_link_libraries(picoquic_ping_server PRIVATE picoquic-core)
+
+add_executable(tcp_ping_server tcp_ping_server.c)
+add_executable(udp_ping_server udp_ping_server.c)
+
+target_compile_definitions(picoquic_ping_server PRIVATE TEST_RESOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/resources\")
 
 # ---- Tests ----
 function(add_gtest test_name)
@@ -44,8 +48,10 @@ function(add_gtest test_name)
 
     target_compile_definitions(${test_name}
             PRIVATE
-            TEST_RESOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/quic\"
+            TEST_RESOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/resources\"
             PICOQUIC_PING_SERVER_PATH="$<TARGET_FILE:picoquic_ping_server>"
+            TCP_PING_SERVER_PATH="$<TARGET_FILE:tcp_ping_server>"
+            UDP_PING_SERVER_PATH="$<TARGET_FILE:udp_ping_server>"
     )
 
     if (ARGS_ASAN_ENABLED)

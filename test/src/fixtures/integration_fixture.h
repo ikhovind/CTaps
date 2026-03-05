@@ -97,9 +97,18 @@ protected:
     }
     static void SetUpTestSuite() {
         server_pids_[0] = launch_server(PICOQUIC_PING_SERVER_PATH);
-        // server_pids_[1] = launch_server(UDP_PING_SERVER_PATH);
-        // server_pids_[2] = launch_server(TCP_PING_SERVER_PATH);
+        server_pids_[1] = launch_server(TCP_PING_SERVER_PATH);
+        server_pids_[2] = launch_server(UDP_PING_SERVER_PATH);
     }
+    static void TearDownTestSuite() {
+        for (pid_t& pid : server_pids_) {
+            if (pid > 0) {
+                kill(pid, SIGTERM);
+                waitpid(pid, nullptr, 0);
+                pid = -1;
+            }
+        }
+}
 };
 
 // --- C-style callbacks that bridge to our C++ object ---
