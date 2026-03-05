@@ -135,6 +135,6 @@ add_executable(quic_internet_test quic_internet_test.c)
 
 target_link_libraries(quic_internet_test PRIVATE CTaps)
 
-add_executable(ping_server quic_ping_server.c)
+add_executable(picoquic_ping_server picoquic_ping_server.c)
 
-target_link_libraries(ping_server PRIVATE picoquic-core)
+target_link_libraries(picoquic_ping_server PRIVATE picoquic-core)
