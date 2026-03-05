@@ -1,5 +1,5 @@
+#define _GNU_SOURCE
 #include "quic.h"
-
 #include "connection/connection.h"
 #include "connection/connection_group.h"
 #include "connection/socket_manager/socket_manager.h"
@@ -9,6 +9,7 @@
 #include "protocol/common/socket_utils.h"
 #include <glib.h>
 #include <logging/log.h>
+#include <netinet/in.h>
 #include <picoquic.h>
 #include <picoquic_utils.h>
 #include <picotls.h>
@@ -1149,6 +1150,125 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
   reset_quic_timer(socket_state);
 }
 
+static int ct_quic_send_packet(
+  ct_quic_socket_state_t* quic_ctx,
+  unsigned char* send_buffer_base,
+  size_t send_length,
+  picoquic_cnx_t* last_cnx,
+  struct sockaddr_storage to_address)
+{
+  ct_connection_group_t* connection_group = picoquic_get_callback_context(last_cnx);
+  uv_udp_t* udp_handle = quic_ctx->udp_handle;
+
+  uv_buf_t* send_buffer = malloc(sizeof(uv_buf_t));
+  if (!send_buffer) {
+    log_error("Failed to allocate uv_buf_t for QUIC packet");
+    return -1;
+  }
+  *send_buffer = uv_buf_init((char*)send_buffer_base, send_length);
+
+  uv_udp_send_t* send_req = malloc(sizeof(uv_udp_send_t));
+  if (!send_req) {
+    log_error("Failed to allocate send request for QUIC packet");
+    free(send_buffer);
+    return -1;
+  }
+
+  struct sockaddr_storage local_addr;
+  int namelen = sizeof(struct sockaddr_storage);
+  uv_udp_getsockname(udp_handle, (struct sockaddr*)&local_addr, &namelen);
+  send_req->data = ct_quic_send_state_new(send_buffer, last_cnx, local_addr, to_address, connection_group);
+
+  log_trace("Sending QUIC data over UDP handle");
+  int rc = uv_udp_send(
+    send_req,
+    udp_handle,
+    send_buffer,
+    1,
+    (struct sockaddr*)&to_address,
+    on_quic_udp_send);
+  if (rc < 0) {
+    log_error("Error sending QUIC packet over UDP: %s", uv_strerror(rc));
+    free(send_buffer);
+    free(send_req);
+    return rc;
+  }
+
+  log_trace("Sent QUIC packet of length %zu", send_length);
+  return 0;
+}
+
+static int ct_quic_send_packet_with_pktinfo(
+  uv_udp_t* udp_handle,
+  unsigned char* send_buffer_base,
+  size_t send_length,
+  struct sockaddr_storage* from_address,
+  struct sockaddr_storage* to_address)
+{
+  uv_os_fd_t fd;
+  int rc = uv_fileno((uv_handle_t*)udp_handle, &fd);
+  if (rc < 0) {
+    log_error("Failed to get fd from uv_udp_t: %s", uv_strerror(rc));
+    return rc;
+  }
+
+  struct iovec iov = {
+    .iov_base = send_buffer_base,
+    .iov_len  = send_length,
+  };
+
+  // Sized to fit whichever pktinfo variant is larger
+  char cmsg_buf[CMSG_SPACE(sizeof(struct in6_pktinfo))] = {0};
+
+  struct msghdr msg = {
+    .msg_name       = (struct sockaddr*)to_address,
+    .msg_namelen    = (to_address->ss_family == AF_INET6)
+                        ? sizeof(struct sockaddr_in6)
+                        : sizeof(struct sockaddr_in),
+    .msg_iov        = &iov,
+    .msg_iovlen     = 1,
+    .msg_control    = cmsg_buf,
+    .msg_controllen = sizeof(cmsg_buf),
+  };
+
+  struct cmsghdr* cmsg = CMSG_FIRSTHDR(&msg);
+
+  if (from_address->ss_family == AF_INET6) {
+    struct sockaddr_in6* src = (struct sockaddr_in6*)from_address;
+
+    cmsg->cmsg_level = IPPROTO_IPV6;
+    cmsg->cmsg_type  = IPV6_PKTINFO;
+    cmsg->cmsg_len   = CMSG_LEN(sizeof(struct in6_pktinfo));
+
+    struct in6_pktinfo* pktinfo = (struct in6_pktinfo*)CMSG_DATA(cmsg);
+    pktinfo->ipi6_addr    = src->sin6_addr;
+    pktinfo->ipi6_ifindex = 0;  // 0 = let kernel pick interface
+
+    msg.msg_controllen = CMSG_SPACE(sizeof(struct in6_pktinfo));
+  } else {
+    struct sockaddr_in* src = (struct sockaddr_in*)from_address;
+
+    cmsg->cmsg_level = IPPROTO_IP;
+    cmsg->cmsg_type  = IP_PKTINFO;
+    cmsg->cmsg_len   = CMSG_LEN(sizeof(struct in_pktinfo));
+
+    struct in_pktinfo* pktinfo = (struct in_pktinfo*)CMSG_DATA(cmsg);
+    pktinfo->ipi_spec_dst = src->sin_addr;
+    pktinfo->ipi_ifindex  = 0;
+
+    msg.msg_controllen = CMSG_SPACE(sizeof(struct in_pktinfo));
+  }
+
+  ssize_t sent = sendmsg((int)fd, &msg, 0);
+  if (sent < 0) {
+    log_error("sendmsg with pktinfo failed: %s", strerror(errno));
+    return -errno;
+  }
+
+  log_trace("Sent QUIC packet of length %zu via sendmsg/pktinfo", send_length);
+  return 0;
+}
+
 void on_socket_timer(uv_timer_t* timer_handle) {
   ct_socket_manager_t* socket_manager = (ct_socket_manager_t*)timer_handle->data;
   ct_quic_socket_state_t* quic_ctx = (ct_quic_socket_state_t*)socket_manager->internal_socket_manager_state;
@@ -1198,75 +1318,54 @@ void on_socket_timer(uv_timer_t* timer_handle) {
     log_trace("Prepared QUIC packet of length %zu", send_length);
     if (send_length > 0) {
 
-        ct_connection_group_t* connection_group = picoquic_get_callback_context(last_cnx);
+      uv_udp_t* udp_handle = quic_ctx->udp_handle;
 
-        uv_udp_t* udp_handle = quic_ctx->udp_handle;
+      char pico_suggested_ip[INET6_ADDRSTRLEN];
+      char socket_bound_ip[INET6_ADDRSTRLEN];
+      char destination_ip[INET6_ADDRSTRLEN];
+      uint16_t pico_port, socket_port, dest_port;
 
-        char pico_suggested_ip[INET6_ADDRSTRLEN];
-        char socket_bound_ip[INET6_ADDRSTRLEN];
-        char destination_ip[INET6_ADDRSTRLEN];
-        uint16_t pico_port, socket_port, dest_port;
+      // 1. Get address Picoquic *thinks* it is sending from
+      struct sockaddr_in* desired_from = (struct sockaddr_in*)&from_address;
+      inet_ntop(AF_INET, &desired_from->sin_addr, pico_suggested_ip, sizeof(pico_suggested_ip));
+      pico_port = ntohs(desired_from->sin_port);
 
-        // 1. Get address Picoquic *thinks* it is sending from
-        struct sockaddr_in* desired_from = (struct sockaddr_in*)&from_address;
-        inet_ntop(AF_INET, &desired_from->sin_addr, pico_suggested_ip, sizeof(pico_suggested_ip));
-        pico_port = ntohs(desired_from->sin_port);
+      // 2. Get address the Libuv socket is *actually* bound to
+      struct sockaddr_storage bound_addr;
+      int bound_addr_len = sizeof(bound_addr);
+      uv_udp_getsockname(udp_handle, (struct sockaddr*)&bound_addr, &bound_addr_len);
+      struct sockaddr_in* actual_from = (struct sockaddr_in*)&bound_addr;
+      inet_ntop(AF_INET, &actual_from->sin_addr, socket_bound_ip, sizeof(socket_bound_ip));
+      socket_port = ntohs(actual_from->sin_port);
 
-        // 2. Get address the Libuv socket is *actually* bound to
-        struct sockaddr_storage bound_addr;
-        int bound_addr_len = sizeof(bound_addr);
-        uv_udp_getsockname(udp_handle, (struct sockaddr*)&bound_addr, &bound_addr_len);
-        struct sockaddr_in* actual_from = (struct sockaddr_in*)&bound_addr;
-        inet_ntop(AF_INET, &actual_from->sin_addr, socket_bound_ip, sizeof(socket_bound_ip));
-        socket_port = ntohs(actual_from->sin_port);
+      // 3. Get the destination Picoquic is trying to reach
+      struct sockaddr_in* desired_dest = (struct sockaddr_in*)&to_address;
+      inet_ntop(AF_INET, &desired_dest->sin_addr, destination_ip, sizeof(destination_ip));
+      dest_port = ntohs(desired_dest->sin_port);
 
-        // 3. Get the destination Picoquic is trying to reach
-        struct sockaddr_in* desired_dest = (struct sockaddr_in*)&to_address;
-        inet_ntop(AF_INET, &desired_dest->sin_addr, destination_ip, sizeof(destination_ip));
-        dest_port = ntohs(desired_dest->sin_port);
+      log_info("[MIGRATION_DEBUG] Picoquic suggests: %s:%d -> %s:%d", 
+               pico_suggested_ip, pico_port, destination_ip, dest_port);
+      log_info("[MIGRATION_DEBUG] Libuv Socket bound to: %s:%d (Actual source)", 
+               socket_bound_ip, socket_port);
 
-        log_info("[MIGRATION_DEBUG] Picoquic suggests: %s:%d -> %s:%d", 
-                 pico_suggested_ip, pico_port, destination_ip, dest_port);
-        log_info("[MIGRATION_DEBUG] Libuv Socket bound to: %s:%d (Actual source)", 
-                 socket_bound_ip, socket_port);
-
-      // Allocate uv_buf_t structure on heap
-      uv_buf_t* send_buffer = malloc(sizeof(uv_buf_t));
-      if (!send_buffer) {
-        log_error("Failed to allocate uv_buf_t for QUIC packet");
-        free(send_buffer_base);
-        break;
-      }
-      *send_buffer = uv_buf_init((char*)send_buffer_base, send_length);
-
-      uv_udp_send_t* send_req = malloc(sizeof(uv_udp_send_t));
-      if (!send_req) {
-        log_error("Failed to allocate send request for QUIC packet");
-        free(send_buffer_base);
-        free(send_buffer);
-        break;
-      }
-
-      log_info("If index for outgoing QUIC packet: %d", if_index);
-      struct sockaddr_storage local_addr;
-      int namelen = sizeof(struct sockaddr_storage);
-      int rc = uv_udp_getsockname(udp_handle, (struct sockaddr*)&local_addr, &namelen);
-      send_req->data = ct_quic_send_state_new(send_buffer, last_cnx, local_addr, to_address, connection_group);
-
-      log_trace("Sending QUIC data over UDP handle");
-      rc = uv_udp_send(
-        send_req,
-        udp_handle,
-        send_buffer,
-        1,
-        (struct sockaddr*)&to_address,
-        on_quic_udp_send);
-      if (rc < 0) {
-        log_error("Error sending QUIC packet over UDP: %s", uv_strerror(rc));
-        free(send_buffer_base);
-        free(send_buffer);
-        free(send_req);
-        break;
+      // TODO - check picoquic source to see if this can ever happen
+      if (from_address.ss_family == AF_UNSPEC) {
+        int rc = ct_quic_send_packet(quic_ctx, send_buffer_base, send_length, last_cnx, to_address);
+        if (rc < 0) {
+          free(send_buffer_base);
+          break;
+        }
+      } else {
+        int rc = ct_quic_send_packet_with_pktinfo(
+          quic_ctx->udp_handle,
+          send_buffer_base,
+          send_length,
+          &from_address,
+          &to_address);
+        free(send_buffer_base);  // synchronous, no async callback to free it
+        if (rc < 0) {
+          break;
+        }
       }
       log_trace("Sent QUIC packet of length %zu", send_length);
     } else {

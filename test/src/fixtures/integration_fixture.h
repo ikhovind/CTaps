@@ -42,6 +42,7 @@ struct CallbackContext {
     uint16_t expected_server_port = 0; // Expected remote port for message context verification
     std::function<void()> listener_ready_action;
     bool path_blocked = false; // Used for migration test to simulate path failure after connection established
+    std::vector<const ct_local_endpoint_t*> local_endpoints; // Used for migration test to verify local endpoint changes
 };
 
 class CTapsGenericFixture : public ::testing::Test {
@@ -278,7 +279,7 @@ int send_message_and_receive(struct ct_connection_s* connection) {
 }
 
 // Callback context needs a flag to track whether migration has been triggered
-int receive_first_pong_then_block_primary_path(
+int receive_first_pong_then_block_primary_path_for_remote(
     ct_connection_t* connection,
     ct_message_t** message,
     ct_message_context_t* ctx)
@@ -301,17 +302,17 @@ int receive_first_pong_then_block_primary_path(
         ct_message_free(msg);
 
         ct_receive_callbacks_t recv = {
-            .receive_callback = receive_first_pong_then_block_primary_path,
+            .receive_callback = receive_first_pong_then_block_primary_path_for_remote,
             .user_receive_context = ctx->user_receive_context,
         };
         ct_receive_message(connection, recv);
     } else {
         int rc = system("iptables -D INPUT -s 127.0.0.1 -p udp --sport 4433 -j DROP");
-        if (!rc) {
+        if (rc != 0) {
             log_warn("Could not remote iptables rule");
         }
         rc = system("iptables -D OUTPUT -d 127.0.0.1 -p udp --dport 4433 -j DROP");
-        if (!rc) {
+        if (rc != 0) {
             log_warn("Could not remote iptables rule");
         }
 
@@ -321,8 +322,8 @@ int receive_first_pong_then_block_primary_path(
     return 0;
 }
 
-int send_message_and_receive_blocking_primary_path(struct ct_connection_s* connection) {
-    log_trace("Ready - send_message_and_receive_blocking_primary_path");
+int send_message_and_receive_blocking_primary_path_for_remote(struct ct_connection_s* connection) {
+    log_trace("Ready - send_message_and_receive_blocking_primary_path_for_remote");
     auto* context = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
     context->client_connections.push_back(connection);
 
@@ -331,7 +332,68 @@ int send_message_and_receive_blocking_primary_path(struct ct_connection_s* conne
     ct_message_free(message);
 
     ct_receive_callbacks_t receive_message_request = {
-      .receive_callback = receive_first_pong_then_block_primary_path,
+      .receive_callback = receive_first_pong_then_block_primary_path_for_remote,
+      .user_receive_context = ct_connection_get_callback_context(connection),
+    };
+
+    ct_receive_message(connection, receive_message_request);
+    return 0;
+}
+
+int receive_first_pong_then_block_primary_path_for_local(
+    ct_connection_t* connection,
+    ct_message_t** message,
+    ct_message_context_t* ctx)
+{
+    auto* test_ctx = static_cast<CallbackContext*>(ctx->user_receive_context);
+    (*test_ctx->per_connection_messages)[connection].push_back(*message);
+
+    if (!test_ctx->path_blocked) {
+        log_info("Received first pong, now blocking primary path to trigger migration");
+        test_ctx->path_blocked = true;
+        // Block primary path — stack should probe 127.0.0.2 and migrate
+        int rc = system("iptables -A OUTPUT -s 127.0.0.1 -p udp --dport 4433 -j DROP");
+        EXPECT_EQ(rc, 0);
+        rc = system("iptables -A INPUT  -d 127.0.0.1 -p udp --sport 4433 -j DROP");
+        EXPECT_EQ(rc, 0);
+
+        // Second ping should be routed to alternative path
+        ct_message_t* msg = ct_message_new_with_content("ping", strlen("ping") + 1);
+        ct_send_message(connection, msg);
+        ct_message_free(msg);
+
+        ct_receive_callbacks_t recv = {
+            .receive_callback = receive_first_pong_then_block_primary_path_for_local,
+            .user_receive_context = ctx->user_receive_context,
+        };
+        ct_receive_message(connection, recv);
+    } else {
+        int rc = system("iptables -D OUTPUT -s 127.0.0.1 -p udp --dport 4433 -j DROP");
+        if (rc != 0) {
+            log_warn("Could not remote iptables rule");
+        }
+        rc = system("iptables -D INPUT  -d 127.0.0.1 -p udp --sport 4433 -j DROP");
+        if (rc != 0) {
+            log_warn("Could not remote iptables rule");
+        }
+
+        log_info("Received second pong after blocking primary path, migration successful");
+        ct_connection_close_group(connection);
+    }
+    return 0;
+}
+
+int send_message_and_receive_blocking_primary_path_for_local(struct ct_connection_s* connection) {
+    log_trace("Ready - send_message_and_receive_blocking_primary_path_for_local");
+    auto* context = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
+    context->client_connections.push_back(connection);
+
+    ct_message_t* message = ct_message_new_with_content("ping", strlen("ping") + 1);
+    ct_send_message(connection, message);
+    ct_message_free(message);
+
+    ct_receive_callbacks_t receive_message_request = {
+      .receive_callback = receive_first_pong_then_block_primary_path_for_local,
       .user_receive_context = ct_connection_get_callback_context(connection),
     };
 
@@ -740,6 +802,12 @@ ct_connection_group_t* generate_connection_group(int num_connections) {
         ct_connection_group_add_connection(group, conn);
     }
     return group;
+}
+
+void capture_local_on_sent(ct_connection_t* connection, ct_message_context_t* message_context) {
+    auto* context = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
+    
+    context->local_endpoints.push_back(ct_connection_get_active_local_endpoint(connection));
 }
 
 #endif
