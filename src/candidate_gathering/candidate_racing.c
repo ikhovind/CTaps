@@ -46,7 +46,7 @@ void register_succesful_attempt(ct_racing_context_t* context, ct_racing_attempt_
 
 
 int raced_connection_close_cb(ct_connection_t* connection) {
-  log_trace("Freeing failed connection: %s created in candidate racing", connection->uuid);
+  log_debug("Freeing failed connection: %s created in candidate racing", connection->uuid);
   ct_racing_attempt_t* attempt = (ct_racing_attempt_t*)connection->connection_callbacks.user_connection_context;
   register_canceled_attempt(attempt->context, attempt);
   ct_connection_free(connection);
@@ -199,7 +199,9 @@ static guint sockaddr_storage_hash(gconstpointer key) {
     const struct sockaddr_in* a = (const struct sockaddr_in*)addr;
     guint h = 0;
     h ^= g_int_hash(&a->sin_port);
-    h ^= g_bytes_hash(g_bytes_new_static(&a->sin_addr, sizeof(a->sin_addr)));  // or just fold manually
+    guint word;
+    memcpy(&word, &a->sin_addr, sizeof(word));
+    h ^= g_int_hash((const gint*)&word);
     return h;
   } else if (addr->ss_family == AF_INET6) {
     const struct sockaddr_in6* a = (const struct sockaddr_in6*)addr;
@@ -220,10 +222,8 @@ static guint sockaddr_storage_hash(gconstpointer key) {
 }
 
 static gboolean sockaddr_storage_equal(gconstpointer a, gconstpointer b) {
-  log_debug("Comparing sockaddr_storage for equality");
   const struct sockaddr_storage* sa = a;
   const struct sockaddr_storage* sb = b;
-  log_debug("Checking family");
   if (sa->ss_family != sb->ss_family) return FALSE;
   if (sa->ss_family == AF_INET)
     return memcmp(a, b, sizeof(struct sockaddr_in)) == 0;
@@ -355,6 +355,8 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
 
   if (!attempt->connection) {
     log_error("Failed to allocate connection for connection attempt");
+    ct_local_endpoints_free(local_endpoints, local_counter);
+    ct_remote_endpoints_free(remote_endpoints, remote_counter);
     return -ENOMEM;
   }
 
@@ -380,6 +382,7 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
   if (rc != 0) {
     log_error("Failed to initiate connection attempt: %d", rc);
     ct_connection_free(attempt->connection);
+
     return rc;
   }
 

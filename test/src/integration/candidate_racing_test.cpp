@@ -111,7 +111,6 @@ TEST_F(CandidateRacingTests, FirstCandidateSucceeds) {
   ct_remote_endpoint_with_port(remote_endpoint, TCP_PING_PORT);
 
   ct_transport_properties_t* transport_properties = ct_transport_properties_new();
-  // Allocated with ct_transport_properties_new()
 
   // Don't require specific protocol - let racing choose
   ct_transport_properties_set_reliability(transport_properties, PREFER);
@@ -177,6 +176,7 @@ TEST_F(CandidateRacingTests, connectionContainsSeveralRemotes) {
   ct_remote_endpoint_free_strings(&remotes[1]);
   ct_preconnection_free(preconnection);
   ct_transport_properties_free(transport_properties);
+  ct_connection_free(test_context.captured_connection);
 }
 
 TEST_F(CandidateRacingTests, connectionContainsSeveralLocals) {
@@ -223,6 +223,7 @@ TEST_F(CandidateRacingTests, connectionContainsSeveralLocals) {
   ct_remote_endpoint_free(remote_endpoint);
   ct_preconnection_free(preconnection);
   ct_transport_properties_free(transport_properties);
+  ct_connection_free(test_context.captured_connection);
 }
 
 TEST_F(CandidateRacingTests, AllCandidatesFail) {
