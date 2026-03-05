@@ -60,8 +60,14 @@ ct_connection_t* ct_connection_create_server_connection(ct_socket_manager_t* soc
   connection->num_remote_endpoints = 1;
   connection->active_remote_endpoint = 0;
   connection->socket_manager = ct_socket_manager_ref(socket_manager);
+  connection->num_local_endpoints = socket_manager->listener->num_local_endpoints;
   connection->all_local_endpoints = ct_local_endpoints_deep_copy(&socket_manager->listener->local_endpoint, socket_manager->listener->num_local_endpoints);
-  connection->num_local_endpoints = 1;
+  if (!connection->all_local_endpoints && connection->num_local_endpoints > 0) {
+    log_error("Failed to copy local endpoits from listener to connection");
+    ct_connection_free(connection);
+    ct_connection_group_free(group);
+    return NULL;
+  }
   connection->active_local_endpoint = 0;
 
   connection->role = CONNECTION_ROLE_SERVER;

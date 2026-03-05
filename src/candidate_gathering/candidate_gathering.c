@@ -347,7 +347,6 @@ struct ct_candidate_node_t* candidate_node_new(ct_node_type_t type,
   node->type = type;
   node->score = 0;
   if (local_ep) {
-    log_debug("Copying local endpoint for candidate node %p", local_ep);
     node->local_endpoint = ct_local_endpoint_deep_copy(local_ep);
     if (!node->local_endpoint) {
       log_error("Could not copy local endpoint for ct_candidate_node_t");
@@ -395,7 +394,6 @@ static gboolean collect_leaves(GNode *node, gpointer user_data) {
 
 int build_candidate_tree(ct_gather_context_t* gather_context) {
   const ct_preconnection_t* precon = gather_context->preconnection;
-  log_debug("Building candidate tree for preconnection: %p", precon);
   struct ct_candidate_node_t* root = candidate_node_new(
     NODE_TYPE_ROOT,
     NULL, 
