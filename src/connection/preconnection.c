@@ -267,7 +267,9 @@ void ct_preconnection_set_framer(ct_preconnection_t* preconnection, ct_framer_im
 }
 
 const ct_local_endpoint_t* preconnection_get_local_endpoints(const ct_preconnection_t* preconnection, size_t* out_count) {
-  log_debug("Getting local endpoints from preconnection");
+  if (!out_count) {
+    return NULL;
+  }
   if (!preconnection) {
     *out_count = 0;
     return NULL;

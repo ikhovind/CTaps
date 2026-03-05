@@ -1,10 +1,10 @@
 #include <gmock/gmock-matchers.h>
 
 #include "gtest/gtest.h"
-#include "fff.h"
-extern "C" {
-#include "ctaps.h"
 #include "fixtures/awaiting_fixture.cpp"
+extern "C" {
+#include "fff.h"
+#include "ctaps.h"
 #include <logging/log.h>
 }
 

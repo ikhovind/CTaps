@@ -96,6 +96,9 @@ ct_quic_send_state_t* ct_quic_send_state_new(uv_buf_t* buffer,
 }
 
 void ct_quic_send_state_free(ct_quic_send_state_t* state) {
+  if (!state) {
+    return;
+  }
   if (state->buffer) {
     uv_buf_t* buf = state->buffer;
     if (buf->base) {
@@ -945,18 +948,10 @@ int picoquic_callback(picoquic_cnx_t* cnx,
     }
     case picoquic_callback_path_suspended: { /* An available path is suspended */
       log_debug("Picoquic path suspended callback received");
-      if (rc < 0) {
-        log_error("Failed to probe paths after path suspended callback: %d", rc);
-        return rc;
-      }
       break;
     }
     case picoquic_callback_path_deleted: { /* An existing path has been deleted */
       log_debug("Picoquic path deleted callback received");
-      if (rc < 0) {
-        log_error("Failed to probe paths after path suspended callback: %d", rc);
-        return rc;
-      }
       break;
     }
     default:
@@ -975,18 +970,7 @@ void on_quic_udp_send(uv_udp_send_t* req, int status) {
   log_trace("Sent QUIC packet over UDP");
 
   ct_quic_send_state_t* send_state = req->data;
-  log_debug("Remote addr is: %p", (struct sockaddr*)&send_state->remote_address);
   
-  char destination_ip[INET6_ADDRSTRLEN];
-  uint16_t dest_port = 0;
-
-  // 3. Get the destination Picoquic is trying to reach
-  struct sockaddr_in* desired_dest = (struct sockaddr_in*)&send_state->remote_address;
-  inet_ntop(AF_INET, &desired_dest->sin_addr, destination_ip, sizeof(destination_ip));
-  dest_port = ntohs(desired_dest->sin_port);
-
-  log_debug("Just sent packet to destination %s:%d", destination_ip, dest_port);
-
   if (status) {
     log_error("Send error: %s\n", uv_strerror(status));
     ct_socket_manager_t* socket_manager = (ct_socket_manager_t*)req->handle->data;
