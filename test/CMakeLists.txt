@@ -102,7 +102,7 @@ function(add_gtest test_name)
             "${picotls_SOURCE_DIR}/include"
     )
 
-    gtest_discover_tests(${test_name})
+    gtest_discover_tests(${test_name} PROPERTIES ENVIRONMENT "G_SLICE=always-malloc")
 
     get_property(all_tests GLOBAL PROPERTY CTAPS_TEST_TARGETS)
     list(APPEND all_tests ${test_name})

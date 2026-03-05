@@ -451,9 +451,11 @@ void ct_connection_free_content(ct_connection_t* connection) {
 
   if (connection->all_local_endpoints) {
     ct_local_endpoints_free(connection->all_local_endpoints, connection->num_local_endpoints);
+    connection->all_local_endpoints = NULL;
   }
   if (connection->all_remote_endpoints) {
     ct_remote_endpoints_free(connection->all_remote_endpoints, connection->num_remote_endpoints);
+    connection->all_remote_endpoints = NULL;
   }
 
   // Free security parameters (connection owns a deep copy)
