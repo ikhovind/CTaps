@@ -8,7 +8,7 @@ extern "C" {
 #include "fff.h"
 }
 
-#include "fixtures/awaiting_fixture.cpp"
+#include "fixtures/integration_fixture.h"
 
 TEST(MessageContextUnitTests, GetsLocalEndpoint) {
     ct_message_context_t* msg_ctx = ct_message_context_new();

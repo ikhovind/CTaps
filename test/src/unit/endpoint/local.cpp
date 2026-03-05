@@ -10,7 +10,7 @@ extern "C" {
 #include "endpoint/remote_endpoint.h"
 }
 
-#include "fixtures/awaiting_fixture.cpp"
+#include "fixtures/integration_fixture.h"
 
 TEST(LocalEndpointUnitTests, SetsIpv4FamilyAndAddress) {
     GTEST_SKIP();

@@ -8,7 +8,7 @@ extern "C" {
 #include "fff.h"
 }
 
-#include "fixtures/awaiting_fixture.cpp"
+#include "fixtures/integration_fixture.h"
 
 TEST(MessageUnitTest, messageSetContentHandlesNullMessage) {
     ct_message_t* message = ct_message_new_with_content("hello", 5);

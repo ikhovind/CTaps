@@ -7,7 +7,7 @@ extern "C" {
 
 #include "ctaps.h"
 }
-#include "fixtures/awaiting_fixture.cpp"
+#include "fixtures/integration_fixture.h"
 
 void on_listener_ready(ct_listener_t* listener) {
     log_debug("Listener is ready: %p", (void*)listener);

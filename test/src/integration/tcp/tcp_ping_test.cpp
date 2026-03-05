@@ -6,7 +6,7 @@ extern "C" {
 #include "ctaps.h"
 #include <logging/log.h>
 }
-#include "fixtures/awaiting_fixture.cpp"
+#include "fixtures/integration_fixture.h"
 
 #define TCP_PING_PORT 5006
 #define INVALID_TCP_PORT 5007
