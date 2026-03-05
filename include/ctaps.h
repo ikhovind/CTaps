@@ -1262,14 +1262,14 @@ CT_EXTERN const char* ct_connection_get_protocol_name(const ct_connection_t* con
 /**
  * @brief Get the currently active remote endpoint for the connection
  * @param[in] connection connection to get remote endpoint for
- * @return Pointer to remote endpoint, NULL of connection is NULL 
+ * @return Pointer to endpoint, NULL if connection is NULL 
  */
 CT_EXTERN const ct_remote_endpoint_t* ct_connection_get_active_remote_endpoint(const ct_connection_t* connection);
 
 /**
- * @brief Get the currently active remote endpoint for the connection
+ * @brief Get the currently active local endpoint
  * @param[in] connection connection to get remote endpoint for
- * @return Pointer to remote endpoint, NULL of connection is NULL 
+ * @return Pointer to endpoint, NULL if connection is NULL 
  */
 CT_EXTERN const ct_local_endpoint_t* ct_connection_get_active_local_endpoint(const ct_connection_t* connection);
 

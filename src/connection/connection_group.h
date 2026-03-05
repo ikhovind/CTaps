@@ -90,7 +90,9 @@ ct_connection_group_t* ct_connection_group_ref(ct_connection_group_t* group);
 
 void ct_connection_group_unref(ct_connection_group_t* group);
 
-ct_connection_group_t* ct_connection_group_new();
+int ct_connection_group_set_active_remote_endpoint(ct_connection_group_t* group, const ct_remote_endpoint_t* remote_endpoint);
+
+ct_connection_group_t* ct_connection_group_new(void);
 
 
 #endif // CT_CONNECTION_GROUP_H

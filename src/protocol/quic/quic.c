@@ -924,8 +924,22 @@ int picoquic_callback(picoquic_cnx_t* cnx,
       return -EINVAL;
       break;
     case picoquic_callback_path_available: {
-      printf("[MIGRATION] Path %" PRIu64 " now available, demoting primary path\n", stream_id);
-      // picoquic_set_path_status(cnx, 0, picoquic_path_status_backup);
+      log_debug("Picoquic path available callback received");
+
+      struct sockaddr_storage to_address = {0};
+      int rc = picoquic_get_path_addr(cnx, stream_id, 2, &to_address);
+      if (rc < 0) {
+        log_error("Failed to get path address after path available callback: %d", rc);
+        return rc;
+      }
+      ct_remote_endpoint_t remote_endpoint = {0};
+      ct_remote_endpoint_from_sockaddr(&remote_endpoint, &to_address);
+
+      rc = ct_connection_group_set_active_remote_endpoint(connection_group, &remote_endpoint);
+      if (rc != 0) {
+        log_error("Failed to set active remote for connection group, error code: %d", rc);
+        return rc;
+      }
 
       break;
     }

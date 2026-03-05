@@ -11,11 +11,13 @@ extern "C" {
 #include <connection/socket_manager/socket_manager.h>
 #include <util/uuid_util.h>
 #include "fixtures/awaiting_fixture.cpp"
-}
 
 DEFINE_FFF_GLOBALS;
 FAKE_VALUE_FUNC(int, fake_protocol_close, ct_connection_t*);
 FAKE_VOID_FUNC(fake_protocol_abort, ct_connection_t*);
+FAKE_VALUE_FUNC(int, __wrap_ct_connection_set_active_remote_endpoint, ct_connection_t*, const ct_remote_endpoint_t*);
+}
+
 
 
 
@@ -77,6 +79,67 @@ TEST(ConnectionGroupUnitTests, abortAllabortsOnlyOpenOrClosingConnections) {
     EXPECT_FALSE(abortd_conn1 == abortd_conn3);
 
     // Cleanup
+    ct_connection_free(connections[0]);
+    ct_connection_free(connections[1]);
+    ct_connection_free(connections[2]);
+    ct_connection_free(connections[3]);
+}
+
+TEST(ConnectionGroupUnitTests, setActiveEndpointInvokesOnEachConnection) {
+    ct_connection_group_t* group = generate_connection_group(4);
+
+    ct_connection_t* connections[4];
+
+    int counter = 0;
+    GHashTableIter iter;
+    gpointer key, value;
+    g_hash_table_iter_init(&iter, group->connections);
+    while (g_hash_table_iter_next(&iter, &key, &value)) {
+        ct_connection_t* conn = (ct_connection_t*)value;
+        connections[counter++] = conn;
+    }
+
+    ct_remote_endpoint_t dummy = {0};
+
+    int rc = ct_connection_group_set_active_remote_endpoint(group, &dummy);
+
+    ASSERT_EQ(__wrap_ct_connection_set_active_remote_endpoint_fake.call_count, 4);
+    for (int i = 0; i < 4; i++) {
+        ASSERT_EQ(__wrap_ct_connection_set_active_remote_endpoint_fake.arg0_history[i], connections[i]);
+        ASSERT_EQ(__wrap_ct_connection_set_active_remote_endpoint_fake.arg1_history[i], &dummy);
+    }
+
+    ct_connection_free(connections[0]);
+    ct_connection_free(connections[1]);
+    ct_connection_free(connections[2]);
+    ct_connection_free(connections[3]);
+}
+
+TEST(ConnectionGroupUnitTests, setActiveEndpointHandlesNullGroup) {
+    ct_remote_endpoint_t dummy;
+    int rc = ct_connection_group_set_active_remote_endpoint(nullptr, &dummy);
+}
+
+TEST(ConnectionGroupUnitTests, setActiveEndpointHandlesNullRemote) {
+    ct_connection_group_t* group = generate_connection_group(4);
+
+    ct_connection_t* connections[4];
+
+    int counter = 0;
+    GHashTableIter iter;
+    gpointer key, value;
+    g_hash_table_iter_init(&iter, group->connections);
+    while (g_hash_table_iter_next(&iter, &key, &value)) {
+        ct_connection_t* conn = (ct_connection_t*)value;
+        connections[counter++] = conn;
+    }
+
+    ct_remote_endpoint_t dummy = {0};
+
+    int rc = ct_connection_group_set_active_remote_endpoint(group, nullptr);
+
+    ASSERT_EQ(__wrap_ct_connection_set_active_remote_endpoint_fake.call_count, 0);
+
     ct_connection_free(connections[0]);
     ct_connection_free(connections[1]);
     ct_connection_free(connections[2]);

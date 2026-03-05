@@ -66,8 +66,18 @@ TEST_F(QuicMigrationTest, MigratesAfterPrimaryPathFails) {
     ASSERT_STREQ(per_connection_messages[connection][0]->content, "Pong: ping");
     ASSERT_STREQ(per_connection_messages[connection][1]->content, "Pong: ping");
 
+
+    char to_ip[INET6_ADDRSTRLEN];
+    uint16_t dest_port;
+    const struct sockaddr_in* to_addr = (const struct sockaddr_in*)&ct_connection_get_active_remote_endpoint(connection)->data.resolved_address;
+    inet_ntop(AF_INET, &to_addr->sin_addr, to_ip, sizeof(to_ip));
+    dest_port = ntohs(to_addr->sin_port);
+    EXPECT_STREQ(to_ip, "127.0.0.2");
+    ASSERT_EQ(dest_port, QUIC_PING_PORT);
+
     ct_remote_endpoint_free_strings(&remotes[0]);
     ct_remote_endpoint_free_strings(&remotes[1]);
     ct_preconnection_free(preconnection);
     ct_transport_properties_free(transport_properties);
+    ct_security_parameters_free(security_parameters);
 }

@@ -94,9 +94,7 @@ TEST_F(LocalEndpointResolveTest, UsesInterfaceAddress_whenInterfaceIsSpecified) 
   EXPECT_STREQ(ip_str, "192.168.1.101");
 
   // Cleanup
-  free(endpoint.interface_name);
-  free(endpoint.service);
-  free(out_list);
+  ct_local_endpoints_free(out_list, num_found);
   ct_local_endpoint_free(input_endpoint);
 }
 
@@ -131,7 +129,7 @@ TEST_F(LocalEndpointResolveTest, DefaultsToAnyAddress_WhenNoInterfaceIsFound) {
   char ip_str[INET_ADDRSTRLEN];
   inet_ntop(AF_INET, &final_addr->sin_addr, ip_str, sizeof(ip_str));
   EXPECT_STREQ(ip_str, "192.168.1.101");
-  free(out_list);
+  ct_local_endpoints_free(out_list, num_found);
   ct_local_endpoint_free(input_endpoint);
 }
 
@@ -165,6 +163,34 @@ TEST_F(LocalEndpointResolveTest, resolvesEphemeralLocalEndpoint) {
   EXPECT_STREQ(ip_str, "192.168.1.201");
 
   // Cleanup
-  free(out_list);
+  ct_local_endpoints_free(out_list, num_found);
   ct_local_endpoint_free(input_endpoint);
+}
+
+TEST_F(LocalEndpointResolveTest, resolveHandlesNullCounter) {
+  // --- ARRANGE ---
+  ct_local_endpoint_t* input_endpoint = ct_local_endpoint_new();
+
+  // --- ACT ---
+  ct_local_endpoint_t* out_list = nullptr;
+  out_list = ct_local_endpoint_resolve(input_endpoint, NULL);
+
+  // --- ASSERT ---
+  ASSERT_EQ(out_list, nullptr);
+  ASSERT_EQ(get_interface_addresses_fake.call_count, 0);
+
+  ct_local_endpoint_free(input_endpoint);
+}
+
+TEST_F(LocalEndpointResolveTest, resolveHandlesNullEndpoint) {
+  // --- ARRANGE ---
+  size_t dummy_count = 1234;
+
+  // --- ACT ---
+  ct_local_endpoint_t* out_list = ct_local_endpoint_resolve(NULL, &dummy_count);
+
+  // --- ASSERT ---
+  ASSERT_EQ(out_list, nullptr);
+  ASSERT_EQ(get_interface_addresses_fake.call_count, 0);
+  ASSERT_EQ(dummy_count, 0);
 }

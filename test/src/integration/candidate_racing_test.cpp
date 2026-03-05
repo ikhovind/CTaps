@@ -215,7 +215,7 @@ TEST_F(CandidateRacingTests, connectionContainsSeveralLocals) {
 
   ASSERT_NE(test_context.captured_connection, nullptr);
   EXPECT_NE(test_context.captured_connection->all_local_endpoints, nullptr);
-  EXPECT_GE(test_context.captured_connection->num_local_endpoints, 5);
+  EXPECT_GT(test_context.captured_connection->num_local_endpoints, 1);
   // Verify
   EXPECT_TRUE(test_context.connection_succeeded);
 

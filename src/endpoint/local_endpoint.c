@@ -56,7 +56,15 @@ int ct_local_endpoint_with_service(ct_local_endpoint_t* local_endpoint, char* se
 }
 
 ct_local_endpoint_t* ct_local_endpoint_resolve(const ct_local_endpoint_t* local_endpoint, size_t* out_count) {
-  log_info("Resolving local endpoint");
+  if (!out_count) {
+    log_error("Output count pointer was NULL, cannot resolve local endpoint");
+    return NULL;
+  }
+  if (!local_endpoint) {
+    log_error("Local endpoint pointer was NULL, cannot resolve local endpoint");
+    *out_count = 0;
+    return NULL;
+  }
   int num_found_addresses = 0;
   ct_local_endpoint_t* out_list = NULL;
   *out_count = 0;

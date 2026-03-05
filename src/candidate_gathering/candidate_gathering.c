@@ -537,15 +537,14 @@ int branch_by_path(GNode* parent, const ct_local_endpoint_t* local_ep) {
       NULL, // Protocol not yet specified
       parent_data->transport_properties
     );
-    ct_local_endpoint_free_strings(&local_endpoint_list[i]);
     if (!path_node_data) {
       log_error("Could not create PATH node data");
-      free(local_endpoint_list);
+      ct_local_endpoints_free(local_endpoint_list, num_found_local);
       return -1;
     }
     g_node_append_data(parent, path_node_data);
   }
-  free(local_endpoint_list);
+  ct_local_endpoints_free(local_endpoint_list, num_found_local);
   return 0;
 }
 

@@ -18,4 +18,7 @@ int ct_remote_endpoint_copy_content(const ct_remote_endpoint_t* src, ct_remote_e
 
 void ct_remote_endpoints_free(ct_remote_endpoint_t* remote_endpoints, size_t num_remote_endpoints);
 
+// Compare only the resolved sockaddr, not the strings etc.
+bool ct_remote_endpoint_resolved_equals(const ct_remote_endpoint_t* endpoint1, const ct_remote_endpoint_t* endpoint2);
+
 #endif
