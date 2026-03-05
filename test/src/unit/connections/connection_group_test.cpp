@@ -2,6 +2,7 @@
 
 #include "gtest/gtest.h"
 #include "fff.h"
+#include "fixtures/integration_fixture.h"
 extern "C" {
 #include "ctaps.h"
 #include "ctaps_internal.h"
@@ -10,7 +11,6 @@ extern "C" {
 #include <connection/connection_group.h>
 #include <connection/socket_manager/socket_manager.h>
 #include <util/uuid_util.h>
-#include "fixtures/awaiting_fixture.cpp"
 
 DEFINE_FFF_GLOBALS;
 FAKE_VALUE_FUNC(int, fake_protocol_close, ct_connection_t*);

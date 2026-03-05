@@ -5,7 +5,7 @@
 extern "C" {
 #include "ctaps.h"
 #include <logging/log.h>
-#include "fixtures/awaiting_fixture.cpp"
+#include "fixtures/integration_fixture.h"
 }
 
 class MessageContextIntegrationTests : public CTapsGenericFixture {};

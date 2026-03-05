@@ -20,6 +20,10 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(fff)
 
+add_executable(picoquic_ping_server picoquic_ping_server.c)
+
+target_link_libraries(picoquic_ping_server PRIVATE picoquic-core)
+
 # ---- Tests ----
 function(add_gtest test_name)
     set(options "ASAN_ENABLED" "DEBUG_SYMBOLS") # Option to selectively enable ASan
@@ -41,6 +45,7 @@ function(add_gtest test_name)
     target_compile_definitions(${test_name}
             PRIVATE
             TEST_RESOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/quic\"
+            PICOQUIC_PING_SERVER_PATH="$<TARGET_FILE:picoquic_ping_server>"
     )
 
     if (ARGS_ASAN_ENABLED)
