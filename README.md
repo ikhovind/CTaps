@@ -185,14 +185,6 @@ cmake --build out/Debug --target all -j 6
 
 ## Running Tests
 
-First run the three python ping servers:
-```bash
-python3 test/tcp_ping_server.py
-python3 test/udp_ping_server.py
-python3 test/quic/quic_ping_server.py # Need to have aioquic installed
-```
-
-Then run the actual tests:
 ```bash
 cd out/Debug/test && ctest
 ```

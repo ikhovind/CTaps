@@ -11,8 +11,8 @@
 #include <unistd.h>
 
 #define ALPN         "simple-ping"
-#define CERT_PATH    "/home/ikhovind/Documents/Skole/taps/test/quic/cert.pem"
-#define KEY_PATH     "/home/ikhovind/Documents/Skole/taps/test/quic/key.pem"
+#define CERT_PATH    TEST_RESOURCE_DIR "/cert.pem"
+#define KEY_PATH     TEST_RESOURCE_DIR "/key.pem"
 #define DEFAULT_PORT 4433
 
 typedef struct {
