@@ -18,8 +18,14 @@ extern "C" {
 
 struct IptablesGuard {
     ~IptablesGuard() {
-        system("iptables -D INPUT -s 127.0.0.1 -p udp --sport 4433 -j DROP");
-        system("iptables -D OUTPUT -d 127.0.0.1 -p udp --dport 4433 -j DROP");
+        // Just to avoid error message when the test tears down the rules properly
+        if (system("iptables -C INPUT -s 127.0.0.1 -p udp --sport 4433 -j DROP 2>/dev/null") == 0) {
+            system("iptables -D INPUT -s 127.0.0.1 -p udp --sport 4433 -j DROP");
+        }
+
+        if (system("iptables -C OUTPUT -d 127.0.0.1 -p udp --dport 4433 -j DROP 2>/dev/null") == 0) {
+            system("iptables -D OUTPUT -d 127.0.0.1 -p udp --dport 4433 -j DROP");
+        }
     }
 };
 
@@ -267,20 +273,10 @@ int receive_first_pong_then_block_primary_path(
         };
         ct_receive_message(connection, recv);
     } else {
-        log_info("Received second pong after blocking primary path, migration successful");
-
-        ct_message_t* msg = ct_message_new_with_content("ping", strlen("ping") + 1);
-        ct_send_message(connection, msg);
-        ct_message_free(msg);
-
-        ct_receive_callbacks_t recv = {
-            .receive_callback = receive_first_pong_then_block_primary_path,
-            .user_receive_context = ctx->user_receive_context,
-        };
-        // ct_receive_message(connection, recv);
-        // Arrived on the new path
         system("iptables -D INPUT -s 127.0.0.1 -p udp --sport 4433 -j DROP");
         system("iptables -D OUTPUT -d 127.0.0.1 -p udp --dport 4433 -j DROP");
+
+        log_info("Received second pong after blocking primary path, migration successful");
         ct_connection_close_group(connection);
     }
     return 0;

@@ -264,3 +264,23 @@ ct_connection_group_t* ct_connection_group_new(void) {
 
   return group;
 }
+
+int ct_connection_group_set_active_remote_endpoint(ct_connection_group_t* group, const ct_remote_endpoint_t* remote_endpoint) {
+  if (!group || !remote_endpoint) {
+    log_error("ct_connection_group_set_active_remote_endpoint called with NULL parameter");
+    return -EINVAL;
+  }
+  int at_least_one_failure = 0;
+  GHashTableIter iter;
+  gpointer key = NULL;
+  gpointer value = NULL;
+  g_hash_table_iter_init(&iter, group->connections);
+  while (g_hash_table_iter_next(&iter, &key, &value)) {
+    ct_connection_t* connection = (ct_connection_t*)value;
+    int rc = ct_connection_set_active_remote_endpoint(connection, remote_endpoint);
+    if (rc != 0) {
+      at_least_one_failure = rc;
+    }
+  }
+  return at_least_one_failure;
+}

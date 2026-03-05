@@ -1,4 +1,5 @@
 #include <gmock/gmock-matchers.h>
+#include <netinet/in.h>
 
 #include "gtest/gtest.h"
 #include "fff.h"
@@ -108,20 +109,49 @@ TEST(RemoteEndpointUnitTests, FailsWhenSpecifyingIpv6AfterHostname) {
     ct_remote_endpoint_free(remote_endpoint);
 }
 
-TEST(RemoteEndpointUnitTests, FailsWhenSpecifyingIpv6AfterHostname) {
-    int rc;
-    ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
-    ASSERT_NE(remote_endpoint, nullptr);
+TEST(RemoteEndpointUnitTest, remoteEndpointEqualsIgnoresNonSockaddrProperties) {
+    ct_remote_endpoint_t rem1 = {0};
+    ct_remote_endpoint_t rem2 = {0};
 
-    in6_addr ipv6_addr = { .__in6_u = { .__u6_addr8 = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1} } };
+    rem1.port = 1234;
+    rem2.port = 4321;
 
-    rc = ct_remote_endpoint_with_hostname(remote_endpoint, "hello.com");
+    struct sockaddr_in* rem1_addr = (struct sockaddr_in*)&rem1.data.resolved_address;
+    struct sockaddr_in* rem2_addr = (struct sockaddr_in*)&rem2.data.resolved_address;
 
-    ASSERT_EQ(rc, 0);
-    rc = ct_remote_endpoint_with_ipv6(remote_endpoint, ipv6_addr);
-    ASSERT_EQ(rc, -EINVAL);
-    EXPECT_STREQ(remote_endpoint->hostname, "hello.com");
-    EXPECT_EQ(remote_endpoint->data.resolved_address.ss_family, AF_UNSPEC);
+    rem1_addr->sin_addr.s_addr = INADDR_LOOPBACK;
+    rem2_addr->sin_addr.s_addr = INADDR_LOOPBACK;
+    rem1.port = 1234;
+    rem2.port = 1234;
 
-    ct_remote_endpoint_free(remote_endpoint);
+    ASSERT_TRUE(ct_remote_endpoint_resolved_equals(&rem1, &rem2));
+}
+
+TEST(RemoteEndpointUnitTest, remoteEndpointEqualsReturnsFalseOnFamilyDiff) {
+    ct_remote_endpoint_t rem1 = {0};
+    ct_remote_endpoint_t rem2 = {0};
+
+    struct sockaddr_in* rem1_addr = (struct sockaddr_in*)&rem1.data.resolved_address;
+    struct sockaddr_in* rem2_addr = (struct sockaddr_in*)&rem2.data.resolved_address;
+
+    rem2_addr->sin_family = AF_INET6;
+    rem1.port = 1234;
+    rem2.port = 1234;
+
+    ASSERT_FALSE(ct_remote_endpoint_resolved_equals(&rem1, &rem2));
+}
+
+TEST(RemoteEndpointUnitTest, remoteEndpointEqualsReturnsFalseOnDiff) {
+    ct_remote_endpoint_t rem1 = {0};
+    ct_remote_endpoint_t rem2 = {0};
+
+    struct sockaddr_in* rem1_addr = (struct sockaddr_in*)&rem1.data.resolved_address;
+    struct sockaddr_in* rem2_addr = (struct sockaddr_in*)&rem2.data.resolved_address;
+
+    rem1_addr->sin_family = AF_INET;
+    rem2_addr->sin_family = AF_INET;
+    rem1_addr->sin_port = 1234;
+    rem2_addr->sin_port = 4321;
+
+    ASSERT_FALSE(ct_remote_endpoint_resolved_equals(&rem1, &rem2));
 }

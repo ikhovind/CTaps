@@ -33,9 +33,8 @@ void ct_local_endpoints_free(ct_local_endpoint_t* local_endpoints, size_t num_lo
 /**
  * @brief Resolve a local endpoint to concrete addresses.
  * @param[in] local_endpoint Endpoint to resolve
- * @param[out] out_list Output array of resolved endpoints (caller must free)
  * @param[out] out_count Number of endpoints in output array
- * @return number of resolved endpoints
+ * @return List of resolved local endpoints, NULL on error. Caller is responsible for freeing the returned array and its contents with ct_local_endpoints_free().
  */
 ct_local_endpoint_t* ct_local_endpoint_resolve(const ct_local_endpoint_t* local_endpoint, size_t* out_count);
 

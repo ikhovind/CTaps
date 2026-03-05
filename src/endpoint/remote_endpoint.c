@@ -267,3 +267,14 @@ void ct_remote_endpoints_free(ct_remote_endpoint_t* remote_endpoints, size_t num
   }
   free(remote_endpoints);
 }
+
+bool ct_remote_endpoint_resolved_equals(const ct_remote_endpoint_t* endpoint1, const ct_remote_endpoint_t* endpoint2) {
+  if (!endpoint1 || !endpoint2) {
+    log_error("ct_remote_endpoint_resolved_equals called with NULL parameter");
+    return false;
+  }
+  if (endpoint1->data.resolved_address.ss_family != endpoint2->data.resolved_address.ss_family) {
+    return false;
+  }
+  return memcmp(&endpoint1->data.resolved_address, &endpoint2->data.resolved_address, sizeof(struct sockaddr_storage)) == 0;
+}

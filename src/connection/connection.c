@@ -773,3 +773,53 @@ const ct_remote_endpoint_t* ct_connection_get_remote_endpoints_list(const ct_con
 const ct_local_endpoint_t* ct_connection_get_local_endpoints_list(const ct_connection_t* connection) {
   return connection ? connection->all_local_endpoints : NULL;
 }
+
+int ct_connection_set_active_remote_endpoint_index(ct_connection_t* connection, size_t remote_endpoint_index) {
+  if (!connection) {
+    log_error("ct_connection_set_active_remote_endpoint_index called with NULL connection");
+    return -EINVAL;
+  }
+  if (remote_endpoint_index >= connection->num_remote_endpoints) {
+    log_error("ct_connection_set_active_remote_endpoint_index called with out of bounds index");
+    return -EINVAL;
+  }
+  connection->active_remote_endpoint = remote_endpoint_index;
+  return 0;
+}
+
+int ct_connection_set_active_remote_endpoint(ct_connection_t* connection, const ct_remote_endpoint_t* remote_endpoint) {
+  if (!connection || !remote_endpoint) {
+    log_error("ct_connection_set_active_remote_endpoint called with NULL parameter");
+    log_debug("Connection pointer: %p, remote endpoint pointer: %p", (void*)connection, (void*)remote_endpoint);
+    return -EINVAL;
+  }
+
+  for (size_t remote_ix = 0; remote_ix < connection->num_remote_endpoints; remote_ix++) {
+    if (ct_remote_endpoint_resolved_equals(remote_endpoint, &connection->all_remote_endpoints[remote_ix])) {
+      connection->active_remote_endpoint = remote_ix;
+      return 0;
+    }
+  }
+  ct_remote_endpoint_t* temp = realloc(connection->all_remote_endpoints, sizeof(ct_remote_endpoint_t) * (connection->num_remote_endpoints + 1));
+  if (!temp) {
+    log_error("Failed to allocate memory for new remote endpoint");
+    return -ENOMEM;
+  }
+
+  connection->num_remote_endpoints++;
+  connection->all_remote_endpoints = temp;
+  int rc = ct_remote_endpoint_copy_content(remote_endpoint, temp + connection->num_remote_endpoints - 1);
+  if (rc != 0) {
+    log_error("Failed to deep copy new remote endpoint: %d", rc);
+    connection->num_remote_endpoints--; // Roll back the count since we failed to copy
+    return rc;
+  }
+
+  rc = ct_connection_set_active_remote_endpoint_index(connection, connection->num_remote_endpoints - 1);
+  if (rc != 0) {
+    log_error("Failed to set active remote endpoint index: %d", rc);
+    return rc;
+  }
+
+  return 0;
+}

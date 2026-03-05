@@ -151,4 +151,9 @@ const ct_remote_endpoint_t* ct_connection_get_remote_endpoints_list(const ct_con
 
 const ct_local_endpoint_t* ct_connection_get_local_endpoints_list(const ct_connection_t* connection);
 
+int ct_connection_set_active_remote_endpoint_index(ct_connection_t* connection, size_t remote_endpoint_index);
+
+// Takes deep copy of remote endpoint
+int ct_connection_set_active_remote_endpoint(ct_connection_t* connection, const ct_remote_endpoint_t* remote_endpoint);
+
 #endif // CONNECTION_H

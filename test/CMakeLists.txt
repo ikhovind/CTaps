@@ -152,7 +152,13 @@ add_gtest(socket_manager_unit_test
     ct_message_free
 )
 
-add_gtest(connection_group_unit_test SOURCES src/unit/connections/connection_group_test.cpp ${CTAPS_SOURCES})
+add_gtest(connection_group_unit_test 
+  SOURCES
+    src/unit/connections/connection_group_test.cpp
+    ${CTAPS_SOURCES}
+  WRAP_FUNCTIONS
+    ct_connection_set_active_remote_endpoint
+  )
 add_gtest(candidate_gathering_test
         SOURCES
             src/unit/candidate_gathering/candidate_gathering_test.cpp

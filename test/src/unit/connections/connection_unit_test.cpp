@@ -398,3 +398,64 @@ TEST_F(ConnectionUnitTests, errorOnPriorityNotifyFailure) {
     ASSERT_EQ(__wrap_ct_socket_manager_notify_protocol_of_priority_change_fake.arg1_val, 50);
     ASSERT_EQ(clone->properties.priority, 100);
 }
+
+TEST_F(ConnectionUnitTests, setActiveRemoteEndpointIndexHandlesNullConnection) {
+    int rc = ct_connection_set_active_remote_endpoint_index(nullptr, 123);
+    ASSERT_EQ(rc, -EINVAL);
+}
+
+TEST_F(ConnectionUnitTests, setActiveRemoteEndpointSetsIndex) {
+    ct_connection_t connection = {0};
+    connection.num_remote_endpoints = 5;
+    int rc = ct_connection_set_active_remote_endpoint_index(&connection, 3);
+
+    ASSERT_EQ(connection.active_remote_endpoint, 3);
+    ASSERT_EQ(rc, 0);
+}
+
+TEST_F(ConnectionUnitTests, setActiveEndpointHandlesOutOfBoundsIndex) {
+    ct_connection_t connection = {0};
+    connection.num_remote_endpoints = 2;
+    connection.active_remote_endpoint = 2;
+    int rc = ct_connection_set_active_remote_endpoint_index(&connection, 3);
+
+    ASSERT_EQ(rc, -EINVAL);
+    ASSERT_EQ(connection.active_remote_endpoint, 2);
+}
+
+TEST_F(ConnectionUnitTests, setActiveRemoteEndpointByObjectHandlesNullConnection) {
+    ct_connection_set_active_remote_endpoint(nullptr, &dummy_remote_endpoint);
+}
+
+TEST_F(ConnectionUnitTests, setActiveRemoteEndpointByObjectSetsIndex) {
+    ct_connection_t connection = {0};
+    ct_remote_endpoint_t remote_endpoints[3] = {0};
+    ((struct sockaddr_in*)&remote_endpoints[2].data.resolved_address)->sin_addr.s_addr = INADDR_LOOPBACK;
+
+    connection.all_remote_endpoints = remote_endpoints;
+    connection.num_remote_endpoints = 3;
+    connection.active_remote_endpoint = 0;
+
+    ct_connection_set_active_remote_endpoint(&connection, &remote_endpoints[2]);
+
+    ASSERT_EQ(connection.active_remote_endpoint, 2);
+}
+
+
+TEST_F(ConnectionUnitTests, setActiveRemoteEndpointByObjectHandlesRemoteEndpointNotInList) {
+    ct_connection_t connection = {0};
+    ct_remote_endpoint_t* remote_endpoints = (ct_remote_endpoint_t*)calloc(3, sizeof(ct_remote_endpoint_t));
+    ((struct sockaddr_in*)&remote_endpoints[2].data.resolved_address)->sin_addr.s_addr = INADDR_LOOPBACK;
+
+    connection.all_remote_endpoints = remote_endpoints;
+    connection.num_remote_endpoints = 3;
+    connection.active_remote_endpoint = 0;
+
+    ct_remote_endpoint_t new_endpoint = {0};
+    ((struct sockaddr_in*)&new_endpoint.data.resolved_address)->sin_addr.s_addr = INADDR_DUMMY;
+
+    ct_connection_set_active_remote_endpoint(&connection, &new_endpoint);
+
+    ASSERT_EQ(connection.num_remote_endpoints, 4);
+    ASSERT_EQ(connection.active_remote_endpoint, 3);
+}
