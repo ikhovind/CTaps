@@ -50,7 +50,7 @@ TEST_F(QuicMigrationTest, migratesAfterPrimaryRemoteFails) {
 
     ct_connection_callbacks_t callbacks = {
         .establishment_error = on_establishment_error,
-        .ready = send_message_and_receive_blocking_primary_path_for_local,
+        .ready = send_message_and_receive_blocking_primary_path_for_remote,
         .user_connection_context = &test_context,
     };
 
@@ -82,6 +82,8 @@ TEST_F(QuicMigrationTest, migratesAfterPrimaryRemoteFails) {
 // We bring down the local address 127.0.0.1 and check that we migrate
 TEST_F(QuicMigrationTest, migratesAfterPrimaryLocalFails) {
     struct IptablesGuard guard = IptablesGuard();
+    struct IpAddressGuard ipAddr = IpAddressGuard();
+    struct OnlyLoopBackTo4433 onlyLoopBackTo4433 = OnlyLoopBackTo4433();
     ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
     ct_remote_endpoint_with_port(remote_endpoint, QUIC_PING_PORT);
     ct_remote_endpoint_with_ipv4(remote_endpoint, inet_addr("127.0.0.1"));
@@ -110,7 +112,7 @@ TEST_F(QuicMigrationTest, migratesAfterPrimaryLocalFails) {
 
     ct_connection_callbacks_t callbacks = {
         .establishment_error = on_establishment_error,
-        .ready = send_message_and_receive_blocking_primary_path_for_remote,
+        .ready = send_message_and_receive_blocking_primary_path_for_local,
         .sent = capture_local_on_sent,
         .user_connection_context = &test_context,
     };

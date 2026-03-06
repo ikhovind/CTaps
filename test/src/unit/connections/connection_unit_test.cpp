@@ -22,6 +22,11 @@ FAKE_VOID_FUNC(__wrap_ct_message_context_free, ct_message_context_t*);
 FAKE_VALUE_FUNC(int, __wrap_socket_manager_insert_connection, ct_socket_manager_t*, const ct_remote_endpoint_t*, ct_connection_t*);
 FAKE_VALUE_FUNC(ct_socket_manager_t*, __wrap_ct_socket_manager_ref, ct_socket_manager_t*);
 FAKE_VALUE_FUNC(int, __wrap_ct_socket_manager_notify_protocol_of_priority_change, ct_connection_t*, uint8_t);
+FAKE_VALUE_FUNC(bool, __wrap_ct_local_endpoint_resolved_equals,
+                const ct_local_endpoint_t*, const ct_local_endpoint_t*);
+FAKE_VALUE_FUNC(int, __wrap_ct_local_endpoint_copy_content,
+                const ct_local_endpoint_t*, ct_local_endpoint_t*);
+
 }
 
 class ConnectionUnitTests : public ::testing::Test {
@@ -37,8 +42,12 @@ protected:
         RESET_FAKE(__wrap_socket_manager_insert_connection);
         RESET_FAKE(__wrap_ct_socket_manager_ref);
         RESET_FAKE(__wrap_ct_socket_manager_notify_protocol_of_priority_change);
+        RESET_FAKE(__wrap_ct_local_endpoint_resolved_equals);
+        RESET_FAKE(__wrap_ct_local_endpoint_copy_content);
         FFF_RESET_HISTORY();
 
+        __wrap_ct_local_endpoint_resolved_equals_fake.return_val = false;
+        __wrap_ct_local_endpoint_copy_content_fake.return_val = 0;
         __wrap_ct_socket_manager_ref_fake.return_val = &dummy_socket_manager;
 
         dummy_connection_group = ct_connection_group_new();
@@ -82,13 +91,10 @@ protected:
     void TearDown() override {
         log_info("Tearing down test, freeing clone and connection group");
         if (clone) {
-            // Avoid freeing stack-allocated dummy data
+            // Avoid trying to unref stack allocated data
+            // it shares with the original connection
             clone->socket_manager = nullptr;
-            clone->all_local_endpoints = nullptr;
             clone->active_local_endpoint = 0;
-            clone->num_local_endpoints = 0;
-            clone->all_remote_endpoints = nullptr;
-            clone->num_remote_endpoints = 0;
             clone->connection_group = nullptr;
             ct_connection_free(clone);
         }
@@ -423,6 +429,49 @@ TEST_F(ConnectionUnitTests, setActiveEndpointHandlesOutOfBoundsIndex) {
     ASSERT_EQ(connection.active_remote_endpoint, 2);
 }
 
+TEST(ConnectionSetActiveLocalEndpointTest, NullConnection_ReturnsEINVAL) {
+    EXPECT_EQ(ct_connection_set_active_local_endpoint_index(nullptr, 0), -EINVAL);
+}
+
+TEST(ConnectionSetActiveLocalEndpointTest, ValidIndex_ReturnsZero) {
+    ct_connection_t conn = {0};
+    conn.num_local_endpoints = 3;
+    EXPECT_EQ(ct_connection_set_active_local_endpoint_index(&conn, 1), 0);
+}
+
+TEST(ConnectionSetActiveLocalEndpointTest, ValidIndex_SetsActiveEndpoint) {
+    ct_connection_t conn = {0};
+    conn.num_local_endpoints = 3;
+    ct_connection_set_active_local_endpoint_index(&conn, 2);
+    EXPECT_EQ(conn.active_local_endpoint, 2u);
+}
+
+TEST(ConnectionSetActiveLocalEndpointTest, IndexEqualToNumEndpoints_ReturnsEINVAL) {
+    ct_connection_t conn = {0};
+    conn.num_local_endpoints = 3;
+    EXPECT_EQ(ct_connection_set_active_local_endpoint_index(&conn, 3), -EINVAL);
+}
+
+TEST(ConnectionSetActiveLocalEndpointTest, IndexBeyondNumEndpoints_ReturnsEINVAL) {
+    ct_connection_t conn = {0};
+    conn.num_local_endpoints = 3;
+    EXPECT_EQ(ct_connection_set_active_local_endpoint_index(&conn, 99), -EINVAL);
+}
+
+TEST(ConnectionSetActiveLocalEndpointTest, ZeroEndpoints_ReturnsEINVAL) {
+    ct_connection_t conn = {0};
+    conn.num_local_endpoints = 0;
+    EXPECT_EQ(ct_connection_set_active_local_endpoint_index(&conn, 0), -EINVAL);
+}
+
+TEST(ConnectionSetActiveLocalEndpointTest, OutOfBoundsIndex_DoesNotModifyActiveEndpoint) {
+    ct_connection_t conn = {0};
+    conn.num_local_endpoints = 3;
+    conn.active_local_endpoint = 1;
+    ct_connection_set_active_local_endpoint_index(&conn, 5);
+    EXPECT_EQ(conn.active_local_endpoint, 1u);  // unchanged
+}
+
 TEST_F(ConnectionUnitTests, setActiveRemoteEndpointByObjectHandlesNullConnection) {
     ct_connection_set_active_remote_endpoint(nullptr, &dummy_remote_endpoint);
 }
@@ -431,6 +480,7 @@ TEST_F(ConnectionUnitTests, setActiveRemoteEndpointByObjectSetsIndex) {
     ct_connection_t connection = {0};
     ct_remote_endpoint_t remote_endpoints[3] = {0};
     ((struct sockaddr_in*)&remote_endpoints[2].data.resolved_address)->sin_addr.s_addr = INADDR_LOOPBACK;
+    ((struct sockaddr_in*)&remote_endpoints[2].data.resolved_address)->sin_family = AF_INET;
 
     connection.all_remote_endpoints = remote_endpoints;
     connection.num_remote_endpoints = 3;
@@ -458,4 +508,56 @@ TEST_F(ConnectionUnitTests, setActiveRemoteEndpointByObjectHandlesRemoteEndpoint
 
     ASSERT_EQ(connection.num_remote_endpoints, 4);
     ASSERT_EQ(connection.active_remote_endpoint, 3);
+    free(connection.all_remote_endpoints);
+}
+
+TEST_F(ConnectionUnitTests, setActiveLocalEndpointByObjectHandlesNullConnection) {
+    EXPECT_EQ(ct_connection_set_active_local_endpoint(nullptr, &dummy_local_endpoint), -EINVAL);
+}
+
+TEST_F(ConnectionUnitTests, setActiveLocalEndpointByObjectHandlesNullEndpoint) {
+    EXPECT_EQ(ct_connection_set_active_local_endpoint(&dummy_connection, nullptr), -EINVAL);
+}
+
+TEST_F(ConnectionUnitTests, setActiveLocalEndpointByObjectSetsIndexWhenFound) {
+    ct_local_endpoint_t local_endpoints[3] = {0};
+    dummy_connection.all_local_endpoints = local_endpoints;
+    dummy_connection.num_local_endpoints = 3;
+    dummy_connection.active_local_endpoint = 0;
+
+    bool matching_values[3] = { false, false, true };
+    SET_RETURN_SEQ(__wrap_ct_local_endpoint_resolved_equals, matching_values, 3);
+
+    EXPECT_EQ(ct_connection_set_active_local_endpoint(&dummy_connection, &dummy_local_endpoint), 0);
+    EXPECT_EQ(dummy_connection.active_local_endpoint, 2u);
+    EXPECT_EQ(dummy_connection.num_local_endpoints, 3u);  // no realloc
+    EXPECT_EQ(__wrap_ct_local_endpoint_copy_content_fake.call_count, 0u);
+}
+
+TEST_F(ConnectionUnitTests, setActiveLocalEndpointByObjectAppendsWhenNotFound) {
+    ct_local_endpoint_t* local_endpoints = (ct_local_endpoint_t*)calloc(2, sizeof(ct_local_endpoint_t));
+    dummy_connection.all_local_endpoints = local_endpoints;
+    dummy_connection.num_local_endpoints = 2;
+    dummy_connection.active_local_endpoint = 0;
+
+    EXPECT_EQ(ct_connection_set_active_local_endpoint(&dummy_connection, &dummy_local_endpoint), 0);
+    EXPECT_EQ(dummy_connection.num_local_endpoints, 3u);
+    EXPECT_EQ(dummy_connection.active_local_endpoint, 2u);
+    EXPECT_EQ(__wrap_ct_local_endpoint_copy_content_fake.call_count, 1u);
+
+    free(dummy_connection.all_local_endpoints);
+    dummy_connection.all_local_endpoints = nullptr;
+}
+
+TEST_F(ConnectionUnitTests, setActiveLocalEndpointByObjectRollsBackOnCopyFailure) {
+    ct_local_endpoint_t* local_endpoints = (ct_local_endpoint_t*)calloc(2, sizeof(ct_local_endpoint_t));
+    dummy_connection.all_local_endpoints = local_endpoints;
+    dummy_connection.num_local_endpoints = 2;
+    __wrap_ct_local_endpoint_copy_content_fake.return_val = -ENOMEM;
+
+    EXPECT_EQ(ct_connection_set_active_local_endpoint(&dummy_connection, &dummy_local_endpoint), -ENOMEM);
+    EXPECT_EQ(dummy_connection.num_local_endpoints, 2u);  // rolled back
+
+    free(dummy_connection.all_local_endpoints);
+    dummy_connection.all_local_endpoints = nullptr;
 }

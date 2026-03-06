@@ -107,11 +107,14 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(GLIB REQUIRED glib-2.0)
 pkg_check_modules(UUID REQUIRED uuid)
 
+message(STATUS "picoquic source dir: ${picoquic_SOURCE_DIR}")
 
 # This is the only way I have managed to link against picotls
 target_include_directories(CTaps
         PRIVATE 
         "${picotls_SOURCE_DIR}/include"
+        "${picoquic_SOURCE_DIR}/loglib"
+        "${picoquic_SOURCE_DIR}/picoquic"
         ${GLIB_INCLUDE_DIRS}
         ${UUID_INCLUDE_DIRS}
 )
@@ -121,6 +124,7 @@ target_link_libraries(
         PRIVATE
             uv
             picoquic-core
+            picoquic-log
             ${GLIB_LIBRARIES}
             ${UUID_LIBRARIES}
 )

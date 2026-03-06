@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+#include <net/if.h>
 #include "quic.h"
 #include "connection/connection.h"
 #include "connection/connection_group.h"
@@ -714,25 +715,52 @@ int probe_all_paths(const ct_connection_group_t* group) {
     picoquic_cnx_t* cnx = ct_quic_connection_group_get_picoquic_cnx(group);
     int at_least_one_success = 0;
 
+    log_debug("Connection has %zu remote endpoints and %zu local endpoints configured",
+              ct_connection_get_num_remote_endpoints(connection),
+              ct_connection_get_num_local_endpoints(connection));
     for (size_t i = 0; i < ct_connection_get_num_remote_endpoints(connection); i++) {
-        if (i == connection->active_remote_endpoint) {
-            continue;
-        }
         const ct_remote_endpoint_t* remote_endpoint =
             &ct_connection_get_remote_endpoints_list(connection)[i];
+
+      for (size_t j = 0; j < ct_connection_get_num_local_endpoints(connection); j++) {
+        if (j == connection->active_local_endpoint && i == connection->active_remote_endpoint) {
+          continue;
+        }
+        const ct_local_endpoint_t* local_endpoint = &ct_connection_get_local_endpoints_list(connection)[j];
+
+        if (local_endpoint->data.resolved_address.ss_family != remote_endpoint->data.resolved_address.ss_family) {
+          log_debug("Skipping probing local endpoint %zu to remote endpoint %zu due to address family mismatch",
+                    j, i);
+          continue;
+        }
+
+        char from_ip[INET6_ADDRSTRLEN];
+        char to_ip[INET6_ADDRSTRLEN];
+        uint16_t from_port, dest_port;
+
+
+        const struct sockaddr_storage* local_ss = &local_endpoint->data.resolved_address;
+        const struct sockaddr_storage* remote_ss = &remote_endpoint->data.resolved_address;
+
+        ct_get_addr_string(local_ss, from_ip, sizeof(from_ip), &from_port);
+        ct_get_addr_string(remote_ss, to_ip, sizeof(to_ip), &dest_port);
+
+        log_info("[MIGRATION_DEBUG] We are now probing: %s:%d -> %s:%d",
+                 from_ip, from_port, to_ip, dest_port);
 
         int rc = picoquic_probe_new_path(
             cnx,
             (const struct sockaddr*)&remote_endpoint->data.resolved_address,
-            NULL,  /* let picoquic pick the local address */
+            (const struct sockaddr*)&local_endpoint->data.resolved_address,  /* let picoquic pick the local address */
             picoquic_get_quic_time(ct_connection_get_picoquic_instance(connection))
         );
         if (rc < 0) {
-            log_warn("Failed to probe path to remote endpoint %zu", i);
+            log_warn("Failed to probe path to remote endpoint %zu with error code: %d", i, rc);
         } else {
             log_debug("Probing remote endpoint %zu", i);
             at_least_one_success = 1;
         }
+      }
     }
 
     if (!at_least_one_success) {
@@ -936,12 +964,41 @@ int picoquic_callback(picoquic_cnx_t* cnx,
         log_error("Failed to get path address after path available callback: %d", rc);
         return rc;
       }
+
+      char to_ip[INET6_ADDRSTRLEN];
+      uint16_t to_port;
+      ct_get_addr_string(&to_address, to_ip, sizeof(to_ip), &to_port);
+
+      log_info("New path available to remote endpoint %s:%d", to_ip, to_port);
+
+
+      struct sockaddr_storage from_address = {0};
+      rc = picoquic_get_path_addr(cnx, stream_id, 1, &from_address);
+      if (rc < 0) {
+        log_error("Failed to get path address after path available callback: %d", rc);
+        return rc;
+      }
+
+      char from_ip[INET6_ADDRSTRLEN];
+      uint16_t from_port;
+      ct_get_addr_string(&from_address, from_ip, sizeof(from_ip), &from_port);
+
+      log_info("New local path available %s:%d", from_ip, from_port);
+
+
       ct_remote_endpoint_t remote_endpoint = {0};
       ct_remote_endpoint_from_sockaddr(&remote_endpoint, &to_address);
-
       rc = ct_connection_group_set_active_remote_endpoint(connection_group, &remote_endpoint);
       if (rc != 0) {
         log_error("Failed to set active remote for connection group, error code: %d", rc);
+        return rc;
+      }
+
+      ct_local_endpoint_t local_endpoint = {0};
+      ct_local_endpoint_from_sockaddr(&local_endpoint, &from_address);
+      rc = ct_connection_group_set_active_local_endpoint(connection_group, &local_endpoint);
+      if (rc != 0) {
+        log_error("Failed to set active local for connection group, error code: %d", rc);
         return rc;
       }
 
@@ -1203,7 +1260,9 @@ static int ct_quic_send_packet_with_pktinfo(
   unsigned char* send_buffer_base,
   size_t send_length,
   struct sockaddr_storage* from_address,
-  struct sockaddr_storage* to_address)
+  struct sockaddr_storage* to_address,
+  int if_index
+)
 {
   uv_os_fd_t fd;
   int rc = uv_fileno((uv_handle_t*)udp_handle, &fd);
@@ -1211,6 +1270,18 @@ static int ct_quic_send_packet_with_pktinfo(
     log_error("Failed to get fd from uv_udp_t: %s", uv_strerror(rc));
     return rc;
   }
+
+  char from_ip[INET6_ADDRSTRLEN];
+  uint16_t from_port;
+
+  char to_ip[INET6_ADDRSTRLEN];
+  uint16_t to_port;
+
+  ct_get_addr_string(from_address, from_ip, sizeof(from_ip), &from_port);
+  ct_get_addr_string(to_address, to_ip, sizeof(to_ip), &to_port);
+
+  log_debug("Sending QUIC packet from %s:%d to %s:%d with pktinfo on interface index %d",
+            from_ip, from_port, to_ip, to_port, if_index);
 
   struct iovec iov = {
     .iov_base = send_buffer_base,
@@ -1233,7 +1304,18 @@ static int ct_quic_send_packet_with_pktinfo(
 
   struct cmsghdr* cmsg = CMSG_FIRSTHDR(&msg);
 
+  if (to_address->ss_family == AF_INET6) {
+    log_info("Sending to ipv6 since destination address is ipv6");
+  }
+  else if (to_address->ss_family == AF_INET) {
+    log_info("Sending to ipv4 since destination address is ipv4");
+  }
+  else {
+    log_error("Unknown address family for destination address: %d", to_address->ss_family);
+  }
+
   if (from_address->ss_family == AF_INET6) {
+    log_info("Sending as ipv6 since source address is ipv6");
     struct sockaddr_in6* src = (struct sockaddr_in6*)from_address;
 
     cmsg->cmsg_level = IPPROTO_IPV6;
@@ -1242,10 +1324,11 @@ static int ct_quic_send_packet_with_pktinfo(
 
     struct in6_pktinfo* pktinfo = (struct in6_pktinfo*)CMSG_DATA(cmsg);
     pktinfo->ipi6_addr    = src->sin6_addr;
-    pktinfo->ipi6_ifindex = 0;  // 0 = let kernel pick interface
+    pktinfo->ipi6_ifindex = if_nametoindex("lo");;  // 0 = let kernel pick interface
 
     msg.msg_controllen = CMSG_SPACE(sizeof(struct in6_pktinfo));
   } else {
+    log_info("Sending as ipv4 since source address is ipv4");
     struct sockaddr_in* src = (struct sockaddr_in*)from_address;
 
     cmsg->cmsg_level = IPPROTO_IP;
@@ -1254,18 +1337,19 @@ static int ct_quic_send_packet_with_pktinfo(
 
     struct in_pktinfo* pktinfo = (struct in_pktinfo*)CMSG_DATA(cmsg);
     pktinfo->ipi_spec_dst = src->sin_addr;
-    pktinfo->ipi_ifindex  = 0;
+    pktinfo->ipi_ifindex  = if_nametoindex("lo");
 
     msg.msg_controllen = CMSG_SPACE(sizeof(struct in_pktinfo));
   }
 
+  
   ssize_t sent = sendmsg((int)fd, &msg, 0);
   if (sent < 0) {
     log_error("sendmsg with pktinfo failed: %s", strerror(errno));
     return -errno;
   }
 
-  log_trace("Sent QUIC packet of length %zu via sendmsg/pktinfo", send_length);
+  log_debug("Sent QUIC packet of length %zu via sendmsg/pktinfo", send_length);
   return 0;
 }
 
@@ -1284,7 +1368,7 @@ void on_socket_timer(uv_timer_t* timer_handle) {
 
   struct sockaddr_storage from_address = {0};
   struct sockaddr_storage to_address = {0};
-  int if_index = -1;
+  int if_index = 0;
   picoquic_cnx_t* last_cnx = NULL;
 
   do {
@@ -1325,11 +1409,6 @@ void on_socket_timer(uv_timer_t* timer_handle) {
       char destination_ip[INET6_ADDRSTRLEN];
       uint16_t pico_port, socket_port, dest_port;
 
-      // 1. Get address Picoquic *thinks* it is sending from
-      struct sockaddr_in* desired_from = (struct sockaddr_in*)&from_address;
-      inet_ntop(AF_INET, &desired_from->sin_addr, pico_suggested_ip, sizeof(pico_suggested_ip));
-      pico_port = ntohs(desired_from->sin_port);
-
       // 2. Get address the Libuv socket is *actually* bound to
       struct sockaddr_storage bound_addr;
       int bound_addr_len = sizeof(bound_addr);
@@ -1338,10 +1417,8 @@ void on_socket_timer(uv_timer_t* timer_handle) {
       inet_ntop(AF_INET, &actual_from->sin_addr, socket_bound_ip, sizeof(socket_bound_ip));
       socket_port = ntohs(actual_from->sin_port);
 
-      // 3. Get the destination Picoquic is trying to reach
-      struct sockaddr_in* desired_dest = (struct sockaddr_in*)&to_address;
-      inet_ntop(AF_INET, &desired_dest->sin_addr, destination_ip, sizeof(destination_ip));
-      dest_port = ntohs(desired_dest->sin_port);
+      ct_get_addr_string(&from_address, pico_suggested_ip, sizeof(pico_suggested_ip), &pico_port);
+      ct_get_addr_string(&to_address, destination_ip, sizeof(destination_ip), &dest_port);
 
       log_info("[MIGRATION_DEBUG] Picoquic suggests: %s:%d -> %s:%d", 
                pico_suggested_ip, pico_port, destination_ip, dest_port);
@@ -1349,21 +1426,29 @@ void on_socket_timer(uv_timer_t* timer_handle) {
                socket_bound_ip, socket_port);
 
       // TODO - check picoquic source to see if this can ever happen
-      if (from_address.ss_family == AF_UNSPEC) {
+      if (ct_address_is_unspecified(&from_address)) {
         int rc = ct_quic_send_packet(quic_ctx, send_buffer_base, send_length, last_cnx, to_address);
         if (rc < 0) {
           free(send_buffer_base);
           break;
         }
       } else {
+        log_debug("Address was not wildcard, using sendmsg with pktinfo to specify source address");
+        log_debug("Sending to if_index %d", if_index);
         int rc = ct_quic_send_packet_with_pktinfo(
           quic_ctx->udp_handle,
           send_buffer_base,
           send_length,
           &from_address,
-          &to_address);
-        free(send_buffer_base);  // synchronous, no async callback to free it
+          &to_address,
+          if_index
+        );
+          free(send_buffer_base);  // synchronous, no async callback to free it
         if (rc < 0) {
+          log_error("Failed to send QUIC packet with pktinfo: %d", rc);
+          log_debug("Notifying picoquic of unreachable destination due to send error with pktinfo");
+          log_debug("last cnx: %p, from_address: %s:%d, to_address: %s:%d, if_index: %d, error code: %d",
+                    (void*)last_cnx, pico_suggested_ip, pico_port, destination_ip, dest_port, if_index, rc);
           break;
         }
       }

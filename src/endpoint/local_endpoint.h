@@ -38,4 +38,13 @@ void ct_local_endpoints_free(ct_local_endpoint_t* local_endpoints, size_t num_lo
  */
 ct_local_endpoint_t* ct_local_endpoint_resolve(const ct_local_endpoint_t* local_endpoint, size_t* out_count);
 
+bool ct_local_endpoint_resolved_equals(const ct_local_endpoint_t* endpoint1, const ct_local_endpoint_t* endpoint2);
+
+/**
+* @brief Set the active local endpoint on a connection by matching a local endpoint object.
+*
+* @note Invalidates the all_local_endponts_list pointer if the local endpoint is not already in the list
+*/
+int ct_connection_set_active_local_endpoint(ct_connection_t* connection, const ct_local_endpoint_t* local_endpoint);
+
 #endif

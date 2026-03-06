@@ -192,7 +192,7 @@ static ct_racing_context_t* racing_context_create(ct_connection_callbacks_t user
 }
 
 static guint sockaddr_storage_hash(gconstpointer key) {
-  log_debug("Hashing sockaddr_storage for hash table");
+  log_trace("Hashing sockaddr_storage for hash table");
   const struct sockaddr_storage* addr = key;
   // Hash only the relevant bytes based on address family
   if (addr->ss_family == AF_INET) {
@@ -301,7 +301,7 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
         return -ENOMEM;
       }
       local_endpoints = tmp;
-      log_debug("Adding local endpoint for attempt %zu to hash table and local endpoints array", i);
+      log_trace("Adding local endpoint for attempt %zu to hash table and local endpoints array", i);
       g_hash_table_add(local_hash, &context->attempts[i].candidate.local_endpoint->data.resolved_address);
       int rc = ct_local_endpoint_copy_content(context->attempts[i].candidate.local_endpoint, &local_endpoints[local_counter]);
       if (rc != 0) {

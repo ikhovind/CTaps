@@ -20,7 +20,7 @@ extern "C" {
 
 struct IptablesGuard {
     ~IptablesGuard() {
-        // Just to avoid error message when the test tears down the rules properly
+        // Remote endpoint migration test
         if (system("iptables -C INPUT -s 127.0.0.1 -p udp --sport 4433 -j DROP 2>/dev/null") == 0) {
             system("iptables -D INPUT -s 127.0.0.1 -p udp --sport 4433 -j DROP");
         }
@@ -28,6 +28,41 @@ struct IptablesGuard {
         if (system("iptables -C OUTPUT -d 127.0.0.1 -p udp --dport 4433 -j DROP 2>/dev/null") == 0) {
             system("iptables -D OUTPUT -d 127.0.0.1 -p udp --dport 4433 -j DROP");
         }
+
+        // Local endpoint migration test
+        if (system("iptables -D OUTPUT -p udp -d 127.0.0.1 --dport 4433 -j DROP 2>/dev/null") == 0) {
+            system("iptables -D OUTPUT -p udp -d 127.0.0.1 --dport 4433 -j DROP");
+
+        }
+        if (system("iptables -C INPUT  -p udp -s 127.0.0.1 --sport 4433 -j DROP 2>/dev/null") == 0) {
+            system("iptables -D INPUT  -p udp -s 127.0.0.1 --sport 4433 -j DROP");
+        }
+    }
+};
+// TODO check if these actually are needed with the new test cleanup for ctest
+struct IpAddressGuard {
+    bool added = false;
+    IpAddressGuard() {
+        int rc = system("ip addr add 127.0.0.2/8 dev lo 2>/dev/null");
+        added = (rc == 0);
+        // If it already existed, that's fine — we just won't delete it on teardown
+    }
+    ~IpAddressGuard() {
+        if (added) {
+            system("ip addr del 127.0.0.2/8 dev lo 2>/dev/null");
+        }
+    }
+};
+
+struct OnlyLoopBackTo4433 {
+    OnlyLoopBackTo4433() {
+        system("iptables -A OUTPUT -p udp --dport 4433 ! -s 127.0.0.0/8 -j DROP");
+        system("iptables -A INPUT  -p udp --sport 4433 ! -d 127.0.0.0/8 -j DROP");
+    }
+
+    ~OnlyLoopBackTo4433() {
+        system("iptables -D OUTPUT -p udp --dport 4433 ! -s 127.0.0.0/8 -j DROP");
+        system("iptables -D INPUT  -p udp --sport 4433 ! -d 127.0.0.0/8 -j DROP");
     }
 };
 
@@ -349,7 +384,7 @@ int receive_first_pong_then_block_primary_path_for_local(
     (*test_ctx->per_connection_messages)[connection].push_back(*message);
 
     if (!test_ctx->path_blocked) {
-        log_info("Received first pong, now blocking primary path to trigger migration");
+        log_info("Received first pong, now blocking primary local path to trigger migration");
         test_ctx->path_blocked = true;
         // Block primary path — stack should probe 127.0.0.2 and migrate
         int rc = system("iptables -A OUTPUT -s 127.0.0.1 -p udp --dport 4433 -j DROP");
