@@ -119,3 +119,20 @@ int perform_dns_lookup(const char* hostname, const char* service, ct_remote_reso
   }
   return 0;
 }
+
+bool ct_sockaddr_equal(const struct sockaddr_storage* a, const struct sockaddr_storage* b) {
+  if (a->ss_family != b->ss_family) {
+    return false;
+  }
+  if (a->ss_family == AF_INET) {
+    struct sockaddr_in* a_in = (struct sockaddr_in*)a;
+    struct sockaddr_in* b_in = (struct sockaddr_in*)b;
+    return a_in->sin_port == b_in->sin_port && memcmp(&a_in->sin_addr, &b_in->sin_addr, sizeof(struct in_addr)) == 0;
+  }
+  else if (a->ss_family == AF_INET6) {
+    struct sockaddr_in6* a_in6 = (struct sockaddr_in6*)a;
+    struct sockaddr_in6* b_in6 = (struct sockaddr_in6*)b;
+    return a_in6->sin6_port == b_in6->sin6_port && memcmp(&a_in6->sin6_addr, &b_in6->sin6_addr, sizeof(struct in6_addr)) == 0;
+  }
+  return false;
+}

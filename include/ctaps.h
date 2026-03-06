@@ -894,6 +894,14 @@ CT_EXTERN int ct_local_endpoint_with_service(ct_local_endpoint_t* local_endpoint
 CT_EXTERN int ct_local_endpoint_with_ipv4(ct_local_endpoint_t* local_endpoint, in_addr_t ipv4_addr);
 
 /**
+ * @brief Initialize a local endpoint from a sockaddr structure.
+ * @param[out] local_endpoint Endpoint to initialize
+ * @param[in] addr Socket address structure
+ * @return 0 on success, non-zero on error
+ */
+CT_EXTERN int ct_local_endpoint_from_sockaddr(ct_local_endpoint_t* local_endpoint, const struct sockaddr_storage* addr);
+
+/**
  * @brief Free all resources in a local endpoint.
  * @param[in] local_endpoint Endpoint to free
  */

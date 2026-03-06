@@ -113,7 +113,7 @@ TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnRec
     ct_transport_properties_t* transport_properties = ct_transport_properties_new();
     ASSERT_NE(transport_properties, nullptr);
     ct_transport_properties_set_multistreaming(transport_properties, REQUIRE); // force quic
-    //
+
 
     ct_security_parameters_t* security_parameters = ct_security_parameters_new();
     const char* alpn_strings = "simple-ping";

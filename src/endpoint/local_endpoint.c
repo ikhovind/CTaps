@@ -114,6 +114,21 @@ ct_local_endpoint_t* ct_local_endpoint_resolve(const ct_local_endpoint_t* local_
       }
     }
   }
+  for (size_t i = 0; i < *out_count; i++) {
+    char addr_str[INET6_ADDRSTRLEN] = {0};
+    struct sockaddr_storage* ss = &out_list[i].data.resolved_address;
+    if (ss->ss_family == AF_INET) {
+      inet_ntop(AF_INET, &((struct sockaddr_in*)ss)->sin_addr, addr_str, sizeof(addr_str));
+    } else if (ss->ss_family == AF_INET6) {
+      inet_ntop(AF_INET6, &((struct sockaddr_in6*)ss)->sin6_addr, addr_str, sizeof(addr_str));
+    } else {
+      snprintf(addr_str, sizeof(addr_str), "<unknown family %d>", ss->ss_family);
+    }
+    log_debug("Resolved local endpoint [%zu]: %s:%u (iface: %s)",
+              i, addr_str, out_list[i].port,
+              out_list[i].interface_name ? out_list[i].interface_name : "any");
+  }
+
   return out_list;
 }
 
@@ -191,10 +206,10 @@ uint16_t local_endpoint_get_resolved_port(const ct_local_endpoint_t* local_endpo
     return 0;
   }
   if (local_endpoint_get_address_family(local_endpoint) == AF_INET6) {
-    return ((struct sockaddr_in6*)local_endpoint_get_resolved_address(local_endpoint))->sin6_port;
+    return ntohs(((struct sockaddr_in6*)local_endpoint_get_resolved_address(local_endpoint))->sin6_port);
   }
   if (local_endpoint_get_address_family(local_endpoint) == AF_INET) {
-    return ((struct sockaddr_in*)local_endpoint_get_resolved_address(local_endpoint))->sin_port;
+    return ntohs(((struct sockaddr_in*)local_endpoint_get_resolved_address(local_endpoint))->sin_port);
   }
   return 0;
 }
@@ -213,7 +228,6 @@ int ct_local_endpoint_copy_content(const ct_local_endpoint_t* src, ct_local_endp
     log_error("Cannot copy local endpoint content from or to NULL pointer");
     return -EINVAL;
   }
-  log_debug("src->data.resolved_address.ss_family: %d", src->data.resolved_address.ss_family);
   *dest = *src;
   dest->service = NULL;
   dest->interface_name = NULL;
@@ -276,4 +290,39 @@ int ct_local_endpoint_with_ipv4(ct_local_endpoint_t* local_endpoint, in_addr_t i
   addr->sin_family = AF_INET;
   addr->sin_addr.s_addr = ipv4_addr;
   return 0;
+}
+
+int ct_local_endpoint_from_sockaddr(ct_local_endpoint_t* local_endpoint, const struct sockaddr_storage* addr) {
+  log_trace("Building local endpoint from sockaddr");
+  if (!addr) {
+    log_error("Cannot build local endpoint from NULL sockaddr");
+    return -EINVAL;
+  }
+  if (local_endpoint->service != NULL) {
+    log_error("Cannot specify both service and IP address on single local endpoint");
+    return -EINVAL;
+  }
+  if (addr->ss_family == AF_INET) {
+    struct sockaddr_in* in_addr = (struct sockaddr_in*)addr;
+    local_endpoint->port = ntohs(in_addr->sin_port);
+    memcpy(&local_endpoint->data.resolved_address, in_addr, sizeof(struct sockaddr_in));
+  }
+  else if (addr->ss_family == AF_INET6) {
+    struct sockaddr_in6* in6_addr = (struct sockaddr_in6*)addr;
+    local_endpoint->port = ntohs(in6_addr->sin6_port);
+    memcpy(&local_endpoint->data.resolved_address, in6_addr, sizeof(struct sockaddr_in6));
+  }
+  else {
+    log_error("Unsupported resolved_address family: %d\n", addr->ss_family);
+    return -EINVAL;
+  }
+  return 0;
+}
+
+bool ct_local_endpoint_resolved_equals(const ct_local_endpoint_t* endpoint1, const ct_local_endpoint_t* endpoint2) {
+  if (!endpoint1 || !endpoint2) {
+    log_warn("ct_local_endpoint_resolved_equals called with NULL parameter");
+    return false;
+  }
+  return ct_sockaddr_equal(&endpoint1->data.resolved_address, &endpoint2->data.resolved_address);
 }

@@ -265,22 +265,41 @@ ct_connection_group_t* ct_connection_group_new(void) {
   return group;
 }
 
-int ct_connection_group_set_active_remote_endpoint(ct_connection_group_t* group, const ct_remote_endpoint_t* remote_endpoint) {
-  if (!group || !remote_endpoint) {
-    log_error("ct_connection_group_set_active_remote_endpoint called with NULL parameter");
+typedef int (*ct_endpoint_setter_fn)(ct_connection_t*, const void*);
+
+static int ct_connection_group_set_active_endpoint(
+    ct_connection_group_t* group,
+    const void* endpoint,
+    ct_endpoint_setter_fn setter,
+    const char* fn_name)
+{
+  if (!group || !endpoint) {
+    log_error("%s called with NULL parameter", fn_name);
     return -EINVAL;
   }
   int at_least_one_failure = 0;
   GHashTableIter iter;
-  gpointer key = NULL;
-  gpointer value = NULL;
+  gpointer key = NULL, value = NULL;
   g_hash_table_iter_init(&iter, group->connections);
   while (g_hash_table_iter_next(&iter, &key, &value)) {
-    ct_connection_t* connection = (ct_connection_t*)value;
-    int rc = ct_connection_set_active_remote_endpoint(connection, remote_endpoint);
+    ct_connection_t* conn = (ct_connection_t*)value;
+    int rc = setter(conn, endpoint);
     if (rc != 0) {
       at_least_one_failure = rc;
     }
   }
   return at_least_one_failure;
+}
+
+int ct_connection_group_set_active_remote_endpoint(ct_connection_group_t* group, const ct_remote_endpoint_t* remote_endpoint) {
+  return ct_connection_group_set_active_endpoint(
+      group, remote_endpoint, (ct_endpoint_setter_fn)ct_connection_set_active_remote_endpoint, __func__);
+}
+
+int ct_connection_group_set_active_local_endpoint(ct_connection_group_t* group, const ct_local_endpoint_t* local_endpoint) {
+  return ct_connection_group_set_active_endpoint(
+      group,
+      local_endpoint,
+      (ct_endpoint_setter_fn)ct_connection_set_active_local_endpoint,
+      __func__);
 }

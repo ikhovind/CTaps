@@ -9,6 +9,7 @@
 #include "endpoint/remote_endpoint.h"
 #include "message/message.h"
 #include "message/message_context.h"
+#include "protocol/common/socket_utils.h"
 #include "transport_property/transport_properties.h"
 #include "util/uuid_util.h"
 #include <glib.h>
@@ -675,11 +676,6 @@ const ct_connection_properties_t* ct_connection_get_connection_properties(const 
   return &connection->connection_group->transport_properties->connection_properties;
 }
 
-void connection_set_resolved_local_address(ct_connection_t* connection, const struct sockaddr_storage* addr) {
-  // TODO - this is probably wrong we should maybe set the index instead?
-  connection->all_local_endpoints[connection->active_local_endpoint].data.resolved_address = *addr;
-}
-
 ct_protocol_enum_t ct_connection_get_transport_protocol(const ct_connection_t* connection) {
   if (!connection) {
     log_error("ct_connection_get_transport_protocol called with NULL connection");
@@ -795,6 +791,19 @@ int ct_connection_set_active_remote_endpoint_index(ct_connection_t* connection, 
   return 0;
 }
 
+int ct_connection_set_active_local_endpoint_index(ct_connection_t* connection, size_t local_endpoint_index) {
+  if (!connection) {
+    log_error("ct_connection_set_active_local_endpoint_index called with NULL connection");
+    return -EINVAL;
+  }
+  if (local_endpoint_index >= connection->num_local_endpoints) {
+    log_error("ct_connection_set_active_local_endpoint_index called with out of bounds index");
+    return -EINVAL;
+  }
+  connection->active_local_endpoint = local_endpoint_index;
+  return 0;
+}
+
 int ct_connection_set_active_remote_endpoint(ct_connection_t* connection, const ct_remote_endpoint_t* remote_endpoint) {
   if (!connection || !remote_endpoint) {
     log_error("ct_connection_set_active_remote_endpoint called with NULL parameter");
@@ -829,5 +838,67 @@ int ct_connection_set_active_remote_endpoint(ct_connection_t* connection, const 
     return rc;
   }
 
+  return 0;
+}
+
+int ct_connection_set_active_local_endpoint(ct_connection_t* connection, const ct_local_endpoint_t* local_endpoint) {
+  if (!connection || !local_endpoint) {
+    log_error("ct_connection_set_active_local_endpoint called with NULL parameter");
+    log_debug("Connection pointer: %p, remote endpoint pointer: %p", (void*)connection, (void*)local_endpoint);
+    return -EINVAL;
+  }
+  log_debug("Setting active local endpoint for connection %s", connection->uuid);
+
+
+  for (size_t remote_ix = 0; remote_ix < ct_connection_get_num_local_endpoints(connection); remote_ix++) {
+    log_debug("Checking if local endpoint at index %zu matches active local endpoint", remote_ix);
+    if (ct_local_endpoint_resolved_equals(local_endpoint, &connection->all_local_endpoints[remote_ix])) {
+      connection->active_local_endpoint = remote_ix;
+      return 0;
+    }
+    else {
+      log_debug("Local endpoint at index %zu does not match active local endpoint, checking next", remote_ix);
+    }
+  }
+  ct_local_endpoint_t* temp = realloc(connection->all_local_endpoints, sizeof(ct_local_endpoint_t) * (connection->num_local_endpoints + 1));
+  if (!temp) {
+    log_error("Failed to allocate memory for new remote endpoint");
+    return -ENOMEM;
+  }
+
+  connection->num_local_endpoints++;
+  connection->all_local_endpoints = temp;
+  int rc = ct_local_endpoint_copy_content(local_endpoint, temp + connection->num_local_endpoints - 1);
+  if (rc != 0) {
+    log_error("Failed to deep copy new remote endpoint: %d", rc);
+    connection->num_local_endpoints--; // Roll back the count since we failed to copy
+    return rc;
+  }
+
+  rc = ct_connection_set_active_local_endpoint_index(connection, connection->num_local_endpoints - 1);
+  if (rc != 0) {
+    log_error("Failed to set active remote endpoint index: %d", rc);
+    return rc;
+  }
+
+  return 0;
+}
+
+int ct_connection_set_all_local_port(ct_connection_t* connection, uint16_t port) {
+  for (size_t i = 0; i < ct_connection_get_num_local_endpoints(connection); i++) {
+    struct sockaddr_storage* addr = &connection->all_local_endpoints[i].data.resolved_address;
+    if (addr->ss_family == AF_INET) {
+      struct sockaddr_in* addr_in = (struct sockaddr_in*)addr;
+      addr_in->sin_port = htons(port);
+    }
+    else if (addr->ss_family == AF_INET6) {
+      struct sockaddr_in6* addr_in6 = (struct sockaddr_in6*)addr;
+      addr_in6->sin6_port = htons(port);
+    }
+    else {
+      log_error("Unsupported address family in ct_connection_set_all_local_port");
+      return -EINVAL;
+    }
+  }
   return 0;
 }

@@ -109,49 +109,40 @@ TEST(RemoteEndpointUnitTests, FailsWhenSpecifyingIpv6AfterHostname) {
     ct_remote_endpoint_free(remote_endpoint);
 }
 
-TEST(RemoteEndpointUnitTest, remoteEndpointEqualsIgnoresNonSockaddrProperties) {
-    ct_remote_endpoint_t rem1 = {0};
-    ct_remote_endpoint_t rem2 = {0};
-
-    rem1.port = 1234;
-    rem2.port = 4321;
-
-    struct sockaddr_in* rem1_addr = (struct sockaddr_in*)&rem1.data.resolved_address;
-    struct sockaddr_in* rem2_addr = (struct sockaddr_in*)&rem2.data.resolved_address;
-
-    rem1_addr->sin_addr.s_addr = INADDR_LOOPBACK;
-    rem2_addr->sin_addr.s_addr = INADDR_LOOPBACK;
-    rem1.port = 1234;
-    rem2.port = 1234;
-
-    ASSERT_TRUE(ct_remote_endpoint_resolved_equals(&rem1, &rem2));
+TEST(RemoteEndpointResolvedEqualsTest, NullEndpoint1_ReturnsFalse) {
+    ct_remote_endpoint_t rem = {0};
+    ((struct sockaddr_in*)&rem.data.resolved_address)->sin_family = AF_INET;
+    EXPECT_FALSE(ct_remote_endpoint_resolved_equals(nullptr, &rem));
 }
 
-TEST(RemoteEndpointUnitTest, remoteEndpointEqualsReturnsFalseOnFamilyDiff) {
-    ct_remote_endpoint_t rem1 = {0};
-    ct_remote_endpoint_t rem2 = {0};
-
-    struct sockaddr_in* rem1_addr = (struct sockaddr_in*)&rem1.data.resolved_address;
-    struct sockaddr_in* rem2_addr = (struct sockaddr_in*)&rem2.data.resolved_address;
-
-    rem2_addr->sin_family = AF_INET6;
-    rem1.port = 1234;
-    rem2.port = 1234;
-
-    ASSERT_FALSE(ct_remote_endpoint_resolved_equals(&rem1, &rem2));
+TEST(RemoteEndpointResolvedEqualsTest, NullEndpoint2_ReturnsFalse) {
+    ct_remote_endpoint_t rem = {0};
+    ((struct sockaddr_in*)&rem.data.resolved_address)->sin_family = AF_INET;
+    EXPECT_FALSE(ct_remote_endpoint_resolved_equals(&rem, nullptr));
 }
 
-TEST(RemoteEndpointUnitTest, remoteEndpointEqualsReturnsFalseOnDiff) {
-    ct_remote_endpoint_t rem1 = {0};
-    ct_remote_endpoint_t rem2 = {0};
+TEST(RemoteEndpointResolvedEqualsTest, BothNull_ReturnsFalse) {
+    EXPECT_FALSE(ct_remote_endpoint_resolved_equals(nullptr, nullptr));
+}
 
-    struct sockaddr_in* rem1_addr = (struct sockaddr_in*)&rem1.data.resolved_address;
-    struct sockaddr_in* rem2_addr = (struct sockaddr_in*)&rem2.data.resolved_address;
+TEST(RemoteEndpointResolvedEqualsTest, EqualAddresses_ReturnsTrue) {
+    ct_remote_endpoint_t rem1 = {0}, rem2 = {0};
+    struct sockaddr_in* a = (struct sockaddr_in*)&rem1.data.resolved_address;
+    struct sockaddr_in* b = (struct sockaddr_in*)&rem2.data.resolved_address;
+    a->sin_family = b->sin_family = AF_INET;
+    a->sin_port   = b->sin_port   = htons(8080);
+    inet_pton(AF_INET, "10.0.0.1", &a->sin_addr);
+    inet_pton(AF_INET, "10.0.0.1", &b->sin_addr);
+    EXPECT_TRUE(ct_remote_endpoint_resolved_equals(&rem1, &rem2));
+}
 
-    rem1_addr->sin_family = AF_INET;
-    rem2_addr->sin_family = AF_INET;
-    rem1_addr->sin_port = 1234;
-    rem2_addr->sin_port = 4321;
-
-    ASSERT_FALSE(ct_remote_endpoint_resolved_equals(&rem1, &rem2));
+TEST(RemoteEndpointResolvedEqualsTest, DifferentAddresses_ReturnsFalse) {
+    ct_remote_endpoint_t rem1 = {0}, rem2 = {0};
+    struct sockaddr_in* a = (struct sockaddr_in*)&rem1.data.resolved_address;
+    struct sockaddr_in* b = (struct sockaddr_in*)&rem2.data.resolved_address;
+    a->sin_family = b->sin_family = AF_INET;
+    a->sin_port   = b->sin_port   = htons(8080);
+    inet_pton(AF_INET, "10.0.0.1", &a->sin_addr);
+    inet_pton(AF_INET, "10.0.0.2", &b->sin_addr);
+    EXPECT_FALSE(ct_remote_endpoint_resolved_equals(&rem1, &rem2));
 }
