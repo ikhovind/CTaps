@@ -268,6 +268,7 @@ int ct_security_parameters_add_alpn(ct_security_parameters_t* sec, const char* a
 const char** ct_security_parameters_get_alpns(const ct_security_parameters_t* sec, size_t* num_alpns) {
   if (!sec || !num_alpns) {
     log_error("Invalid arguments to get ALPNs");
+    log_debug("Security parameters: %p, num_alpns: %p", sec, num_alpns);
     return NULL;
   }
   if (sec->list[ALPN].value.array_of_strings.num_strings == 0) {

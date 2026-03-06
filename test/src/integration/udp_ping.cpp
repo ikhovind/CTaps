@@ -5,7 +5,7 @@
 extern "C" {
 #include "ctaps.h"
 #include <logging/log.h>
-#include "fixtures/awaiting_fixture.cpp"
+#include "fixtures/integration_fixture.h"
 }
 
 DEFINE_FFF_GLOBALS;
@@ -20,7 +20,7 @@ protected:
   }
 };
 
-TEST_F(UdpPingTests, sendsSingleUdpPacket) {
+TEST_F(UdpPingTests, sendsSingleUdpPacketWithoutEarlySend) {
   log_info("Starting test: sendsSingleUdpPacket");
   // --- Setup ---
   ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
@@ -35,7 +35,7 @@ TEST_F(UdpPingTests, sendsSingleUdpPacket) {
   ct_transport_properties_set_preserve_order(transport_properties, PROHIBIT);
   ct_transport_properties_set_congestion_control(transport_properties, PROHIBIT);
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
+  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties,NULL);
   ASSERT_NE(preconnection, nullptr);
 
   ct_connection_callbacks_t connection_callbacks = {
@@ -81,7 +81,7 @@ TEST_F(UdpPingTests, packetsAreReadInOrder) {
   ct_transport_properties_set_preserve_order(transport_properties, PROHIBIT);
   ct_transport_properties_set_congestion_control(transport_properties, PROHIBIT);
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
+  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties,NULL);
   ASSERT_NE(preconnection, nullptr);
 
   test_context.total_expected_messages = 2;
@@ -131,7 +131,7 @@ TEST_F(UdpPingTests, canPingArbitraryBytes) {
   ct_transport_properties_set_preserve_order(transport_properties, PROHIBIT);
   ct_transport_properties_set_congestion_control(transport_properties, PROHIBIT);
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
+  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties,NULL);
   ASSERT_NE(preconnection, nullptr);
 
   ct_connection_callbacks_t connection_callbacks = {
@@ -176,7 +176,7 @@ TEST_F(UdpPingTests, sendsSingleUdpPacketWithInitiateWithSend) {
   ct_transport_properties_set_preserve_order(transport_properties, PROHIBIT);
   ct_transport_properties_set_congestion_control(transport_properties, PROHIBIT);
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
+  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties,NULL);
   ASSERT_NE(preconnection, nullptr);
 
 

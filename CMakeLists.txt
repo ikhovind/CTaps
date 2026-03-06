@@ -90,6 +90,7 @@ set_target_properties(CTaps PROPERTIES
 target_compile_options(CTaps PRIVATE
      -Wall -Wextra -Wpedantic -Werror
      $<$<CONFIG:Debug>:-O0 -g3>
+     $<$<CONFIG:DebugMig>:-O0 -g3>
      $<$<CONFIG:Release>:-O2 -DNDEBUG>
 )
 
@@ -106,11 +107,14 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(GLIB REQUIRED glib-2.0)
 pkg_check_modules(UUID REQUIRED uuid)
 
+message(STATUS "picoquic source dir: ${picoquic_SOURCE_DIR}")
 
 # This is the only way I have managed to link against picotls
 target_include_directories(CTaps
         PRIVATE 
         "${picotls_SOURCE_DIR}/include"
+        "${picoquic_SOURCE_DIR}/loglib"
+        "${picoquic_SOURCE_DIR}/picoquic"
         ${GLIB_INCLUDE_DIRS}
         ${UUID_INCLUDE_DIRS}
 )
@@ -120,6 +124,7 @@ target_link_libraries(
         PRIVATE
             uv
             picoquic-core
+            picoquic-log
             ${GLIB_LIBRARIES}
             ${UUID_LIBRARIES}
 )

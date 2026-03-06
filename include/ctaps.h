@@ -854,12 +854,6 @@ CT_EXTERN void ct_security_parameters_free(ct_security_parameters_t* security_pa
  *   ct_preconnection_free(precon1);  // Frees precon1's endpoint copy
  *   ct_preconnection_free(precon2);  // Frees precon2's endpoint copy
  * @endcode
- *
- * This model ensures:
- * - Clear ownership boundaries (user owns originals, CTaps owns copies)
- * - No use-after-free bugs (each object owns its own endpoint data)
- * - Easy resource management (free endpoints when you're done with them)
- * - Endpoint reusability (use same endpoint for multiple preconnections)
  */
 
 // Local Endpoint
@@ -868,7 +862,6 @@ CT_EXTERN void ct_security_parameters_free(ct_security_parameters_t* security_pa
  *
  * The caller owns the returned endpoint and must free it with ct_local_endpoint_free()
  * when done. The endpoint can be safely freed after passing to ct_preconnection_new()
- * or ct_preconnection_set_local_endpoint(), as CTaps makes internal copies.
  *
  * @return Pointer to newly allocated endpoint, or NULL on error
  * @see endpoint_ownership
@@ -898,6 +891,16 @@ CT_EXTERN void ct_local_endpoint_with_port(ct_local_endpoint_t* local_endpoint, 
  */
 CT_EXTERN int ct_local_endpoint_with_service(ct_local_endpoint_t* local_endpoint, char* service);
 
+CT_EXTERN int ct_local_endpoint_with_ipv4(ct_local_endpoint_t* local_endpoint, in_addr_t ipv4_addr);
+
+/**
+ * @brief Initialize a local endpoint from a sockaddr structure.
+ * @param[out] local_endpoint Endpoint to initialize
+ * @param[in] addr Socket address structure
+ * @return 0 on success, non-zero on error
+ */
+CT_EXTERN int ct_local_endpoint_from_sockaddr(ct_local_endpoint_t* local_endpoint, const struct sockaddr_storage* addr);
+
 /**
  * @brief Free all resources in a local endpoint.
  * @param[in] local_endpoint Endpoint to free
@@ -910,24 +913,6 @@ CT_EXTERN void ct_local_endpoint_free(ct_local_endpoint_t* local_endpoint);
  * @return Pointer to newly allocated copy, or NULL on error
  */
 ct_local_endpoint_t* local_endpoint_copy(const ct_local_endpoint_t* local_endpoint);
-
-/**
- * @brief Create a stack copy of a local endpoint's content.
- * @param[in] local_endpoint Source endpoint
- * @return Copy of the endpoint structure
- */
-ct_local_endpoint_t ct_local_endpoint_copy_content(const ct_local_endpoint_t* local_endpoint);
-
-/**
- * @brief Resolve a local endpoint to concrete addresses.
- * @param[in] local_endpoint Endpoint to resolve
- * @param[out] out_list Output array of resolved endpoints (caller must free)
- * @param[out] out_count Number of endpoints in output array
- * @return 0 on success, non-zero on error
- *
- * TODO - this shouldn't be public?
- */
-CT_EXTERN int ct_local_endpoint_resolve(const ct_local_endpoint_t* local_endpoint, ct_local_endpoint_t** out_list, size_t* out_count);
 
 /**
  * @brief Get the service for a local endpoint
@@ -1000,13 +985,6 @@ CT_EXTERN int ct_remote_endpoint_from_sockaddr(ct_remote_endpoint_t* remote_endp
  * @return Pointer to newly allocated copy, or NULL on error
  */
 ct_remote_endpoint_t* ct_remote_endpoint_deep_copy(const ct_remote_endpoint_t* remote_endpoint);
-
-/**
- * @brief Create a stack copy of a remote endpoint's content.
- * @param[in] remote_endpoint Source endpoint
- * @return Copy of the endpoint structure
- */
-ct_remote_endpoint_t ct_remote_endpoint_copy_content(const ct_remote_endpoint_t* remote_endpoint);
 
 /**
  * @brief Set the IPv4 address for a remote endpoint.
@@ -1120,6 +1098,8 @@ CT_EXTERN const ct_local_endpoint_t* ct_message_context_get_local_endpoint(const
  * The returned object must be freed with ct_preconnection_free().
  * This follows the RFC 9622 pattern: Preconnection := NewPreconnection(...)
  *
+ * @param local_endpoints
+ * @param num_local_endpoints
  * @param[in] remote_endpoints Array of remote endpoints to connect to, or NULL
  * @param[in] num_remote_endpoints Number of remote endpoints (0 if remote_endpoints is NULL)
  * @param[in] transport_properties Transport property preferences, or NULL for defaults
@@ -1127,10 +1107,10 @@ CT_EXTERN const ct_local_endpoint_t* ct_message_context_get_local_endpoint(const
  * @return Pointer to newly allocated preconnection, or NULL on allocation failure
  */
 CT_EXTERN ct_preconnection_t* ct_preconnection_new(
-    const ct_remote_endpoint_t* remote_endpoints,
-    size_t num_remote_endpoints,
-    const ct_transport_properties_t* transport_properties,
-    const ct_security_parameters_t* security_parameters);
+ const ct_local_endpoint_t *local_endpoints,
+ size_t num_local_endpoints,
+ const ct_remote_endpoint_t* remote_endpoints,
+ size_t num_remote_endpoints, const ct_transport_properties_t* transport_properties, const ct_security_parameters_t* security_parameters);
 
 /**
  * @brief Free a preconnection object.
@@ -1142,20 +1122,6 @@ CT_EXTERN ct_preconnection_t* ct_preconnection_new(
  * @param[in] preconnection Pointer to preconnection to free. Does nothing if NULL.
  */
 CT_EXTERN void ct_preconnection_free(ct_preconnection_t* preconnection);
-
-/**
- * @brief Add an additional remote endpoint to a preconnection.
- * @param[in,out] preconnection Preconnection to modify
- * @param[in] remote_endpoint Endpoint to add
- */
-CT_EXTERN void ct_preconnection_add_remote_endpoint(ct_preconnection_t* preconnection, const ct_remote_endpoint_t* remote_endpoint);
-
-/**
- * @brief Set the local endpoint for a preconnection.
- * @param[in,out] preconnection Preconnection to modify
- * @param[in] local_endpoint Local endpoint to set
- */
-CT_EXTERN void ct_preconnection_set_local_endpoint(ct_preconnection_t* preconnection, const ct_local_endpoint_t* local_endpoint);
 
 /**
  * @brief Set a message framer for the preconnection.
@@ -1302,13 +1268,18 @@ CT_EXTERN const char* ct_connection_get_uuid(const ct_connection_t* connection);
 CT_EXTERN const char* ct_connection_get_protocol_name(const ct_connection_t* connection);
 
 /**
- * TODO - maybe this has to return an array?
- *
- * @brief Get the remote endpoint for the connection
+ * @brief Get the currently active remote endpoint for the connection
  * @param[in] connection connection to get remote endpoint for
- * @return Pointer to remote endpoint, NULL of connection is NULL 
+ * @return Pointer to endpoint, NULL if connection is NULL 
  */
-CT_EXTERN const ct_remote_endpoint_t* ct_connection_get_remote_endpoint(const ct_connection_t* connection);
+CT_EXTERN const ct_remote_endpoint_t* ct_connection_get_active_remote_endpoint(const ct_connection_t* connection);
+
+/**
+ * @brief Get the currently active local endpoint
+ * @param[in] connection connection to get remote endpoint for
+ * @return Pointer to endpoint, NULL if connection is NULL 
+ */
+CT_EXTERN const ct_local_endpoint_t* ct_connection_get_active_local_endpoint(const ct_connection_t* connection);
 
 /**
  * @brief Check if a connection is established.

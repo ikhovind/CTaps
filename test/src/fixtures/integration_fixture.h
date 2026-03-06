@@ -1,3 +1,5 @@
+#ifndef CT_INTEGRATION_FIXTURE_H
+#define CT_INTEGRATION_FIXTURE_H
 #include <gmock/gmock-matchers.h>
 
 #include "gtest/gtest.h"
@@ -16,6 +18,54 @@ extern "C" {
 #define QUIC_CLONE_LISTENER_PORT 4434
 #define TEST_CLIENT_TICKET_STORE TEST_RESOURCE_DIR "/ticket_store.db"
 
+struct IptablesGuard {
+    ~IptablesGuard() {
+        // Remote endpoint migration test
+        if (system("iptables -C INPUT -s 127.0.0.1 -p udp --sport 4433 -j DROP 2>/dev/null") == 0) {
+            system("iptables -D INPUT -s 127.0.0.1 -p udp --sport 4433 -j DROP");
+        }
+
+        if (system("iptables -C OUTPUT -d 127.0.0.1 -p udp --dport 4433 -j DROP 2>/dev/null") == 0) {
+            system("iptables -D OUTPUT -d 127.0.0.1 -p udp --dport 4433 -j DROP");
+        }
+
+        // Local endpoint migration test
+        if (system("iptables -D OUTPUT -p udp -d 127.0.0.1 --dport 4433 -j DROP 2>/dev/null") == 0) {
+            system("iptables -D OUTPUT -p udp -d 127.0.0.1 --dport 4433 -j DROP");
+
+        }
+        if (system("iptables -C INPUT  -p udp -s 127.0.0.1 --sport 4433 -j DROP 2>/dev/null") == 0) {
+            system("iptables -D INPUT  -p udp -s 127.0.0.1 --sport 4433 -j DROP");
+        }
+    }
+};
+// TODO check if these actually are needed with the new test cleanup for ctest
+struct IpAddressGuard {
+    bool added = false;
+    IpAddressGuard() {
+        int rc = system("ip addr add 127.0.0.2/8 dev lo 2>/dev/null");
+        added = (rc == 0);
+        // If it already existed, that's fine — we just won't delete it on teardown
+    }
+    ~IpAddressGuard() {
+        if (added) {
+            system("ip addr del 127.0.0.2/8 dev lo 2>/dev/null");
+        }
+    }
+};
+
+struct OnlyLoopBackTo4433 {
+    OnlyLoopBackTo4433() {
+        system("iptables -A OUTPUT -p udp --dport 4433 ! -s 127.0.0.0/8 -j DROP");
+        system("iptables -A INPUT  -p udp --sport 4433 ! -d 127.0.0.0/8 -j DROP");
+    }
+
+    ~OnlyLoopBackTo4433() {
+        system("iptables -D OUTPUT -p udp --dport 4433 ! -s 127.0.0.0/8 -j DROP");
+        system("iptables -D INPUT  -p udp --sport 4433 ! -d 127.0.0.0/8 -j DROP");
+    }
+};
+
 struct CallbackContext {
     std::map<ct_connection_t*, std::vector<ct_message_t*>>* per_connection_messages;
     std::vector<ct_connection_t*> server_connections; // created by the listener callback
@@ -26,9 +76,28 @@ struct CallbackContext {
     bool connection_succeeded = false;
     uint16_t expected_server_port = 0; // Expected remote port for message context verification
     std::function<void()> listener_ready_action;
+    bool path_blocked = false; // Used for migration test to simulate path failure after connection established
+    std::vector<const ct_local_endpoint_t*> local_endpoints; // Used for migration test to verify local endpoint changes
 };
 
 class CTapsGenericFixture : public ::testing::Test {
+private:
+    inline static pid_t server_pids_[1];
+
+    static pid_t launch_server(const char* path) {
+        pid_t pid = fork();
+        EXPECT_NE(pid, -1) << "fork() failed: " << strerror(errno);
+        if (pid == 0) {
+            int devnull = open("/dev/null", O_WRONLY);
+            dup2(devnull, STDOUT_FILENO);
+            dup2(devnull, STDERR_FILENO);
+            close(devnull);
+            execl(path, path, nullptr);
+            _exit(1);
+        }
+        return pid;
+    }
+
 protected:
     // Each test gets its own per-connection message map
     std::map<ct_connection_t*, std::vector<ct_message_t*>> per_connection_messages;
@@ -62,13 +131,25 @@ protected:
         // delete test ticket store
         remove(TEST_CLIENT_TICKET_STORE);
     }
-
-
+    static void SetUpTestSuite() {
+        server_pids_[0] = launch_server(PICOQUIC_PING_SERVER_PATH);
+        server_pids_[1] = launch_server(TCP_PING_SERVER_PATH);
+        server_pids_[2] = launch_server(UDP_PING_SERVER_PATH);
+    }
+    static void TearDownTestSuite() {
+        for (pid_t& pid : server_pids_) {
+            if (pid > 0) {
+                kill(pid, SIGTERM);
+                waitpid(pid, nullptr, 0);
+                pid = -1;
+            }
+        }
+}
 };
 
 // --- C-style callbacks that bridge to our C++ object ---
 
-int on_connection_ready(ct_connection_t* connection) {
+inline int on_connection_ready(ct_connection_t* connection) {
     printf("ct_callback_t: ct_connection_t is ready.\n");
     auto* context = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
     context->client_connections.push_back(connection);
@@ -225,6 +306,129 @@ int send_message_and_receive(struct ct_connection_s* connection) {
 
     ct_receive_callbacks_t receive_message_request = {
       .receive_callback = close_on_message_received,
+      .user_receive_context = ct_connection_get_callback_context(connection),
+    };
+
+    ct_receive_message(connection, receive_message_request);
+    return 0;
+}
+
+// Callback context needs a flag to track whether migration has been triggered
+int receive_first_pong_then_block_primary_path_for_remote(
+    ct_connection_t* connection,
+    ct_message_t** message,
+    ct_message_context_t* ctx)
+{
+    auto* test_ctx = static_cast<CallbackContext*>(ctx->user_receive_context);
+    (*test_ctx->per_connection_messages)[connection].push_back(*message);
+
+    if (!test_ctx->path_blocked) {
+        log_info("Received first pong, now blocking primary path to trigger migration");
+        test_ctx->path_blocked = true;
+        // Block primary path — stack should probe 127.0.0.2 and migrate
+        int rc = system("iptables -A INPUT -s 127.0.0.1 -p udp --sport 4433 -j DROP");
+        EXPECT_EQ(rc, 0);
+        rc = system("iptables -A OUTPUT -d 127.0.0.1 -p udp --dport 4433 -j DROP");
+        EXPECT_EQ(rc, 0);
+
+        // Second ping should be routed to alternative path
+        ct_message_t* msg = ct_message_new_with_content("ping", strlen("ping") + 1);
+        ct_send_message(connection, msg);
+        ct_message_free(msg);
+
+        ct_receive_callbacks_t recv = {
+            .receive_callback = receive_first_pong_then_block_primary_path_for_remote,
+            .user_receive_context = ctx->user_receive_context,
+        };
+        ct_receive_message(connection, recv);
+    } else {
+        int rc = system("iptables -D INPUT -s 127.0.0.1 -p udp --sport 4433 -j DROP");
+        if (rc != 0) {
+            log_warn("Could not remote iptables rule");
+        }
+        rc = system("iptables -D OUTPUT -d 127.0.0.1 -p udp --dport 4433 -j DROP");
+        if (rc != 0) {
+            log_warn("Could not remote iptables rule");
+        }
+
+        log_info("Received second pong after blocking primary path, migration successful");
+        ct_connection_close_group(connection);
+    }
+    return 0;
+}
+
+int send_message_and_receive_blocking_primary_path_for_remote(struct ct_connection_s* connection) {
+    log_trace("Ready - send_message_and_receive_blocking_primary_path_for_remote");
+    auto* context = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
+    context->client_connections.push_back(connection);
+
+    ct_message_t* message = ct_message_new_with_content("ping", strlen("ping") + 1);
+    ct_send_message(connection, message);
+    ct_message_free(message);
+
+    ct_receive_callbacks_t receive_message_request = {
+      .receive_callback = receive_first_pong_then_block_primary_path_for_remote,
+      .user_receive_context = ct_connection_get_callback_context(connection),
+    };
+
+    ct_receive_message(connection, receive_message_request);
+    return 0;
+}
+
+int receive_first_pong_then_block_primary_path_for_local(
+    ct_connection_t* connection,
+    ct_message_t** message,
+    ct_message_context_t* ctx)
+{
+    auto* test_ctx = static_cast<CallbackContext*>(ctx->user_receive_context);
+    (*test_ctx->per_connection_messages)[connection].push_back(*message);
+
+    if (!test_ctx->path_blocked) {
+        log_info("Received first pong, now blocking primary local path to trigger migration");
+        test_ctx->path_blocked = true;
+        // Block primary path — stack should probe 127.0.0.2 and migrate
+        int rc = system("iptables -A OUTPUT -s 127.0.0.1 -p udp --dport 4433 -j DROP");
+        EXPECT_EQ(rc, 0);
+        rc = system("iptables -A INPUT  -d 127.0.0.1 -p udp --sport 4433 -j DROP");
+        EXPECT_EQ(rc, 0);
+
+        // Second ping should be routed to alternative path
+        ct_message_t* msg = ct_message_new_with_content("ping", strlen("ping") + 1);
+        ct_send_message(connection, msg);
+        ct_message_free(msg);
+
+        ct_receive_callbacks_t recv = {
+            .receive_callback = receive_first_pong_then_block_primary_path_for_local,
+            .user_receive_context = ctx->user_receive_context,
+        };
+        ct_receive_message(connection, recv);
+    } else {
+        int rc = system("iptables -D OUTPUT -s 127.0.0.1 -p udp --dport 4433 -j DROP");
+        if (rc != 0) {
+            log_warn("Could not remote iptables rule");
+        }
+        rc = system("iptables -D INPUT  -d 127.0.0.1 -p udp --sport 4433 -j DROP");
+        if (rc != 0) {
+            log_warn("Could not remote iptables rule");
+        }
+
+        log_info("Received second pong after blocking primary path, migration successful");
+        ct_connection_close_group(connection);
+    }
+    return 0;
+}
+
+int send_message_and_receive_blocking_primary_path_for_local(struct ct_connection_s* connection) {
+    log_trace("Ready - send_message_and_receive_blocking_primary_path_for_local");
+    auto* context = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
+    context->client_connections.push_back(connection);
+
+    ct_message_t* message = ct_message_new_with_content("ping", strlen("ping") + 1);
+    ct_send_message(connection, message);
+    ct_message_free(message);
+
+    ct_receive_callbacks_t receive_message_request = {
+      .receive_callback = receive_first_pong_then_block_primary_path_for_local,
       .user_receive_context = ct_connection_get_callback_context(connection),
     };
 
@@ -635,3 +839,10 @@ ct_connection_group_t* generate_connection_group(int num_connections) {
     return group;
 }
 
+void capture_local_on_sent(ct_connection_t* connection, ct_message_context_t* message_context) {
+    auto* context = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
+    
+    context->local_endpoints.push_back(ct_connection_get_active_local_endpoint(connection));
+}
+
+#endif

@@ -1,13 +1,16 @@
+#define _GNU_SOURCE
+#include <net/if.h>
 #include "quic.h"
-
 #include "connection/connection.h"
 #include "connection/connection_group.h"
 #include "connection/socket_manager/socket_manager.h"
 #include "ctaps.h"
 #include "endpoint/local_endpoint.h"
+#include "picosocks.h"
 #include "protocol/common/socket_utils.h"
 #include <glib.h>
 #include <logging/log.h>
+#include <netinet/in.h>
 #include <picoquic.h>
 #include <picoquic_utils.h>
 #include <picotls.h>
@@ -59,10 +62,56 @@ const ct_protocol_impl_t quic_protocol_interface = {
     .abort = quic_abort,
     .clone_connection = quic_clone_connection,
     .remote_endpoint_from_peer = quic_remote_endpoint_from_peer,
+    .free_socket_state = quic_free_socket_state,
     .close_connection_group = quic_close_connection_group,
     .set_connection_priority = quic_set_connection_priority,
     .free_connection_state = quic_free_state
 };
+
+typedef struct ct_quic_send_state_t {
+  uv_buf_t* buffer;
+  picoquic_cnx_t* cnx;
+  struct sockaddr_storage local_address;
+  struct sockaddr_storage remote_address;
+  ct_connection_group_t* connection_group;
+} ct_quic_send_state_t;
+
+ct_quic_send_state_t* ct_quic_send_state_new(uv_buf_t* buffer,
+                                             picoquic_cnx_t* cnx,
+                                             struct sockaddr_storage local_address,
+                                             struct sockaddr_storage remote_address,
+                                             ct_connection_group_t* connection_group
+                                             ) {
+  ct_quic_send_state_t* state = malloc(sizeof(ct_quic_send_state_t));
+  if (state) {
+    memset(state, 0, sizeof(ct_quic_send_state_t));
+    state->cnx = cnx;
+    state->buffer = buffer;
+    state->local_address = local_address;
+    state->remote_address = remote_address;
+    state->connection_group = connection_group;
+  }
+  else {
+    log_error("Failed to allocate memory for QUIC send state");
+  }
+  return state;
+}
+
+void ct_quic_send_state_free(ct_quic_send_state_t* state) {
+  if (!state) {
+    return;
+  }
+  if (state->buffer) {
+    uv_buf_t* buf = state->buffer;
+    if (buf->base) {
+      free(buf->base);
+    }
+    free(buf);
+  }
+  if (state) {
+    free(state);
+  }
+}
 
 int picoquic_callback(picoquic_cnx_t* cnx,
     uint64_t stream_id, uint8_t* bytes, size_t length,
@@ -78,6 +127,20 @@ void ct_quic_connection_group_set_close_initiated(ct_connection_group_t* group, 
   if (group_state) {
     group_state->close_initiated = val;
   }
+}
+
+picoquic_cnx_t* ct_quic_connection_group_get_picoquic_cnx(const ct_connection_group_t* group) {
+  const ct_quic_connection_group_state_t* group_state = group->connection_group_state;
+  return group_state ? group_state->picoquic_connection : NULL;
+}
+
+picoquic_quic_t* ct_connection_get_picoquic_instance(ct_connection_t* connection) {
+  if (!connection || !connection->socket_manager || !connection->socket_manager->internal_socket_manager_state) {
+    log_error("ct_quic_connection_get_picoquic_instance called with NULL connection or missing socket manager state");
+    return NULL;
+  }
+  ct_quic_socket_state_t* socket_state = ct_connection_get_quic_socket_state(connection);
+  return socket_state->picoquic_ctx;
 }
 
 
@@ -242,6 +305,7 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
   }
 
   picoquic_set_default_priority(socket_state->picoquic_ctx, CT_CONNECTION_DEFAULT_PRIORITY);
+  picoquic_enable_path_callbacks_default(socket_state->picoquic_ctx, 1);
 
 
   // Set up timer handle for this context
@@ -645,6 +709,68 @@ static int resolve_or_create_stream_connection(
     return 0;
 }
 
+int probe_all_paths(const ct_connection_group_t* group) {
+    log_debug("Probing all paths for connection group %s", group->connection_group_id);
+    ct_connection_t* connection = ct_connection_group_get_first(group);
+    picoquic_cnx_t* cnx = ct_quic_connection_group_get_picoquic_cnx(group);
+    int at_least_one_success = 0;
+
+    log_debug("Connection has %zu remote endpoints and %zu local endpoints configured",
+              ct_connection_get_num_remote_endpoints(connection),
+              ct_connection_get_num_local_endpoints(connection));
+    for (size_t i = 0; i < ct_connection_get_num_remote_endpoints(connection); i++) {
+        const ct_remote_endpoint_t* remote_endpoint =
+            &ct_connection_get_remote_endpoints_list(connection)[i];
+
+      for (size_t j = 0; j < ct_connection_get_num_local_endpoints(connection); j++) {
+        if (j == connection->active_local_endpoint && i == connection->active_remote_endpoint) {
+          continue;
+        }
+        const ct_local_endpoint_t* local_endpoint = &ct_connection_get_local_endpoints_list(connection)[j];
+
+        if (local_endpoint->data.resolved_address.ss_family != remote_endpoint->data.resolved_address.ss_family) {
+          log_debug("Skipping probing local endpoint %zu to remote endpoint %zu due to address family mismatch",
+                    j, i);
+          continue;
+        }
+
+        char from_ip[INET6_ADDRSTRLEN];
+        char to_ip[INET6_ADDRSTRLEN];
+        uint16_t from_port, dest_port;
+
+
+        const struct sockaddr_storage* local_ss = &local_endpoint->data.resolved_address;
+        const struct sockaddr_storage* remote_ss = &remote_endpoint->data.resolved_address;
+
+        ct_get_addr_string(local_ss, from_ip, sizeof(from_ip), &from_port);
+        ct_get_addr_string(remote_ss, to_ip, sizeof(to_ip), &dest_port);
+
+        log_info("[MIGRATION_DEBUG] We are now probing: %s:%d -> %s:%d",
+                 from_ip, from_port, to_ip, dest_port);
+
+        int rc = picoquic_probe_new_path(
+            cnx,
+            (const struct sockaddr*)&remote_endpoint->data.resolved_address,
+            (const struct sockaddr*)&local_endpoint->data.resolved_address,  /* let picoquic pick the local address */
+            picoquic_get_quic_time(ct_connection_get_picoquic_instance(connection))
+        );
+        if (rc < 0) {
+            log_warn("Failed to probe path to remote endpoint %zu with error code: %d", i, rc);
+        } else {
+            log_debug("Probing remote endpoint %zu", i);
+            at_least_one_success = 1;
+        }
+      }
+    }
+
+    if (!at_least_one_success) {
+        log_error("Failed to probe any paths for connection group %s",
+                  group->connection_group_id);
+        return -EIO;
+    }
+    return at_least_one_success;
+}
+
 int picoquic_callback(picoquic_cnx_t* cnx,
     uint64_t stream_id, uint8_t* bytes, size_t length,
     picoquic_call_back_event_t fin_or_event, void* callback_ctx, void* v_stream_ctx)
@@ -661,6 +787,8 @@ int picoquic_callback(picoquic_cnx_t* cnx,
   switch (fin_or_event) {
     case picoquic_callback_ready:
       log_debug("QUIC connection is ready, invoking CTaps callback");
+      probe_all_paths(connection_group);
+      log_debug("Completed path probing for connection group %s", connection_group->connection_group_id);
       // the picoquic_callback_ready event is per-cnx.
       // This means that this callback only happens once per connection group.
       // We therefore know that the connection group only has one connection at this point.
@@ -787,11 +915,11 @@ int picoquic_callback(picoquic_cnx_t* cnx,
     case picoquic_callback_close:
       log_debug("Picoquic connection closed callback received");
 
-      // Reset the active connection counter since entire QUIC connection is closed
       uint64_t error = picoquic_get_remote_error(cnx);
       ct_quic_connection_group_set_close_initiated(connection_group, true);
       if (error != 0) {
         log_info("QUIC connection closed by peer with error code: %llu", (unsigned long long)error);
+        log_debug("Closing connection group %s due to peer close with error", connection_group->connection_group_id);
         rc = handle_aborted_picoquic_connection_group(connection_group);
       } else {
         log_debug("QUIC connection %s closed by peer without error", connection_group->connection_group_id);
@@ -827,6 +955,63 @@ int picoquic_callback(picoquic_cnx_t* cnx,
       log_warn("ALPN list requested in callback, should never happen");
       return -EINVAL;
       break;
+    case picoquic_callback_path_available: {
+      log_debug("Picoquic path available callback received");
+
+      struct sockaddr_storage to_address = {0};
+      int rc = picoquic_get_path_addr(cnx, stream_id, 2, &to_address);
+      if (rc < 0) {
+        log_error("Failed to get path address after path available callback: %d", rc);
+        return rc;
+      }
+
+      char to_ip[INET6_ADDRSTRLEN];
+      uint16_t to_port;
+      ct_get_addr_string(&to_address, to_ip, sizeof(to_ip), &to_port);
+
+      log_info("New path available to remote endpoint %s:%d", to_ip, to_port);
+
+
+      struct sockaddr_storage from_address = {0};
+      rc = picoquic_get_path_addr(cnx, stream_id, 1, &from_address);
+      if (rc < 0) {
+        log_error("Failed to get path address after path available callback: %d", rc);
+        return rc;
+      }
+
+      char from_ip[INET6_ADDRSTRLEN];
+      uint16_t from_port;
+      ct_get_addr_string(&from_address, from_ip, sizeof(from_ip), &from_port);
+
+      log_info("New local path available %s:%d", from_ip, from_port);
+
+
+      ct_remote_endpoint_t remote_endpoint = {0};
+      ct_remote_endpoint_from_sockaddr(&remote_endpoint, &to_address);
+      rc = ct_connection_group_set_active_remote_endpoint(connection_group, &remote_endpoint);
+      if (rc != 0) {
+        log_error("Failed to set active remote for connection group, error code: %d", rc);
+        return rc;
+      }
+
+      ct_local_endpoint_t local_endpoint = {0};
+      ct_local_endpoint_from_sockaddr(&local_endpoint, &from_address);
+      rc = ct_connection_group_set_active_local_endpoint(connection_group, &local_endpoint);
+      if (rc != 0) {
+        log_error("Failed to set active local for connection group, error code: %d", rc);
+        return rc;
+      }
+
+      break;
+    }
+    case picoquic_callback_path_suspended: { /* An available path is suspended */
+      log_debug("Picoquic path suspended callback received");
+      break;
+    }
+    case picoquic_callback_path_deleted: { /* An existing path has been deleted */
+      log_debug("Picoquic path deleted callback received");
+      break;
+    }
     default:
       log_debug("Unhandled callback event: %d", fin_or_event);
       break;
@@ -841,17 +1026,38 @@ static void alloc_quic_buf(uv_handle_t* handle, size_t size, uv_buf_t* buf) {
 
 void on_quic_udp_send(uv_udp_send_t* req, int status) {
   log_trace("Sent QUIC packet over UDP");
+
+  ct_quic_send_state_t* send_state = req->data;
+  
   if (status) {
     log_error("Send error: %s\n", uv_strerror(status));
-  }
-  if (req->data) {
-    uv_buf_t* buf = (uv_buf_t*)req->data;
-    if (buf->base) {
-      free(buf->base);
+    ct_socket_manager_t* socket_manager = (ct_socket_manager_t*)req->handle->data;
+    ct_quic_socket_state_t* socket_state = socket_manager->internal_socket_manager_state;
+    int implies = picoquic_socket_error_implies_unreachable(status);
+    if (implies) {
+      log_warn("UDP send error implies destination unreachable");
     }
-    free(buf);
+    else {
+      log_warn("UDP send error does not necessarily imply destination unreachable");
+    }
+    // TODO - probe on startup instead of here, but verify that rfc 9000 calls for this
+    if (!socket_state->probing) {
+      log_info("Notifying picoquic of unreachable destination due to send error");
+      picoquic_notify_destination_unreachable(
+          send_state->cnx,
+          picoquic_get_quic_time(socket_state->picoquic_ctx),
+          (struct sockaddr*)&send_state->local_address,
+          (struct sockaddr*)&send_state->remote_address,
+          0, status);
+
+
+      // probe_all_paths(send_state->connection_group);
+      socket_state->probing = true;
+    }
+
   }
-  free(req);  // Free the send request
+  ct_quic_send_state_free(send_state);
+  free(req);
 }
 
 void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr_from, unsigned flags) {
@@ -871,6 +1077,19 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
     return;
   }
   log_trace("Received %zd bytes on QUIC UDP socket", nread);
+
+
+  char source_ip[INET6_ADDRSTRLEN];
+  uint16_t source_port;
+
+  // 1. Get address Picoquic *thinks* it is sending from
+  struct sockaddr_in* from = (struct sockaddr_in*)addr_from;
+  inet_ntop(AF_INET, &from->sin_addr, source_ip, sizeof(source_ip));
+  source_port = ntohs(from->sin_port);
+
+  log_debug("Packet received from source %s:%d", source_ip, source_port);
+  log_debug("Of size %zd bytes", nread);
+
 
   ct_socket_manager_t* socket_manager = (ct_socket_manager_t*)udp_handle->data;
   ct_quic_socket_state_t* socket_state = (ct_quic_socket_state_t*)socket_manager->internal_socket_manager_state;
@@ -988,6 +1207,152 @@ void on_quic_udp_read(uv_udp_t* udp_handle, ssize_t nread, const uv_buf_t* buf, 
   reset_quic_timer(socket_state);
 }
 
+static int ct_quic_send_packet(
+  ct_quic_socket_state_t* quic_ctx,
+  unsigned char* send_buffer_base,
+  size_t send_length,
+  picoquic_cnx_t* last_cnx,
+  struct sockaddr_storage to_address)
+{
+  ct_connection_group_t* connection_group = picoquic_get_callback_context(last_cnx);
+  uv_udp_t* udp_handle = quic_ctx->udp_handle;
+
+  uv_buf_t* send_buffer = malloc(sizeof(uv_buf_t));
+  if (!send_buffer) {
+    log_error("Failed to allocate uv_buf_t for QUIC packet");
+    return -1;
+  }
+  *send_buffer = uv_buf_init((char*)send_buffer_base, send_length);
+
+  uv_udp_send_t* send_req = malloc(sizeof(uv_udp_send_t));
+  if (!send_req) {
+    log_error("Failed to allocate send request for QUIC packet");
+    free(send_buffer);
+    return -1;
+  }
+
+  struct sockaddr_storage local_addr;
+  int namelen = sizeof(struct sockaddr_storage);
+  uv_udp_getsockname(udp_handle, (struct sockaddr*)&local_addr, &namelen);
+  send_req->data = ct_quic_send_state_new(send_buffer, last_cnx, local_addr, to_address, connection_group);
+
+  log_trace("Sending QUIC data over UDP handle");
+  int rc = uv_udp_send(
+    send_req,
+    udp_handle,
+    send_buffer,
+    1,
+    (struct sockaddr*)&to_address,
+    on_quic_udp_send);
+  if (rc < 0) {
+    log_error("Error sending QUIC packet over UDP: %s", uv_strerror(rc));
+    free(send_buffer);
+    free(send_req);
+    return rc;
+  }
+
+  log_trace("Sent QUIC packet of length %zu", send_length);
+  return 0;
+}
+
+static int ct_quic_send_packet_with_pktinfo(
+  uv_udp_t* udp_handle,
+  unsigned char* send_buffer_base,
+  size_t send_length,
+  struct sockaddr_storage* from_address,
+  struct sockaddr_storage* to_address,
+  int if_index
+)
+{
+  uv_os_fd_t fd;
+  int rc = uv_fileno((uv_handle_t*)udp_handle, &fd);
+  if (rc < 0) {
+    log_error("Failed to get fd from uv_udp_t: %s", uv_strerror(rc));
+    return rc;
+  }
+
+  char from_ip[INET6_ADDRSTRLEN];
+  uint16_t from_port;
+
+  char to_ip[INET6_ADDRSTRLEN];
+  uint16_t to_port;
+
+  ct_get_addr_string(from_address, from_ip, sizeof(from_ip), &from_port);
+  ct_get_addr_string(to_address, to_ip, sizeof(to_ip), &to_port);
+
+  log_debug("Sending QUIC packet from %s:%d to %s:%d with pktinfo on interface index %d",
+            from_ip, from_port, to_ip, to_port, if_index);
+
+  struct iovec iov = {
+    .iov_base = send_buffer_base,
+    .iov_len  = send_length,
+  };
+
+  // Sized to fit whichever pktinfo variant is larger
+  char cmsg_buf[CMSG_SPACE(sizeof(struct in6_pktinfo))] = {0};
+
+  struct msghdr msg = {
+    .msg_name       = (struct sockaddr*)to_address,
+    .msg_namelen    = (to_address->ss_family == AF_INET6)
+                        ? sizeof(struct sockaddr_in6)
+                        : sizeof(struct sockaddr_in),
+    .msg_iov        = &iov,
+    .msg_iovlen     = 1,
+    .msg_control    = cmsg_buf,
+    .msg_controllen = sizeof(cmsg_buf),
+  };
+
+  struct cmsghdr* cmsg = CMSG_FIRSTHDR(&msg);
+
+  if (to_address->ss_family == AF_INET6) {
+    log_info("Sending to ipv6 since destination address is ipv6");
+  }
+  else if (to_address->ss_family == AF_INET) {
+    log_info("Sending to ipv4 since destination address is ipv4");
+  }
+  else {
+    log_error("Unknown address family for destination address: %d", to_address->ss_family);
+  }
+
+  if (from_address->ss_family == AF_INET6) {
+    log_info("Sending as ipv6 since source address is ipv6");
+    struct sockaddr_in6* src = (struct sockaddr_in6*)from_address;
+
+    cmsg->cmsg_level = IPPROTO_IPV6;
+    cmsg->cmsg_type  = IPV6_PKTINFO;
+    cmsg->cmsg_len   = CMSG_LEN(sizeof(struct in6_pktinfo));
+
+    struct in6_pktinfo* pktinfo = (struct in6_pktinfo*)CMSG_DATA(cmsg);
+    pktinfo->ipi6_addr    = src->sin6_addr;
+    pktinfo->ipi6_ifindex = if_nametoindex("lo");;  // 0 = let kernel pick interface
+
+    msg.msg_controllen = CMSG_SPACE(sizeof(struct in6_pktinfo));
+  } else {
+    log_info("Sending as ipv4 since source address is ipv4");
+    struct sockaddr_in* src = (struct sockaddr_in*)from_address;
+
+    cmsg->cmsg_level = IPPROTO_IP;
+    cmsg->cmsg_type  = IP_PKTINFO;
+    cmsg->cmsg_len   = CMSG_LEN(sizeof(struct in_pktinfo));
+
+    struct in_pktinfo* pktinfo = (struct in_pktinfo*)CMSG_DATA(cmsg);
+    pktinfo->ipi_spec_dst = src->sin_addr;
+    pktinfo->ipi_ifindex  = if_nametoindex("lo");
+
+    msg.msg_controllen = CMSG_SPACE(sizeof(struct in_pktinfo));
+  }
+
+  
+  ssize_t sent = sendmsg((int)fd, &msg, 0);
+  if (sent < 0) {
+    log_error("sendmsg with pktinfo failed: %s", strerror(errno));
+    return -errno;
+  }
+
+  log_debug("Sent QUIC packet of length %zu via sendmsg/pktinfo", send_length);
+  return 0;
+}
+
 void on_socket_timer(uv_timer_t* timer_handle) {
   ct_socket_manager_t* socket_manager = (ct_socket_manager_t*)timer_handle->data;
   ct_quic_socket_state_t* quic_ctx = (ct_quic_socket_state_t*)socket_manager->internal_socket_manager_state;
@@ -1001,9 +1366,9 @@ void on_socket_timer(uv_timer_t* timer_handle) {
   picoquic_quic_t* picoquic_ctx = quic_ctx->picoquic_ctx;
   size_t send_length = 0;
 
-  struct sockaddr_storage from_address;
-  struct sockaddr_storage to_address;
-  int if_index = -1;
+  struct sockaddr_storage from_address = {0};
+  struct sockaddr_storage to_address = {0};
+  int if_index = 0;
   picoquic_cnx_t* last_cnx = NULL;
 
   do {
@@ -1036,42 +1401,56 @@ void on_socket_timer(uv_timer_t* timer_handle) {
 
     log_trace("Prepared QUIC packet of length %zu", send_length);
     if (send_length > 0) {
+
       uv_udp_t* udp_handle = quic_ctx->udp_handle;
 
-      // Allocate uv_buf_t structure on heap
-      uv_buf_t* send_buffer = malloc(sizeof(uv_buf_t));
-      if (!send_buffer) {
-        log_error("Failed to allocate uv_buf_t for QUIC packet");
-        free(send_buffer_base);
-        break;
-      }
-      *send_buffer = uv_buf_init((char*)send_buffer_base, send_length);
+      char pico_suggested_ip[INET6_ADDRSTRLEN];
+      char socket_bound_ip[INET6_ADDRSTRLEN];
+      char destination_ip[INET6_ADDRSTRLEN];
+      uint16_t pico_port, socket_port, dest_port;
 
-      uv_udp_send_t* send_req = malloc(sizeof(uv_udp_send_t));
-      if (!send_req) {
-        log_error("Failed to allocate send request for QUIC packet");
-        free(send_buffer_base);
-        free(send_buffer);
-        break;
-      }
+      // 2. Get address the Libuv socket is *actually* bound to
+      struct sockaddr_storage bound_addr;
+      int bound_addr_len = sizeof(bound_addr);
+      uv_udp_getsockname(udp_handle, (struct sockaddr*)&bound_addr, &bound_addr_len);
+      struct sockaddr_in* actual_from = (struct sockaddr_in*)&bound_addr;
+      inet_ntop(AF_INET, &actual_from->sin_addr, socket_bound_ip, sizeof(socket_bound_ip));
+      socket_port = ntohs(actual_from->sin_port);
 
-      // Store buffer in send_req->data so callback can free it
-      send_req->data = send_buffer;
+      ct_get_addr_string(&from_address, pico_suggested_ip, sizeof(pico_suggested_ip), &pico_port);
+      ct_get_addr_string(&to_address, destination_ip, sizeof(destination_ip), &dest_port);
 
-      log_trace("Sending QUIC data over UDP handle");
-      rc = uv_udp_send(
-        send_req,
-        udp_handle,
-        send_buffer,
-        1,
-        (struct sockaddr*)&to_address,
-        on_quic_udp_send);
-      if (rc < 0) {
-        log_error("Error sending QUIC packet over UDP: %s", uv_strerror(rc));
-        free(send_buffer_base);
-        free(send_buffer);
-        free(send_req);
-        break;
+      log_info("[MIGRATION_DEBUG] Picoquic suggests: %s:%d -> %s:%d", 
+               pico_suggested_ip, pico_port, destination_ip, dest_port);
+      log_info("[MIGRATION_DEBUG] Libuv Socket bound to: %s:%d (Actual source)", 
+               socket_bound_ip, socket_port);
+
+      // TODO - check picoquic source to see if this can ever happen
+      if (ct_address_is_unspecified(&from_address)) {
+        int rc = ct_quic_send_packet(quic_ctx, send_buffer_base, send_length, last_cnx, to_address);
+        if (rc < 0) {
+          free(send_buffer_base);
+          break;
+        }
+      } else {
+        log_debug("Address was not wildcard, using sendmsg with pktinfo to specify source address");
+        log_debug("Sending to if_index %d", if_index);
+        int rc = ct_quic_send_packet_with_pktinfo(
+          quic_ctx->udp_handle,
+          send_buffer_base,
+          send_length,
+          &from_address,
+          &to_address,
+          if_index
+        );
+          free(send_buffer_base);  // synchronous, no async callback to free it
+        if (rc < 0) {
+          log_error("Failed to send QUIC packet with pktinfo: %d", rc);
+          log_debug("Notifying picoquic of unreachable destination due to send error with pktinfo");
+          log_debug("last cnx: %p, from_address: %s:%d, to_address: %s:%d, if_index: %d, error code: %d",
+                    (void*)last_cnx, pico_suggested_ip, pico_port, destination_ip, dest_port, if_index, rc);
+          break;
+        }
       }
       log_trace("Sent QUIC packet of length %zu", send_length);
     } else {
@@ -1127,7 +1506,7 @@ int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbac
 
   uint64_t current_time = picoquic_get_quic_time(quic_context->picoquic_ctx);
 
-  uv_udp_t* udp_handle = create_udp_listening_on_local(connection->local_endpoint, alloc_quic_buf, on_quic_udp_read);
+  uv_udp_t* udp_handle = create_udp_listening_on_local(ct_connection_get_active_local_endpoint(connection), alloc_quic_buf, on_quic_udp_read);
   if (!udp_handle) {
     log_error("Failed to create UDP handle for QUIC connection");
     ct_close_quic_context(quic_context);
@@ -1180,11 +1559,13 @@ int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbac
 
   ct_quic_connection_group_state_t* group_state = (ct_quic_connection_group_state_t*)connection->connection_group->connection_group_state;
 
+  const ct_remote_endpoint_t* remote_endpoint = ct_connection_get_active_remote_endpoint(connection);
+
   group_state->picoquic_connection = picoquic_create_cnx(
     quic_context->picoquic_ctx,
     picoquic_null_connection_id,
     picoquic_null_connection_id,
-    (struct sockaddr*) &connection->remote_endpoint->data.resolved_address,
+    (struct sockaddr*) &remote_endpoint->data.resolved_address,
     current_time,
     1,
     ct_security_parameters_get_server_name_identification(connection->security_parameters),
@@ -1276,7 +1657,7 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
 
   uint64_t current_time = picoquic_get_quic_time(quic_context->picoquic_ctx);
 
-  uv_udp_t* udp_handle = create_udp_listening_on_local(connection->local_endpoint, alloc_quic_buf, on_quic_udp_read);
+  uv_udp_t* udp_handle = create_udp_listening_on_local(ct_connection_get_active_local_endpoint(connection), alloc_quic_buf, on_quic_udp_read);
   if (!udp_handle) {
     log_error("Failed to create UDP handle for QUIC connection");
     ct_close_quic_context(quic_context);
@@ -1328,14 +1709,13 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
     quic_context->picoquic_ctx,
     picoquic_null_connection_id,
     picoquic_null_connection_id,
-    (struct sockaddr*) &connection->remote_endpoint->data.resolved_address,
+    (struct sockaddr*) &ct_connection_get_active_remote_endpoint(connection)->data.resolved_address,
     current_time,
     1,
     ct_security_parameters_get_server_name_identification(connection->security_parameters),
     alpn_strings[0], // We create separate candidates for each ALPN to support 0-rtt (see candidate gathering code)
     1
   );
-
   log_trace("Setting callback context to connection group: %p", (void*)connection->connection_group);
 
   // Set picoquic callback to connection group
@@ -1438,7 +1818,7 @@ void quic_abort(ct_connection_t* connection) {
 int quic_clone_connection(const struct ct_connection_s* source_connection, struct ct_connection_s* target_connection) {
   log_debug("Creating clone of QUIC connection using multistreaming");
   ct_socket_manager_t* socket_manager = source_connection->socket_manager;
-  int rc = socket_manager_insert_connection(socket_manager, target_connection->remote_endpoint, target_connection);
+  int rc = socket_manager_insert_connection(socket_manager, ct_connection_get_active_remote_endpoint(target_connection), target_connection);
   if (rc < 0) {
     log_error("Failed to insert cloned connection into socket manager: %d", rc);
     return rc;
@@ -1654,5 +2034,25 @@ int quic_set_connection_priority(ct_connection_t* connection, uint8_t priority) 
     log_error("Error setting QUIC stream priority: %d", rc);
     return -EIO;
   }
+  return 0;
+}
+
+void ct_quic_socket_state_free(ct_quic_socket_state_t* socket_state) {
+  ct_socket_manager_t* socket_manager = socket_state->socket_manager;
+  for (GSList* iter = socket_manager->all_connections; iter != NULL; iter = iter->next) {
+    ct_connection_group_t* group = (ct_connection_group_t*)iter->data;
+    ct_quic_connection_group_state_t* group_state = (ct_quic_connection_group_state_t*)group->connection_group_state;
+    if (group_state && group_state->picoquic_connection) {
+      log_debug("deleting picoquic connection for connection group %s", group->connection_group_id);
+      // picoquic_delete_cnx(group_state->picoquic_connection);
+      // group_state->picoquic_connection = NULL;
+    }
+  }
+}
+
+int quic_free_socket_state(struct ct_socket_manager_s* socket_manager) {
+  ct_quic_socket_state_t* socket_state = (ct_quic_socket_state_t*)socket_manager->internal_socket_manager_state;
+  (void)socket_state;
+  // ct_quic_socket_state_free(socket_state);
   return 0;
 }

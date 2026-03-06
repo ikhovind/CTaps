@@ -13,14 +13,10 @@ extern "C" {
   #include "candidate_gathering/candidate_gathering.h"
   #include "endpoint/local_endpoint.h"
   #include "endpoint/remote_endpoint.h"
-}
 
-DEFINE_FFF_GLOBALS;
-FAKE_VALUE_FUNC(int, faked_ct_local_endpoint_resolve, const ct_local_endpoint_t*, ct_local_endpoint_t**, size_t*);
-FAKE_VALUE_FUNC(int, faked_ct_remote_endpoint_resolve, const ct_remote_endpoint_t* , ct_remote_resolve_call_context_t*);
-
-extern "C" int __wrap_ct_local_endpoint_resolve(const ct_local_endpoint_t* ep, ct_local_endpoint_t** out, size_t* count) {
-    return faked_ct_local_endpoint_resolve(ep, out, count);
+  DEFINE_FFF_GLOBALS;
+  FAKE_VALUE_FUNC(ct_local_endpoint_t*, __wrap_ct_local_endpoint_resolve, const ct_local_endpoint_t*, size_t*);
+  FAKE_VALUE_FUNC(int, faked_ct_remote_endpoint_resolve, const ct_remote_endpoint_t* , ct_remote_resolve_call_context_t*);
 }
 
 
@@ -29,7 +25,7 @@ extern "C" int __wrap_ct_remote_endpoint_resolve(const ct_remote_endpoint_t* rem
 }
 
 // Custom fakes
-int local_endpoint_resolve_fake_custom(const ct_local_endpoint_t*, ct_local_endpoint_t** out, size_t* count) {
+ct_local_endpoint_t* local_endpoint_resolve_fake_custom(const ct_local_endpoint_t*, size_t* count) {
     ct_local_endpoint_t* list = (ct_local_endpoint_t*)malloc(sizeof(ct_local_endpoint_t) * 2);
     ct_local_endpoint_build(&list[0]);
     ct_local_endpoint_with_interface(&list[0], "lo");
@@ -37,9 +33,8 @@ int local_endpoint_resolve_fake_custom(const ct_local_endpoint_t*, ct_local_endp
     ct_local_endpoint_build(&list[1]);
     ct_local_endpoint_with_interface(&list[1], "en0");
     ct_local_endpoint_with_port(&list[1], 8081);
-    *out = list;
     *count = 2;
-    return 0;
+    return list;
 }
 
 int remote_endpoint_resolve_fake_custom(const ct_remote_endpoint_t*, ct_remote_resolve_call_context_t* context) {
@@ -67,9 +62,9 @@ protected:
     void SetUp() override {
         ct_set_log_level(CT_LOG_DEBUG);
         FFF_RESET_HISTORY();
-        RESET_FAKE(faked_ct_local_endpoint_resolve);
+        RESET_FAKE(__wrap_ct_local_endpoint_resolve);
         RESET_FAKE(faked_ct_remote_endpoint_resolve);
-        faked_ct_local_endpoint_resolve_fake.custom_fake = local_endpoint_resolve_fake_custom;
+        __wrap_ct_local_endpoint_resolve_fake.custom_fake = local_endpoint_resolve_fake_custom;
         faked_ct_remote_endpoint_resolve_fake.custom_fake = remote_endpoint_resolve_fake_custom;
 
         props = ct_transport_properties_new();
@@ -87,7 +82,7 @@ protected:
         remote_endpoint = ct_remote_endpoint_new();
         ASSERT_NE(remote_endpoint, nullptr);
         ct_remote_endpoint_with_hostname(remote_endpoint, "test.com");
-        preconnection = ct_preconnection_new(remote_endpoint, 1, props, sec_params);
+        preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, props, sec_params);
         ASSERT_NE(preconnection, nullptr);
     }
 
@@ -121,7 +116,7 @@ TEST_F(CandidateGatheringTest, CreatesAndResolvesFullTree) {
     ASSERT_NE(candidates, nullptr);
     ASSERT_EQ(candidates->len, 2 * 3 * 1); // 2 local, 3 protocols, 1 remote
 
-    ASSERT_EQ(faked_ct_local_endpoint_resolve_fake.call_count, 1);
+    ASSERT_EQ(__wrap_ct_local_endpoint_resolve_fake.call_count, 1);
     ASSERT_EQ(faked_ct_remote_endpoint_resolve_fake.call_count, 6);
 
     ct_candidate_node_t first = g_array_index(candidates, ct_candidate_node_t, 0);
@@ -143,7 +138,7 @@ TEST_F(CandidateGatheringTest, resolvesMultipleRemotes) {
     ASSERT_NE(candidates, nullptr);
     EXPECT_EQ(candidates->len, 2 * 3 * 2); // 2 local, 3 protocols, 2 remote
 
-    EXPECT_EQ(faked_ct_local_endpoint_resolve_fake.call_count, 1);
+    EXPECT_EQ(__wrap_ct_local_endpoint_resolve_fake.call_count, 1);
     EXPECT_EQ(faked_ct_remote_endpoint_resolve_fake.call_count, 12);
 
     ct_candidate_node_t first = g_array_index(candidates, ct_candidate_node_t, 0);

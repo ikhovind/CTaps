@@ -21,7 +21,7 @@ int ct_connection_group_add_connection(ct_connection_group_t* group, ct_connecti
   *
   * @return Pointer to first connection, or NULL if group is NULL or empty
   */
-ct_connection_t* ct_connection_group_get_first(ct_connection_group_t* group);
+ct_connection_t* ct_connection_group_get_first(const ct_connection_group_t* group);
 
 /**
  * @brief Get the number of active connections in a connection group.
@@ -90,7 +90,11 @@ ct_connection_group_t* ct_connection_group_ref(ct_connection_group_t* group);
 
 void ct_connection_group_unref(ct_connection_group_t* group);
 
-ct_connection_group_t* ct_connection_group_new();
+int ct_connection_group_set_active_remote_endpoint(ct_connection_group_t* group, const ct_remote_endpoint_t* remote_endpoint);
+
+int ct_connection_group_set_active_local_endpoint(ct_connection_group_t* group, const ct_local_endpoint_t* local_endpoint);
+
+ct_connection_group_t* ct_connection_group_new(void);
 
 
 #endif // CT_CONNECTION_GROUP_H

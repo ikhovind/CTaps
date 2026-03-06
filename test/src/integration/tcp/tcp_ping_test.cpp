@@ -6,7 +6,7 @@ extern "C" {
 #include "ctaps.h"
 #include <logging/log.h>
 }
-#include "fixtures/awaiting_fixture.cpp"
+#include "fixtures/integration_fixture.h"
 
 #define TCP_PING_PORT 5006
 #define INVALID_TCP_PORT 5007
@@ -38,7 +38,7 @@ TEST_F(TcpPingTest, successfullyConnectsToTcpServer) {
   ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PROHIBIT);
   ct_transport_properties_set_multistreaming(transport_properties, PROHIBIT);
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
+  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties,NULL);
   ASSERT_NE(preconnection, nullptr);
 
   ct_connection_callbacks_t connection_callbacks = {
@@ -77,7 +77,7 @@ TEST_F(TcpPingTest, connectionErrorCalledWhenNoServer) {
   ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PROHIBIT);
   ct_transport_properties_set_multistreaming(transport_properties, PROHIBIT);
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
+  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties,NULL);
   ASSERT_NE(preconnection, nullptr);
 
   // Set to true, since only on_connection_error will set it to false
@@ -118,7 +118,7 @@ TEST_F(TcpPingTest, sendsSingleTcpMessage) {
   ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PROHIBIT);
   ct_transport_properties_set_multistreaming(transport_properties, PROHIBIT);
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, NULL);
+  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties,NULL);
 
   ct_message_t* msg_received = nullptr;
   ct_receive_callbacks_t receive_req = { .receive_callback = close_on_message_received, .user_receive_context = &test_context };

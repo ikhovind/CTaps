@@ -6,16 +6,13 @@
 extern "C" {
   #include "ctaps.h"
   #include "ctaps_internal.h"
+  #include "endpoint/local_endpoint.h"
+  #include "endpoint/util.h"
   #include <logging/log.h>
   #include "fff.h"
   DEFINE_FFF_GLOBALS;
-  FAKE_VOID_FUNC(get_interface_addresses, const char*, int*, struct sockaddr_storage*);
-  FAKE_VALUE_FUNC(int32_t, get_service_port, const char*, int);
-}
-
-// Wrapper function for get_service_port
-extern "C" int32_t __wrap_get_service_port(const char* service, int family) {
-  return get_service_port(service, family);
+  FAKE_VOID_FUNC(__wrap_get_interface_addresses, const char*, int*, struct sockaddr_storage*);
+  FAKE_VALUE_FUNC(int32_t, __wrap_get_service_port, const char*, int);
 }
 
 // --- Test Fixture ---
@@ -24,8 +21,8 @@ protected:
   void SetUp() override {
     // Reset all mock data before each test
     FFF_RESET_HISTORY();
-    RESET_FAKE(get_interface_addresses);
-    RESET_FAKE(get_service_port);
+    RESET_FAKE(__wrap_get_interface_addresses);
+    RESET_FAKE(__wrap_get_service_port);
   }
 };
 
@@ -41,6 +38,18 @@ void custom_get_interface_addresses_success(const char* interface_name, int* num
   inet_pton(AF_INET, "192.168.1.101", &ipv4_addr->sin_addr);
 }
 
+void custom_get_two_interface_addresses_success(const char* interface_name, int* num_found, struct sockaddr_storage* found_addrs) {
+  *num_found = 2;
+
+  struct sockaddr_in* ipv4_addr = (struct sockaddr_in*)&found_addrs[0];
+  ipv4_addr->sin_family = AF_INET;
+  inet_pton(AF_INET, "192.168.1.101", &ipv4_addr->sin_addr);
+
+  struct sockaddr_in* ipv4_addr2 = (struct sockaddr_in*)&found_addrs[1];
+  ipv4_addr2->sin_family = AF_INET;
+  inet_pton(AF_INET, "192.168.1.201", &ipv4_addr2->sin_addr);
+}
+
 // --- Custom Fake for when NO interface is found ---
 void custom_get_interface_addresses_fail(const char* interface_name, int* num_found, struct sockaddr_storage* found_addrs) {
   // Simulate finding zero interfaces
@@ -50,8 +59,8 @@ void custom_get_interface_addresses_fail(const char* interface_name, int* num_fo
 
 TEST_F(LocalEndpointResolveTest, UsesInterfaceAddress_whenInterfaceIsSpecified) {
   // --- ARRANGE ---
-  get_interface_addresses_fake.custom_fake = custom_get_interface_addresses_success;
-  get_service_port_fake.return_val = 8080; // Simulate resolving "http-alt" to 8080
+  __wrap_get_interface_addresses_fake.custom_fake = custom_get_interface_addresses_success;
+  __wrap_get_service_port_fake.return_val = 8080; // Simulate resolving "http-alt" to 8080
 
   ct_local_endpoint_t* input_endpoint = ct_local_endpoint_new();
   ASSERT_NE(input_endpoint, nullptr);
@@ -61,14 +70,13 @@ TEST_F(LocalEndpointResolveTest, UsesInterfaceAddress_whenInterfaceIsSpecified) 
   // --- ACT ---
   ct_local_endpoint_t* out_list = nullptr;
   size_t num_found = 0;
-  int result = ct_local_endpoint_resolve(input_endpoint, &out_list, &num_found);
+  out_list = ct_local_endpoint_resolve(input_endpoint, &num_found);
   ct_local_endpoint_t endpoint = out_list[0];
 
   // --- ASSERT ---
   ASSERT_EQ(num_found, 1);
-  ASSERT_EQ(result, 0);
-  ASSERT_EQ(get_interface_addresses_fake.call_count, 1);
-  ASSERT_EQ(get_service_port_fake.call_count, 1);
+  ASSERT_EQ(__wrap_get_interface_addresses_fake.call_count, 1);
+  ASSERT_EQ(__wrap_get_service_port_fake.call_count, 1);
 
   ASSERT_EQ(endpoint.data.resolved_address.ss_family, AF_INET);
 
@@ -82,16 +90,14 @@ TEST_F(LocalEndpointResolveTest, UsesInterfaceAddress_whenInterfaceIsSpecified) 
   EXPECT_STREQ(ip_str, "192.168.1.101");
 
   // Cleanup
-  free(endpoint.interface_name);
-  free(endpoint.service);
-  free(out_list);
+  ct_local_endpoints_free(out_list, num_found);
   ct_local_endpoint_free(input_endpoint);
 }
 
 TEST_F(LocalEndpointResolveTest, DefaultsToAnyAddress_WhenNoInterfaceIsFound) {
   // --- ARRANGE ---
   // 1. Set the behavior of our mocks
-  get_interface_addresses_fake.custom_fake = custom_get_interface_addresses_success;
+  __wrap_get_interface_addresses_fake.custom_fake = custom_get_interface_addresses_success;
   // We are not calling `with_service`, so get_service_port_local should not be called.
 
   // 2. Prepare the input
@@ -102,28 +108,85 @@ TEST_F(LocalEndpointResolveTest, DefaultsToAnyAddress_WhenNoInterfaceIsFound) {
   // --- ACT ---
   ct_local_endpoint_t* out_list = nullptr;
   size_t num_found = 0;
-  int result = ct_local_endpoint_resolve(input_endpoint, &out_list, &num_found);
+  out_list = ct_local_endpoint_resolve(input_endpoint, &num_found);
   ct_local_endpoint_t endpoint = out_list[0];
 
   // --- ASSERT ---
-  // 1. Verify behavior
-  ASSERT_EQ(result, 0);
-  ASSERT_EQ(get_interface_addresses_fake.call_count, 1);
-  ASSERT_STREQ(get_interface_addresses_fake.arg0_val, "any");
-  ASSERT_EQ(get_service_port_fake.call_count, 0); // Verify it was NOT called
+  ASSERT_EQ(__wrap_get_interface_addresses_fake.call_count, 1);
+  ASSERT_STREQ(__wrap_get_interface_addresses_fake.arg0_val, "any");
+  ASSERT_EQ(__wrap_get_service_port_fake.call_count, 0); // Verify it was NOT called
 
-  // 2. Inspect the modified ct_local_endpoint_t struct
   ASSERT_EQ(endpoint.data.resolved_address.ss_family, AF_INET);
 
   struct sockaddr_in* final_addr = (struct sockaddr_in*)&endpoint.data.resolved_address;
 
-  // Check that the port was correctly applied
   EXPECT_EQ(ntohs(final_addr->sin_port), 9090);
 
-  // Check that the IP defaulted to 0.0.0.0 (INADDR_ANY)
   char ip_str[INET_ADDRSTRLEN];
   inet_ntop(AF_INET, &final_addr->sin_addr, ip_str, sizeof(ip_str));
   EXPECT_STREQ(ip_str, "192.168.1.101");
-  free(out_list);
+  ct_local_endpoints_free(out_list, num_found);
   ct_local_endpoint_free(input_endpoint);
+}
+
+TEST_F(LocalEndpointResolveTest, resolvesEphemeralLocalEndpoint) {
+  // --- ARRANGE ---
+  __wrap_get_interface_addresses_fake.custom_fake = custom_get_two_interface_addresses_success;
+
+  ct_local_endpoint_t* input_endpoint = ct_local_endpoint_new();
+
+  // --- ACT ---
+  ct_local_endpoint_t* out_list = nullptr;
+  size_t num_found = 0;
+  out_list = ct_local_endpoint_resolve(input_endpoint, &num_found);
+  ct_local_endpoint_t* endpoint = &out_list[0];
+  ct_local_endpoint_t* endpoint2 = &out_list[1];
+
+  // --- ASSERT ---
+  ASSERT_EQ(num_found, 2);
+  ASSERT_EQ(__wrap_get_interface_addresses_fake.call_count, 1);
+  ASSERT_EQ(__wrap_get_service_port_fake.call_count, 0);
+
+  ASSERT_EQ(endpoint->data.resolved_address.ss_family, AF_INET);
+
+  struct sockaddr_in* final_addr = (struct sockaddr_in*)&endpoint->data.resolved_address;
+  char ip_str[INET_ADDRSTRLEN] = {0};
+  inet_ntop(AF_INET, &final_addr->sin_addr, ip_str, sizeof(ip_str));
+  EXPECT_STREQ(ip_str, "192.168.1.101");
+
+  struct sockaddr_in* final_addr2 = (struct sockaddr_in*)&endpoint2->data.resolved_address;
+  inet_ntop(AF_INET, &final_addr2->sin_addr, ip_str, sizeof(ip_str));
+  EXPECT_STREQ(ip_str, "192.168.1.201");
+
+  // Cleanup
+  ct_local_endpoints_free(out_list, num_found);
+  ct_local_endpoint_free(input_endpoint);
+}
+
+TEST_F(LocalEndpointResolveTest, resolveHandlesNullCounter) {
+  // --- ARRANGE ---
+  ct_local_endpoint_t* input_endpoint = ct_local_endpoint_new();
+
+  // --- ACT ---
+  ct_local_endpoint_t* out_list = nullptr;
+  out_list = ct_local_endpoint_resolve(input_endpoint, NULL);
+
+  // --- ASSERT ---
+  ASSERT_EQ(out_list, nullptr);
+  ASSERT_EQ(__wrap_get_interface_addresses_fake.call_count, 0);
+
+  ct_local_endpoint_free(input_endpoint);
+}
+
+TEST_F(LocalEndpointResolveTest, resolveHandlesNullEndpoint) {
+  // --- ARRANGE ---
+  size_t dummy_count = 1234;
+
+  // --- ACT ---
+  ct_local_endpoint_t* out_list = ct_local_endpoint_resolve(NULL, &dummy_count);
+
+  // --- ASSERT ---
+  ASSERT_EQ(out_list, nullptr);
+  ASSERT_EQ(__wrap_get_interface_addresses_fake.call_count, 0);
+  ASSERT_EQ(dummy_count, 0);
 }

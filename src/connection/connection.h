@@ -2,11 +2,15 @@
 #define CONNECTION_H
 
 #include "ctaps.h"
-#include "connection_group.h"
+#include "ctaps_internal.h"
 
 ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_impl,
-                                             const ct_local_endpoint_t* local_endpoint,
-                                             const ct_remote_endpoint_t* remote_endpoint,
+                                             ct_local_endpoint_t* local_endpoints,
+                                             size_t num_local_endpoints,
+                                             size_t local_endpoint_index,
+                                             ct_remote_endpoint_t* remote_endpoints,
+                                             size_t num_remote_endpoints,
+                                             size_t remote_endpoint_index,
                                              const ct_security_parameters_t* security_parameters,
                                              const ct_connection_callbacks_t* connection_callbacks,
                                              ct_framer_impl_t* framer_impl);
@@ -138,5 +142,24 @@ void ct_connection_set_sent_early_data(ct_connection_t* connection, bool used_0r
 void ct_connection_set_socket_state(ct_connection_t* connection, void* socket_state);
 
 void* ct_connection_get_socket_state(const ct_connection_t* connection);
+
+size_t ct_connection_get_num_remote_endpoints(const ct_connection_t* connection);
+
+size_t ct_connection_get_num_local_endpoints(const ct_connection_t* connection);
+
+const ct_remote_endpoint_t* ct_connection_get_remote_endpoints_list(const ct_connection_t* connection);
+
+const ct_local_endpoint_t* ct_connection_get_local_endpoints_list(const ct_connection_t* connection);
+
+int ct_connection_set_active_remote_endpoint_index(ct_connection_t* connection, size_t remote_endpoint_index);
+
+int ct_connection_set_active_local_endpoint_index(ct_connection_t* connection, size_t local_endpoint_index);
+
+// Takes deep copy of remote endpoint
+int ct_connection_set_active_remote_endpoint(ct_connection_t* connection, const ct_remote_endpoint_t* remote_endpoint);
+
+int ct_connection_set_active_local_endpoint(ct_connection_t* connection, const ct_local_endpoint_t* local_endpoint);
+
+int ct_connection_set_all_local_port(ct_connection_t* connection, uint16_t port);
 
 #endif // CONNECTION_H

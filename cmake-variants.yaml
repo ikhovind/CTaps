@@ -1,0 +1,17 @@
+buildType:
+  default: debug
+  choices:
+    debug:
+      short: Debug
+      long: Debug build
+      buildType: Debug
+    release:
+      short: Release
+      long: Release build
+      buildType: Release
+    debug-mig:
+      short: DebugMig
+      long: Debug build with migration tests (requires CAP_NET_ADMIN)
+      buildType: DebugMig
+      settings:
+        CTAPS_ENABLE_MIGRATION_TESTS: ON

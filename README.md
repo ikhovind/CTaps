@@ -134,8 +134,7 @@ int main() {
     ct_tp_set_sel_prop_preference(listener_props, PRESERVE_MSG_BOUNDARIES, PROHIBIT); // force TCP
 
     // Create preconnection
-    ct_preconnection_t* listener_precon = ct_preconnection_new(listener_remote, 1, listener_props, NULL);
-    ct_preconnection_set_local_endpoint(listener_precon, listener_endpoint);
+    ct_preconnection_t* preconnection = ct_preconnection_new(local_endpoint, 1, remote_endpoint, 1, transport_properties,NULL);
 
     ct_listener_callbacks_t listener_callbacks = {
         .connection_received = on_connection_received_receive_message,
@@ -186,14 +185,6 @@ cmake --build out/Debug --target all -j 6
 
 ## Running Tests
 
-First run the three python ping servers:
-```bash
-python3 test/tcp_ping_server.py
-python3 test/udp_ping_server.py
-python3 test/quic/quic_ping_server.py # Need to have aioquic installed
-```
-
-Then run the actual tests:
 ```bash
 cd out/Debug/test && ctest
 ```

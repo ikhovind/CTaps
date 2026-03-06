@@ -46,7 +46,7 @@ void register_succesful_attempt(ct_racing_context_t* context, ct_racing_attempt_
 
 
 int raced_connection_close_cb(ct_connection_t* connection) {
-  log_trace("Freeing failed connection: %s created in candidate racing", connection->uuid);
+  log_debug("Freeing failed connection: %s created in candidate racing", connection->uuid);
   ct_racing_attempt_t* attempt = (ct_racing_attempt_t*)connection->connection_callbacks.user_connection_context;
   register_canceled_attempt(attempt->context, attempt);
   ct_connection_free(connection);
@@ -137,6 +137,7 @@ static void racing_context_initialize_attempt_array(ct_racing_context_t* context
 
   // Initialize each attempt
   for (size_t i = 0; i < context->num_attempts; i++) {
+    memset(&context->attempts[i], 0, sizeof(ct_racing_attempt_t));
     context->attempts[i].candidate = g_array_index(candidate_nodes, ct_candidate_node_t, i);
     context->attempts[i].state = ATTEMPT_STATE_PENDING;
     context->attempts[i].attempt_index = i;
@@ -190,6 +191,49 @@ static ct_racing_context_t* racing_context_create(ct_connection_callbacks_t user
   return context;
 }
 
+static guint sockaddr_storage_hash(gconstpointer key) {
+  log_trace("Hashing sockaddr_storage for hash table");
+  const struct sockaddr_storage* addr = key;
+  // Hash only the relevant bytes based on address family
+  if (addr->ss_family == AF_INET) {
+    const struct sockaddr_in* a = (const struct sockaddr_in*)addr;
+    guint h = 0;
+    h ^= g_int_hash(&a->sin_port);
+    guint word;
+    memcpy(&word, &a->sin_addr, sizeof(word));
+    h ^= g_int_hash((const gint*)&word);
+    return h;
+  } else if (addr->ss_family == AF_INET6) {
+    const struct sockaddr_in6* a = (const struct sockaddr_in6*)addr;
+    guint h = 0;
+    h ^= g_int_hash((const gint*)&a->sin6_port);
+    h ^= g_int_hash((const gint*)&a->sin6_scope_id);
+    h ^= g_int_hash((const gint*)&a->sin6_flowinfo);
+    // Fold 16-byte address as four 32-bit words
+    for (int k = 0; k < 4; k++) {
+      guint word;
+      memcpy(&word, &a->sin6_addr.s6_addr[k * 4], sizeof(word));
+      h ^= g_int_hash((const gint*)&word);
+    }
+    return h;
+  }
+  // fallback
+  return g_str_hash("unknown");
+}
+
+static gboolean sockaddr_storage_equal(gconstpointer a, gconstpointer b) {
+  const struct sockaddr_storage* sa = a;
+  const struct sockaddr_storage* sb = b;
+  if (sa->ss_family != sb->ss_family) return FALSE;
+  if (sa->ss_family == AF_INET)
+    return memcmp(a, b, sizeof(struct sockaddr_in)) == 0;
+  if (sa->ss_family == AF_INET6)
+    return memcmp(a, b, sizeof(struct sockaddr_in6)) == 0;
+  return memcmp(a, b, sizeof(struct sockaddr_storage)) == 0;
+}
+
+
+
 /**
  * @brief Starts a single connection attempt.
  */
@@ -206,11 +250,104 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
     .user_connection_context = attempt,
   };
 
+  log_debug("Removing duplicate remote endpoints for connection attempt");
+  ct_remote_endpoint_t* remote_endpoints = NULL;
+  size_t remote_counter = 0;
+  GHashTable* remote_hash = g_hash_table_new(sockaddr_storage_hash, sockaddr_storage_equal);
+  for (size_t i = 0; i < context->num_attempts; i++) {
+    if (!g_hash_table_contains(remote_hash, &context->attempts[i].candidate.remote_endpoint->data.resolved_address)) {
+      ct_remote_endpoint_t* tmp = realloc(remote_endpoints, sizeof(ct_remote_endpoint_t) * (remote_counter + 1));
+      if (!tmp) {
+        log_error("Failed to allocate remote endpoints array for connection attempt");
+        for (size_t j = 0; j < remote_counter; j++) {
+          ct_remote_endpoint_free_strings(&remote_endpoints[j]);
+        }
+        free(remote_endpoints);
+        g_hash_table_destroy(remote_hash);
+        return -ENOMEM;
+      }
+      remote_endpoints = tmp;
+      g_hash_table_add(remote_hash, &context->attempts[i].candidate.remote_endpoint->data.resolved_address);
+      int rc = ct_remote_endpoint_copy_content(context->attempts[i].candidate.remote_endpoint, &remote_endpoints[remote_counter]);
+      if (rc != 0) {
+        log_error("Failed to copy remote endpoint for attempt %zu: %s", i, strerror(-rc));
+        for (size_t j = 0; j < remote_counter; j++) {
+          ct_remote_endpoint_free_strings(&remote_endpoints[j]);
+        }
+        free(remote_endpoints);
+        g_hash_table_destroy(remote_hash);
+        return rc;
+      }
+      remote_counter++;
+    }
+  }
+  g_hash_table_destroy(remote_hash);
+
+  log_debug("Removing duplicate local endpoints for connection attempt");
+  ct_local_endpoint_t* local_endpoints = NULL;
+  size_t local_counter = 0;
+  GHashTable* local_hash = g_hash_table_new(sockaddr_storage_hash, sockaddr_storage_equal);
+  for (size_t i = 0; i < context->num_attempts; i++) {
+    log_debug("Checking local endpoint for attempt %zu", i);
+    if (!g_hash_table_contains(local_hash, &context->attempts[i].candidate.local_endpoint->data.resolved_address)) {
+      ct_local_endpoint_t* tmp = realloc(local_endpoints, sizeof(ct_local_endpoint_t) * (local_counter + 1));
+      if (!tmp) {
+        log_error("Failed to allocate local endpoints array for connection attempt");
+        for (size_t j = 0; j < local_counter; j++) {
+          ct_local_endpoint_free_strings(&local_endpoints[j]);
+        }
+        free(local_endpoints);
+        g_hash_table_destroy(local_hash);
+        return -ENOMEM;
+      }
+      local_endpoints = tmp;
+      log_trace("Adding local endpoint for attempt %zu to hash table and local endpoints array", i);
+      g_hash_table_add(local_hash, &context->attempts[i].candidate.local_endpoint->data.resolved_address);
+      int rc = ct_local_endpoint_copy_content(context->attempts[i].candidate.local_endpoint, &local_endpoints[local_counter]);
+      if (rc != 0) {
+        log_error("Failed to copy local endpoint for attempt %zu: %s", i, strerror(-rc));
+        for (size_t j = 0; j < local_counter; j++) {
+          ct_local_endpoint_free_strings(&local_endpoints[j]);
+        }
+        free(local_endpoints);
+        g_hash_table_destroy(local_hash);
+        return rc;
+      }
+      local_counter++;
+    }
+  }
+  g_hash_table_destroy(local_hash);
+  size_t active_remote_index = 0;
+  for (size_t i = 0; i < remote_counter; i++) {
+    if (memcmp(&remote_endpoints[i].data.resolved_address,
+               &attempt->candidate.remote_endpoint->data.resolved_address,
+               sizeof(struct sockaddr_storage)) == 0) {
+        active_remote_index = i;
+        break;
+    }
+  }
+
+  size_t active_local_index = 0;
+  for (size_t i = 0; i < local_counter; i++) {
+    if (memcmp(&local_endpoints[i].data.resolved_address,
+               &attempt->candidate.local_endpoint->data.resolved_address,
+               sizeof(struct sockaddr_storage)) == 0) {
+        active_local_index = i;
+        break;
+    }
+  }
+
+
+
   // Allocate connection for this attempt
   attempt->connection = ct_connection_create_client(
     candidate->protocol_candidate->protocol_impl,
-    candidate->local_endpoint,
-    candidate->remote_endpoint,
+    local_endpoints,
+    local_counter,
+    active_local_index,
+    remote_endpoints,
+    remote_counter,
+    active_remote_index,
     context->preconnection->security_parameters,
     &attempt_callbacks,
     context->preconnection->framer_impl
@@ -218,6 +355,8 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
 
   if (!attempt->connection) {
     log_error("Failed to allocate connection for connection attempt");
+    ct_local_endpoints_free(local_endpoints, local_counter);
+    ct_remote_endpoints_free(remote_endpoints, remote_counter);
     return -ENOMEM;
   }
 
@@ -243,6 +382,7 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
   if (rc != 0) {
     log_error("Failed to initiate connection attempt: %d", rc);
     ct_connection_free(attempt->connection);
+
     return rc;
   }
 
@@ -436,11 +576,6 @@ void start_candidate_racing_on_nodes_ready(GArray* candidate_nodes, void* contex
     }
     racing_context_free(racing_context);
     return;
-  }
-
-  ct_candidate_node_t* first_node = &g_array_index(candidate_nodes, ct_candidate_node_t, 0);
-  if (first_node->remote_endpoint->data.resolved_address.ss_family == AF_INET) {
-    log_debug("First candidate has port %d", ntohs(((struct sockaddr_in*)&first_node->remote_endpoint->data.resolved_address)->sin_port));
   }
 
   racing_context_initialize_attempt_array(racing_context, candidate_nodes);

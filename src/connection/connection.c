@@ -6,8 +6,10 @@
 #include "ctaps.h"
 #include "ctaps_internal.h"
 #include "endpoint/local_endpoint.h"
+#include "endpoint/remote_endpoint.h"
 #include "message/message.h"
 #include "message/message_context.h"
+#include "protocol/common/socket_utils.h"
 #include "transport_property/transport_properties.h"
 #include "util/uuid_util.h"
 #include <glib.h>
@@ -55,9 +57,20 @@ ct_connection_t* ct_connection_create_server_connection(ct_socket_manager_t* soc
   ct_connection_group_add_connection(group, connection);
   // > Connection Properties can be set on Connections and Preconnections; 
   // > when set on Preconnections, they act as an initial default for the resulting Connections
+  connection->all_remote_endpoints = ct_remote_endpoints_deep_copy(remote_endpoint, 1);
+  connection->num_remote_endpoints = 1;
+  connection->active_remote_endpoint = 0;
   connection->socket_manager = ct_socket_manager_ref(socket_manager);
-  connection->local_endpoint = ct_local_endpoint_deep_copy(&socket_manager->listener->local_endpoint);
-  connection->remote_endpoint = ct_remote_endpoint_deep_copy(remote_endpoint);
+  connection->num_local_endpoints = socket_manager->listener->num_local_endpoints;
+  connection->all_local_endpoints = ct_local_endpoints_deep_copy(&socket_manager->listener->local_endpoint, socket_manager->listener->num_local_endpoints);
+  if (!connection->all_local_endpoints && connection->num_local_endpoints > 0) {
+    log_error("Failed to copy local endpoits from listener to connection");
+    ct_connection_free(connection);
+    ct_connection_group_free(group);
+    return NULL;
+  }
+  connection->active_local_endpoint = 0;
+
   connection->role = CONNECTION_ROLE_SERVER;
 
   connection->security_parameters = ct_security_parameters_deep_copy(security_parameters);
@@ -69,8 +82,12 @@ ct_connection_t* ct_connection_create_server_connection(ct_socket_manager_t* soc
 }
 
 ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_impl,
-                                             const ct_local_endpoint_t* local_endpoint,
-                                             const ct_remote_endpoint_t* remote_endpoint,
+                                             ct_local_endpoint_t* local_endpoints,
+                                             size_t num_local_endpoints,
+                                             size_t local_endpoint_index,
+                                             ct_remote_endpoint_t* remote_endpoints,
+                                             size_t num_remote_endpoints,
+                                             size_t remote_endpoint_index,
                                              const ct_security_parameters_t* security_parameters,
                                              const ct_connection_callbacks_t* connection_callbacks,
                                              ct_framer_impl_t* framer_impl) {
@@ -80,8 +97,19 @@ ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_
     log_error("Failed to create empty connection");
     return NULL;
   }
-  if (remote_endpoint->data.resolved_address.ss_family != AF_INET6 &&
-      remote_endpoint->data.resolved_address.ss_family != AF_INET) {
+
+  connection->all_local_endpoints = local_endpoints; 
+  connection->active_local_endpoint = local_endpoint_index;
+  connection->num_local_endpoints = num_local_endpoints;
+
+  connection->all_remote_endpoints = remote_endpoints;
+  connection->active_remote_endpoint = remote_endpoint_index;
+  connection->num_remote_endpoints = num_remote_endpoints;
+
+  ct_remote_endpoint_t* active_remote_endpoint = &connection->all_remote_endpoints[connection->active_remote_endpoint];
+
+  if (active_remote_endpoint->data.resolved_address.ss_family != AF_INET6 &&
+      active_remote_endpoint->data.resolved_address.ss_family != AF_INET) {
     log_error("Remote endpoint has unsupported address family");
     ct_connection_free(connection);
     return NULL;
@@ -104,7 +132,7 @@ ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_
     return NULL;
   }
 
-  rc = socket_manager_insert_connection(socket_manager, remote_endpoint, connection);
+  rc = socket_manager_insert_connection(socket_manager, active_remote_endpoint, connection);
   if (rc < 0) {
     log_error("Failed to insert connection into socket manager: %d", rc);
     ct_connection_group_free(group);
@@ -114,8 +142,6 @@ ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_
   }
 
   
-  connection->local_endpoint = ct_local_endpoint_deep_copy(local_endpoint);
-  connection->remote_endpoint = ct_remote_endpoint_deep_copy(remote_endpoint);
   connection->security_parameters = ct_security_parameters_deep_copy(security_parameters);
   if (connection_callbacks) {
     connection->connection_callbacks = *connection_callbacks;
@@ -141,13 +167,19 @@ ct_connection_t* ct_connection_create_clone(const ct_connection_t* source_connec
 
   clone->properties.state = CONN_STATE_ESTABLISHING;
   clone->security_parameters = ct_security_parameters_deep_copy(source_connection->security_parameters);
-  clone->local_endpoint = ct_local_endpoint_deep_copy(source_connection->local_endpoint);
-  clone->remote_endpoint = ct_remote_endpoint_deep_copy(source_connection->remote_endpoint);
+
+  clone->all_remote_endpoints = ct_remote_endpoints_deep_copy(source_connection->all_remote_endpoints, source_connection->num_remote_endpoints);
+  clone->num_remote_endpoints = source_connection->num_remote_endpoints;
+  clone->active_remote_endpoint = source_connection->active_remote_endpoint;
+
+  clone->all_local_endpoints = ct_local_endpoints_deep_copy(source_connection->all_local_endpoints, source_connection->num_local_endpoints);
+  clone->num_local_endpoints = source_connection->num_local_endpoints;
+  clone->active_local_endpoint = source_connection->active_local_endpoint;
   // In the cases where a socket manager isn't provided, the protocol will insert
   // a custom one to the new connection after cloning
   if (socket_manager) {
     clone->socket_manager = ct_socket_manager_ref(socket_manager);
-    socket_manager_insert_connection(clone->socket_manager, clone->remote_endpoint, clone);
+    socket_manager_insert_connection(clone->socket_manager, &clone->all_remote_endpoints[clone->active_remote_endpoint], clone);
   }
 
 
@@ -418,11 +450,13 @@ void ct_connection_free_content(ct_connection_t* connection) {
     connection->received_messages = NULL;
   }
 
-  if (connection->local_endpoint) {
-    ct_local_endpoint_free(connection->local_endpoint);
+  if (connection->all_local_endpoints) {
+    ct_local_endpoints_free(connection->all_local_endpoints, connection->num_local_endpoints);
+    connection->all_local_endpoints = NULL;
   }
-  if (connection->remote_endpoint) {
-    ct_remote_endpoint_free(connection->remote_endpoint);
+  if (connection->all_remote_endpoints) {
+    ct_remote_endpoints_free(connection->all_remote_endpoints, connection->num_remote_endpoints);
+    connection->all_remote_endpoints = NULL;
   }
 
   // Free security parameters (connection owns a deep copy)
@@ -602,12 +636,20 @@ const char* ct_connection_get_protocol_name(const ct_connection_t* connection) {
   return connection->socket_manager->protocol_impl->name;
 }
 
-const ct_remote_endpoint_t* ct_connection_get_remote_endpoint(const ct_connection_t* connection) {
+const ct_remote_endpoint_t* ct_connection_get_active_remote_endpoint(const ct_connection_t* connection) {
   if (!connection) {
     log_error("ct_connection_get_remote_endpoint called with NULL connection");
     return NULL;
   }
-  return connection->remote_endpoint;
+  return &connection->all_remote_endpoints[connection->active_remote_endpoint];
+}
+
+const ct_local_endpoint_t* ct_connection_get_active_local_endpoint(const ct_connection_t* connection) {
+  if (!connection) {
+    log_error("ct_connection_get_local_endpoint called with NULL connection");
+    return NULL;
+  }
+  return &connection->all_local_endpoints[connection->active_local_endpoint];
 }
 
 ct_connection_group_t* ct_connection_get_connection_group(const ct_connection_t* connection) {
@@ -632,10 +674,6 @@ const ct_connection_properties_t* ct_connection_get_connection_properties(const 
     return NULL;
   }
   return &connection->connection_group->transport_properties->connection_properties;
-}
-
-void connection_set_resolved_local_address(ct_connection_t* connection, const struct sockaddr_storage* addr) {
-  memcpy(&connection->local_endpoint->data.resolved_address, addr, sizeof(struct sockaddr_storage));
 }
 
 ct_protocol_enum_t ct_connection_get_transport_protocol(const ct_connection_t* connection) {
@@ -722,4 +760,145 @@ uint8_t ct_connection_get_priority(const ct_connection_t* connection) {
     return UINT8_MAX;
   }
   return connection->properties.priority;
+}
+
+size_t ct_connection_get_num_remote_endpoints(const ct_connection_t* connection) {
+  return connection ? connection->num_remote_endpoints : 0;
+}
+
+size_t ct_connection_get_num_local_endpoints(const ct_connection_t* connection) {
+  return connection ? connection->num_local_endpoints : 0;
+}
+
+const ct_remote_endpoint_t* ct_connection_get_remote_endpoints_list(const ct_connection_t* connection) {
+  return connection ? connection->all_remote_endpoints : NULL;
+}
+
+const ct_local_endpoint_t* ct_connection_get_local_endpoints_list(const ct_connection_t* connection) {
+  return connection ? connection->all_local_endpoints : NULL;
+}
+
+int ct_connection_set_active_remote_endpoint_index(ct_connection_t* connection, size_t remote_endpoint_index) {
+  if (!connection) {
+    log_error("ct_connection_set_active_remote_endpoint_index called with NULL connection");
+    return -EINVAL;
+  }
+  if (remote_endpoint_index >= connection->num_remote_endpoints) {
+    log_error("ct_connection_set_active_remote_endpoint_index called with out of bounds index");
+    return -EINVAL;
+  }
+  connection->active_remote_endpoint = remote_endpoint_index;
+  return 0;
+}
+
+int ct_connection_set_active_local_endpoint_index(ct_connection_t* connection, size_t local_endpoint_index) {
+  if (!connection) {
+    log_error("ct_connection_set_active_local_endpoint_index called with NULL connection");
+    return -EINVAL;
+  }
+  if (local_endpoint_index >= connection->num_local_endpoints) {
+    log_error("ct_connection_set_active_local_endpoint_index called with out of bounds index");
+    return -EINVAL;
+  }
+  connection->active_local_endpoint = local_endpoint_index;
+  return 0;
+}
+
+int ct_connection_set_active_remote_endpoint(ct_connection_t* connection, const ct_remote_endpoint_t* remote_endpoint) {
+  if (!connection || !remote_endpoint) {
+    log_error("ct_connection_set_active_remote_endpoint called with NULL parameter");
+    log_debug("Connection pointer: %p, remote endpoint pointer: %p", (void*)connection, (void*)remote_endpoint);
+    return -EINVAL;
+  }
+
+  for (size_t remote_ix = 0; remote_ix < connection->num_remote_endpoints; remote_ix++) {
+    if (ct_remote_endpoint_resolved_equals(remote_endpoint, &connection->all_remote_endpoints[remote_ix])) {
+      connection->active_remote_endpoint = remote_ix;
+      return 0;
+    }
+  }
+  ct_remote_endpoint_t* temp = realloc(connection->all_remote_endpoints, sizeof(ct_remote_endpoint_t) * (connection->num_remote_endpoints + 1));
+  if (!temp) {
+    log_error("Failed to allocate memory for new remote endpoint");
+    return -ENOMEM;
+  }
+
+  connection->num_remote_endpoints++;
+  connection->all_remote_endpoints = temp;
+  int rc = ct_remote_endpoint_copy_content(remote_endpoint, temp + connection->num_remote_endpoints - 1);
+  if (rc != 0) {
+    log_error("Failed to deep copy new remote endpoint: %d", rc);
+    connection->num_remote_endpoints--; // Roll back the count since we failed to copy
+    return rc;
+  }
+
+  rc = ct_connection_set_active_remote_endpoint_index(connection, connection->num_remote_endpoints - 1);
+  if (rc != 0) {
+    log_error("Failed to set active remote endpoint index: %d", rc);
+    return rc;
+  }
+
+  return 0;
+}
+
+int ct_connection_set_active_local_endpoint(ct_connection_t* connection, const ct_local_endpoint_t* local_endpoint) {
+  if (!connection || !local_endpoint) {
+    log_error("ct_connection_set_active_local_endpoint called with NULL parameter");
+    log_debug("Connection pointer: %p, remote endpoint pointer: %p", (void*)connection, (void*)local_endpoint);
+    return -EINVAL;
+  }
+  log_debug("Setting active local endpoint for connection %s", connection->uuid);
+
+
+  for (size_t remote_ix = 0; remote_ix < ct_connection_get_num_local_endpoints(connection); remote_ix++) {
+    log_debug("Checking if local endpoint at index %zu matches active local endpoint", remote_ix);
+    if (ct_local_endpoint_resolved_equals(local_endpoint, &connection->all_local_endpoints[remote_ix])) {
+      connection->active_local_endpoint = remote_ix;
+      return 0;
+    }
+    else {
+      log_debug("Local endpoint at index %zu does not match active local endpoint, checking next", remote_ix);
+    }
+  }
+  ct_local_endpoint_t* temp = realloc(connection->all_local_endpoints, sizeof(ct_local_endpoint_t) * (connection->num_local_endpoints + 1));
+  if (!temp) {
+    log_error("Failed to allocate memory for new remote endpoint");
+    return -ENOMEM;
+  }
+
+  connection->num_local_endpoints++;
+  connection->all_local_endpoints = temp;
+  int rc = ct_local_endpoint_copy_content(local_endpoint, temp + connection->num_local_endpoints - 1);
+  if (rc != 0) {
+    log_error("Failed to deep copy new remote endpoint: %d", rc);
+    connection->num_local_endpoints--; // Roll back the count since we failed to copy
+    return rc;
+  }
+
+  rc = ct_connection_set_active_local_endpoint_index(connection, connection->num_local_endpoints - 1);
+  if (rc != 0) {
+    log_error("Failed to set active remote endpoint index: %d", rc);
+    return rc;
+  }
+
+  return 0;
+}
+
+int ct_connection_set_all_local_port(ct_connection_t* connection, uint16_t port) {
+  for (size_t i = 0; i < ct_connection_get_num_local_endpoints(connection); i++) {
+    struct sockaddr_storage* addr = &connection->all_local_endpoints[i].data.resolved_address;
+    if (addr->ss_family == AF_INET) {
+      struct sockaddr_in* addr_in = (struct sockaddr_in*)addr;
+      addr_in->sin_port = htons(port);
+    }
+    else if (addr->ss_family == AF_INET6) {
+      struct sockaddr_in6* addr_in6 = (struct sockaddr_in6*)addr;
+      addr_in6->sin6_port = htons(port);
+    }
+    else {
+      log_error("Unsupported address family in ct_connection_set_all_local_port");
+      return -EINVAL;
+    }
+  }
+  return 0;
 }

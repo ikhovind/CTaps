@@ -1,4 +1,5 @@
 #include <gmock/gmock-matchers.h>
+#include <netinet/in.h>
 
 #include "gtest/gtest.h"
 #include "fff.h"
@@ -106,4 +107,42 @@ TEST(RemoteEndpointUnitTests, FailsWhenSpecifyingIpv6AfterHostname) {
     EXPECT_EQ(remote_endpoint->data.resolved_address.ss_family, AF_UNSPEC);
 
     ct_remote_endpoint_free(remote_endpoint);
+}
+
+TEST(RemoteEndpointResolvedEqualsTest, NullEndpoint1_ReturnsFalse) {
+    ct_remote_endpoint_t rem = {0};
+    ((struct sockaddr_in*)&rem.data.resolved_address)->sin_family = AF_INET;
+    EXPECT_FALSE(ct_remote_endpoint_resolved_equals(nullptr, &rem));
+}
+
+TEST(RemoteEndpointResolvedEqualsTest, NullEndpoint2_ReturnsFalse) {
+    ct_remote_endpoint_t rem = {0};
+    ((struct sockaddr_in*)&rem.data.resolved_address)->sin_family = AF_INET;
+    EXPECT_FALSE(ct_remote_endpoint_resolved_equals(&rem, nullptr));
+}
+
+TEST(RemoteEndpointResolvedEqualsTest, BothNull_ReturnsFalse) {
+    EXPECT_FALSE(ct_remote_endpoint_resolved_equals(nullptr, nullptr));
+}
+
+TEST(RemoteEndpointResolvedEqualsTest, EqualAddresses_ReturnsTrue) {
+    ct_remote_endpoint_t rem1 = {0}, rem2 = {0};
+    struct sockaddr_in* a = (struct sockaddr_in*)&rem1.data.resolved_address;
+    struct sockaddr_in* b = (struct sockaddr_in*)&rem2.data.resolved_address;
+    a->sin_family = b->sin_family = AF_INET;
+    a->sin_port   = b->sin_port   = htons(8080);
+    inet_pton(AF_INET, "10.0.0.1", &a->sin_addr);
+    inet_pton(AF_INET, "10.0.0.1", &b->sin_addr);
+    EXPECT_TRUE(ct_remote_endpoint_resolved_equals(&rem1, &rem2));
+}
+
+TEST(RemoteEndpointResolvedEqualsTest, DifferentAddresses_ReturnsFalse) {
+    ct_remote_endpoint_t rem1 = {0}, rem2 = {0};
+    struct sockaddr_in* a = (struct sockaddr_in*)&rem1.data.resolved_address;
+    struct sockaddr_in* b = (struct sockaddr_in*)&rem2.data.resolved_address;
+    a->sin_family = b->sin_family = AF_INET;
+    a->sin_port   = b->sin_port   = htons(8080);
+    inet_pton(AF_INET, "10.0.0.1", &a->sin_addr);
+    inet_pton(AF_INET, "10.0.0.2", &b->sin_addr);
+    EXPECT_FALSE(ct_remote_endpoint_resolved_equals(&rem1, &rem2));
 }

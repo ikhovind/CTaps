@@ -5,7 +5,7 @@
 extern "C" {
 #include "ctaps.h"
 }
-#include "fixtures/awaiting_fixture.cpp"
+#include "fixtures/integration_fixture.h"
 
 class TcpListenTests : public CTapsGenericFixture {};
 
@@ -27,8 +27,7 @@ TEST_F(TcpListenTests, ReceivesConnectionFromListenerAndExchangesMessages) {
     ct_transport_properties_set_preserve_msg_boundaries(listener_props, PROHIBIT);
     ct_transport_properties_set_multistreaming(listener_props, PROHIBIT);
 
-    ct_preconnection_t* listener_precon = ct_preconnection_new(listener_remote, 1, listener_props, NULL);
-    ct_preconnection_set_local_endpoint(listener_precon, listener_endpoint);
+    ct_preconnection_t* listener_precon = ct_preconnection_new(listener_endpoint, 1, listener_remote, 1, listener_props,NULL);
 
     ct_listener_callbacks_t listener_callbacks = {
         .connection_received = receive_message_respond_and_close_listener_on_connection_received,
@@ -50,7 +49,7 @@ TEST_F(TcpListenTests, ReceivesConnectionFromListenerAndExchangesMessages) {
     ct_transport_properties_set_preserve_msg_boundaries(client_props, PROHIBIT);
     ct_transport_properties_set_multistreaming(client_props, PROHIBIT);
 
-    ct_preconnection_t* client_precon = ct_preconnection_new(client_remote, 1, client_props, NULL);
+    ct_preconnection_t* client_precon = ct_preconnection_new(NULL, 0, client_remote, 1, client_props,NULL);
     ASSERT_NE(client_precon, nullptr);
 
     // Custom ready callback that saves connection and calls original ready

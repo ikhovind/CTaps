@@ -4,7 +4,7 @@
 #include "fff.h"
 extern "C" {
 #include "ctaps.h"
-#include "fixtures/awaiting_fixture.cpp"
+#include "fixtures/integration_fixture.h"
 #include <logging/log.h>
 #include <picoquic.h>
 }
@@ -67,7 +67,7 @@ TEST_F(QuicAbortTest, singleConnectionAbortCallsCloseImmediate) {
 
   ct_security_parameters_add_client_certificate(security_parameters, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, security_parameters);
+  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties, security_parameters);
   ASSERT_NE(preconnection, nullptr);
   ct_security_parameters_free(security_parameters);
 
@@ -121,7 +121,7 @@ TEST_F(QuicAbortTest, multiStreamAbortCallsResetStream) {
 
   ct_security_parameters_add_client_certificate(security_parameters, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(remote_endpoint, 1, transport_properties, security_parameters);
+  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties, security_parameters);
   ASSERT_NE(preconnection, nullptr);
   ct_security_parameters_free(security_parameters);
 
