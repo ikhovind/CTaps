@@ -87,6 +87,7 @@ private:
     inline static pid_t server_pids_[3];
 
     static pid_t launch_server(const char* path) {
+        log_info("Launching server: %s", path);
         pid_t pid = fork();
         EXPECT_NE(pid, -1) << "fork() failed: " << strerror(errno);
         if (pid == 0) {
@@ -138,6 +139,7 @@ protected:
         server_pids_[1] = launch_server(TCP_PING_SERVER_PATH);
         server_pids_[2] = launch_server(UDP_PING_SERVER_PATH);
     }
+
     static void TearDownTestSuite() {
         for (pid_t& pid : server_pids_) {
             if (pid > 0) {
@@ -146,7 +148,7 @@ protected:
                 pid = -1;
             }
         }
-}
+    }
 };
 
 // --- C-style callbacks that bridge to our C++ object ---

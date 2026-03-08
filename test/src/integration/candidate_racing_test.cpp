@@ -74,11 +74,10 @@ extern "C" {
 
 }
 
-class CandidateRacingTests : public ::testing::Test {
+class CandidateRacingTests : public CTapsGenericFixture {
 protected:
     void SetUp() override {
-        ct_initialize();
-        ct_set_log_level(CT_LOG_DEBUG);
+        CTapsGenericFixture::SetUp();
         // Reset all mock data before each test
         FFF_RESET_HISTORY();
         RESET_FAKE(fake_on_ready_counter);
@@ -87,15 +86,13 @@ protected:
 
     
     void TearDown() override {
-      int rc = ct_close();
-      EXPECT_EQ(rc, 0);
-      
-      if (test_context.successful_protocol) {
-        free(test_context.successful_protocol);
+      CTapsGenericFixture::TearDown();
+      if (racing_context.successful_protocol) {
+        free(racing_context.successful_protocol);
       }
     }
 
-    ct_candidate_racing_test_context_t test_context = {
+    ct_candidate_racing_test_context_t racing_context = {
       .captured_connection = nullptr,
       .connection_succeeded = false,
       .successful_protocol = nullptr,
@@ -121,7 +118,7 @@ TEST_F(CandidateRacingTests, FirstCandidateSucceeds) {
     .establishment_error = racing_test_on_establishment_error,
     .ready = racing_test_on_ready,
     .closed = free_on_close,
-    .user_connection_context = &test_context,
+    .user_connection_context = &racing_context,
   };
 
   // Execute
@@ -132,7 +129,7 @@ TEST_F(CandidateRacingTests, FirstCandidateSucceeds) {
   ct_start_event_loop();
 
   // Verify
-  ASSERT_TRUE(test_context.connection_succeeded);
+  ASSERT_TRUE(racing_context.connection_succeeded);
 
   ct_remote_endpoint_free(remote_endpoint);
   ct_preconnection_free(preconnection);
@@ -157,7 +154,7 @@ TEST_F(CandidateRacingTests, connectionContainsSeveralRemotes) {
     .establishment_error = racing_test_on_establishment_error,
     .ready = racing_test_on_ready,
     .closed = capture_connection_on_close,
-    .user_connection_context = &test_context,
+    .user_connection_context = &racing_context,
   };
 
   // Execute
@@ -167,16 +164,16 @@ TEST_F(CandidateRacingTests, connectionContainsSeveralRemotes) {
 
   ct_start_event_loop();
 
-  ASSERT_NE(test_context.captured_connection, nullptr);
+  ASSERT_NE(racing_context.captured_connection, nullptr);
   // Verify
-  EXPECT_TRUE(test_context.connection_succeeded);
-  EXPECT_EQ(test_context.captured_connection->num_remote_endpoints, 2);
+  EXPECT_TRUE(racing_context.connection_succeeded);
+  EXPECT_EQ(racing_context.captured_connection->num_remote_endpoints, 2);
 
   ct_remote_endpoint_free_content(&remotes[0]);
   ct_remote_endpoint_free_content(&remotes[1]);
   ct_preconnection_free(preconnection);
   ct_transport_properties_free(transport_properties);
-  ct_connection_free(test_context.captured_connection);
+  ct_connection_free(racing_context.captured_connection);
 }
 
 TEST_F(CandidateRacingTests, connectionContainsSeveralLocals) {
@@ -203,7 +200,7 @@ TEST_F(CandidateRacingTests, connectionContainsSeveralLocals) {
     .establishment_error = racing_test_on_establishment_error,
     .ready = racing_test_on_ready,
     .closed = capture_connection_on_close,
-    .user_connection_context = &test_context,
+    .user_connection_context = &racing_context,
   };
 
   // Execute
@@ -213,17 +210,17 @@ TEST_F(CandidateRacingTests, connectionContainsSeveralLocals) {
 
   ct_start_event_loop();
 
-  ASSERT_NE(test_context.captured_connection, nullptr);
-  EXPECT_NE(test_context.captured_connection->all_local_endpoints, nullptr);
-  EXPECT_GT(test_context.captured_connection->num_local_endpoints, 1);
+  ASSERT_NE(racing_context.captured_connection, nullptr);
+  EXPECT_NE(racing_context.captured_connection->all_local_endpoints, nullptr);
+  EXPECT_GT(racing_context.captured_connection->num_local_endpoints, 1);
   // Verify
-  EXPECT_TRUE(test_context.connection_succeeded);
+  EXPECT_TRUE(racing_context.connection_succeeded);
 
   ct_local_endpoint_free(local_endpoint);
   ct_remote_endpoint_free(remote_endpoint);
   ct_preconnection_free(preconnection);
   ct_transport_properties_free(transport_properties);
-  ct_connection_free(test_context.captured_connection);
+  ct_connection_free(racing_context.captured_connection);
 }
 
 TEST_F(CandidateRacingTests, AllCandidatesFail) {
@@ -242,7 +239,7 @@ TEST_F(CandidateRacingTests, AllCandidatesFail) {
     .establishment_error = racing_test_on_establishment_error,
     .ready = racing_test_on_ready,
     .closed = free_on_close,
-    .user_connection_context = &test_context,
+    .user_connection_context = &racing_context,
   };
 
   // Execute
@@ -252,7 +249,7 @@ TEST_F(CandidateRacingTests, AllCandidatesFail) {
 
   ct_start_event_loop();
 
-  ASSERT_FALSE(test_context.connection_succeeded);
+  ASSERT_FALSE(racing_context.connection_succeeded);
   ASSERT_EQ(fake_on_ready_counter_fake.call_count, 0);
   ASSERT_EQ(fake_on_establishment_error_counter_fake.call_count, 1);
 
@@ -285,7 +282,7 @@ TEST_F(CandidateRacingTests, RespectsProtocolPreferences) {
     .establishment_error = racing_test_on_establishment_error,
     .ready = racing_test_on_ready_track_protocol,
     .closed = free_on_close,
-    .user_connection_context = &test_context,
+    .user_connection_context = &racing_context,
   };
 
   // Execute
@@ -296,8 +293,8 @@ TEST_F(CandidateRacingTests, RespectsProtocolPreferences) {
   ct_start_event_loop();
 
   // Verify - should use TCP due to reliability requirement
-  ASSERT_NE(test_context.successful_protocol, nullptr);
-  ASSERT_STREQ(test_context.successful_protocol, "TCP");
+  ASSERT_NE(racing_context.successful_protocol, nullptr);
+  ASSERT_STREQ(racing_context.successful_protocol, "TCP");
 
   ct_remote_endpoint_free(remote_endpoint);
   ct_preconnection_free(preconnection);
@@ -322,7 +319,7 @@ TEST_F(CandidateRacingTests, WorksWithHostnameResolution) {
     .establishment_error = racing_test_on_establishment_error,
     .ready = racing_test_on_ready,
     .closed = free_on_close,
-    .user_connection_context = &test_context,
+    .user_connection_context = &racing_context,
   };
 
   // Execute
@@ -333,7 +330,7 @@ TEST_F(CandidateRacingTests, WorksWithHostnameResolution) {
   ct_start_event_loop();
 
   // Verify
-  ASSERT_TRUE(test_context.connection_succeeded);
+  ASSERT_TRUE(racing_context.connection_succeeded);
   ASSERT_EQ(fake_on_ready_counter_fake.call_count, 1);
   ASSERT_EQ(fake_on_establishment_error_counter_fake.call_count, 0);
 
@@ -364,7 +361,7 @@ TEST_F(CandidateRacingTests, SingleCandidateOptimization) {
     .establishment_error = racing_test_on_establishment_error,
     .ready = racing_test_on_ready,
     .closed = free_on_close,
-    .user_connection_context = &test_context,
+    .user_connection_context = &racing_context,
   };
 
   // Execute - should use single-candidate path
@@ -375,7 +372,7 @@ TEST_F(CandidateRacingTests, SingleCandidateOptimization) {
   ct_start_event_loop();
 
   // Verify
-  ASSERT_TRUE(test_context.connection_succeeded);
+  ASSERT_TRUE(racing_context.connection_succeeded);
   ASSERT_EQ(fake_on_ready_counter_fake.call_count, 1);
   ASSERT_EQ(fake_on_establishment_error_counter_fake.call_count, 0);
 
