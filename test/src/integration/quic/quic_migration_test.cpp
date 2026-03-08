@@ -72,8 +72,8 @@ TEST_F(QuicMigrationTest, migratesAfterPrimaryRemoteFails) {
     EXPECT_STREQ(to_ip, "127.0.0.2");
     ASSERT_EQ(dest_port, QUIC_PING_PORT);
 
-    ct_remote_endpoint_free_strings(&remotes[0]);
-    ct_remote_endpoint_free_strings(&remotes[1]);
+    ct_remote_endpoint_free_content(&remotes[0]);
+    ct_remote_endpoint_free_content(&remotes[1]);
     ct_preconnection_free(preconnection);
     ct_transport_properties_free(transport_properties);
     ct_security_parameters_free(security_parameters);
@@ -133,4 +133,5 @@ TEST_F(QuicMigrationTest, migratesAfterPrimaryLocalFails) {
     ct_preconnection_free(preconnection);
     ct_transport_properties_free(transport_properties);
     ct_security_parameters_free(security_parameters);
+    ASSERT_FALSE(true);
 }

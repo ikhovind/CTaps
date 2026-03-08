@@ -172,8 +172,8 @@ TEST_F(CandidateRacingTests, connectionContainsSeveralRemotes) {
   EXPECT_TRUE(test_context.connection_succeeded);
   EXPECT_EQ(test_context.captured_connection->num_remote_endpoints, 2);
 
-  ct_remote_endpoint_free_strings(&remotes[0]);
-  ct_remote_endpoint_free_strings(&remotes[1]);
+  ct_remote_endpoint_free_content(&remotes[0]);
+  ct_remote_endpoint_free_content(&remotes[1]);
   ct_preconnection_free(preconnection);
   ct_transport_properties_free(transport_properties);
   ct_connection_free(test_context.captured_connection);
