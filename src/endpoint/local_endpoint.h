@@ -1,14 +1,8 @@
 #ifndef CT_LOCAL_ENDPOINT_H
 #define CT_LOCAL_ENDPOINT_H
-#include <stdint.h>
 #include <ctaps.h>
+#include <stdint.h>
 
-
-/**
- * @brief Free string fields in a local endpoint without freeing the structure.
- * @param[in] local_endpoint Endpoint whose strings to free
- */
-void ct_local_endpoint_free_strings(ct_local_endpoint_t* local_endpoint);
 
 void ct_local_endpoint_build(ct_local_endpoint_t* local_endpoint);
 

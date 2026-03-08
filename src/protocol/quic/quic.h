@@ -27,7 +27,6 @@ typedef struct ct_quic_socket_state_s {
   char* ticket_store_path;             // Path for 0-RTT session ticket persistence
   ct_message_t* initial_message;          // For freeing when a client connection is done
   ct_message_context_t* initial_message_context; // For freeing when a client connection is done
-  bool probing;
 } ct_quic_socket_state_t;
 
 // Shared state across all streams in a QUIC connection group

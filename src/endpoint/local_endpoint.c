@@ -132,7 +132,7 @@ ct_local_endpoint_t* ct_local_endpoint_resolve(const ct_local_endpoint_t* local_
   return out_list;
 }
 
-void ct_local_endpoint_free_strings(ct_local_endpoint_t* local_endpoint) {
+void ct_local_endpoint_free_content(ct_local_endpoint_t* local_endpoint) {
   if (!local_endpoint) {
     return;
   }
@@ -154,7 +154,7 @@ void ct_local_endpoint_free(ct_local_endpoint_t* local_endpoint) {
     return;
   }
   log_trace("Freeing local endpoint");
-  ct_local_endpoint_free_strings(local_endpoint);
+  ct_local_endpoint_free_content(local_endpoint);
   free(local_endpoint);
 }
 
@@ -264,7 +264,7 @@ ct_local_endpoint_t* ct_local_endpoints_deep_copy(const ct_local_endpoint_t* loc
       log_error("Failed to copy content for local endpoint at index %zu: %s", i, strerror(-rc));
       // Free any previously copied endpoints before returning
       for (size_t j = 0; j < i; j++) {
-        ct_local_endpoint_free_strings(&res[j]);
+        ct_local_endpoint_free_content(&res[j]);
       }
       free(res);
       return NULL;
@@ -275,7 +275,7 @@ ct_local_endpoint_t* ct_local_endpoints_deep_copy(const ct_local_endpoint_t* loc
 
 void ct_local_endpoints_free(ct_local_endpoint_t* local_endpoints, size_t num_local_endpoints) {
   for (size_t i = 0; i < num_local_endpoints; i++) {
-    ct_local_endpoint_free_strings(&local_endpoints[i]);
+    ct_local_endpoint_free_content(&local_endpoints[i]);
   }
   free(local_endpoints);
 }

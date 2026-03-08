@@ -64,7 +64,9 @@ ct_protocol_options_t* ct_protocol_options_new(const ct_preconnection_t* precon)
   }
   memset(options, 0, sizeof(ct_protocol_options_t));
   // TODO is this cast necessary or can we make the options contain const?
-  options->alpns.strings = (char**)ct_security_parameters_get_alpns(precon->security_parameters, &options->alpns.num_strings);
+  if (precon->security_parameters) {
+    options->alpns.strings = (char**)ct_security_parameters_get_alpns(precon->security_parameters, &options->alpns.num_strings);
+  }
   options->protocol_arr.protocols = ct_supported_protocols;
   options->protocol_arr.num_protocols = ct_num_protocols;
   return options;

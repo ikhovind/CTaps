@@ -260,7 +260,7 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
       if (!tmp) {
         log_error("Failed to allocate remote endpoints array for connection attempt");
         for (size_t j = 0; j < remote_counter; j++) {
-          ct_remote_endpoint_free_strings(&remote_endpoints[j]);
+          ct_remote_endpoint_free_content(&remote_endpoints[j]);
         }
         free(remote_endpoints);
         g_hash_table_destroy(remote_hash);
@@ -272,7 +272,7 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
       if (rc != 0) {
         log_error("Failed to copy remote endpoint for attempt %zu: %s", i, strerror(-rc));
         for (size_t j = 0; j < remote_counter; j++) {
-          ct_remote_endpoint_free_strings(&remote_endpoints[j]);
+          ct_remote_endpoint_free_content(&remote_endpoints[j]);
         }
         free(remote_endpoints);
         g_hash_table_destroy(remote_hash);
@@ -285,16 +285,15 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
 
   log_debug("Removing duplicate local endpoints for connection attempt");
   ct_local_endpoint_t* local_endpoints = NULL;
-  size_t local_counter = 0;
+  size_t local_endpoint_counter = 0;
   GHashTable* local_hash = g_hash_table_new(sockaddr_storage_hash, sockaddr_storage_equal);
   for (size_t i = 0; i < context->num_attempts; i++) {
-    log_debug("Checking local endpoint for attempt %zu", i);
     if (!g_hash_table_contains(local_hash, &context->attempts[i].candidate.local_endpoint->data.resolved_address)) {
-      ct_local_endpoint_t* tmp = realloc(local_endpoints, sizeof(ct_local_endpoint_t) * (local_counter + 1));
+      ct_local_endpoint_t* tmp = realloc(local_endpoints, sizeof(ct_local_endpoint_t) * (local_endpoint_counter + 1));
       if (!tmp) {
         log_error("Failed to allocate local endpoints array for connection attempt");
-        for (size_t j = 0; j < local_counter; j++) {
-          ct_local_endpoint_free_strings(&local_endpoints[j]);
+        for (size_t j = 0; j < local_endpoint_counter; j++) {
+          ct_local_endpoint_free_content(&local_endpoints[j]);
         }
         free(local_endpoints);
         g_hash_table_destroy(local_hash);
@@ -303,17 +302,17 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
       local_endpoints = tmp;
       log_trace("Adding local endpoint for attempt %zu to hash table and local endpoints array", i);
       g_hash_table_add(local_hash, &context->attempts[i].candidate.local_endpoint->data.resolved_address);
-      int rc = ct_local_endpoint_copy_content(context->attempts[i].candidate.local_endpoint, &local_endpoints[local_counter]);
+      int rc = ct_local_endpoint_copy_content(context->attempts[i].candidate.local_endpoint, &local_endpoints[local_endpoint_counter]);
       if (rc != 0) {
         log_error("Failed to copy local endpoint for attempt %zu: %s", i, strerror(-rc));
-        for (size_t j = 0; j < local_counter; j++) {
-          ct_local_endpoint_free_strings(&local_endpoints[j]);
+        for (size_t j = 0; j < local_endpoint_counter; j++) {
+          ct_local_endpoint_free_content(&local_endpoints[j]);
         }
         free(local_endpoints);
         g_hash_table_destroy(local_hash);
         return rc;
       }
-      local_counter++;
+      local_endpoint_counter++;
     }
   }
   g_hash_table_destroy(local_hash);
@@ -328,7 +327,7 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
   }
 
   size_t active_local_index = 0;
-  for (size_t i = 0; i < local_counter; i++) {
+  for (size_t i = 0; i < local_endpoint_counter; i++) {
     if (memcmp(&local_endpoints[i].data.resolved_address,
                &attempt->candidate.local_endpoint->data.resolved_address,
                sizeof(struct sockaddr_storage)) == 0) {
@@ -343,7 +342,7 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
   attempt->connection = ct_connection_create_client(
     candidate->protocol_candidate->protocol_impl,
     local_endpoints,
-    local_counter,
+    local_endpoint_counter,
     active_local_index,
     remote_endpoints,
     remote_counter,
@@ -355,7 +354,7 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
 
   if (!attempt->connection) {
     log_error("Failed to allocate connection for connection attempt");
-    ct_local_endpoints_free(local_endpoints, local_counter);
+    ct_local_endpoints_free(local_endpoints, local_endpoint_counter);
     ct_remote_endpoints_free(remote_endpoints, remote_counter);
     return -ENOMEM;
   }

@@ -15,33 +15,44 @@
 
 void get_interface_addresses(const char *interface_name, int *num_found_addresses, struct sockaddr_storage *output_interface_addrs) {
   log_debug("Getting interface addresses for interface name: %s", interface_name ? interface_name : "NULL");
+  if (num_found_addresses == NULL || output_interface_addrs == NULL) {
+    log_error("Output parameters for get_interface_addresses cannot be NULL");
+    return;
+  }
   *num_found_addresses = 0;
-  if (interface_name != NULL) {
-    uv_interface_address_t* interfaces = NULL;
-    int count = 0;
-    int rc = uv_interface_addresses(&interfaces, &count);
-    if (rc != 0) {
-      return;
-    }
-    log_debug("Found %d interfaces on the system", count);
+  if (!interface_name) {
+    log_debug("Interface name was NULL, no valid interfaces to search for");
+    return;
+  }
+  uv_interface_address_t* interfaces = NULL;
+  int count = 0;
+  int rc = uv_interface_addresses(&interfaces, &count);
+  if (rc != 0) {
+    log_error("uv_interface_addresses failed: %s", uv_strerror(rc));
+    return;
+  }
+  log_debug("Found %d interfaces on the system", count);
 
-    for (int i = 0; i < count; i++) {
-      if (strcmp("any", interface_name) == 0 || strcmp(interfaces[i].name, interface_name) == 0) {
-        if (interfaces[i].address.address4.sin_family == AF_INET) {
-          memcpy(&output_interface_addrs[*num_found_addresses], &interfaces[i].address.address4, sizeof(struct sockaddr_in));
-          (*num_found_addresses)++;
-        }
-        if (interfaces[i].address.address6.sin6_family == AF_INET6) {
-          memcpy(&output_interface_addrs[*num_found_addresses], &interfaces[i].address.address6, sizeof(struct sockaddr_in6));
-          (*num_found_addresses)++;
-        }
-        if (*num_found_addresses >= MAX_FOUND_INTERFACE_ADDRS) {
-          break;
-        }
+  for (int i = 0; i < count; i++) {
+    log_trace("Comparing interface name: %s to target interface name: %s", interfaces[i].name, interface_name);
+    if (strcmp("any", interface_name) == 0 || strcmp(interfaces[i].name, interface_name) == 0) {
+      if (*num_found_addresses >= MAX_FOUND_INTERFACE_ADDRS) {
+        break;
+      }
+      if (interfaces[i].address.address4.sin_family == AF_INET) {
+        memcpy(&output_interface_addrs[*num_found_addresses], &interfaces[i].address.address4, sizeof(struct sockaddr_in));
+        (*num_found_addresses)++;
+      }
+      if (*num_found_addresses >= MAX_FOUND_INTERFACE_ADDRS) {
+        break;
+      }
+      if (interfaces[i].address.address6.sin6_family == AF_INET6) {
+        memcpy(&output_interface_addrs[*num_found_addresses], &interfaces[i].address.address6, sizeof(struct sockaddr_in6));
+        (*num_found_addresses)++;
       }
     }
-    uv_free_interface_addresses(interfaces, count);
   }
+  uv_free_interface_addresses(interfaces, count);
   log_debug("Found %d addresses for interface name: %s", *num_found_addresses, interface_name ? interface_name : "NULL");
 }
 

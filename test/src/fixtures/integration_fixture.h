@@ -20,6 +20,7 @@ extern "C" {
 
 struct IptablesGuard {
     ~IptablesGuard() {
+
         // Remote endpoint migration test
         if (system("iptables -C INPUT -s 127.0.0.1 -p udp --sport 4433 -j DROP 2>/dev/null") == 0) {
             system("iptables -D INPUT -s 127.0.0.1 -p udp --sport 4433 -j DROP");
@@ -30,12 +31,13 @@ struct IptablesGuard {
         }
 
         // Local endpoint migration test
-        if (system("iptables -D OUTPUT -p udp -d 127.0.0.1 --dport 4433 -j DROP 2>/dev/null") == 0) {
-            system("iptables -D OUTPUT -p udp -d 127.0.0.1 --dport 4433 -j DROP");
+        if (system("iptables -C OUTPUT -s 127.0.0.1 -p udp --dport 4433 -j DROP 2>/dev/null") == 0) {
+            system("iptables -D OUTPUT -s 127.0.0.1 -p udp --dport 4433 -j DROP");
+
 
         }
-        if (system("iptables -C INPUT  -p udp -s 127.0.0.1 --sport 4433 -j DROP 2>/dev/null") == 0) {
-            system("iptables -D INPUT  -p udp -s 127.0.0.1 --sport 4433 -j DROP");
+        if (system("iptables -C INPUT  -d 127.0.0.1 -p udp --sport 4433 -j DROP 2>/dev/null") == 0) {
+            system("iptables -A INPUT  -d 127.0.0.1 -p udp --sport 4433 -j DROP");
         }
     }
 };
@@ -44,8 +46,8 @@ struct IpAddressGuard {
     bool added = false;
     IpAddressGuard() {
         int rc = system("ip addr add 127.0.0.2/8 dev lo 2>/dev/null");
-        added = (rc == 0);
         // If it already existed, that's fine — we just won't delete it on teardown
+        added = (rc == 0);
     }
     ~IpAddressGuard() {
         if (added) {
@@ -82,7 +84,7 @@ struct CallbackContext {
 
 class CTapsGenericFixture : public ::testing::Test {
 private:
-    inline static pid_t server_pids_[1];
+    inline static pid_t server_pids_[3];
 
     static pid_t launch_server(const char* path) {
         pid_t pid = fork();

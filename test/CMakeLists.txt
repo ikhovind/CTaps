@@ -315,7 +315,9 @@ if(CTAPS_ENABLE_MIGRATION_TESTS)
         iptables -D OUTPUT -p udp --dport 4433 ! -s 127.0.0.0/8 -j DROP 2>/dev/null
         iptables -D INPUT  -p udp --sport 4433 ! -d 127.0.0.0/8 -j DROP 2>/dev/null
         iptables -D OUTPUT -s 127.0.0.1 -p udp --dport 4433 -j DROP 2>/dev/null
+        iptables -D OUTPUT -d 127.0.0.1 -p udp --dport 4433 -j DROP 2>/dev/null
         iptables -D INPUT  -d 127.0.0.1 -p udp --sport 4433 -j DROP 2>/dev/null
+        iptables -D INPUT  -s 127.0.0.1 -p udp --sport 4433 -j DROP 2>/dev/null
         ip addr del 127.0.0.2/8 dev lo 2>/dev/null
         exit 0
     ")

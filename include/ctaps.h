@@ -902,7 +902,13 @@ CT_EXTERN int ct_local_endpoint_with_ipv4(ct_local_endpoint_t* local_endpoint, i
 CT_EXTERN int ct_local_endpoint_from_sockaddr(ct_local_endpoint_t* local_endpoint, const struct sockaddr_storage* addr);
 
 /**
- * @brief Free all resources in a local endpoint.
+ * @brief Free content in a local endpoint without freeing the structure itself.
+ * @param[in] local_endpoint Endpoint whose content to free
+ */
+CT_EXTERN void ct_local_endpoint_free_content(ct_local_endpoint_t* local_endpoint);
+
+/**
+ * @brief Free all resources in a local endpoint including the structure itself.
  * @param[in] local_endpoint Endpoint to free
  */
 CT_EXTERN void ct_local_endpoint_free(ct_local_endpoint_t* local_endpoint);
@@ -963,10 +969,10 @@ CT_EXTERN int ct_remote_endpoint_with_service(ct_remote_endpoint_t* remote_endpo
  * @brief Free string fields in a remote endpoint without freeing the structure.
  * @param[in] remote_endpoint Endpoint whose strings to free
  */
-CT_EXTERN void ct_remote_endpoint_free_strings(ct_remote_endpoint_t* remote_endpoint);
+CT_EXTERN void ct_remote_endpoint_free_content(ct_remote_endpoint_t* remote_endpoint);
 
 /**
- * @brief Free all resources in a remote endpoint.
+ * @brief Free all resources in a remote endpoint without freeing the structure itself.
  * @param[in] remote_endpoint Endpoint to free
  */
 CT_EXTERN void ct_remote_endpoint_free(ct_remote_endpoint_t* remote_endpoint);

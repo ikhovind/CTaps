@@ -58,6 +58,13 @@ ct_connection_t* ct_connection_create_server_connection(ct_socket_manager_t* soc
   // > Connection Properties can be set on Connections and Preconnections; 
   // > when set on Preconnections, they act as an initial default for the resulting Connections
   connection->all_remote_endpoints = ct_remote_endpoints_deep_copy(remote_endpoint, 1);
+  if (!connection->all_remote_endpoints) {
+    log_error("Failed to copy remote endpoint from listener to connection");
+    ct_connection_free(connection);
+    ct_connection_group_free(group);
+    return NULL;
+  }
+
   connection->num_remote_endpoints = 1;
   connection->active_remote_endpoint = 0;
   connection->socket_manager = ct_socket_manager_ref(socket_manager);
@@ -844,25 +851,23 @@ int ct_connection_set_active_remote_endpoint(ct_connection_t* connection, const 
 int ct_connection_set_active_local_endpoint(ct_connection_t* connection, const ct_local_endpoint_t* local_endpoint) {
   if (!connection || !local_endpoint) {
     log_error("ct_connection_set_active_local_endpoint called with NULL parameter");
-    log_debug("Connection pointer: %p, remote endpoint pointer: %p", (void*)connection, (void*)local_endpoint);
+    log_debug("Connection pointer: %p, local endpoint pointer: %p", (void*)connection, (void*)local_endpoint);
     return -EINVAL;
   }
   log_debug("Setting active local endpoint for connection %s", connection->uuid);
 
 
-  for (size_t remote_ix = 0; remote_ix < ct_connection_get_num_local_endpoints(connection); remote_ix++) {
-    log_debug("Checking if local endpoint at index %zu matches active local endpoint", remote_ix);
-    if (ct_local_endpoint_resolved_equals(local_endpoint, &connection->all_local_endpoints[remote_ix])) {
-      connection->active_local_endpoint = remote_ix;
+  for (size_t local_ix = 0; local_ix < ct_connection_get_num_local_endpoints(connection); local_ix++) {
+    if (ct_local_endpoint_resolved_equals(local_endpoint, &connection->all_local_endpoints[local_ix])) {
+      log_trace("Found matching local endpoint at index %zu, setting active_local_endpoint to this index", local_ix);
+      connection->active_local_endpoint = local_ix;
       return 0;
     }
-    else {
-      log_debug("Local endpoint at index %zu does not match active local endpoint, checking next", remote_ix);
-    }
   }
+  log_debug("No matching local endpoint found, adding new local endpoint to list and setting it as active");
   ct_local_endpoint_t* temp = realloc(connection->all_local_endpoints, sizeof(ct_local_endpoint_t) * (connection->num_local_endpoints + 1));
   if (!temp) {
-    log_error("Failed to allocate memory for new remote endpoint");
+    log_error("Failed to allocate memory for new local endpoint");
     return -ENOMEM;
   }
 
@@ -870,14 +875,14 @@ int ct_connection_set_active_local_endpoint(ct_connection_t* connection, const c
   connection->all_local_endpoints = temp;
   int rc = ct_local_endpoint_copy_content(local_endpoint, temp + connection->num_local_endpoints - 1);
   if (rc != 0) {
-    log_error("Failed to deep copy new remote endpoint: %d", rc);
+    log_error("Failed to deep copy new local endpoint: %d", rc);
     connection->num_local_endpoints--; // Roll back the count since we failed to copy
     return rc;
   }
 
   rc = ct_connection_set_active_local_endpoint_index(connection, connection->num_local_endpoints - 1);
   if (rc != 0) {
-    log_error("Failed to set active remote endpoint index: %d", rc);
+    log_error("Failed to set active local endpoint index: %d", rc);
     return rc;
   }
 

@@ -20,9 +20,8 @@ ct_security_parameters_t* ct_security_parameters_new(void) {
 }
 
 static void ct_string_array_value_free(ct_string_array_t arr) {
-  log_debug("Freeing string array with %zu strings", arr.num_strings);
+  log_trace("Freeing string array with %zu strings", arr.num_strings);
   for (size_t i = 0; i < arr.num_strings; i++) {
-    log_debug("String %zu: %s", i, arr.strings[i]);
     free(arr.strings[i]);
   }
   free(arr.strings);
@@ -37,7 +36,6 @@ void ct_security_parameters_free(ct_security_parameters_t* security_parameters) 
     ct_security_parameter_t* sec_param = &security_parameters->list[i];
     switch (sec_param->type) {
       case TYPE_STRING_ARRAY:
-        log_debug("String array type name is %s", sec_param->name);
         ct_string_array_value_free(sec_param->value.array_of_strings);
         break;
       case TYPE_CERTIFICATE_BUNDLES:

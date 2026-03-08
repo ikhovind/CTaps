@@ -40,7 +40,7 @@ int copy_remote_endpoints(ct_preconnection_t* preconnection,
       log_error("Failed to copy remote endpoint content for index %zu: %s", i, strerror(-rc));
       // Free any previously copied remote endpoints
       for (size_t j = 0; j < i; j++) {
-        ct_remote_endpoint_free_strings(&preconnection->remote_endpoints[j]);
+        ct_remote_endpoint_free_content(&preconnection->remote_endpoints[j]);
       }
       free(preconnection->remote_endpoints);
       preconnection->remote_endpoints = NULL;
@@ -240,7 +240,7 @@ void ct_preconnection_free(ct_preconnection_t* preconnection) {
   // Free remote endpoint strings and array
   if (preconnection->remote_endpoints != NULL) {
     for (size_t i = 0; i < preconnection->num_remote_endpoints; i++) {
-      ct_remote_endpoint_free_strings(&preconnection->remote_endpoints[i]);
+      ct_remote_endpoint_free_content(&preconnection->remote_endpoints[i]);
     }
     free(preconnection->remote_endpoints);
     preconnection->remote_endpoints = NULL;

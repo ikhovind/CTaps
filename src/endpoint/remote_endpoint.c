@@ -165,7 +165,7 @@ int ct_remote_endpoint_resolve(const ct_remote_endpoint_t* remote_endpoint, ct_r
   return 0;
 }
 
-void ct_remote_endpoint_free_strings(ct_remote_endpoint_t* remote_endpoint) {
+void ct_remote_endpoint_free_content(ct_remote_endpoint_t* remote_endpoint) {
   if (!remote_endpoint) {
     return;
   }
@@ -180,7 +180,7 @@ void ct_remote_endpoint_free_strings(ct_remote_endpoint_t* remote_endpoint) {
 }
 
 void ct_remote_endpoint_free(ct_remote_endpoint_t* remote_endpoint) {
-  ct_remote_endpoint_free_strings(remote_endpoint);
+  ct_remote_endpoint_free_content(remote_endpoint);
   free(remote_endpoint);
 }
 
@@ -240,29 +240,29 @@ ct_remote_endpoint_t* ct_remote_endpoints_deep_copy(const ct_remote_endpoint_t* 
   if (!remote_endpoints || num_remote_endpoints == 0) {
     return NULL;
   }
-  ct_remote_endpoint_t* res = malloc(sizeof(ct_remote_endpoint_t) * num_remote_endpoints);
-  if (!res) {
+  ct_remote_endpoint_t* res_endpoints = calloc(num_remote_endpoints, sizeof(ct_remote_endpoint_t));
+  if (!res_endpoints) {
     log_error("Failed to allocate memory for deep copy of remote endpoints");
     return NULL;
   }
   for (size_t i = 0; i < num_remote_endpoints; i++) {
-    int rc = ct_remote_endpoint_copy_content(&remote_endpoints[i], &res[i]);
+    int rc = ct_remote_endpoint_copy_content(&remote_endpoints[i], &res_endpoints[i]);
     if (rc != 0) {
       log_error("Failed to copy content for remote endpoint at index %zu: %s", i, strerror(-rc));
       // Free any previously copied endpoints before returning
       for (size_t j = 0; j < i; j++) {
-        ct_remote_endpoint_free_strings(&res[j]);
+        ct_remote_endpoint_free_content(&res_endpoints[j]);
       }
-      free(res);
+      free(res_endpoints);
       return NULL;
     }
   }
-  return res;
+  return res_endpoints;
 }
 
 void ct_remote_endpoints_free(ct_remote_endpoint_t* remote_endpoints, size_t num_remote_endpoints) {
   for (size_t i = 0; i < num_remote_endpoints; i++) {
-    ct_remote_endpoint_free_strings(&remote_endpoints[i]);
+    ct_remote_endpoint_free_content(&remote_endpoints[i]);
   }
   free(remote_endpoints);
 }
