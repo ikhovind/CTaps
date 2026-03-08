@@ -90,12 +90,23 @@ static void poll_recv_cb(uv_poll_t* handle, int status, int events) {
         .msg_controllen = sizeof(cmsg_buf),
     };
 
+    // uv_poll_t is level-triggered so do not need to loop here
     ssize_t nread = recvmsg(wrapper->fd, &msg, 0);
     if (nread < 0) {
         log_error("recvmsg failed: %s", strerror(errno));
         return;
     }
 
+    uint16_t local_port = wrapper->local_port;
+    if (local_port == 0) {
+        // If local_port is not set, get it from the socket
+      struct sockaddr_storage bound = {0};
+      socklen_t len = sizeof(bound);
+      getsockname(wrapper->fd, (struct sockaddr*)&bound, &len);
+      local_port = (bound.ss_family == AF_INET)
+          ? ntohs(((struct sockaddr_in*)&bound)->sin_port)
+          : ntohs(((struct sockaddr_in6*)&bound)->sin6_port);
+    }
     struct sockaddr_storage addr_to = {0};
     for (struct cmsghdr* cm = CMSG_FIRSTHDR(&msg); cm; cm = CMSG_NXTHDR(&msg, cm)) {
         if (cm->cmsg_level == IPPROTO_IP && cm->cmsg_type == IP_PKTINFO) {
@@ -103,19 +114,13 @@ static void poll_recv_cb(uv_poll_t* handle, int status, int events) {
             struct sockaddr_in* dst = (struct sockaddr_in*)&addr_to;
             dst->sin_family = AF_INET;
             dst->sin_addr   = pktinfo->ipi_addr;
-            struct sockaddr_storage bound = {0};
-            socklen_t len = sizeof(bound);
-            getsockname(wrapper->fd, (struct sockaddr*)&bound, &len);
-            dst->sin_port = ((struct sockaddr_in*)&bound)->sin_port;
+            dst->sin_port = local_port;
         } else if (cm->cmsg_level == IPPROTO_IPV6 && cm->cmsg_type == IPV6_PKTINFO) {
             struct in6_pktinfo* pktinfo = (struct in6_pktinfo*)CMSG_DATA(cm);
             struct sockaddr_in6* dst = (struct sockaddr_in6*)&addr_to;
             dst->sin6_family = AF_INET6;
             dst->sin6_addr   = pktinfo->ipi6_addr;
-            struct sockaddr_storage bound = {0};
-            socklen_t len = sizeof(bound);
-            getsockname(wrapper->fd, (struct sockaddr*)&bound, &len);
-            dst->sin6_port = ((struct sockaddr_in6*)&bound)->sin6_port;
+            dst->sin6_port = local_port;
         }
     }
 

@@ -107,8 +107,6 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(GLIB REQUIRED glib-2.0)
 pkg_check_modules(UUID REQUIRED uuid)
 
-message(STATUS "picoquic source dir: ${picoquic_SOURCE_DIR}")
-
 # This is the only way I have managed to link against picotls
 target_include_directories(CTaps
         PRIVATE 

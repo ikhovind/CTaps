@@ -1113,10 +1113,12 @@ CT_EXTERN const ct_local_endpoint_t* ct_message_context_get_local_endpoint(const
  * @return Pointer to newly allocated preconnection, or NULL on allocation failure
  */
 CT_EXTERN ct_preconnection_t* ct_preconnection_new(
- const ct_local_endpoint_t *local_endpoints,
- size_t num_local_endpoints,
- const ct_remote_endpoint_t* remote_endpoints,
- size_t num_remote_endpoints, const ct_transport_properties_t* transport_properties, const ct_security_parameters_t* security_parameters);
+  const ct_local_endpoint_t *local_endpoints,
+  size_t num_local_endpoints,
+  const ct_remote_endpoint_t* remote_endpoints,
+  size_t num_remote_endpoints,
+  const ct_transport_properties_t* transport_properties,
+  const ct_security_parameters_t* security_parameters);
 
 /**
  * @brief Free a preconnection object.
