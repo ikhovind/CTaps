@@ -57,7 +57,7 @@ void get_interface_addresses(const char *interface_name, int *num_found_addresse
 }
 
 void on_uv_getaddrinfo_cb(uv_getaddrinfo_t* req, int status, struct addrinfo* res) {
-  log_debug("DNS lookup completed with status: %d", status);
+  log_trace("DNS lookup completed with status: %d", status);
   ct_remote_resolve_call_context_t* context = req->data;
   ct_candidate_node_t* parent_data = (ct_candidate_node_t*)context->parent_node->data;
   if (status < 0) {
@@ -143,7 +143,10 @@ bool ct_sockaddr_equal(const struct sockaddr_storage* a, const struct sockaddr_s
   else if (a->ss_family == AF_INET6) {
     struct sockaddr_in6* a_in6 = (struct sockaddr_in6*)a;
     struct sockaddr_in6* b_in6 = (struct sockaddr_in6*)b;
-    return a_in6->sin6_port == b_in6->sin6_port && memcmp(&a_in6->sin6_addr, &b_in6->sin6_addr, sizeof(struct in6_addr)) == 0;
+    return (a_in6->sin6_family == b_in6->sin6_family) &&
+           (a_in6->sin6_port == b_in6->sin6_port) &&
+           (a_in6->sin6_scope_id == b_in6->sin6_scope_id) &&
+           (memcmp(&a_in6->sin6_addr, &b_in6->sin6_addr, sizeof(struct in6_addr)) == 0);
   }
   return false;
 }

@@ -37,7 +37,7 @@ struct IptablesGuard {
 
         }
         if (system("iptables -C INPUT  -d 127.0.0.1 -p udp --sport 4433 -j DROP 2>/dev/null") == 0) {
-            system("iptables -A INPUT  -d 127.0.0.1 -p udp --sport 4433 -j DROP");
+            system("iptables -D INPUT  -d 127.0.0.1 -p udp --sport 4433 -j DROP");
         }
     }
 };
