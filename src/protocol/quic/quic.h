@@ -4,12 +4,15 @@
 
 #include "ctaps.h"
 #include "ctaps_internal.h"
+#include "protocol/common/socket_utils.h"
 #include <picoquic.h>
 #include <stdbool.h>
 #include <uv.h>
 
 struct ct_socket_manager_s;
 struct ct_listener_s;
+
+#define MAX_QUIC_PACKET_SIZE PICOQUIC_MAX_PACKET_SIZE
 
 // Passed as a parameter to picoquic_create()
 #define MAX_CONCURRENT_QUIC_CONNECTIONS 256
@@ -18,7 +21,7 @@ struct ct_listener_s;
 // Gotten through socket_manager internal state
 // 1-1 with socket manager, so freed when socket manager is freed.
 typedef struct ct_quic_socket_state_s {
-  uv_udp_t* udp_handle;
+  ct_udp_poll_handle_t* poll_handle;
   picoquic_quic_t* picoquic_ctx;
   uv_timer_t* timer_handle;
   struct ct_socket_manager_s* socket_manager;  // Back-pointer to owner
@@ -52,6 +55,11 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(const char* cert_file,
                                           const ct_security_parameters_t* security_parameters,
                                           ct_message_t* initial_message
                                           );
+
+void on_quic_poll_read(ct_socket_manager_t* socket_manager,
+                       const uint8_t* buf, ssize_t nread,
+                       const struct sockaddr* addr_from,
+                       const struct sockaddr* addr_to);
 
 void ct_quic_socket_state_free(ct_quic_socket_state_t* socket_state);
 void ct_close_quic_context(ct_quic_socket_state_t* ctx);

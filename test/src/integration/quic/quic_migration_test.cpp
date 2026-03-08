@@ -133,5 +133,4 @@ TEST_F(QuicMigrationTest, migratesAfterPrimaryLocalFails) {
     ct_preconnection_free(preconnection);
     ct_transport_properties_free(transport_properties);
     ct_security_parameters_free(security_parameters);
-    ASSERT_FALSE(true);
 }
