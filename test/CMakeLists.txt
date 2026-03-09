@@ -124,7 +124,7 @@ endfunction()
 list(TRANSFORM CTAPS_SOURCES PREPEND ${CMAKE_SOURCE_DIR}/)
 
 
-add_gtest(udp_ping_test SOURCES src/integration/udp_ping.cpp ${CTAPS_SOURCES})
+add_gtest(udp_ping_test SOURCES src/integration/udp/udp_ping_test.cpp ${CTAPS_SOURCES} ASAN_ENABLED)
 add_gtest(tcp_ping_test SOURCES src/integration/tcp/tcp_ping_test.cpp ${CTAPS_SOURCES})
 add_gtest(
         quic_ping_test

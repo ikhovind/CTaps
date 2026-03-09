@@ -68,7 +68,6 @@ TEST_F(UdpPingTests, sendsSingleUdpPacketWithoutEarlySend) {
 
 TEST_F(UdpPingTests, packetsAreReadInOrder) {
   // --- Setup ---
-  ct_initialize();
   ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
   ASSERT_NE(remote_endpoint, nullptr);
   ct_remote_endpoint_with_ipv4(remote_endpoint, inet_addr("127.0.0.1"));
@@ -108,7 +107,7 @@ TEST_F(UdpPingTests, packetsAreReadInOrder) {
 
   ASSERT_EQ(fake_message_sent_fake.call_count, 2);
   ASSERT_EQ(fake_message_sent_fake.arg0_history[0], test_context.client_connections[0]);
-  ASSERT_NE(fake_message_sent_fake.arg0_history[1], test_context.client_connections[1]);
+  ASSERT_EQ(fake_message_sent_fake.arg0_history[1], test_context.client_connections[0]);
 
   ct_remote_endpoint_free(remote_endpoint);
   ct_preconnection_free(preconnection);
@@ -118,7 +117,6 @@ TEST_F(UdpPingTests, packetsAreReadInOrder) {
 TEST_F(UdpPingTests, canPingArbitraryBytes) {
   log_info("Starting test: canPingArbitraryBytes");
   // --- Setup ---
-  ct_initialize();
   ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
   ASSERT_NE(remote_endpoint, nullptr);
   ct_remote_endpoint_with_ipv4(remote_endpoint, inet_addr("127.0.0.1"));

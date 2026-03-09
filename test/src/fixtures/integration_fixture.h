@@ -138,8 +138,18 @@ protected:
                 ct_message_free(msg);
             }
         }
+        for (ct_connection_t* conn : test_context.server_connections) {
+            ASSERT_TRUE(ct_connection_is_closed(conn));
+            ct_connection_free(conn);
+        }
+        for (ct_connection_t* conn : test_context.client_connections) {
+            ASSERT_TRUE(ct_connection_is_closed(conn));
+            ct_connection_free(conn);
+        }
         // delete test ticket store
         remove(TEST_CLIENT_TICKET_STORE);
+        int rc = ct_close();
+        ASSERT_EQ(rc, 0);
     }
     static void SetUpTestSuite() {
         server_pids_[0] = launch_server(PICOQUIC_PING_SERVER_PATH);

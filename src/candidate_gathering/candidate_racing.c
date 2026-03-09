@@ -77,6 +77,12 @@ static void on_timer_close_free_context(uv_handle_t* handle) {
   ct_racing_context_t* context = (ct_racing_context_t*)handle->data;
   free(handle);
 
+  if (!context->should_try_early_data && context->initial_message) {
+    log_debug("Freeing initial message and context for racing context with early data");
+    ct_message_free(context->initial_message);
+    ct_message_context_free(context->initial_message_context);
+  }
+
   if (context != NULL) {
     log_debug("Timer closed, now freeing racing context");
 
@@ -417,7 +423,8 @@ int racing_on_attempt_ready(ct_connection_t* connection) {
   // If we didn't send the initial message as early data, send it now
   if (!context->should_try_early_data && context->initial_message) {
     log_debug("Sending initial message on winning connection");
-    // This takes deep copy of message and context, so freeing our copies is fine in racing_context_free
+    // Because this is a part of the public API, it takes a deep copy of the message and message context.
+    // Our copies are freed in racing_context_free-flow
     int rc = ct_send_message_full(connection, context->initial_message, context->initial_message_context);
     if (rc != 0) {
       log_error("Failed to send initial message on winning connection: %d", rc);

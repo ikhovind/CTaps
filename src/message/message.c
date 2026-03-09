@@ -44,7 +44,7 @@ void ct_message_free(ct_message_t* message) {
   if (!message) {
     return;
   }
-  log_trace("Freeing message of size %zu", message->length);
+  log_debug("Freeing message of size %zu", message->length);
   free(message->content);
   free(message);
 }

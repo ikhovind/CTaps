@@ -126,18 +126,19 @@ void on_send(uv_udp_send_t* req, int status) {
   log_debug("UDP send callback invoked with status: %d", status);
   udp_send_data_t* send_data = req->data;
   ct_socket_manager_t* socket_manager = send_data->connection->socket_manager;
-  if (status) {
-    log_error("Send error for UDP: %s\n", uv_strerror(status));
-    socket_manager->callbacks.message_send_error(send_data->connection, send_data->message_context, status);
-  }
-  else {
-    socket_manager->callbacks.message_sent(send_data->connection, send_data->message_context);
-  }
-
+  ct_connection_t* connection = send_data->connection;
+  ct_message_context_t* message_context = send_data->message_context;
   // message context is freed by socket manager
   ct_message_free(send_data->message);
   free(send_data);
   free(req);
+  if (status) {
+    log_error("Send error for UDP: %s\n", uv_strerror(status));
+    socket_manager->callbacks.message_send_error(connection, message_context, status);
+  }
+  else {
+    socket_manager->callbacks.message_sent(connection, message_context);
+  }
 }
 
 void on_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
@@ -424,6 +425,7 @@ ct_udp_socket_state_t* ct_udp_socket_state_new(uv_udp_t* udp_handle) {
 }
 
 void ct_udp_socket_state_free(ct_udp_socket_state_t* socket_state) {
+  free(socket_state->udp_handle);
   free(socket_state);
 }
 

@@ -346,7 +346,8 @@ ct_socket_manager_t* ct_socket_manager_new(const ct_protocol_impl_t* protocol_im
   socket_manager->listener = listener;
 
   if (protocol_impl->protocol_enum == CT_PROTOCOL_UDP) {
-    socket_manager->demux_table = g_hash_table_new(g_bytes_hash, g_bytes_equal);
+    socket_manager->demux_table = g_hash_table_new_full(g_bytes_hash, g_bytes_equal, (GDestroyNotify)g_bytes_unref, NULL);
+
     if (!socket_manager->demux_table) {
       log_error("Failed to create demux table for UDP socket manager");
       free(socket_manager);
