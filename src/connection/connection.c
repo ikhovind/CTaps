@@ -142,9 +142,7 @@ ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_
   rc = socket_manager_insert_connection(socket_manager, active_remote_endpoint, connection);
   if (rc < 0) {
     log_error("Failed to insert connection into socket manager: %d", rc);
-    ct_connection_group_free(group);
     ct_connection_free(connection);
-    ct_socket_manager_unref(socket_manager);
     return NULL;
   }
 
@@ -270,6 +268,13 @@ bool ct_connection_is_established(const ct_connection_t* connection) {
     return false;
   }
   return connection->properties.state == CONN_STATE_ESTABLISHED;
+}
+
+bool ct_connection_is_establishing(const ct_connection_t* connection) {
+  if (!connection) {
+    return false;
+  }
+  return connection->properties.state == CONN_STATE_ESTABLISHING;
 }
 
 bool ct_connection_is_closed_or_closing(const ct_connection_t* connection) {
@@ -472,20 +477,23 @@ void ct_connection_free_content(ct_connection_t* connection) {
     connection->security_parameters = NULL;
   }
 
+  // This needs to happen before unreferencing socket manager, since
+  // connection group needs to reach through to free connection group state
+  if (connection->connection_group) {
+    ct_connection_group_unref(connection->connection_group, connection);
+  }
+
+
   // These are wrapped just for unit tests not to segfault.
   if (connection->socket_manager) {
+    ct_socket_manager_free_connection_state(connection);
+
     ct_socket_manager_t* socket_manager = connection->socket_manager;
     if (socket_manager->all_connections) {
       socket_manager->all_connections = g_slist_remove(socket_manager->all_connections, connection);
     }
-
     ct_socket_manager_unref(socket_manager);
-  }
-  if (connection->connection_group && connection->connection_group->connections) {
-    g_hash_table_remove(connection->connection_group->connections, connection->uuid);
-  }
-  if (connection->connection_group) {
-    ct_connection_group_unref(connection->connection_group);
+    //ct_socket_manager_unref_connection(socket_manager, connection);
   }
 }
 

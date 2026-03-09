@@ -386,8 +386,6 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
   }
   if (rc != 0) {
     log_error("Failed to initiate connection attempt: %d", rc);
-    ct_connection_free(attempt->connection);
-
     return rc;
   }
 
@@ -452,11 +450,13 @@ int racing_on_attempt_ready(ct_connection_t* connection) {
  * @brief ct_callback_t when a connection attempt fails.
  */
 static int on_attempt_establishment_error(ct_connection_t* connection) {
+  log_debug("Received establishment error for connection: %s", connection->uuid);
   ct_racing_attempt_t* attempt = (ct_racing_attempt_t*)connection->connection_callbacks.user_connection_context;
   ct_racing_context_t* context = attempt->context;
 
   log_info("ct_connection_t attempt %zu failed", attempt->attempt_index);
 
+  ct_connection_free(attempt->connection);
   // Check if race is already complete (another attempt won)
   if (context->race_complete) {
     log_debug("Race already complete, ignoring this failure");
@@ -464,7 +464,6 @@ static int on_attempt_establishment_error(ct_connection_t* connection) {
   }
 
   register_failed_attempt(context, attempt);
-  ct_connection_free(connection);
   return 0;
 }
 
@@ -538,10 +537,9 @@ static void initiate_next_attempt(ct_racing_context_t* context) {
 
   int rc = start_connection_attempt(context, attempt);
   if (rc != 0) {
-    log_warn("Failed to start attempt %zu: %d", context->next_attempt_index, rc);
+    log_warn ("Failed to start attempt %zu/%zu, error code: ", context->next_attempt_index + 1, context->num_attempts, rc);
     register_failed_attempt(context, attempt);
     if (all_attempts_failed(context)) {
-      log_error("All connection attempts have failed");
       handle_all_attempts_failed(context);
       return;
     }

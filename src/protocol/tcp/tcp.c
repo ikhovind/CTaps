@@ -664,14 +664,12 @@ int tcp_clone_connection(const struct ct_connection_s* source_connection,
   return 0;
 }
 
-int tcp_free_state(ct_connection_t* connection) {
+void tcp_free_state(ct_connection_t* connection) {
   (void)connection;
-  return 0; // No-op since TCP has no per-connection state
 }
 
-int tcp_free_connection_group_state(ct_connection_group_t* connection_group) {
+void tcp_free_connection_group_state(ct_connection_group_t* connection_group) {
   (void)connection_group;
-  return 0;
 }
 
 int tcp_close_socket(ct_socket_manager_t* socket_manager) {

@@ -403,14 +403,12 @@ int udp_clone_connection(const struct ct_connection_s* source_connection, struct
   return 0;
 }
 
-int udp_free_state(ct_connection_t* connection) {
+void udp_free_state(ct_connection_t* connection) {
   free(connection->internal_connection_state);
-  return 0;
 }
 
-int udp_free_connection_group_state(ct_connection_group_t* connection_group) {
+void udp_free_connection_group_state(ct_connection_group_t* connection_group) {
   (void)connection_group;
-  return 0;
 }
 
 ct_udp_socket_state_t* ct_udp_socket_state_new(uv_udp_t* udp_handle) {

@@ -35,12 +35,12 @@ int tcp_stop_listen(struct ct_socket_manager_s* socket_manager);
 int tcp_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* resolved_peer);
 int tcp_clone_connection(const struct ct_connection_s* source_connection,
                          struct ct_connection_s* target_connection);
-int tcp_free_state(ct_connection_t* connection);
+void tcp_free_state(ct_connection_t* connection);
 int tcp_close_connection_group(ct_connection_group_t* connection_group);
 /**
   * @brief No-op, TCP is not multiplexed and therefore has no shared state across cloned connections.
   */
-int tcp_free_connection_group_state(ct_connection_group_t* connection_group);
+void tcp_free_connection_group_state(ct_connection_group_t* connection_group);
 
 ct_tcp_socket_state_t* ct_tcp_socket_state_new(ct_connection_t* connection,
                                                  ct_listener_t* listener,

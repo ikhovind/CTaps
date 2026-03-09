@@ -1294,7 +1294,14 @@ CT_EXTERN const ct_local_endpoint_t* ct_connection_get_active_local_endpoint(con
  * @param[in] connection The connection to check
  * @return true if connection is established, false if open or connection is NULL
  */
-bool ct_connection_is_established(const ct_connection_t* connection);
+CT_EXTERN bool ct_connection_is_established(const ct_connection_t* connection);
+
+/**
+ * @brief Check if a connection is currently being established.
+ * @param[in] connection The connection to check
+ * @return true if connection is in the process of being established, false if established, closed, or connection is NULL
+ */
+CT_EXTERN bool ct_connection_is_establishing(const ct_connection_t* connection);
 
 /**
  * @brief Check if a connection is currently being closed.
