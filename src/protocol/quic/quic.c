@@ -63,7 +63,8 @@ const ct_protocol_impl_t quic_protocol_interface = {
     .free_socket_state = quic_free_socket_state,
     .close_connection_group = quic_close_connection_group,
     .set_connection_priority = quic_set_connection_priority,
-    .free_connection_state = quic_free_state
+    .free_connection_state = quic_free_state,
+    .free_connection_group_state = ct_free_quic_connection_group_state
 };
 
 typedef struct ct_quic_send_state_t {
@@ -171,7 +172,6 @@ void quic_closed_poll_handle_cb(uv_handle_t* handle);
 
 void socket_timer_close_cb(uv_handle_t* handle) {
   ct_quic_socket_state_t* quic_ctx = (ct_quic_socket_state_t*)handle->data;
-  // TODO segfault here
   if (quic_ctx && quic_ctx->ticket_store_path) {
     int rc = picoquic_save_session_tickets(quic_ctx->picoquic_ctx, quic_ctx->ticket_store_path);
     if (rc != 0) {
@@ -186,6 +186,11 @@ void socket_timer_close_cb(uv_handle_t* handle) {
     uv_poll_stop(&quic_ctx->poll_handle->poll);
     close(quic_ctx->poll_handle->fd);
     uv_close((uv_handle_t*)&quic_ctx->poll_handle->poll, quic_closed_poll_handle_cb);
+  }
+  else {
+    log_debug("No poll handle to close for QUIC socket state");
+    ct_socket_manager_t* socket_manager = quic_ctx->socket_manager;
+    socket_manager->callbacks.socket_closed(socket_manager);
   }
 }
 
@@ -1356,8 +1361,8 @@ int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbac
   ct_udp_poll_handle_t* poll_handle = create_udp_poll_on_local(ct_connection_get_active_local_endpoint(connection));
   if (!poll_handle) {
     log_error("Failed to create UDP handle for QUIC connection");
-    ct_close_quic_context(quic_context);
-    return -EIO;
+    connection->socket_manager->callbacks.aborted_connection(connection);
+    return 0;
   }
 
   poll_handle->poll.data = connection->socket_manager;
@@ -1369,15 +1374,14 @@ int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbac
   connection->connection_group->connection_group_state = ct_create_quic_group_state();
   if (!connection->connection_group->connection_group_state) {
     log_error("Failed to allocate QUIC group state");
-    ct_close_quic_context(quic_context);
-    return -ENOMEM;
+    connection->socket_manager->callbacks.aborted_connection(connection);
+    return 0;
   }
 
   ct_quic_stream_state_t* stream_state = malloc(sizeof(ct_quic_stream_state_t));
   if (!stream_state) {
     log_error("Failed to allocate QUIC stream state");
-    free(connection->connection_group->connection_group_state);
-    ct_close_quic_context(quic_context);
+    connection->socket_manager->callbacks.aborted_connection(connection);
     return -ENOMEM;
   }
   stream_state->stream_id = 0;
@@ -1388,20 +1392,16 @@ int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbac
   if (rc < 0) {
     log_error("Error getting UDP socket name: %s", uv_strerror(rc));
     log_error("Error code: %d", rc);
-    free(connection->connection_group->connection_group_state);
-    free(stream_state);
-    ct_close_quic_context(quic_context);
-    return rc;
+    connection->socket_manager->callbacks.aborted_connection(connection);
+    return 0;
   }
 
   size_t alpn_count = 0;
   const char** alpn_strings = ct_security_parameters_get_alpns(connection->security_parameters, &alpn_count);
   if (alpn_count == 0) {
     log_error("No ALPN strings configured for QUIC connection");
-    free(connection->connection_group->connection_group_state);
-    free(stream_state);
-    ct_close_quic_context(quic_context);
-    return -EINVAL;
+    connection->socket_manager->callbacks.aborted_connection(connection);
+    return 0;
   }
 
   ct_quic_connection_group_state_t* group_state = (ct_quic_connection_group_state_t*)connection->connection_group->connection_group_state;
@@ -1439,13 +1439,15 @@ int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbac
 
   if (rc < 0) {
     log_error("Failed to add initial message to QUIC stream: %d", rc);
-    return rc;
+    connection->socket_manager->callbacks.aborted_connection(connection);
+    return 0;
   }
   rc = picoquic_set_app_stream_ctx(group_state->picoquic_connection, ct_connection_get_stream_id(connection), connection);
 
   if (rc < 0) {
     log_error("Failed to set stream context for first connection: %d", rc);
-    return rc;
+    connection->socket_manager->callbacks.aborted_connection(connection);
+    return 0;
   }
 
   group_state->attempted_early_data = true;
@@ -1453,10 +1455,8 @@ int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbac
   rc = picoquic_start_client_cnx(group_state->picoquic_connection);
   if (rc != 0) {
     log_error("Error starting QUIC client connection: %d", rc);
-    free(group_state);
-    free(stream_state);
-    ct_close_quic_context(quic_context);
-    return rc;
+    connection->socket_manager->callbacks.aborted_connection(connection);
+    return 0;
   }
 
   reset_quic_timer(quic_context);
@@ -1507,8 +1507,8 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
   ct_udp_poll_handle_t* poll_handle = create_udp_poll_on_local(ct_connection_get_active_local_endpoint(connection));
   if (!poll_handle) {
     log_error("Failed to create UDP handle for QUIC connection");
-    ct_close_quic_context(quic_context);
-    return -EIO;
+    connection->socket_manager->callbacks.aborted_connection(connection);
+    return 0;
   }
 
   poll_handle->poll.data = connection->socket_manager;
@@ -1517,26 +1517,23 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
   connection->connection_group->connection_group_state = ct_create_quic_group_state();
   if (!connection->connection_group->connection_group_state) {
     log_error("Failed to allocate QUIC group state");
-    ct_close_quic_context(quic_context);
-    return -ENOMEM;
+    connection->socket_manager->callbacks.aborted_connection(connection);
+    return 0;
   }
 
   connection->internal_connection_state = ct_quic_stream_state_new();
   if (!connection->internal_connection_state) {
     log_error("Failed to allocate QUIC stream state");
-    free(connection->connection_group->connection_group_state);
-    ct_close_quic_context(quic_context);
-    return -ENOMEM;
+    connection->socket_manager->callbacks.aborted_connection(connection);
+    return 0;
   }
 
   int rc = resolve_local_endpoint_from_poll(poll_handle, connection);
   if (rc < 0) {
     log_error("Error getting UDP socket name: %s", uv_strerror(rc));
     log_error("Error code: %d", rc);
-    free(connection->connection_group->connection_group_state);
-    free(connection->internal_connection_state);
-    ct_close_quic_context(quic_context);
-    return rc;
+    connection->socket_manager->callbacks.aborted_connection(connection);
+    return 0;
   }
 
   size_t alpn_count = 0;
@@ -1545,8 +1542,8 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
     log_error("No ALPN strings configured for QUIC connection");
     free(connection->connection_group->connection_group_state);
     free(connection->internal_connection_state);
-    ct_close_quic_context(quic_context);
-    return -EINVAL;
+    connection->socket_manager->callbacks.aborted_connection(connection);
+    return 0;
   }
 
   ct_quic_connection_group_state_t* group_state = (ct_quic_connection_group_state_t*)connection->connection_group->connection_group_state;
@@ -1569,10 +1566,8 @@ int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* conn
   rc = picoquic_start_client_cnx(group_state->picoquic_connection);
   if (rc != 0) {
     log_error("Error starting QUIC client connection: %d", rc);
-    free(connection->connection_group->connection_group_state);
-    free(connection->internal_connection_state);
-    ct_close_quic_context(quic_context);
-    return rc;
+    connection->socket_manager->callbacks.aborted_connection(connection);
+    return 0;
   }
 
 
@@ -1809,19 +1804,12 @@ int quic_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* reso
   return -ENOSYS;
 }
 
-int quic_free_state(ct_connection_t *connection) {
-  log_trace("Freeing QUIC connection resources");
+void quic_free_state(ct_connection_t *connection) {
   if (!connection || !connection->internal_connection_state) {
-    log_warn("QUIC connection or internal state is NULL during free_state");
-    log_debug("Connection pointer: %p", (void*)connection);
-    if (connection) {
-      log_debug("Internal connection state pointer: %p", (void*)connection->internal_connection_state);
-    }
-    return -EINVAL;
+    return;
   }
   ct_quic_stream_state_t* stream_state = (ct_quic_stream_state_t*)connection->internal_connection_state;
   free(stream_state);
-  return 0;
 }
 
 ct_quic_stream_state_t* ct_quic_stream_state_new(void) {
@@ -1834,17 +1822,17 @@ ct_quic_stream_state_t* ct_quic_stream_state_new(void) {
   return stream_state;
 }
 
-void ct_free_quic_connection_group_state(ct_quic_connection_group_state_t* group_state) {
+void ct_free_quic_connection_group_state(ct_connection_group_t* connection_group) {
+  ct_quic_connection_group_state_t* group_state = (ct_quic_connection_group_state_t*)connection_group->connection_group_state;
   if (!group_state) {
     log_warn("QUIC group state is NULL in close function");
     return;
   }
-  // TODO - do we need to do anything with cnx?
   free(group_state);
 }
 
 int quic_close_socket(ct_socket_manager_t* socket_manager) {
-  log_debug("Closing QUIC socket");
+  log_debug("Closing QUIC socket for socket manager %p", socket_manager);
   ct_quic_socket_state_t* socket_state = socket_manager->internal_socket_manager_state;
   ct_close_quic_context(socket_state);
   return 0;
@@ -1881,22 +1869,23 @@ int quic_set_connection_priority(ct_connection_t* connection, uint8_t priority) 
   return 0;
 }
 
-void ct_quic_socket_state_free(ct_quic_socket_state_t* socket_state) {
-  ct_socket_manager_t* socket_manager = socket_state->socket_manager;
-  for (GSList* iter = socket_manager->all_connections; iter != NULL; iter = iter->next) {
-    ct_connection_group_t* group = (ct_connection_group_t*)iter->data;
-    ct_quic_connection_group_state_t* group_state = (ct_quic_connection_group_state_t*)group->connection_group_state;
-    if (group_state && group_state->picoquic_connection) {
-      log_debug("deleting picoquic connection for connection group %s", group->connection_group_id);
-      // picoquic_delete_cnx(group_state->picoquic_connection);
-      // group_state->picoquic_connection = NULL;
-    }
-  }
-}
-
 int quic_free_socket_state(struct ct_socket_manager_s* socket_manager) {
   ct_quic_socket_state_t* socket_state = (ct_quic_socket_state_t*)socket_manager->internal_socket_manager_state;
-  (void)socket_state;
+  log_debug("Freeing QUIC socket state");
+
+  picoquic_free(socket_state->picoquic_ctx);
+  free(socket_state->poll_handle);
+  free(socket_state->timer_handle);
+  if (socket_state->cert_file_name) {
+    free(socket_state->cert_file_name);
+  }
+  if (socket_state->ticket_store_path) {
+    free(socket_state->ticket_store_path);
+  }
+  if (socket_state->key_file_name) {
+    free(socket_state->key_file_name);
+  }
+  free(socket_state);
   // ct_quic_socket_state_free(socket_state);
   return 0;
 }

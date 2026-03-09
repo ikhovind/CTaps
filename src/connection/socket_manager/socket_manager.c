@@ -97,9 +97,13 @@ int socket_manager_insert_connection(ct_socket_manager_t* socket_manager, const 
 }
 
 
-int ct_socket_manager_get_num_open_connections(const ct_socket_manager_t* socket_manager) {
+int ct_socket_manager_get_num_open_dependents(const ct_socket_manager_t* socket_manager) {
   log_trace("Checking how many open connections socket manager has");
   int counter = 0;
+  if (socket_manager->listener && socket_manager->listener->state != CT_LISTENER_STATE_CLOSED) {
+    counter++;
+  }
+
   for (GSList* node = socket_manager->all_connections; node != NULL; node = node->next) {
     ct_connection_t* connection = (ct_connection_t*)node->data;
     if (!ct_connection_is_closed(connection)) {
@@ -107,6 +111,20 @@ int ct_socket_manager_get_num_open_connections(const ct_socket_manager_t* socket
     }
   }
   return counter;
+}
+
+void ct_socket_manager_unref_connection(ct_socket_manager_t* socket_manager, ct_connection_t* connection) {
+  if (!socket_manager || !connection) {
+    log_warn("Attempted to unreference NULL socket manager or NULL connection");
+    return;
+  }
+  socket_manager->all_connections = g_slist_remove(socket_manager->all_connections, connection);
+  socket_manager->ref_count--;
+  log_debug("Decremented socket manager %p, new reference count is: %d", socket_manager, socket_manager->ref_count);
+  if (socket_manager->ref_count == 0) {
+    log_trace("Socket manager reference count is zero, freeing socket manager");
+    ct_socket_manager_free(socket_manager);
+  }
 }
 
 void ct_socket_manager_unref(ct_socket_manager_t* socket_manager) {
@@ -122,18 +140,6 @@ void ct_socket_manager_unref(ct_socket_manager_t* socket_manager) {
   }
 }
 
-
-void ct_socket_manager_handle_closed_connection(ct_socket_manager_t* socket_manager) {
-  if (!socket_manager) {
-    log_warn("NULL socket manager parameter for ct_socket_manager_handle_closed_connection");
-    return;
-  }
-  if (!socket_manager->listener) {
-    if (ct_socket_manager_get_num_open_connections(socket_manager) == 0) {
-      ct_socket_manager_close(socket_manager);
-    }
-  }
-}
 
 void ct_socket_manager_close(ct_socket_manager_t* socket_manager) {
   if (!socket_manager) {
@@ -153,18 +159,54 @@ int ct_socket_manager_close_group(ct_socket_manager_t* socket_manager, ct_connec
 
 void ct_socket_manager_closed_socket_cb(ct_socket_manager_t* socket_manager) {
   log_debug("Socket manager socket closed callback invoked");
+  log_debug("The number of connections on closed socket manager is: %d", g_slist_length(socket_manager->all_connections));
+  ct_connection_t* conn = NULL;
   for (GSList* node = socket_manager->all_connections; node != NULL; node = node->next) {
+    log_debug("In iteration");
     log_debug("Checking connection: %s for closed socket notification", ((ct_connection_t*)node->data)->uuid);
-    ct_connection_t* conn = (ct_connection_t*)node->data;
-    if (!ct_connection_is_closed(conn)) {
-      log_debug("Connection: %s is still open, adding to list of connections to notify for closed socket", conn->uuid);
-      ct_connection_mark_as_closed(conn);
+
+    if (!ct_connection_is_closed(node->data)) {
+      conn = (ct_connection_t*)node->data;
+    }
+  }
+
+  if (!conn) {
+    log_error("No open connections found for closed socket manager, nothing to notify");
+    return;
+  }
+
+  log_debug("Connection: %s is still open, adding to list of connections to notify for closed socket", conn->uuid);
+  ct_connection_mark_as_closed(conn);
+  switch (socket_manager->close_reason) {
+    case CT_CLOSE_TYPE_GRACEFUL: {
       if(conn->connection_callbacks.closed) {
+        log_debug("Notifying connection: %s of graceful close via closed callback", conn->uuid);
         conn->connection_callbacks.closed(conn);
       }
-      // This is needed to avoid concurrent modification
-      // But only one open connection should be possible anyways
-      return;
+      else {
+        log_debug("No closed callback registered for connection: %s, cannot notify of graceful close", conn->uuid);
+      }
+      break;
+    }
+    case CT_CLOSE_TYPE_CONNECTION_ERROR: {
+      if (conn->connection_callbacks.connection_error) {
+        log_debug("Notifying connection: %s of connection error close via connection error callback", conn->uuid);
+        conn->connection_callbacks.connection_error(conn);
+      }
+      else {
+        log_debug("No connection error callback registered for connection: %s, cannot notify of connection error close", conn->uuid);
+      }
+      break;
+    }
+    case CT_CLOSE_TYPE_ESTABLISHMENT_ERROR: {
+      if (conn->connection_callbacks.establishment_error) {
+        log_debug("Notifying connection: %s of establishment error close via establishment error callback", conn->uuid);
+        conn->connection_callbacks.establishment_error(conn);
+      }
+      else {
+        log_debug("No establishment error callback registered for connection: %s, cannot notify of establishment error close", conn->uuid);
+      }
+      break;
     }
   }
 }
@@ -173,20 +215,15 @@ void ct_socket_manager_closed_connection_cb(ct_connection_t* connection) {
   ct_socket_manager_t* socket_manager = connection->socket_manager;
   log_debug("Socket manager closed connection callback invoked for connection: %s", connection->uuid);
 
-  if (!socket_manager->listener || socket_manager->listener->state == CT_LISTENER_STATE_CLOSED) {
-    log_debug("socket manager has closed/no attched listener, checking num open connections");
-    int num_open = ct_socket_manager_get_num_open_connections(socket_manager);
-    if (num_open <= 1) {
-      log_debug("The final open connection in socket manager is now closed, closing entire socket manager");
-      ct_socket_manager_close(socket_manager);
-      return;
-    }
-    else {
-      log_debug("Socket manager has %d open connections, not closing socket manager", num_open);
-    }
+  log_debug("socket manager has closed/no attched listener, checking num open connections");
+  int num_open = ct_socket_manager_get_num_open_dependents(socket_manager);
+  if (num_open == 1) {
+    log_debug("The final open connection in socket manager is now closed, closing entire socket manager");
+    ct_socket_manager_close(socket_manager);
+    return;
   }
   else {
-    log_debug("Socket manager %p has open listener, not closing socket manager", socket_manager);
+    log_debug("Socket manager %p has open dependents, not closing socket manager", socket_manager);
   }
   // Only mark as closed if it is not the final connection. For the
   // final connection we wait for the socket to close before marking
@@ -205,22 +242,18 @@ void ct_socket_manager_closed_connection_cb(ct_connection_t* connection) {
 void ct_socket_manager_establishment_error_cb(ct_connection_t* connection) {
   ct_socket_manager_t* socket_manager = connection->socket_manager;
   log_debug("Socket manager establishment error callback invoked for connection: %s", connection->uuid);
-  ct_connection_mark_as_closed(connection);
 
-  if (!socket_manager->listener || socket_manager->listener->state == CT_LISTENER_STATE_CLOSED) {
-    log_debug("socket manager has closed/no attched listener, checking num open connections");
-    int num_open = ct_socket_manager_get_num_open_connections(socket_manager);
-    if (num_open == 0) {
-      log_debug("Socket manager now has no open connections, closing en%tire socket manager");
-      ct_socket_manager_close(socket_manager);
-    }
-    else {
-      log_debug("Socket manager has %d open connections, not closing socket manager", num_open);
-    }
+  log_debug("socket manager has closed/no attched listener, checking num open connections");
+  int num_open = ct_socket_manager_get_num_open_dependents(socket_manager);
+  if (num_open == 1) {
+    log_debug("Socket manager now has no open connections, closing en%tire socket manager");
+    ct_socket_manager_close(socket_manager);
+    return;
   }
   else {
-    log_debug("Socket manager %p has attached listener, not closing socket manager", socket_manager);
+    log_debug("Socket manager %p has open dependents, not closing socket manager", socket_manager);
   }
+  ct_connection_mark_as_closed(connection);
   if (connection->connection_callbacks.establishment_error) {
     connection->connection_callbacks.establishment_error(connection);
   }
@@ -250,27 +283,36 @@ void ct_socket_manager_connection_ready_cb(ct_connection_t* connection) {
 void ct_socket_manager_aborted_connection_cb(ct_connection_t* connection) {
   ct_socket_manager_t* socket_manager = connection->socket_manager;
   log_debug("Socket manager aborted connection callback invoked for connection: %s", connection->uuid);
-  ct_connection_mark_as_closed(connection);
+  ct_connection_state_enum_t incoming_state = ct_connection_get_state(connection);
+  int num_open = ct_socket_manager_get_num_open_dependents(socket_manager);
 
-  if (!socket_manager->listener || socket_manager->listener->state == CT_LISTENER_STATE_CLOSED) {
-    log_debug("socket manager has closed/no attched listener, checking num open connections");
-    int num_open = ct_socket_manager_get_num_open_connections(socket_manager);
-    if (num_open == 0) {
-      log_debug("Socket manager now has no open connections, closing entire socket manager");
-      ct_socket_manager_close(socket_manager);
+  log_debug("socket manager has closed/no attched listener, checking num open connections");
+  if (num_open == 1) {
+    log_debug("Socket manager now has no open connections, closing entire socket manager");
+    socket_manager->close_reason = CT_CLOSE_TYPE_CONNECTION_ERROR;
+    if (incoming_state == CONN_STATE_ESTABLISHING) {
+      socket_manager->close_reason = CT_CLOSE_TYPE_ESTABLISHMENT_ERROR;
+    }
+    log_debug("close reason is: %d", socket_manager->close_reason);
+    ct_socket_manager_close(socket_manager);
+    return;
+  }
+  ct_connection_mark_as_closed(connection);
+  if (incoming_state == CONN_STATE_ESTABLISHING) {
+    if (connection->connection_callbacks.establishment_error) {
+      connection->connection_callbacks.establishment_error(connection);
     }
     else {
-      log_debug("Socket manager has %d open connections, not closing socket manager", num_open);
+      log_debug("No connection establishment error callback registered for connection: %s", connection->uuid);
     }
   }
   else {
-    log_debug("Socket manager %p has attached listener, not closing socket manager", socket_manager);
-  }
-  if (connection->connection_callbacks.connection_error) {
-    connection->connection_callbacks.connection_error(connection);
-  }
-  else {
-    log_debug("No connection error callback registered for connection: %s", connection->uuid);
+    if (connection->connection_callbacks.connection_error) {
+      connection->connection_callbacks.connection_error(connection);
+    }
+    else {
+      log_debug("No connection error callback registered for connection: %s", connection->uuid);
+    }
   }
 }
 
@@ -295,7 +337,7 @@ int ct_socket_manager_listener_stop(ct_socket_manager_t* socket_manager) {
 
   socket_manager->protocol_impl->stop_listen(socket_manager);
 
-  int num_open = ct_socket_manager_get_num_open_connections(socket_manager);
+  int num_open = ct_socket_manager_get_num_open_dependents(socket_manager);
   if (num_open == 0) {
     log_debug("Socket manager now has no open connections, closing entire socket manager");
     ct_socket_manager_close(socket_manager);
@@ -380,5 +422,14 @@ int ct_socket_manager_notify_protocol_of_priority_change(ct_connection_t* connec
   else {
     log_debug("Protocol: %s does not support setting connection priority", socket_manager->protocol_impl->name);
     return -ENOTSUP;
+  }
+}
+
+void ct_socket_manager_free_connection_state(ct_connection_t* connection) {
+  if (!connection) {
+    return;
+  }
+  if (connection->socket_manager->protocol_impl->free_connection_state) {
+    connection->socket_manager->protocol_impl->free_connection_state(connection);
   }
 }

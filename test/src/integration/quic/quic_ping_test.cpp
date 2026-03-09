@@ -75,7 +75,7 @@ TEST_F(QuicPingTest, successfullyPingsQuicServerWithout0Rtt) {
   ct_transport_properties_free(transport_properties);
 }
 
-TEST_F(QuicPingTest, ConnectionFailsIfAlpnDoesNotMatch) {
+TEST_F(QuicPingTest, connectionFailsIfAlpnDoesNotMatch) {
   // --- Setup ---
   ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
   ASSERT_NE(remote_endpoint, nullptr);
@@ -118,7 +118,7 @@ TEST_F(QuicPingTest, ConnectionFailsIfAlpnDoesNotMatch) {
   ct_transport_properties_free(transport_properties);
 }
 
-TEST_F(QuicPingTest, SuccessfullyPingsQuicServerEvenIfFirstAlpnDoesNotMatch) {
+TEST_F(QuicPingTest, successfullyPingsQuicServerEvenIfFirstAlpnDoesNotMatch) {
   // --- Setup ---
   ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
   ASSERT_NE(remote_endpoint, nullptr);

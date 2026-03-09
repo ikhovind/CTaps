@@ -11,6 +11,8 @@ void socket_manager_free(ct_socket_manager_t* socket_manager);
 
 void ct_socket_manager_unref(ct_socket_manager_t* socket_manager);
 
+void ct_socket_manager_unref_connection(ct_socket_manager_t* socket_manager, ct_connection_t* connection);
+
 void new_stream_connection_cb(uv_stream_t *server, int status);
 
 ct_connection_t* socket_manager_get_from_demux_table(ct_socket_manager_t* socket_manager, const struct sockaddr_storage* remote_addr);
@@ -19,7 +21,7 @@ int socket_manager_insert_connection(ct_socket_manager_t* socket_manager, const 
 
 ct_socket_manager_t* ct_socket_manager_new(const ct_protocol_impl_t* protocol_impl, ct_listener_t* listener);
 
-int ct_socket_manager_get_num_open_connections(const ct_socket_manager_t* socket_manager);
+int ct_socket_manager_get_num_open_dependents(const ct_socket_manager_t* socket_manager);
 
 void ct_socket_manager_close(ct_socket_manager_t* socket_manager);
 
@@ -28,6 +30,8 @@ int ct_socket_manager_close_connection(ct_socket_manager_t*, ct_connection_t*);
 int ct_socket_manager_close_group(ct_socket_manager_t* socket_manager, ct_connection_group_t* group);
 
 int ct_socket_manager_listener_stop(ct_socket_manager_t* socket_manager);
+
+void ct_socket_manager_free_connection_state(ct_connection_t* connection);
 
 void ct_socket_manager_free(ct_socket_manager_t* socket_manager);
 

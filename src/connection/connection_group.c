@@ -227,15 +227,22 @@ ct_connection_group_t* ct_connection_group_ref(ct_connection_group_t* group) {
   return group;
 }
 
-void ct_connection_group_unref(ct_connection_group_t* group) {
+void ct_connection_group_unref(ct_connection_group_t* group, const ct_connection_t* connection) {
   if (!group) {
     log_error("ct_connection_group_unref called with NULL parameter");
     return;
   }
+
+  if (group->connections) {
+    g_hash_table_remove(connection->connection_group->connections, connection->uuid);
+  }
+
   log_trace("Unrefing connection group %s with ref count: %u", group->connection_group_id, group->ref_count);
   group->ref_count--;
   if (group->ref_count == 0) {
     log_debug("Connection group %s ref count is zero, freeing connection group", group->connection_group_id);
+    ct_socket_manager_t* socket_manager = connection->socket_manager;
+    socket_manager->protocol_impl->free_connection_group_state(group);
     ct_connection_group_free(group);
   }
 }

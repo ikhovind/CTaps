@@ -88,7 +88,7 @@ uint64_t ct_connection_group_get_num_active_connections(ct_connection_group_t* g
 
 ct_connection_group_t* ct_connection_group_ref(ct_connection_group_t* group);
 
-void ct_connection_group_unref(ct_connection_group_t* group);
+void ct_connection_group_unref(ct_connection_group_t* group, const ct_connection_t* connection);
 
 int ct_connection_group_set_active_remote_endpoint(ct_connection_group_t* group, const ct_remote_endpoint_t* remote_endpoint);
 

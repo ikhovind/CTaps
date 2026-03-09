@@ -405,7 +405,7 @@ typedef struct ct_protocol_impl_s {
   int (*remote_endpoint_from_peer)(uv_handle_t* peer, ct_remote_endpoint_t* resolved_peer);
 
   /** @brief Free protocol-specific state in a connection. */
-  int (*free_connection_state)(ct_connection_t* connection);
+  void (*free_connection_state)(ct_connection_t* connection);
 
   /** @brief Free socket-specific state in a connection. */
   int (*free_socket_state)(struct ct_socket_manager_s* socket_manager);
@@ -415,7 +415,7 @@ typedef struct ct_protocol_impl_s {
   int (*set_connection_priority)(ct_connection_t* connection, uint8_t priority);
 
   /** @brief Free protocol-specific shared state in a connection group, useful for multiplexing */
-  int (*free_connection_group_state)(ct_connection_group_t* connection_group);
+  void (*free_connection_group_state)(ct_connection_group_t* connection_group);
 
 } ct_protocol_impl_t;
 
@@ -469,6 +469,12 @@ typedef struct ct_socket_manager_callbacks_s {
   void (*socket_closed)(struct ct_socket_manager_s* socket_manager);
 } ct_socket_manager_callbacks_t;
 
+typedef enum {
+  CT_CLOSE_TYPE_ESTABLISHMENT_ERROR,
+  CT_CLOSE_TYPE_CONNECTION_ERROR,
+  CT_CLOSE_TYPE_GRACEFUL
+} ct_socket_manager_close_reason_t;
+
 
 typedef struct ct_socket_manager_s {
   void* internal_socket_manager_state;
@@ -478,6 +484,7 @@ typedef struct ct_socket_manager_s {
   const ct_protocol_impl_t* protocol_impl;
   struct ct_listener_s* listener;
   ct_socket_manager_callbacks_t callbacks;
+  ct_socket_manager_close_reason_t close_reason;
 } ct_socket_manager_t;
 
 
