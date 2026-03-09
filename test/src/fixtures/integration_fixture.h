@@ -122,6 +122,13 @@ protected:
         test_context.listener = nullptr;
         test_context.connection_succeeded = false;
         test_context.listener_ready_action = nullptr;
+
+        // IF the ping server isn't running, the test fails! Better than hanging.
+        for (pid_t& pid : server_pids_) {
+            int status;
+            pid_t result = waitpid(pid, &status, WNOHANG);
+            ASSERT_EQ(result, 0) << "Server failed to start";
+        }
     }
 
     void TearDown() override {
