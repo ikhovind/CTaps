@@ -49,7 +49,6 @@ int raced_connection_close_cb(ct_connection_t* connection) {
   log_debug("Freeing failed connection: %s created in candidate racing", connection->uuid);
   ct_racing_attempt_t* attempt = (ct_racing_attempt_t*)connection->connection_callbacks.user_connection_context;
   register_canceled_attempt(attempt->context, attempt);
-  ct_connection_free(connection);
   return 0;
 }
 
@@ -95,6 +94,10 @@ static void on_timer_close_free_context(uv_handle_t* handle) {
         // Free candidate endpoints (they were copied)
         ct_local_endpoint_free(attempt->candidate.local_endpoint);
         ct_remote_endpoint_free(attempt->candidate.remote_endpoint);
+
+        if (attempt->state != ATTEMPT_STATE_SUCCEEDED && attempt->connection) {
+          ct_connection_free(attempt->connection);
+        }
       }
       free(context->attempts);
     }
@@ -456,7 +459,6 @@ static int on_attempt_establishment_error(ct_connection_t* connection) {
 
   log_info("ct_connection_t attempt %zu failed", attempt->attempt_index);
 
-  ct_connection_free(attempt->connection);
   // Check if race is already complete (another attempt won)
   if (context->race_complete) {
     log_debug("Race already complete, ignoring this failure");
@@ -493,11 +495,6 @@ static void cancel_all_other_attempts(ct_racing_context_t* context, size_t winni
     else {
       log_debug("Not handling attempt %zu with state %d in cancel_all_other_attempts", i, attempt->state);
     }
-  }
-
-  // Stop the stagger timer
-  if (context->stagger_timer != NULL) {
-    uv_timer_stop(context->stagger_timer);
   }
 }
 

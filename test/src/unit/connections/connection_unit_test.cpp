@@ -119,69 +119,77 @@ TEST_F(ConnectionUnitTests, sendMessageFullCreatesMessageContextOnNull) {
     int rc = ct_send_message_full(&dummy_connection, &dummy_message, NULL);
     ASSERT_EQ(rc, 0);
 
-    ASSERT_EQ(__wrap_ct_message_deep_copy_fake.call_count, 1);
-    ASSERT_EQ(__wrap_ct_message_deep_copy_fake.arg0_val, &dummy_message);
-
     ASSERT_EQ(__wrap_ct_message_context_new_from_connection_fake.call_count, 1);
     ASSERT_EQ(__wrap_ct_message_context_new_from_connection_fake.arg0_val, &dummy_connection);
+    ASSERT_EQ(__wrap_ct_message_context_deep_copy_fake.call_count, 0);
 
+    ASSERT_EQ(__wrap_ct_message_deep_copy_fake.call_count, 1);
     ASSERT_EQ(fake_protocol_send_fake.call_count, 1);
-    ASSERT_EQ(fake_protocol_send_fake.arg0_val, &dummy_connection);
-    ASSERT_EQ(fake_protocol_send_fake.arg1_val, &dummy_message);
     ASSERT_EQ(fake_protocol_send_fake.arg2_val, &dummy_message_context);
 }
 
-TEST_F(ConnectionUnitTests, sendMessageFullDoesNotCreateMessageContextWhenNotNull) {
+TEST_F(ConnectionUnitTests, sendMessageFullDeepCopiesProvidedMessageContext) {
     int rc = ct_send_message_full(&dummy_connection, &dummy_message, &dummy_message_context);
     ASSERT_EQ(rc, 0);
 
-    ASSERT_EQ(__wrap_ct_message_deep_copy_fake.call_count, 1);
-    ASSERT_EQ(__wrap_ct_message_deep_copy_fake.arg0_val, &dummy_message);
-
+    ASSERT_EQ(__wrap_ct_message_context_deep_copy_fake.call_count, 1);
+    ASSERT_EQ(__wrap_ct_message_context_deep_copy_fake.arg0_val, &dummy_message_context);
     ASSERT_EQ(__wrap_ct_message_context_new_from_connection_fake.call_count, 0);
 
+    ASSERT_EQ(__wrap_ct_message_deep_copy_fake.call_count, 1);
     ASSERT_EQ(fake_protocol_send_fake.call_count, 1);
-    ASSERT_EQ(fake_protocol_send_fake.arg0_val, &dummy_connection);
-    ASSERT_EQ(fake_protocol_send_fake.arg1_val, &dummy_message);
-    ASSERT_EQ(fake_protocol_send_fake.arg2_val, &dummy_message_context);
+    ASSERT_EQ(fake_protocol_send_fake.arg2_val, &dummy_message_context); // fake returns &dummy_message_context
 }
 
-TEST_F(ConnectionUnitTests, sendMessageFullDoesNotCreateMessageContextAndHandsOverToFramer) {
+TEST_F(ConnectionUnitTests, sendMessageFullReturnsEnomemOnContextDeepCopyFailure) {
+    __wrap_ct_message_context_deep_copy_fake.return_val = nullptr;
+
+    int rc = ct_send_message_full(&dummy_connection, &dummy_message, &dummy_message_context);
+    ASSERT_EQ(rc, -ENOMEM);
+
+    ASSERT_EQ(__wrap_ct_message_deep_copy_fake.call_count, 0);
+    ASSERT_EQ(fake_protocol_send_fake.call_count, 0);
+}
+
+TEST_F(ConnectionUnitTests, sendMessageFullReturnsEnomemOnContextNewFromConnectionFailure) {
+    __wrap_ct_message_context_new_from_connection_fake.return_val = nullptr;
+
+    int rc = ct_send_message_full(&dummy_connection, &dummy_message, nullptr);
+    ASSERT_EQ(rc, -ENOMEM);
+
+    ASSERT_EQ(__wrap_ct_message_deep_copy_fake.call_count, 0);
+    ASSERT_EQ(fake_protocol_send_fake.call_count, 0);
+}
+
+TEST_F(ConnectionUnitTests, sendMessageFullReturnsEnomemOnMessageDeepCopyFailure) {
+    __wrap_ct_message_deep_copy_fake.return_val = nullptr;
+
+    int rc = ct_send_message_full(&dummy_connection, &dummy_message, nullptr);
+    ASSERT_EQ(rc, -ENOMEM);
+
+    ASSERT_EQ(__wrap_ct_message_context_free_fake.call_count, 1);
+    ASSERT_EQ(__wrap_ct_message_context_free_fake.arg0_val, &dummy_message_context);
+    ASSERT_EQ(fake_protocol_send_fake.call_count, 0);
+}
+
+TEST_F(ConnectionUnitTests, sendMessageFullHandsOverToFramer) {
     int rc = ct_send_message_full(&dummy_connection_with_framer, &dummy_message, NULL);
     ASSERT_EQ(rc, 0);
 
-    ASSERT_EQ(__wrap_ct_message_deep_copy_fake.call_count, 1);
-    ASSERT_EQ(__wrap_ct_message_deep_copy_fake.arg0_val, &dummy_message);
-
     ASSERT_EQ(__wrap_ct_message_context_new_from_connection_fake.call_count, 1);
     ASSERT_EQ(__wrap_ct_message_context_new_from_connection_fake.arg0_val, &dummy_connection_with_framer);
-
     ASSERT_EQ(fake_protocol_send_fake.call_count, 0);
-
     ASSERT_EQ(fake_encode_message_fake.call_count, 1);
     ASSERT_EQ(fake_encode_message_fake.arg0_val, &dummy_connection_with_framer);
     ASSERT_EQ(fake_encode_message_fake.arg1_val, &dummy_message);
     ASSERT_EQ(fake_encode_message_fake.arg2_val, &dummy_message_context);
 }
 
-TEST_F(ConnectionUnitTests, sendMessageFreesMessageContextOnFramerFailure) {
+TEST_F(ConnectionUnitTests, sendMessageFreesOnFramerFailure) {
     fake_encode_message_fake.return_val = -101;
 
     int rc = ct_send_message_full(&dummy_connection_with_framer, &dummy_message, NULL);
     ASSERT_EQ(rc, -101);
-
-    ASSERT_EQ(__wrap_ct_message_deep_copy_fake.call_count, 1);
-    ASSERT_EQ(__wrap_ct_message_deep_copy_fake.arg0_val, &dummy_message);
-
-    ASSERT_EQ(__wrap_ct_message_context_new_from_connection_fake.call_count, 1);
-    ASSERT_EQ(__wrap_ct_message_context_new_from_connection_fake.arg0_val, &dummy_connection_with_framer);
-
-    ASSERT_EQ(fake_protocol_send_fake.call_count, 0);
-
-    ASSERT_EQ(fake_encode_message_fake.call_count, 1);
-    ASSERT_EQ(fake_encode_message_fake.arg0_val, &dummy_connection_with_framer);
-    ASSERT_EQ(fake_encode_message_fake.arg1_val, &dummy_message);
-    ASSERT_EQ(fake_encode_message_fake.arg2_val, &dummy_message_context);
 
     ASSERT_EQ(__wrap_ct_message_context_free_fake.call_count, 1);
     ASSERT_EQ(__wrap_ct_message_context_free_fake.arg0_val, &dummy_message_context);
@@ -189,25 +197,47 @@ TEST_F(ConnectionUnitTests, sendMessageFreesMessageContextOnFramerFailure) {
     ASSERT_EQ(__wrap_ct_message_free_fake.arg0_val, &dummy_message);
 }
 
-TEST_F(ConnectionUnitTests, sendMessageFreesMessageContextOnProtocolFailure) {
+TEST_F(ConnectionUnitTests, sendMessageFreesOnProtocolFailure) {
     fake_protocol_send_fake.return_val = -101;
 
     int rc = ct_send_message_full(&dummy_connection, &dummy_message, NULL);
     ASSERT_EQ(rc, -101);
 
-    ASSERT_EQ(__wrap_ct_message_deep_copy_fake.call_count, 1);
-    ASSERT_EQ(__wrap_ct_message_deep_copy_fake.arg0_val, &dummy_message);
-
-    ASSERT_EQ(__wrap_ct_message_context_new_from_connection_fake.call_count, 1);
-    ASSERT_EQ(__wrap_ct_message_context_new_from_connection_fake.arg0_val, &dummy_connection);
-
-    ASSERT_EQ(fake_encode_message_fake.call_count, 0);
-
-    ASSERT_EQ(fake_protocol_send_fake.call_count, 1);
-    ASSERT_EQ(fake_protocol_send_fake.arg0_val, &dummy_connection);
-    ASSERT_EQ(fake_protocol_send_fake.arg1_val, &dummy_message);
-    ASSERT_EQ(fake_protocol_send_fake.arg2_val, &dummy_message_context);
+    ASSERT_EQ(__wrap_ct_message_context_free_fake.call_count, 1);
+    ASSERT_EQ(__wrap_ct_message_free_fake.call_count, 1);
 }
+
+TEST_F(ConnectionUnitTests, sendMessageFullFailsWhenCanSendIsFalse) {
+    ct_connection_set_can_send(&dummy_connection, false);
+
+    int rc = ct_send_message_full(&dummy_connection, &dummy_message, NULL);
+    ASSERT_EQ(rc, -EPIPE);
+
+    ASSERT_EQ(__wrap_ct_message_context_new_from_connection_fake.call_count, 0);
+    ASSERT_EQ(__wrap_ct_message_deep_copy_fake.call_count, 0);
+    ASSERT_EQ(fake_protocol_send_fake.call_count, 0);
+}
+
+TEST_F(ConnectionUnitTests, sendMessageWithFinalSetsCanSendToFalse) {
+    // Use a real context to set the FINAL property; free is wrapped so no cleanup needed
+    ct_message_context_t* context = ct_message_context_new();
+    ASSERT_NE(context, nullptr);
+    ct_message_context_set_final(context, true);
+
+    int rc = ct_send_message_full(&dummy_connection, &dummy_message, context);
+    ASSERT_EQ(rc, 0);
+
+    ASSERT_FALSE(ct_connection_can_send(&dummy_connection));
+    ASSERT_EQ(fake_protocol_send_fake.call_count, 1);
+}
+
+TEST_F(ConnectionUnitTests, sendMessageWithoutFinalDoesNotChangeCanSend) {
+    int rc = ct_send_message_full(&dummy_connection, &dummy_message, &dummy_message_context);
+    ASSERT_EQ(rc, 0);
+
+    ASSERT_TRUE(ct_connection_can_send(&dummy_connection));
+}
+
 
 TEST_F(ConnectionUnitTests, connectionCanSendReturnsCorrectRes) {
     ct_connection_t connection;
@@ -251,45 +281,6 @@ TEST_F(ConnectionUnitTests, SendMessageFullFailsWhenCanSendIsFalse) {
     // Cleanup
     ct_message_free(message);
     ct_connection_free(connection);
-}
-
-TEST_F(ConnectionUnitTests, SendMessageWithFinalSetsCanSendToFalse) {
-    RESET_FAKE(fake_protocol_send);
-    fake_protocol_send_fake.return_val = 0;
-    ct_socket_manager_t socket_manager = {0};
-    ct_protocol_impl_t protocol_impl;
-    socket_manager.protocol_impl = &protocol_impl;
-    protocol_impl.send = fake_protocol_send;
-
-    ct_connection_t* connection = ct_connection_create_empty_with_uuid();
-    ct_connection_set_can_send(connection, true);
-
-    connection->socket_manager = &socket_manager;
-
-    // Create message with FINAL property
-    ct_message_t* message = ct_message_new_with_content("final message", 14);
-    ASSERT_NE(message, nullptr);
-
-    ct_message_context_t* context = ct_message_context_new();
-    ASSERT_NE(context, nullptr);
-    ct_message_context_set_final(context, true);
-
-    // Send message
-    int rc = ct_send_message_full(connection, message, context);
-
-    // Verify send succeeded
-    EXPECT_EQ(rc, 0);
-
-    // Verify protocol send was called exactly once
-    EXPECT_EQ(fake_protocol_send_fake.call_count, 1);
-
-    // Verify canSend is now false
-    EXPECT_FALSE(ct_connection_can_send(connection));
-
-    // Cleanup
-    ct_message_free(message);
-    ct_message_context_free(context);
-    ct_connection_free_content(connection);
 }
 
 TEST_F(ConnectionUnitTests, connectionPropertyGetterGetsConnectionProperty) {

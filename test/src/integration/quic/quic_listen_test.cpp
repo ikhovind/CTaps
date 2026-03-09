@@ -106,7 +106,6 @@ TEST_F(QuicListenTests, QuicReceivesConnectionFromListenerAndExchangesMessages) 
     ct_transport_properties_free(client_props);
     ct_preconnection_free(listener_precon);
     ct_transport_properties_free(listener_props);
-    ct_close();
 }
 
 TEST_F(QuicListenTests, ServerInitiatesStreamByWritingFirst) {
@@ -203,7 +202,6 @@ TEST_F(QuicListenTests, ServerInitiatesStreamByWritingFirst) {
     ct_transport_properties_free(client_props);
     ct_preconnection_free(listener_precon);
     ct_transport_properties_free(listener_props);
-    ct_close();
 }
 
 TEST_F(QuicListenTests, ListenerCanReceive0RttMessage) {
@@ -343,7 +341,4 @@ TEST_F(QuicListenTests, ListenerCanReceive0RttMessage) {
     ct_transport_properties_free(client_props);
     ct_preconnection_free(listener_precon);
     ct_transport_properties_free(listener_props);
-
-
-    ct_close();
 }

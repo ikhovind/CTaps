@@ -434,6 +434,7 @@ void socket_closed_success(uv_handle_t* handle) {
 }
 
 int udp_close_socket(ct_socket_manager_t* socket_manager) {
+  log_debug("Closing UDP socket");
   if (!socket_manager) {
     log_error("NULL parameter passed to udp close socket");
     return -EINVAL;

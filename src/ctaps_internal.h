@@ -470,9 +470,9 @@ typedef struct ct_socket_manager_callbacks_s {
 } ct_socket_manager_callbacks_t;
 
 typedef enum {
+  CT_CLOSE_TYPE_GRACEFUL,
   CT_CLOSE_TYPE_ESTABLISHMENT_ERROR,
   CT_CLOSE_TYPE_CONNECTION_ERROR,
-  CT_CLOSE_TYPE_GRACEFUL
 } ct_socket_manager_close_reason_t;
 
 

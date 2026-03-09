@@ -242,7 +242,9 @@ void ct_connection_group_unref(ct_connection_group_t* group, const ct_connection
   if (group->ref_count == 0) {
     log_debug("Connection group %s ref count is zero, freeing connection group", group->connection_group_id);
     ct_socket_manager_t* socket_manager = connection->socket_manager;
-    socket_manager->protocol_impl->free_connection_group_state(group);
+    if (socket_manager->protocol_impl->free_connection_group_state) {
+      socket_manager->protocol_impl->free_connection_group_state(group);
+    }
     ct_connection_group_free(group);
   }
 }

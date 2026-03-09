@@ -163,7 +163,6 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     ct_remote_endpoint_free(listener_remote);
     ct_preconnection_free(listener_precon);
     ct_transport_properties_free(listener_props);
-    ct_close();
 }
 
 TEST_F(ConnectionCloneTest, clonesUdpConnectionSendsOnBothAndReceivesIndividualResponses) {
