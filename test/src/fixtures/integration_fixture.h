@@ -524,6 +524,8 @@ static int on_establishment_error(struct ct_connection_s* connection) {
 
 static int mark_connection_as_success_and_close(ct_connection_t* connection) {
     log_info("ct_connection_t is ready");
+    auto* ctx = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
+    ctx->client_connections.push_back(connection);
     auto* context = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
     context->connection_succeeded = true;
     ct_connection_close(connection);
