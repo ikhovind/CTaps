@@ -113,20 +113,6 @@ int ct_socket_manager_get_num_open_dependents(const ct_socket_manager_t* socket_
   return counter;
 }
 
-void ct_socket_manager_unref_connection(ct_socket_manager_t* socket_manager, ct_connection_t* connection) {
-  if (!socket_manager || !connection) {
-    log_warn("Attempted to unreference NULL socket manager or NULL connection");
-    return;
-  }
-  socket_manager->all_connections = g_slist_remove(socket_manager->all_connections, connection);
-  socket_manager->ref_count--;
-  log_debug("Decremented socket manager %p, new reference count is: %d", socket_manager, socket_manager->ref_count);
-  if (socket_manager->ref_count == 0) {
-    log_trace("Socket manager reference count is zero, freeing socket manager");
-    ct_socket_manager_free(socket_manager);
-  }
-}
-
 void ct_socket_manager_unref(ct_socket_manager_t* socket_manager) {
   if (!socket_manager) {
     log_warn("Attempted to unreference NULL socket manager");
@@ -162,7 +148,6 @@ void ct_socket_manager_closed_socket_cb(ct_socket_manager_t* socket_manager) {
   log_debug("The number of connections on closed socket manager is: %d", g_slist_length(socket_manager->all_connections));
   ct_connection_t* conn = NULL;
   for (GSList* node = socket_manager->all_connections; node != NULL; node = node->next) {
-    log_debug("In iteration");
     log_debug("Checking connection: %s for closed socket notification", ((ct_connection_t*)node->data)->uuid);
 
     if (!ct_connection_is_closed(node->data)) {
@@ -175,7 +160,6 @@ void ct_socket_manager_closed_socket_cb(ct_socket_manager_t* socket_manager) {
     return;
   }
 
-  log_debug("Connection: %s is still open, adding to list of connections to notify for closed socket", conn->uuid);
   ct_connection_mark_as_closed(conn);
   switch (socket_manager->close_reason) {
     case CT_CLOSE_TYPE_GRACEFUL: {
@@ -246,6 +230,7 @@ void ct_socket_manager_establishment_error_cb(ct_connection_t* connection) {
   log_debug("socket manager has closed/no attched listener, checking num open connections");
   int num_open = ct_socket_manager_get_num_open_dependents(socket_manager);
   if (num_open == 1) {
+    socket_manager->close_reason = CT_CLOSE_TYPE_ESTABLISHMENT_ERROR;
     log_debug("Socket manager now has no open connections, closing en%tire socket manager");
     ct_socket_manager_close(socket_manager);
     return;
@@ -338,6 +323,8 @@ int ct_socket_manager_listener_stop(ct_socket_manager_t* socket_manager) {
   socket_manager->protocol_impl->stop_listen(socket_manager);
 
   int num_open = ct_socket_manager_get_num_open_dependents(socket_manager);
+  // We have counted open dependents *after* closing listener, so 1 here means
+  // that there  is an unclosed connection still
   if (num_open == 0) {
     log_debug("Socket manager now has no open connections, closing entire socket manager");
     ct_socket_manager_close(socket_manager);
@@ -426,10 +413,11 @@ int ct_socket_manager_notify_protocol_of_priority_change(ct_connection_t* connec
 }
 
 void ct_socket_manager_free_connection_state(ct_connection_t* connection) {
-  if (!connection) {
+  if (!connection && !connection->socket_manager) {
     return;
   }
-  if (connection->socket_manager->protocol_impl->free_connection_state) {
+  ct_socket_manager_t* socket_manager = connection->socket_manager;
+  if (socket_manager->protocol_impl->free_connection_state) {
     connection->socket_manager->protocol_impl->free_connection_state(connection);
   }
 }

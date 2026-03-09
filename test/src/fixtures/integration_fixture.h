@@ -174,6 +174,7 @@ inline int on_connection_ready(ct_connection_t* connection) {
     printf("ct_callback_t: ct_connection_t is ready.\n");
     auto* context = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
     context->client_connections.push_back(connection);
+    ct_connection_close(connection);
     return 0;
 }
 
@@ -282,20 +283,6 @@ int respond_and_verify_server_message_context_remote_context_on_message_received
     ct_message_t* message = ct_message_new_with_content("pong", strlen("pong") + 1);
     ct_send_message(connection, message);
     ct_message_free(message);
-    return 0;
-}
-
-int receive_message_and_respond_on_connection_received(ct_listener_t* listener, ct_connection_t* new_connection) {
-    log_debug("ct_callback_t: receive_message_on_connection_received.");
-    auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
-    context->server_connections.push_back(new_connection);
-
-    ct_receive_callbacks_t receive_message_request = {
-      .receive_callback = respond_and_close_on_message_received,
-      .user_receive_context = ct_connection_get_callback_context(new_connection),
-    };
-
-    ct_receive_message(new_connection, receive_message_request);
     return 0;
 }
 

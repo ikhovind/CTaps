@@ -32,3 +32,11 @@ void ct_listener_free(ct_listener_t* listener) {
   }
   free(listener);
 }
+
+bool ct_listener_is_closed(const ct_listener_t* listener) {
+  if (!listener) {
+    log_warn("NULL listener parameter for ct_listener_is_closed");
+    return true;
+  }
+  return listener->state == CT_LISTENER_STATE_CLOSED;
+}

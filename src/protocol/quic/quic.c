@@ -828,6 +828,7 @@ int picoquic_callback(picoquic_cnx_t* cnx,
         if (rc < 0) {
           log_error("Failed to get UDP socket name: %s", uv_strerror(rc));
         }
+        log_debug("Number of connections in socket manager: %zu", g_slist_length(socket_manager->all_connections));
         socket_manager->callbacks.connection_ready(connection);
       }
       else if (ct_connection_is_client(connection)) {
@@ -944,22 +945,7 @@ int picoquic_callback(picoquic_cnx_t* cnx,
       break;
     case picoquic_callback_application_close:
       {
-        log_info("Received picoquic_callback_application_close event from picoquic");
-        connection = ct_connection_group_get_first(connection_group);
-
-        ct_quic_connection_group_set_close_initiated(connection_group, true);
-        uint64_t error_code = picoquic_get_application_error(cnx);
-        if (error_code == 0) {
-          log_info("Connection closed by peer without application error");
-          rc = handle_closed_picoquic_connection(connection_group);
-        } else {
-          log_info("Connection closed by peer with application error code: %llu", (unsigned long long)error_code);
-          rc = handle_aborted_picoquic_connection_group(connection_group);
-        }
-        if (rc != 0) {
-          log_error("Error handling closed picoquic connection: %d", rc);
-          return rc;
-        }
+        log_info("Received picoquic_callback_application_close event, waiting for close callback");
       }
       break;
     case picoquic_callback_request_alpn_list:
@@ -1161,17 +1147,13 @@ void on_quic_poll_read(ct_socket_manager_t* socket_manager,
         log_error("Error processing incoming QUIC packet: %d", rc);
     }
 
-    // Same new-connection handling as on_quic_udp_read
+    // Same new-connection handling as when first reading
     if (cnx && picoquic_get_callback_context(cnx) == picoquic_get_default_callback_context(picoquic_get_quic_ctx(cnx))) {
-        log_info("Received packet for new QUIC cnx for listener");
-        ct_listener_t* listener = socket_state->socket_manager->listener;
-        if (!listener) {
-            log_error("No listener associated with QUIC context for incoming connection");
-            return;
-        }
-      if (rc != 0) {
-        log_error("Could not get remote address from picoquic connection: %d", rc);
-        return;
+      log_info("Received packet for new QUIC cnx for listener");
+      ct_listener_t* listener = socket_state->socket_manager->listener;
+      if (!listener || ct_listener_is_closed(listener)) {
+          log_error("No listener associated with QUIC context for incoming connection");
+          return;
       }
 
       ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
@@ -1872,20 +1854,21 @@ int quic_set_connection_priority(ct_connection_t* connection, uint8_t priority) 
 int quic_free_socket_state(struct ct_socket_manager_s* socket_manager) {
   ct_quic_socket_state_t* socket_state = (ct_quic_socket_state_t*)socket_manager->internal_socket_manager_state;
   log_debug("Freeing QUIC socket state");
-
-  picoquic_free(socket_state->picoquic_ctx);
-  free(socket_state->poll_handle);
-  free(socket_state->timer_handle);
-  if (socket_state->cert_file_name) {
-    free(socket_state->cert_file_name);
+  if (socket_state) {
+    picoquic_free(socket_state->picoquic_ctx);
+    free(socket_state->poll_handle);
+    free(socket_state->timer_handle);
+    if (socket_state->cert_file_name) {
+      free(socket_state->cert_file_name);
+    }
+    if (socket_state->ticket_store_path) {
+      free(socket_state->ticket_store_path);
+    }
+    if (socket_state->key_file_name) {
+      free(socket_state->key_file_name);
+    }
+    free(socket_state);
   }
-  if (socket_state->ticket_store_path) {
-    free(socket_state->ticket_store_path);
-  }
-  if (socket_state->key_file_name) {
-    free(socket_state->key_file_name);
-  }
-  free(socket_state);
   // ct_quic_socket_state_free(socket_state);
   return 0;
 }

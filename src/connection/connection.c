@@ -493,7 +493,6 @@ void ct_connection_free_content(ct_connection_t* connection) {
       socket_manager->all_connections = g_slist_remove(socket_manager->all_connections, connection);
     }
     ct_socket_manager_unref(socket_manager);
-    //ct_socket_manager_unref_connection(socket_manager, connection);
   }
 }
 

@@ -673,8 +673,6 @@ void tcp_free_connection_group_state(ct_connection_group_t* connection_group) {
 }
 
 int tcp_close_socket(ct_socket_manager_t* socket_manager) {
-  // NO-op, since the socket is closed when the connection
-  // is closed
   socket_manager->callbacks.socket_closed(socket_manager);
   return 0;
 }

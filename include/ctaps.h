@@ -1470,6 +1470,10 @@ CT_EXTERN void ct_connection_close_group(ct_connection_t* connection);
 CT_EXTERN void ct_connection_abort_group(ct_connection_t* connection);
 
 // Listener
+
+
+CT_EXTERN bool ct_listener_is_closed(const ct_listener_t* listener);
+
 /**
  * @brief Close a listener and stop accepting new connections.
  * @param[in] listener Listener to close

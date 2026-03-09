@@ -185,6 +185,8 @@ add_gtest(connection_group_unit_test
   WRAP_FUNCTIONS
     ct_connection_set_active_remote_endpoint
     ct_connection_set_active_local_endpoint
+    ct_socket_manager_free_connection_state
+    ct_connection_abort
 )
 add_gtest(candidate_gathering_test
         SOURCES

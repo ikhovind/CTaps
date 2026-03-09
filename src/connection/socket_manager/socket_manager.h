@@ -11,8 +11,6 @@ void socket_manager_free(ct_socket_manager_t* socket_manager);
 
 void ct_socket_manager_unref(ct_socket_manager_t* socket_manager);
 
-void ct_socket_manager_unref_connection(ct_socket_manager_t* socket_manager, ct_connection_t* connection);
-
 void new_stream_connection_cb(uv_stream_t *server, int status);
 
 ct_connection_t* socket_manager_get_from_demux_table(ct_socket_manager_t* socket_manager, const struct sockaddr_storage* remote_addr);
