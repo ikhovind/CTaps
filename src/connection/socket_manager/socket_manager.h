@@ -15,7 +15,7 @@ void new_stream_connection_cb(uv_stream_t *server, int status);
 
 ct_connection_t* socket_manager_get_from_demux_table(ct_socket_manager_t* socket_manager, const struct sockaddr_storage* remote_addr);
 
-int socket_manager_insert_connection(ct_socket_manager_t* socket_manager, const ct_remote_endpoint_t* remote, ct_connection_t* connection);
+int socket_manager_insert_demuxed_connection(ct_socket_manager_t* socket_manager, const ct_remote_endpoint_t* remote, ct_connection_t* connection);
 
 ct_socket_manager_t* ct_socket_manager_new(const ct_protocol_impl_t* protocol_impl, ct_listener_t* listener);
 

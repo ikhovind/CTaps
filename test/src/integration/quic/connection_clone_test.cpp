@@ -96,7 +96,6 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     };
 
     ct_listener_t* listener = ct_preconnection_listen(listener_precon, listener_callbacks);
-    test_context.listener = listener;
 
     log_info("Listener created on port %d", QUIC_CLONE_LISTENER_PORT);
 

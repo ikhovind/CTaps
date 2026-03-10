@@ -131,16 +131,26 @@ void listener_candidate_node_array_ready_cb(GArray* candidate_nodes, void* conte
     log_debug("listening on port: %d with protocol: %s", first_node.local_endpoint->port, socket_manager->protocol_impl->name);
     *listener = (ct_listener_t){
       .listener_callbacks = listener_callbacks,
-      .local_endpoint = *first_node.local_endpoint,
       .num_local_endpoints = 1,
       .socket_manager = ct_socket_manager_ref(socket_manager),
       .state = CT_LISTENER_STATE_LISTENING,
       .transport_properties = preconnection->transport_properties,
       .security_parameters = preconnection->security_parameters,
     };
+    int rc = ct_local_endpoint_copy_content(first_node.local_endpoint, &listener->local_endpoint);
+    if (rc != 0) {
+      log_error("Failed to copy local endpoint content for listener: %s", strerror(-rc));
+      ct_socket_manager_unref(socket_manager);
+      free_candidate_array(candidate_nodes);
+      free(listener_candidate_node_array_ready_context);
+      if (listener->listener_callbacks.establishment_error) {
+        listener->listener_callbacks.establishment_error(listener, rc);
+      }
+      return;
+    }
 
     log_info("Starting to listen on ct_listener_t using protocol: %s on port: %d", socket_manager->protocol_impl->name, listener->local_endpoint.port);
-    int rc = socket_manager->protocol_impl->listen(socket_manager);
+    rc = socket_manager->protocol_impl->listen(socket_manager);
     if (rc != 0) {
       log_error("Failed to listen on socket manager for listener: %d", rc);
       ct_socket_manager_unref(socket_manager);
@@ -185,6 +195,7 @@ ct_listener_t* ct_preconnection_listen(const ct_preconnection_t* preconnection, 
     .candidate_node_array_ready_cb = listener_candidate_node_array_ready_cb,
     .context = cb_context,
   };
+
   int rc = get_ordered_candidate_nodes(preconnection, callbacks);
   if (rc != 0) {
     log_error("Failed to get ordered candidate nodes for listener");

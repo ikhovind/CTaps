@@ -65,34 +65,30 @@ void ct_socket_manager_free(ct_socket_manager_t* socket_manager) {
   free(socket_manager);
 }
 
-int socket_manager_insert_connection(ct_socket_manager_t* socket_manager, const ct_remote_endpoint_t* remote, ct_connection_t* connection) {
-  log_trace("Inserting connection: %s into socket manager for remote endpoint", connection->uuid);
+int socket_manager_insert_demuxed_connection(ct_socket_manager_t* socket_manager, const ct_remote_endpoint_t* remote, ct_connection_t* connection) {
+  log_trace("Inserting demuxed connection: %s into socket manager for remote endpoint", connection->uuid);
   struct sockaddr_storage remote_addr = remote->data.resolved_address;
 
-  if (socket_manager->protocol_impl->protocol_enum == CT_PROTOCOL_UDP) {
-    log_trace("Inserting connection into socket manager demux table for UDP protocol");
-    GBytes* addr_bytes = NULL;
-    if (remote_addr.ss_family == AF_INET) {
-      log_trace("Inserting connection for IPv4 remote endpoint");
-      addr_bytes = g_bytes_new(&remote_addr, sizeof(struct sockaddr_in));
-    }
-    else if (remote_addr.ss_family == AF_INET6) {
-      log_trace("Inserting connection for IPv6 remote endpoint");
-      addr_bytes = g_bytes_new(&remote_addr, sizeof(struct sockaddr_in6));
-    }
-    else {
-      log_error("socket_manager_insert_connection encountered unknown address family: %d", remote_addr.ss_family);
-      return -EINVAL;
-    }
-    if (g_hash_table_contains(socket_manager->demux_table, addr_bytes)) {
-      log_error("Connection for given remote endpoint already exists in socket manager");
-      g_bytes_unref(addr_bytes);
-      return -EEXIST;
-    }
-    g_hash_table_insert(socket_manager->demux_table, addr_bytes, connection);
+  log_trace("Inserting connection into socket manager demux table for UDP protocol");
+  GBytes* addr_bytes = NULL;
+  if (remote_addr.ss_family == AF_INET) {
+    log_trace("Inserting connection for IPv4 remote endpoint");
+    addr_bytes = g_bytes_new(&remote_addr, sizeof(struct sockaddr_in));
   }
-  socket_manager->all_connections = g_slist_prepend(socket_manager->all_connections, connection);
-  connection->socket_manager = ct_socket_manager_ref(socket_manager);
+  else if (remote_addr.ss_family == AF_INET6) {
+    log_trace("Inserting connection for IPv6 remote endpoint");
+    addr_bytes = g_bytes_new(&remote_addr, sizeof(struct sockaddr_in6));
+  }
+  else {
+    log_error("socket_manager_insert_connection encountered unknown address family: %d", remote_addr.ss_family);
+    return -EINVAL;
+  }
+  if (g_hash_table_contains(socket_manager->demux_table, addr_bytes)) {
+    log_error("Connection for given remote endpoint already exists in socket manager");
+    g_bytes_unref(addr_bytes);
+    return -EEXIST;
+  }
+  g_hash_table_insert(socket_manager->demux_table, addr_bytes, connection);
   return 0;
 }
 

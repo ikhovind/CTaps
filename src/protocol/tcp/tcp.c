@@ -656,7 +656,7 @@ int tcp_clone_connection(const struct ct_connection_s* source_connection,
     uv_close((uv_handle_t*)new_tcp_handle, on_libuv_close);
     return rc;
   }
-  socket_manager_insert_connection(socket_manager, ct_connection_get_active_remote_endpoint(target_connection), target_connection);
+  socket_manager_insert_demuxed_connection(socket_manager, ct_connection_get_active_remote_endpoint(target_connection), target_connection);
 
   log_info("TCP clone connection initiated, establishing asynchronously");
   return 0;

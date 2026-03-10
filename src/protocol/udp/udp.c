@@ -113,7 +113,7 @@ void udp_multiplex_received_message(ct_socket_manager_t* socket_manager, char* b
     ct_connection_set_can_send(connection, true);
     ct_connection_set_can_receive(connection, true);
 
-    socket_manager_insert_connection(socket_manager, ct_connection_get_active_remote_endpoint(connection), connection);
+    socket_manager_insert_demuxed_connection(socket_manager, ct_connection_get_active_remote_endpoint(connection), connection);
 
     ct_udp_socket_state_t* socket_state = (ct_udp_socket_state_t*)socket_manager->internal_socket_manager_state;
     log_debug("Calling connection received for UDP connection with handle: %p", socket_state->udp_handle);
@@ -386,7 +386,7 @@ int udp_clone_connection(const struct ct_connection_s* source_connection, struct
   ct_udp_socket_state_t* socket_state = ct_udp_socket_state_new(new_udp_handle);
 
   ct_socket_manager_t* clone_socket_manager = ct_socket_manager_new(source_connection->socket_manager->protocol_impl, NULL);
-  socket_manager_insert_connection(clone_socket_manager, ct_connection_get_active_remote_endpoint(target_connection), target_connection);
+  socket_manager_insert_demuxed_connection(clone_socket_manager, ct_connection_get_active_remote_endpoint(target_connection), target_connection);
 
   ct_connection_set_socket_state(target_connection, socket_state);
   new_udp_handle->data = target_connection->socket_manager;
