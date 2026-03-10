@@ -1177,7 +1177,6 @@ void on_quic_poll_read(ct_socket_manager_t* socket_manager,
         return;
       }
 
-      socket_manager_insert_connection(listener->socket_manager, remote_endpoint, connection);
       ct_remote_endpoint_free(remote_endpoint);
 
       log_trace("Created new ct_connection_t object for received QUIC cnx: %s", connection->uuid);
@@ -1189,7 +1188,7 @@ void on_quic_poll_read(ct_socket_manager_t* socket_manager,
       ct_quic_connection_group_state_t* group_state = ct_create_quic_group_state();
       if (!group_state) {
         log_error("Failed to allocate memory for QUIC group state");
-        free(connection);
+        ct_connection_free(connection);
         return;
       }
       group_state->picoquic_connection = cnx;
@@ -1200,7 +1199,7 @@ void on_quic_poll_read(ct_socket_manager_t* socket_manager,
       if (rc < 0) {
         log_error("Could not get UDP socket name for QUIC connection: %s", uv_strerror(rc));
         free(group_state);
-        free(connection);
+        ct_connection_free(connection);
         return;
       }
 
@@ -1211,7 +1210,7 @@ void on_quic_poll_read(ct_socket_manager_t* socket_manager,
       if (!stream_state) {
         log_error("Failed to allocate memory for QUIC stream state");
         free(group_state);
-        free(connection);
+        ct_connection_free(connection);
         return;
       }
       stream_state->stream_id = 0;
@@ -1642,7 +1641,7 @@ void quic_abort(ct_connection_t* connection) {
 int quic_clone_connection(const struct ct_connection_s* source_connection, struct ct_connection_s* target_connection) {
   log_debug("Creating clone of QUIC connection using multistreaming");
   ct_socket_manager_t* socket_manager = source_connection->socket_manager;
-  int rc = socket_manager_insert_connection(socket_manager, ct_connection_get_active_remote_endpoint(target_connection), target_connection);
+  int rc = socket_manager_insert_demuxed_connection(socket_manager, ct_connection_get_active_remote_endpoint(target_connection), target_connection);
   if (rc < 0) {
     log_error("Failed to insert cloned connection into socket manager: %d", rc);
     return rc;
@@ -1857,6 +1856,7 @@ int quic_free_socket_state(struct ct_socket_manager_s* socket_manager) {
   ct_quic_socket_state_t* socket_state = (ct_quic_socket_state_t*)socket_manager->internal_socket_manager_state;
   log_debug("Freeing QUIC socket state");
   if (socket_state) {
+    log_debug("Freeing QUIC socket state resources");
     picoquic_free(socket_state->picoquic_ctx);
     free(socket_state->poll_handle);
     free(socket_state->timer_handle);

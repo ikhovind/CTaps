@@ -10,7 +10,7 @@ extern "C" {
 
 class QuicListenTests : public CTapsGenericFixture {};
 
-TEST_F(QuicListenTests, QuicReceivesConnectionFromListenerAndExchangesMessages) {
+TEST_F(QuicListenTests, quicReceivesConnectionFromListenerAndExchangesMessages) {
     ct_local_endpoint_t* listener_endpoint = ct_local_endpoint_new();
     ASSERT_NE(listener_endpoint, nullptr);
 
@@ -39,6 +39,7 @@ TEST_F(QuicListenTests, QuicReceivesConnectionFromListenerAndExchangesMessages) 
     ct_security_parameters_free(server_security_parameters);
 
     ct_listener_callbacks_t listener_callbacks = {
+        .listener_ready = on_listener_ready_print_socket_manager_count,
         .connection_received = receive_message_respond_and_close_listener_on_connection_received,
         .user_listener_context = &test_context
     };
@@ -143,8 +144,6 @@ TEST_F(QuicListenTests, ServerInitiatesStreamByWritingFirst) {
 
     ct_listener_t* listener = ct_preconnection_listen(listener_precon, listener_callbacks);
 
-    test_context.listener = listener;
-
     // --- SETUP CLIENT ---
     ct_remote_endpoint_t* client_remote = ct_remote_endpoint_new();
     ASSERT_NE(client_remote, nullptr);
@@ -204,7 +203,7 @@ TEST_F(QuicListenTests, ServerInitiatesStreamByWritingFirst) {
     ct_transport_properties_free(listener_props);
 }
 
-TEST_F(QuicListenTests, ListenerCanReceive0RttMessage) {
+TEST_F(QuicListenTests, listenerCanReceive0RttMessage) {
     ct_local_endpoint_t* listener_endpoint = ct_local_endpoint_new();
     ASSERT_NE(listener_endpoint, nullptr);
 
@@ -238,6 +237,7 @@ TEST_F(QuicListenTests, ListenerCanReceive0RttMessage) {
     ct_security_parameters_free(server_security_parameters);
 
     ct_listener_callbacks_t listener_callbacks = {
+        .listener_ready = on_listener_ready_print_socket_manager_count,
         .connection_received = receive_message_respond_and_close_listener_on_connection_received,
         .user_listener_context = &test_context
     };
@@ -264,7 +264,7 @@ TEST_F(QuicListenTests, ListenerCanReceive0RttMessage) {
 
     ct_security_parameters_add_client_certificate(client_security_parameters, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
 
-  ct_security_parameters_set_ticket_store_path(client_security_parameters, TEST_CLIENT_TICKET_STORE);
+    ct_security_parameters_set_ticket_store_path(client_security_parameters, TEST_CLIENT_TICKET_STORE);
 
     ct_preconnection_t* client_precon = ct_preconnection_new(NULL, 0, client_remote, 1, client_props, client_security_parameters);
     ASSERT_NE(client_precon, nullptr);
@@ -287,9 +287,9 @@ TEST_F(QuicListenTests, ListenerCanReceive0RttMessage) {
     // --- ASSERTIONS ---
     ASSERT_EQ(per_connection_messages.size(), 2); // Both client and server connections
 
-    ct_connection_t* client_connection = test_context.client_connections[0];
-
+    ASSERT_EQ(test_context.client_connections.size(), 1);
     // Client receives "pong"
+    ct_connection_t* client_connection = test_context.client_connections[0];
     ASSERT_EQ(per_connection_messages[client_connection].size(), 1);
     ASSERT_EQ(per_connection_messages[client_connection][0]->length, 5);
     ASSERT_STREQ(per_connection_messages[client_connection][0]->content, "pong");
@@ -313,6 +313,8 @@ TEST_F(QuicListenTests, ListenerCanReceive0RttMessage) {
     ct_message_context_set_safely_replayable(early_data_ctx, true);
 
     ct_preconnection_initiate_with_send(client_precon, client_callbacks, early_data_msg, early_data_ctx);
+    ct_message_context_free(early_data_ctx);
+    ct_message_free(early_data_msg);
 
     ct_start_event_loop();
 

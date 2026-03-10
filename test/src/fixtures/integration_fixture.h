@@ -74,7 +74,7 @@ struct CallbackContext {
     std::vector<ct_connection_t*> client_connections;
     std::function<void(CallbackContext*)>* closing_function; // To close any connections/listeners etc.
     size_t total_expected_messages;
-    ct_listener_t* listener;
+    std::vector<ct_listener_t*> listeners;
     bool connection_succeeded = false;
     uint16_t expected_server_port = 0; // Expected remote port for message context verification
     std::function<void()> listener_ready_action;
@@ -119,7 +119,7 @@ protected:
         test_context.client_connections = client_connections;
         test_context.closing_function = nullptr;
         test_context.total_expected_messages = 1;
-        test_context.listener = nullptr;
+        test_context.listeners.clear();
         test_context.connection_succeeded = false;
         test_context.listener_ready_action = nullptr;
 
@@ -138,6 +138,11 @@ protected:
                 ct_message_free(msg);
             }
         }
+        for (ct_listener_t* listener : test_context.listeners) {
+            ASSERT_TRUE(ct_listener_is_closed(listener));
+            ct_listener_free(listener);
+        }
+
         for (ct_connection_t* conn : test_context.server_connections) {
             ASSERT_TRUE(ct_connection_is_closed(conn));
             ct_connection_free(conn);
@@ -286,10 +291,16 @@ int respond_and_verify_server_message_context_remote_context_on_message_received
     return 0;
 }
 
+void on_listener_ready_print_socket_manager_count(ct_listener_t* listener) {
+    log_debug("ct_callback_t: on_listener_ready_print_socket_manager_count");
+    log_debug("Listener socket manager reference count is: %d", listener->socket_manager->ref_count);
+}
+
 int receive_message_respond_and_close_listener_on_connection_received(ct_listener_t* listener, ct_connection_t* new_connection) {
     log_debug("ct_callback_t: receive_message_respond_and_close_listener_on_connection_received %s", ct_connection_get_uuid(new_connection));
     auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
     context->server_connections.push_back(new_connection);
+    context->listeners.push_back(listener);
 
     ct_receive_callbacks_t receive_message_request = {
       .receive_callback = respond_and_close_on_message_received,
@@ -486,6 +497,7 @@ int on_connection_received_receive_message_close_listener_and_send_new_message(c
     auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
     ct_listener_close(listener);
     context->server_connections.push_back(new_connection);
+    context->listeners.push_back(listener);
 
     ct_receive_callbacks_t receive_message_request = {
       .receive_callback = on_message_receive_send_new_message_and_receive_inline,
@@ -578,6 +590,7 @@ int server_sends_first_and_waits_for_response(ct_listener_t* listener, ct_connec
     
     auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
     context->server_connections.push_back(new_connection);
+    context->listeners.push_back(listener);
 
     // Server sends first message
     ct_message_t* message = ct_message_new_with_content("server-hello", strlen("server-hello") + 1);
@@ -756,13 +769,13 @@ int server_on_connection_received_for_cloning(ct_listener_t* listener, ct_connec
     log_info("Server: New connection received %p", (void*)new_connection);
     auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
     context->server_connections.push_back(new_connection);
+    context->listeners.push_back(listener);
 
     // Close listener after receiving both messages (original + clone)
     // Count total messages across all server connections
     if (context->server_connections.size() >= 2) {
         log_info("Server: Received all expected connections, closing listener");
-        ct_listener_close(context->listener);
-        context->listener = nullptr;
+        ct_listener_close(context->listeners[0]);
     }
     else {
         log_info("Server: Waiting for more connections, current count: %zu", context->server_connections.size());

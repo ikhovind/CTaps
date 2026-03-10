@@ -67,7 +67,6 @@ ct_connection_t* ct_connection_create_server_connection(ct_socket_manager_t* soc
 
   connection->num_remote_endpoints = 1;
   connection->active_remote_endpoint = 0;
-  connection->socket_manager = ct_socket_manager_ref(socket_manager);
   connection->num_local_endpoints = socket_manager->listener->num_local_endpoints;
   connection->all_local_endpoints = ct_local_endpoints_deep_copy(&socket_manager->listener->local_endpoint, socket_manager->listener->num_local_endpoints);
   if (!connection->all_local_endpoints && connection->num_local_endpoints > 0) {
@@ -82,6 +81,9 @@ ct_connection_t* ct_connection_create_server_connection(ct_socket_manager_t* soc
 
   connection->security_parameters = ct_security_parameters_deep_copy(security_parameters);
   connection->framer_impl = framer_impl; // TODO - ownership here?
+
+  socket_manager->all_connections = g_slist_prepend(socket_manager->all_connections, connection);
+  connection->socket_manager = ct_socket_manager_ref(socket_manager);
 
   log_debug("Created new server connection: %s", connection->uuid);
 
@@ -139,7 +141,12 @@ ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_
     return NULL;
   }
 
-  rc = socket_manager_insert_connection(socket_manager, active_remote_endpoint, connection);
+  socket_manager->all_connections = g_slist_prepend(socket_manager->all_connections, connection);
+  connection->socket_manager = ct_socket_manager_ref(socket_manager);
+
+  if (socket_manager->protocol_impl->protocol_enum == CT_PROTOCOL_UDP) {
+    rc = socket_manager_insert_demuxed_connection(socket_manager, active_remote_endpoint, connection);
+  }
   if (rc < 0) {
     log_error("Failed to insert connection into socket manager: %d", rc);
     ct_connection_free(connection);
@@ -184,7 +191,7 @@ ct_connection_t* ct_connection_create_clone(const ct_connection_t* source_connec
   // a custom one to the new connection after cloning
   if (socket_manager) {
     clone->socket_manager = ct_socket_manager_ref(socket_manager);
-    socket_manager_insert_connection(clone->socket_manager, &clone->all_remote_endpoints[clone->active_remote_endpoint], clone);
+    socket_manager_insert_demuxed_connection(clone->socket_manager, &clone->all_remote_endpoints[clone->active_remote_endpoint], clone);
   }
 
 
@@ -481,6 +488,7 @@ void ct_connection_free_content(ct_connection_t* connection) {
   // connection group needs to reach through to free connection group state
   if (connection->connection_group) {
     ct_connection_group_unref(connection);
+    connection->connection_group = NULL;
   }
 
 
@@ -493,6 +501,7 @@ void ct_connection_free_content(ct_connection_t* connection) {
       socket_manager->all_connections = g_slist_remove(socket_manager->all_connections, connection);
     }
     ct_socket_manager_unref(socket_manager);
+    connection->socket_manager = NULL;
   }
 }
 

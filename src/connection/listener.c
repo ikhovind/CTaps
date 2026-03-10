@@ -27,9 +27,15 @@ ct_local_endpoint_t ct_listener_get_local_endpoint(const ct_listener_t* listener
 }
 
 void ct_listener_free(ct_listener_t* listener) {
+  log_trace("Freeing ct_listener_t %p", (void*)listener);
   if (!listener) {
     return;
   }
+  if (listener->socket_manager) {
+    ct_socket_manager_unref(listener->socket_manager);
+    listener->socket_manager = NULL;
+  }
+  ct_local_endpoint_free_content(&listener->local_endpoint);
   free(listener);
 }
 
