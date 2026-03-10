@@ -23,8 +23,8 @@ typedef struct ct_tcp_send_data_s {
   ct_message_context_t* message_context;
 } ct_tcp_send_data_t;
 
-int tcp_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks);
-int tcp_init_with_send(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks, ct_message_t* initial_message, ct_message_context_t* initial_message_context);
+int tcp_init(ct_connection_t* connection);
+int tcp_init_with_send(ct_connection_t* connection, ct_message_t* initial_message, ct_message_context_t* initial_message_context);
 int tcp_close(ct_connection_t* connection);
 int tcp_close_socket(ct_socket_manager_t*);
 int tcp_free_socket_state(ct_socket_manager_t* socket_manager);

@@ -42,10 +42,6 @@ protected:
         __wrap_ct_connection_set_active_remote_endpoint_fake.return_val = 0;
         __wrap_ct_connection_set_active_local_endpoint_fake.return_val = 0;
 
-        static const char* uuids[num_connections] = {
-            "test-uuid-0", "test-uuid-1", "test-uuid-2", "test-uuid-3"
-        };
-
         group = ct_connection_group_new();
         for (int i = 0; i < num_connections; i++) {
             memset(&connections[i], 0, sizeof(ct_connection_t));
@@ -56,6 +52,8 @@ protected:
 
     void TearDown() override {
         g_hash_table_remove_all(group->connections);
+        ct_connection_group_free(group);
+
     }
 
     ct_remote_endpoint_t dummy_remote = {0};

@@ -381,11 +381,11 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
   int rc = 0;
   if (context->should_try_early_data) {
     log_debug("Initiating racing connection attempt with early data");
-    rc = attempt->connection->socket_manager->protocol_impl->init_with_send(attempt->connection, &attempt->connection->connection_callbacks, context->initial_message, context->initial_message_context);
+    rc = attempt->connection->socket_manager->protocol_impl->init_with_send(attempt->connection, context->initial_message, context->initial_message_context);
   }
   else {
     log_debug("Initiating racing connection attempt without early data");
-    rc = attempt->connection->socket_manager->protocol_impl->init(attempt->connection, &attempt->connection->connection_callbacks);
+    rc = attempt->connection->socket_manager->protocol_impl->init(attempt->connection);
   }
   if (rc != 0) {
     log_error("Failed to initiate connection attempt: %d", rc);
@@ -534,7 +534,7 @@ static void initiate_next_attempt(ct_racing_context_t* context) {
 
   int rc = start_connection_attempt(context, attempt);
   if (rc != 0) {
-    log_warn ("Failed to start attempt %zu/%zu, error code: ", context->next_attempt_index + 1, context->num_attempts, rc);
+    log_warn ("Failed to start attempt %zu/%zu, error code: %d", context->next_attempt_index + 1, context->num_attempts, rc);
     register_failed_attempt(context, attempt);
     if (all_attempts_failed(context)) {
       handle_all_attempts_failed(context);

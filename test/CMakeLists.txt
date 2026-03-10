@@ -187,6 +187,7 @@ add_gtest(connection_group_unit_test
     ct_connection_set_active_local_endpoint
     ct_socket_manager_free_connection_state
     ct_connection_abort
+  ASAN_ENABLED
 )
 add_gtest(candidate_gathering_test
         SOURCES

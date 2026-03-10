@@ -227,11 +227,12 @@ ct_connection_group_t* ct_connection_group_ref(ct_connection_group_t* group) {
   return group;
 }
 
-void ct_connection_group_unref(ct_connection_group_t* group, const ct_connection_t* connection) {
-  if (!group) {
-    log_error("ct_connection_group_unref called with NULL parameter");
+void ct_connection_group_unref(const ct_connection_t* connection) {
+  if (!connection) {
+    log_warn("ct_connection_group_unref called with NULL parameter");
     return;
   }
+  ct_connection_group_t* group = connection->connection_group;
 
   if (group->connections) {
     g_hash_table_remove(connection->connection_group->connections, connection->uuid);
