@@ -220,8 +220,7 @@ void closed_handle_cb(uv_handle_t* handle) {
   }
 }
 
-int udp_init_with_send(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks, ct_message_t* initial_message, ct_message_context_t* initial_message_context) {
-  (void)connection_callbacks;
+int udp_init_with_send(ct_connection_t* connection, ct_message_t* initial_message, ct_message_context_t* initial_message_context) {
   log_debug("Initiating UDP connection\n");
 
   ct_socket_manager_t* socket_manager = connection->socket_manager;
@@ -252,8 +251,8 @@ int udp_init_with_send(ct_connection_t* connection, const ct_connection_callback
   return 0;
 }
 
-int udp_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks) {
-  return udp_init_with_send(connection, connection_callbacks, NULL, NULL);
+int udp_init(ct_connection_t* connection) {
+  return udp_init_with_send(connection, NULL, NULL);
 }
 
 int udp_close(ct_connection_t* connection) {

@@ -480,7 +480,7 @@ void ct_connection_free_content(ct_connection_t* connection) {
   // This needs to happen before unreferencing socket manager, since
   // connection group needs to reach through to free connection group state
   if (connection->connection_group) {
-    ct_connection_group_unref(connection->connection_group, connection);
+    ct_connection_group_unref(connection);
   }
 
 

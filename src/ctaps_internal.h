@@ -371,10 +371,10 @@ typedef struct ct_protocol_impl_s {
   ct_selection_properties_t selection_properties; ///< Properties supported by this protocol
 
   /** @brief Initialize a new connection using this protocol. */
-  int (*init)(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks);
+  int (*init)(ct_connection_t* connection);
 
   /** @brief Initialize a new connection using this protocol and attempt 0-rtt. */
-  int (*init_with_send)(ct_connection_t*, const ct_connection_callbacks_t*, ct_message_t*, ct_message_context_t*);
+  int (*init_with_send)(ct_connection_t*, ct_message_t*, ct_message_context_t*);
 
   /** @brief Send a message over the protocol. 
    *

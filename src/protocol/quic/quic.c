@@ -172,7 +172,11 @@ void quic_closed_poll_handle_cb(uv_handle_t* handle);
 
 void socket_timer_close_cb(uv_handle_t* handle) {
   ct_quic_socket_state_t* quic_ctx = (ct_quic_socket_state_t*)handle->data;
-  if (quic_ctx && quic_ctx->ticket_store_path) {
+  if (!quic_ctx) {
+    log_warn("QUIC socket timer close callback called with NULL context");
+    return;
+  }
+  if (quic_ctx->ticket_store_path) {
     int rc = picoquic_save_session_tickets(quic_ctx->picoquic_ctx, quic_ctx->ticket_store_path);
     if (rc != 0) {
       log_error("Failed to save QUIC session tickets to store %s: %d", quic_ctx->ticket_store_path, rc);
@@ -1299,8 +1303,7 @@ void on_socket_timer(uv_timer_t* timer_handle) {
 }
 
 // TODO - this and quic_init shares a lot of code, should refactor to common function
-int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks, ct_message_t* initial_message, ct_message_context_t* initial_message_context) {
-  (void)connection_callbacks;
+int quic_init_with_send(ct_connection_t* connection, ct_message_t* initial_message, ct_message_context_t* initial_message_context) {
   log_info("Initializing standalone QUIC connection and attempting early data");
 
   // Get certificate from security parameters
@@ -1446,8 +1449,7 @@ int quic_init_with_send(ct_connection_t* connection, const ct_connection_callbac
   return 0;
 }
 
-int quic_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks) {
-  (void)connection_callbacks;
+int quic_init(ct_connection_t* connection) {
   log_info("Initializing standalone QUIC connection");
 
   // Get certificate from security parameters

@@ -16,12 +16,12 @@ typedef struct udp_send_data_s {
 } udp_send_data_t;
 
 ct_udp_socket_state_t* ct_udp_socket_state_new(uv_udp_t* udp_handle);
-int udp_init(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks);
-int udp_init_with_send(ct_connection_t* connection, const ct_connection_callbacks_t* connection_callbacks, ct_message_t* initial_message, ct_message_context_t* initial_message_context);
+int udp_init(ct_connection_t* connection);
+int udp_init_with_send(ct_connection_t* connection, ct_message_t* initial_message, ct_message_context_t* initial_message_context);
 int udp_close(ct_connection_t* connection);
 int udp_close_socket(ct_socket_manager_t*);
 void udp_abort(ct_connection_t* connection);
-int udp_send(ct_connection_t* connection, ct_message_t* message, ct_message_context_t*);
+int udp_send(ct_connection_t* connection, ct_message_t* message, ct_message_context_t* message_context);
 int udp_listen(struct ct_socket_manager_s* socket_manager);
 int udp_stop_listen(struct ct_socket_manager_s* socket_manager);
 int udp_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* resolved_peer);
