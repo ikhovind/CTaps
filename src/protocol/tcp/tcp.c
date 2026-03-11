@@ -533,6 +533,7 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
       listener->security_parameters,
       NULL
   );
+  ct_remote_endpoint_free(remote_endpoint);
 
   if (!server_conn) {
     log_error("Failed to build connection from received handle");
