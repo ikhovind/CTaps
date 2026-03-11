@@ -17,6 +17,8 @@ ct_connection_t* socket_manager_get_from_demux_table(ct_socket_manager_t* socket
 
 int socket_manager_insert_demuxed_connection(ct_socket_manager_t* socket_manager, const ct_remote_endpoint_t* remote, ct_connection_t* connection);
 
+void ct_socket_manager_add_connection(ct_socket_manager_t* socket_manager, ct_connection_t* connection);
+
 ct_socket_manager_t* ct_socket_manager_new(const ct_protocol_impl_t* protocol_impl, ct_listener_t* listener);
 
 int ct_socket_manager_get_num_open_dependents(const ct_socket_manager_t* socket_manager);

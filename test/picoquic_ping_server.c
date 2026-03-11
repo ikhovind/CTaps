@@ -155,9 +155,22 @@ static int server_callback(picoquic_cnx_t *cnx, uint64_t stream_id,
     return ret;
 }
 
+int picoquic_packet_loop_cb(picoquic_quic_t * quic, picoquic_packet_loop_cb_enum cb_mode, void * callback_ctx, void * callback_argv) {
+    switch (cb_mode) {
+        case picoquic_packet_loop_ready:
+        {
+            int ready_fd = (int)callback_ctx;
+            write(ready_fd, "1", 1);
+            break;
+        }
+    }
+    return 0;
+}
+
 int main(int argc, char *argv[]) {
     int port = DEFAULT_PORT;
-    if (argc > 1) port = atoi(argv[1]);
+
+    int ready_fd = atoi(argv[1]);
 
     printf("QUIC ping server on port %d (ALPN: %s)\n", port, ALPN);
 
@@ -177,7 +190,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    int ret = picoquic_packet_loop(quic, port, 0, 0, 0, 0, NULL, NULL);
+    int ret = picoquic_packet_loop(quic, port, 0, 0, 0, 0, picoquic_packet_loop_cb, (void*)ready_fd);
 
     if (ret != 0) {
         fprintf(stderr, "Packet loop error: %d\n", ret);

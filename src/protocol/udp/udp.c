@@ -159,7 +159,7 @@ void on_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf,
     return;
   }
 
-  log_trace("Received message over UDP handle: %p", handle);
+  log_debug("Received message over UDP handle: %p", handle);
   ct_socket_manager_t* socket_manager = (ct_socket_manager_t*)handle->data;
   ct_connection_t* connection = socket_manager_get_from_demux_table(socket_manager, (const struct sockaddr_storage*)addr);
   if (!connection) {
@@ -385,7 +385,14 @@ int udp_clone_connection(const struct ct_connection_s* source_connection, struct
   uv_udp_t* new_udp_handle = create_udp_listening_on_ephemeral(alloc_buffer, on_read);
   ct_udp_socket_state_t* socket_state = ct_udp_socket_state_new(new_udp_handle);
 
+  if (target_connection->socket_manager) {
+    ct_socket_manager_t* socket_manager = target_connection->socket_manager;
+    ct_socket_manager_unref(socket_manager);
+    socket_manager->all_connections = g_slist_remove(socket_manager->all_connections, target_connection);
+  }
+
   ct_socket_manager_t* clone_socket_manager = ct_socket_manager_new(source_connection->socket_manager->protocol_impl, NULL);
+  ct_socket_manager_add_connection(clone_socket_manager, target_connection);
   socket_manager_insert_demuxed_connection(clone_socket_manager, ct_connection_get_active_remote_endpoint(target_connection), target_connection);
 
   ct_connection_set_socket_state(target_connection, socket_state);

@@ -65,6 +65,16 @@ void ct_socket_manager_free(ct_socket_manager_t* socket_manager) {
   free(socket_manager);
 }
 
+void ct_socket_manager_add_connection(ct_socket_manager_t* socket_manager, ct_connection_t* connection) {
+  if (!socket_manager || !connection) {
+    log_error("NULL parameter passed to socket manager add connection");
+    log_debug("socket manager: %p, connection: %p", socket_manager, connection);
+    return;
+  }
+  socket_manager->all_connections = g_slist_prepend(socket_manager->all_connections, connection);
+  connection->socket_manager = ct_socket_manager_ref(socket_manager);
+}
+
 int socket_manager_insert_demuxed_connection(ct_socket_manager_t* socket_manager, const ct_remote_endpoint_t* remote, ct_connection_t* connection) {
   log_trace("Inserting demuxed connection: %s into socket manager for remote endpoint", connection->uuid);
   struct sockaddr_storage remote_addr = remote->data.resolved_address;

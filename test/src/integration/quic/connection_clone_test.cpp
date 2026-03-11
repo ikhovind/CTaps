@@ -151,8 +151,6 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     ASSERT_STREQ(per_connection_messages[original][0]->content, "Response: ping-original");
     ASSERT_STREQ(per_connection_messages[cloned][0]->content, "Response: ping-cloned");
 
-    log_info("Test completed successfully");
-
     // --- CLEANUP ---
     ct_remote_endpoint_free(client_remote);
     ct_transport_properties_free(client_props);

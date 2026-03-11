@@ -9,7 +9,7 @@
 #define TCP_PORT    5006
 #define BUFFER_SIZE 1024
 
-int main(void) {
+int main(int argc, char *argv[]) {
     int server_fd, conn_fd;
     struct sockaddr_in server_addr, client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
@@ -48,6 +48,10 @@ int main(void) {
         close(server_fd);
         return EXIT_FAILURE;
     }
+
+    int ready_fd = atoi(argv[1]);
+    write(ready_fd, "1", 1);
+    close(ready_fd);
 
     printf("TCP server listening on %s:%d\n", TCP_IP, TCP_PORT);
 
