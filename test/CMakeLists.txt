@@ -161,7 +161,7 @@ add_gtest(connection_unit_test
     ct_message_context_deep_copy
     ct_message_context_free
     ct_message_free
-    socket_manager_insert_connection
+    ct_socket_manager_add_connection
     ct_socket_manager_ref
     ct_socket_manager_notify_protocol_of_priority_change
     ct_local_endpoint_resolved_equals
@@ -176,6 +176,7 @@ add_gtest(socket_manager_unit_test
   WRAP_FUNCTIONS
     ct_message_context_free
     ct_message_free
+    g_slist_prepend
 )
 
 add_gtest(connection_group_unit_test 

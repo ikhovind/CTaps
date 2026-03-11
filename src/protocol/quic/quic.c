@@ -681,7 +681,7 @@ static int resolve_or_create_stream_connection(
                       (unsigned long long)stream_id);
             *out_is_new_connection = true;
             connection = ct_connection_create_clone(
-                connection, connection->socket_manager, NULL, ct_quic_stream_state_new());
+                connection, connection->socket_manager, connection->framer_impl, ct_quic_stream_state_new());
             if (!connection) {
                 log_error("Failed to create cloned connection for new stream");
                 return -ENOMEM;
@@ -1640,16 +1640,12 @@ void quic_abort(ct_connection_t* connection) {
 
 int quic_clone_connection(const struct ct_connection_s* source_connection, struct ct_connection_s* target_connection) {
   log_debug("Creating clone of QUIC connection using multistreaming");
-  ct_socket_manager_t* socket_manager = source_connection->socket_manager;
-  int rc = socket_manager_insert_demuxed_connection(socket_manager, ct_connection_get_active_remote_endpoint(target_connection), target_connection);
-  if (rc < 0) {
-    log_error("Failed to insert cloned connection into socket manager: %d", rc);
-    return rc;
+  target_connection->internal_connection_state = calloc(1, sizeof(ct_quic_stream_state_t));
+  if (!target_connection->internal_connection_state) {
+    log_error("Failed to allocate memory for cloned connection stream state");
+    return -ENOMEM;
   }
-  target_connection->internal_connection_state = malloc(sizeof(ct_quic_stream_state_t));
-  ct_quic_stream_state_t* target_state = (target_connection->internal_connection_state);
-  target_state->stream_id = 0;
-  target_state->stream_initialized = false;
+  ct_socket_manager_t* socket_manager = source_connection->socket_manager;
   socket_manager->callbacks.connection_ready(target_connection);
   return 0;
 }

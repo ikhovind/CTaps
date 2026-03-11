@@ -19,7 +19,7 @@ FAKE_VALUE_FUNC(ct_message_context_t*, __wrap_ct_message_context_deep_copy, cons
 FAKE_VALUE_FUNC(int, fake_encode_message, ct_connection_t*, ct_message_t*, ct_message_context_t*, ct_framer_done_encoding_callback);
 FAKE_VOID_FUNC(__wrap_ct_message_free, ct_message_t*);
 FAKE_VOID_FUNC(__wrap_ct_message_context_free, ct_message_context_t*);
-FAKE_VALUE_FUNC(int, __wrap_socket_manager_insert_connection, ct_socket_manager_t*, const ct_remote_endpoint_t*, ct_connection_t*);
+FAKE_VALUE_FUNC(int, __wrap_ct_socket_manager_add_connection, ct_socket_manager_t*, ct_connection_t*);
 FAKE_VALUE_FUNC(ct_socket_manager_t*, __wrap_ct_socket_manager_ref, ct_socket_manager_t*);
 FAKE_VALUE_FUNC(int, __wrap_ct_socket_manager_notify_protocol_of_priority_change, ct_connection_t*, uint8_t);
 FAKE_VALUE_FUNC(bool, __wrap_ct_local_endpoint_resolved_equals,
@@ -39,7 +39,7 @@ protected:
         RESET_FAKE(fake_encode_message);
         RESET_FAKE(__wrap_ct_message_free);
         RESET_FAKE(__wrap_ct_message_context_free);
-        RESET_FAKE(__wrap_socket_manager_insert_connection);
+        RESET_FAKE(__wrap_ct_socket_manager_add_connection);
         RESET_FAKE(__wrap_ct_socket_manager_ref);
         RESET_FAKE(__wrap_ct_socket_manager_notify_protocol_of_priority_change);
         RESET_FAKE(__wrap_ct_local_endpoint_resolved_equals);
@@ -84,7 +84,7 @@ protected:
 
         __wrap_ct_socket_manager_ref_fake.return_val = &dummy_socket_manager;
         __wrap_ct_socket_manager_notify_protocol_of_priority_change_fake.return_val = 0;
-        __wrap_socket_manager_insert_connection_fake.return_val = 0;
+        __wrap_ct_socket_manager_add_connection_fake.return_val = 0;
     }
 
     
@@ -320,19 +320,12 @@ TEST_F(ConnectionUnitTests, cloneSocketManagerIsNullWhenNoneProvided) {
 }
 
 TEST_F(ConnectionUnitTests, cloneSocketManagerIsSetWhenProvided) {
-    int prev_ref_count = dummy_socket_manager.ref_count;
     clone = ct_connection_create_clone(&dummy_connection, &dummy_socket_manager, nullptr, nullptr);
     ASSERT_NE(clone, nullptr);
 
-    ASSERT_EQ(__wrap_socket_manager_insert_connection_fake.call_count, 1);
-    ASSERT_EQ(__wrap_socket_manager_insert_connection_fake.arg0_val, &dummy_socket_manager);
-    ASSERT_EQ(__wrap_socket_manager_insert_connection_fake.arg1_val, &clone->all_remote_endpoints[clone->active_remote_endpoint]);
-    ASSERT_EQ(__wrap_socket_manager_insert_connection_fake.arg2_val, clone);
-
-    ASSERT_EQ(__wrap_ct_socket_manager_ref_fake.call_count, 1);
-    ASSERT_EQ(__wrap_ct_socket_manager_ref_fake.arg0_val, &dummy_socket_manager);
-
-    ASSERT_EQ(clone->socket_manager, &dummy_socket_manager);
+    ASSERT_EQ(__wrap_ct_socket_manager_add_connection_fake.call_count, 1);
+    ASSERT_EQ(__wrap_ct_socket_manager_add_connection_fake.arg0_val, &dummy_socket_manager);
+    ASSERT_EQ(__wrap_ct_socket_manager_add_connection_fake.arg1_val, clone);
 }
 
 TEST_F(ConnectionUnitTests, priorityIsSetToDefaultWhenCloning) {

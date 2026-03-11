@@ -87,17 +87,23 @@ private:
     inline static pid_t server_pids_[3];
 
     static pid_t launch_server(const char* path) {
-        log_info("Launching server: %s", path);
+        int pipefd[2];
+        if (pipe(pipefd) < 0) { perror("pipe"); return -1; }
+
         pid_t pid = fork();
-        EXPECT_NE(pid, -1) << "fork() failed: " << strerror(errno);
         if (pid == 0) {
-            int devnull = open("/dev/null", O_WRONLY);
-            dup2(devnull, STDOUT_FILENO);
-            dup2(devnull, STDERR_FILENO);
-            close(devnull);
-            execl(path, path, nullptr);
+            // child: close read end, pass write end via env or argv
+            close(pipefd[0]);
+            char fd_str[16];
+            snprintf(fd_str, sizeof(fd_str), "%d", pipefd[1]);
+            execl(path, path, fd_str, nullptr);
             _exit(1);
         }
+
+        close(pipefd[1]);
+        char buf[1];
+        read(pipefd[0], buf, 1);  // blocks until child writes or closes
+        close(pipefd[0]);
         return pid;
     }
 
@@ -138,15 +144,18 @@ protected:
                 ct_message_free(msg);
             }
         }
+        log_debug("Freeing all listeners in test cleanup");
         for (ct_listener_t* listener : test_context.listeners) {
             ASSERT_TRUE(ct_listener_is_closed(listener));
             ct_listener_free(listener);
         }
 
+        log_debug("Freeing all server connections in test cleanup");
         for (ct_connection_t* conn : test_context.server_connections) {
             ASSERT_TRUE(ct_connection_is_closed(conn));
             ct_connection_free(conn);
         }
+        log_debug("Freeing all client connections in test cleanup");
         for (ct_connection_t* conn : test_context.client_connections) {
             ASSERT_TRUE(ct_connection_is_closed(conn));
             ct_connection_free(conn);
@@ -769,13 +778,14 @@ int server_on_connection_received_for_cloning(ct_listener_t* listener, ct_connec
     log_info("Server: New connection received %p", (void*)new_connection);
     auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
     context->server_connections.push_back(new_connection);
-    context->listeners.push_back(listener);
 
     // Close listener after receiving both messages (original + clone)
     // Count total messages across all server connections
     if (context->server_connections.size() >= 2) {
         log_info("Server: Received all expected connections, closing listener");
-        ct_listener_close(context->listeners[0]);
+        // Don't want duplicate listeners in the list, so only add here
+        context->listeners.push_back(listener);
+        ct_listener_close(listener);
     }
     else {
         log_info("Server: Waiting for more connections, current count: %zu", context->server_connections.size());

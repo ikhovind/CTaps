@@ -22,6 +22,7 @@ FAKE_VOID_FUNC(fake_send_error, ct_connection_t*, ct_message_context_t*, int);
 FAKE_VOID_FUNC(__wrap_ct_message_free, ct_message_t*);
 FAKE_VOID_FUNC(__wrap_ct_message_context_free, ct_message_context_t*);
 FAKE_VALUE_FUNC(int, fake_set_connection_priority, ct_connection_t*, uint8_t);
+FAKE_VALUE_FUNC(GSList*, __wrap_g_slist_prepend, GSList*, gpointer);
 }
 
 class SocketManagerUnitTests : public ::testing::Test {
@@ -32,6 +33,7 @@ protected:
         RESET_FAKE(__wrap_ct_message_free);
         RESET_FAKE(__wrap_ct_message_context_free);
         RESET_FAKE(fake_set_connection_priority);
+        RESET_FAKE(__wrap_g_slist_prepend);
         FFF_RESET_HISTORY();
 
         fake_set_connection_priority_fake.return_val = 0;
@@ -155,4 +157,41 @@ TEST_F(SocketManagerUnitTests, errorOnNullSocketManager) {
     int rc = ct_socket_manager_notify_protocol_of_priority_change(&dummy_connection, 99);
 
     ASSERT_EQ(rc, -EINVAL);
+}
+
+TEST_F(SocketManagerUnitTests, addConnectionDoesNothingOnNullSocketManager) {
+    ct_socket_manager_add_connection(NULL, &dummy_connection);
+
+    ASSERT_EQ(__wrap_g_slist_prepend_fake.call_count, 0);
+    ASSERT_EQ(dummy_connection.socket_manager->ref_count, 0);
+}
+
+TEST_F(SocketManagerUnitTests, addConnectionDoesNothingOnNullConnection) {
+    ct_socket_manager_add_connection(&dummy_socket_manager, NULL);
+
+    ASSERT_EQ(__wrap_g_slist_prepend_fake.call_count, 0);
+    ASSERT_EQ(dummy_socket_manager.ref_count, 0);
+}
+
+TEST_F(SocketManagerUnitTests, addConnectionPrependsToList) {
+    GSList* fake_in_list = (GSList*)0xdeadcafe;
+    GSList* fake_out_list = (GSList*)0xdeadbeef;
+    dummy_socket_manager.all_connections = fake_in_list;
+
+    __wrap_g_slist_prepend_fake.return_val = fake_out_list;
+
+    ct_socket_manager_add_connection(&dummy_socket_manager, &dummy_connection);
+
+    ASSERT_EQ(__wrap_g_slist_prepend_fake.call_count, 1);
+    ASSERT_EQ(__wrap_g_slist_prepend_fake.arg0_val, fake_in_list);
+    ASSERT_EQ(__wrap_g_slist_prepend_fake.arg1_val, &dummy_connection);
+    ASSERT_EQ(dummy_socket_manager.all_connections, fake_out_list);
+}
+
+TEST_F(SocketManagerUnitTests, addConnectionSetsSocketManagerViaRef) {
+    dummy_connection.socket_manager = NULL;
+    ct_socket_manager_add_connection(&dummy_socket_manager, &dummy_connection);
+
+    ASSERT_EQ(dummy_connection.socket_manager, &dummy_socket_manager);
+    ASSERT_EQ(dummy_socket_manager.ref_count, 1);
 }

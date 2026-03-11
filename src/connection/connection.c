@@ -82,8 +82,7 @@ ct_connection_t* ct_connection_create_server_connection(ct_socket_manager_t* soc
   connection->security_parameters = ct_security_parameters_deep_copy(security_parameters);
   connection->framer_impl = framer_impl; // TODO - ownership here?
 
-  socket_manager->all_connections = g_slist_prepend(socket_manager->all_connections, connection);
-  connection->socket_manager = ct_socket_manager_ref(socket_manager);
+  ct_socket_manager_add_connection(socket_manager, connection);
 
   log_debug("Created new server connection: %s", connection->uuid);
 
@@ -190,11 +189,8 @@ ct_connection_t* ct_connection_create_clone(const ct_connection_t* source_connec
   // In the cases where a socket manager isn't provided, the protocol will insert
   // a custom one to the new connection after cloning
   if (socket_manager) {
-    clone->socket_manager = ct_socket_manager_ref(socket_manager);
-    socket_manager_insert_demuxed_connection(clone->socket_manager, &clone->all_remote_endpoints[clone->active_remote_endpoint], clone);
+    ct_socket_manager_add_connection(socket_manager, clone);
   }
-
-
 
   clone->role = source_connection->role;
   if (framer_impl) {
@@ -585,7 +581,7 @@ int ct_connection_clone_full(
   log_debug("Creating clone from connection: %s", source_connection->uuid);
   (void)connection_properties; // TODO - apply any overridden properties to the clone
 
-  ct_connection_t* new_connection = ct_connection_create_clone(source_connection, NULL, framer, NULL);
+  ct_connection_t* new_connection = ct_connection_create_clone(source_connection, source_connection->socket_manager, framer, NULL);
   int rc = source_connection->socket_manager->protocol_impl->clone_connection(source_connection, new_connection);
   if (rc < 0) {
     log_error("Failed to initialize protocol state for cloned connection: %d", rc);

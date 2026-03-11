@@ -9,7 +9,7 @@
 #define UDP_PORT    5005
 #define BUFFER_SIZE 1024
 
-int main(void) {
+int main(int argc, char *argv[]) {
     int sock_fd;
     struct sockaddr_in server_addr, client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
@@ -34,6 +34,10 @@ int main(void) {
         close(sock_fd);
         return EXIT_FAILURE;
     }
+
+    int ready_fd = atoi(argv[1]);
+    write(ready_fd, "1", 1);
+    close(ready_fd);
 
     printf("UDP server listening on %s:%d\n", UDP_IP, UDP_PORT);
 
