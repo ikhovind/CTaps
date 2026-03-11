@@ -133,7 +133,7 @@ add_gtest(
             ${CTAPS_SOURCES}
         ASAN_ENABLED
 )
-add_gtest(quic_listener_test SOURCES src/integration/quic/quic_listen_test.cpp ${CTAPS_SOURCES} ASAN_ENABLED)
+add_gtest(quic_listen_test SOURCES src/integration/quic/quic_listen_test.cpp ${CTAPS_SOURCES} ASAN_ENABLED)
 add_gtest(connection_clone_test SOURCES src/integration/quic/connection_clone_test.cpp ${CTAPS_SOURCES} ASAN_ENABLED)
 add_gtest(
         quic_abort_test

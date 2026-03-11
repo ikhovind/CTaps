@@ -699,8 +699,8 @@ typedef struct ct_listener_callbacks_s {
    */
   void (*establishment_error)(ct_listener_t* listener, int error_code);
 
-  /** @brief Called when the listener has stopped and will accept no more connections. */
-  int (*stopped)(ct_listener_t* listener);
+  /** @brief Called when the listener has been closed and will accept no more connections. */
+  void (*listener_closed)(ct_listener_t* listener);
 
   void* user_listener_context;  ///< User-provided context for the listener lifetime
 } ct_listener_callbacks_t;
@@ -1181,12 +1181,16 @@ CT_EXTERN int ct_preconnection_initiate_with_send(ct_preconnection_t* preconnect
  *
  * @param[in] preconnection Pointer to preconnection with listener configuration
  * @param[out] listener Pointer to listener object to initialize. Must be allocated by caller.
- * @param[in] listener_callbacks Callbacks for listener events (connection_received, etc.)
- * @return listener object on success, NULL on error
+ * @param[in] listener_callbacks Callbacks for listener events (ready, connection_received, etc.)
+ * @param[in] connection_callbacks Callbacks for connection events on accepted connections
+ * @return 0 on success, negative errno on synchronous failure
  *
  * @see ct_listener_close() to stop accepting new connections
  */
-CT_EXTERN ct_listener_t* ct_preconnection_listen(const ct_preconnection_t* preconnection, ct_listener_callbacks_t listener_callbacks);
+CT_EXTERN int ct_preconnection_listen(const ct_preconnection_t* preconnection,
+                                                 ct_listener_callbacks_t listener_callbacks,
+                                                 const ct_connection_callbacks_t* connection_callbacks
+                                                 );
 
 // Connection
 /**

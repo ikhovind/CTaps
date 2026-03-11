@@ -25,16 +25,18 @@ int ct_socket_manager_get_num_open_dependents(const ct_socket_manager_t* socket_
 
 void ct_socket_manager_close(ct_socket_manager_t* socket_manager);
 
-int ct_socket_manager_close_connection(ct_socket_manager_t*, ct_connection_t*);
+int ct_socket_manager_close_connection(ct_connection_t* connection);
 
 int ct_socket_manager_close_group(ct_socket_manager_t* socket_manager, ct_connection_group_t* group);
 
-int ct_socket_manager_listener_stop(ct_socket_manager_t* socket_manager);
+int ct_socket_manager_listener_close(ct_socket_manager_t* socket_manager);
 
 void ct_socket_manager_free_connection_state(ct_connection_t* connection);
 
 void ct_socket_manager_free(ct_socket_manager_t* socket_manager);
 
 int ct_socket_manager_notify_protocol_of_priority_change(ct_connection_t* connection, uint8_t priority);
+
+void ct_socket_manager_listen(ct_listener_t* listener);
 
 #endif //SOCKET_MANAGER_H

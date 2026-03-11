@@ -401,7 +401,7 @@ int build_candidate_tree(ct_gather_context_t* gather_context) {
     NULL, 
     NULL,
     NULL,
-    preconnection_get_transport_properties(precon)
+    ct_preconnection_get_transport_properties(precon)
   );
 
   if (!root) {
@@ -420,7 +420,7 @@ int build_candidate_tree(ct_gather_context_t* gather_context) {
   gather_context->root_node = root_node;
 
   size_t num_local_eps = 0;
-  const ct_local_endpoint_t* local_eps = preconnection_get_local_endpoints(precon, &num_local_eps);
+  const ct_local_endpoint_t* local_eps = ct_preconnection_get_local_endpoints(precon, &num_local_eps);
   ct_local_endpoint_t* ephemeral_local_ep = NULL;
   if (num_local_eps == 0) {
     log_debug("No local endpoints specified in preconnection, using ephemeral local endpoint for candidate tree building");
@@ -686,7 +686,7 @@ void build_candidate_tree_is_complete_cb(ct_gather_context_t* gather_context) {
   }
   GNode* root_node = gather_context->root_node;
   const ct_preconnection_t* precon = gather_context->preconnection;
-  prune_candidate_tree(root_node, preconnection_get_transport_properties(precon)->selection_properties);
+  prune_candidate_tree(root_node, ct_preconnection_get_transport_properties(precon)->selection_properties);
 
   log_info("Candidate tree has been pruned, extracting leaf nodes");
 
@@ -705,7 +705,7 @@ void build_candidate_tree_is_complete_cb(ct_gather_context_t* gather_context) {
   g_node_destroy(root_node);
 
   log_trace("Sorting candidates based in desirability");
-  g_array_sort_with_data(root_array, compare_prefer_and_avoid_preferences, (gpointer)&preconnection_get_transport_properties(precon)->selection_properties);
+  g_array_sort_with_data(root_array, compare_prefer_and_avoid_preferences, (gpointer)&ct_preconnection_get_transport_properties(precon)->selection_properties);
 
   if (root_array->len > 0) {
     log_trace("Most desirable candidate protocol is: %s", (g_array_index(root_array, ct_candidate_node_t, 0)).protocol_candidate->protocol_impl->name);

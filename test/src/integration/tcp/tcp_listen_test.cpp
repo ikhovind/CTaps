@@ -12,7 +12,7 @@ class TcpListenTests : public CTapsGenericFixture {};
 // TODO - this fails, but setting up a TCP ping server works, so there may just be something
 // weird about the test itself. Should test TCP ping test and see if there are issues there
 // as well
-TEST_F(TcpListenTests, ReceivesConnectionFromListenerAndExchangesMessages) {
+TEST_F(TcpListenTests, receivesConnectionFromListenerAndExchangesMessages) {
     ct_local_endpoint_t* listener_endpoint = ct_local_endpoint_new();
 
     ct_local_endpoint_with_interface(listener_endpoint, "lo");
@@ -34,7 +34,8 @@ TEST_F(TcpListenTests, ReceivesConnectionFromListenerAndExchangesMessages) {
         .user_listener_context = &test_context
     };
 
-    ct_listener_t* listener = ct_preconnection_listen(listener_precon, listener_callbacks);
+    int rc = ct_preconnection_listen(listener_precon, listener_callbacks, NULL);
+    ASSERT_EQ(rc, 0);
 
     // --- SETUP CLIENT ---
     ct_remote_endpoint_t* client_remote = ct_remote_endpoint_new();
@@ -81,6 +82,71 @@ TEST_F(TcpListenTests, ReceivesConnectionFromListenerAndExchangesMessages) {
     ASSERT_EQ(per_connection_messages[server_connection].size(), 1);
     ASSERT_EQ(per_connection_messages[server_connection][0]->length, 5);
     ASSERT_STREQ(per_connection_messages[server_connection][0]->content, "ping");
+
+    // Cleanup
+    ct_local_endpoint_free(listener_endpoint);
+    ct_remote_endpoint_free(listener_remote);
+    ct_remote_endpoint_free(client_remote);
+    ct_preconnection_free(listener_precon);
+    ct_transport_properties_free(listener_props);
+    ct_preconnection_free(client_precon);
+    ct_transport_properties_free(client_props);
+}
+
+TEST_F(TcpListenTests, canFreeOnListenerClose) {
+    ct_local_endpoint_t* listener_endpoint = ct_local_endpoint_new();
+
+    ct_local_endpoint_with_interface(listener_endpoint, "lo");
+    ct_local_endpoint_with_port(listener_endpoint, 1239);
+
+    ct_remote_endpoint_t* listener_remote = ct_remote_endpoint_new();
+    ct_remote_endpoint_with_hostname(listener_remote, "127.0.0.1");
+
+    ct_transport_properties_t* listener_props = ct_transport_properties_new();
+
+    ct_transport_properties_set_reliability(listener_props, REQUIRE);
+    ct_transport_properties_set_preserve_msg_boundaries(listener_props, PROHIBIT);
+    ct_transport_properties_set_multistreaming(listener_props, PROHIBIT);
+
+    ct_preconnection_t* listener_precon = ct_preconnection_new(listener_endpoint, 1, listener_remote, 1, listener_props,NULL);
+
+    ct_listener_callbacks_t listener_callbacks = {
+        .connection_received = close_listener_on_connection_received,
+        .listener_closed = free_and_close_all_connections_on_listener_stopped,
+        .user_listener_context = &test_context
+    };
+
+    int rc = ct_preconnection_listen(listener_precon, listener_callbacks, NULL);
+    ASSERT_EQ(rc, 0);
+
+    // --- SETUP CLIENT ---
+    ct_remote_endpoint_t* client_remote = ct_remote_endpoint_new();
+    ASSERT_NE(client_remote, nullptr);
+    ct_remote_endpoint_with_hostname(client_remote, "127.0.0.1");
+    ct_remote_endpoint_with_port(client_remote, 1239);
+
+    ct_transport_properties_t* client_props = ct_transport_properties_new();
+    ASSERT_NE(client_props, nullptr);
+
+    ct_transport_properties_set_reliability(client_props, REQUIRE);
+    ct_transport_properties_set_preserve_msg_boundaries(client_props, PROHIBIT);
+    ct_transport_properties_set_multistreaming(client_props, PROHIBIT);
+
+    ct_preconnection_t* client_precon = ct_preconnection_new(NULL, 0, client_remote, 1, client_props,NULL);
+    ASSERT_NE(client_precon, nullptr);
+
+    // Custom ready callback that saves connection and calls original ready
+
+    ct_connection_callbacks_t client_callbacks {
+        .ready = on_connection_ready_do_nothing,
+        .user_connection_context = &test_context
+    };
+
+    ct_preconnection_initiate(client_precon, client_callbacks);
+
+    // --- RUN EVENT LOOP ---
+    // This will block until the callbacks close the handles
+    ct_start_event_loop();
 
     // Cleanup
     ct_local_endpoint_free(listener_endpoint);

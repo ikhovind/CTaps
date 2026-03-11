@@ -180,7 +180,9 @@ TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnRec
         .user_listener_context = &test_context
     };
 
-    ct_listener_t* listener = ct_preconnection_listen(listener_precon, listener_callbacks);
+    int rc = ct_preconnection_listen(listener_precon, listener_callbacks, NULL);
+    ASSERT_EQ(rc, 0);
+
 
     // --- SETUP CLIENT ---
     ct_remote_endpoint_t* client_remote = ct_remote_endpoint_new();

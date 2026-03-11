@@ -49,7 +49,7 @@ const ct_protocol_impl_t tcp_protocol_interface = {
     .init_with_send = tcp_init_with_send,
     .send = tcp_send,
     .listen = tcp_listen,
-    .stop_listen = tcp_stop_listen,
+    .close_listener = tcp_close_listener,
     .close = tcp_close,
     .close_socket = tcp_close_socket,
     .abort = tcp_abort,
@@ -97,6 +97,7 @@ ct_tcp_socket_state_t* ct_tcp_socket_state_new(ct_connection_t* connection,
 }
 
 void ct_tcp_socket_state_free(ct_tcp_socket_state_t* socket_state) {
+  log_debug("Freeing TCP socket state");
   if (!socket_state) {
     log_warn("Attempted to free NULL TCP connection state");
     return;
@@ -127,7 +128,8 @@ void on_abort(uv_handle_t* handle) {
 
 void on_stop_listen(uv_handle_t* handle) {
   // TODO - invoke stopped callback for listener
-  (void)handle;
+  ct_socket_manager_t* socket_manager = handle->data;
+  socket_manager->callbacks.closed_listener(socket_manager);
 }
 
 void on_libuv_close(uv_handle_t* handle) {
@@ -519,7 +521,7 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
     return;
   }
 
-  ct_socket_manager_t* server_conn_socket_manager = ct_socket_manager_new(&tcp_protocol_interface, listener);
+  ct_socket_manager_t* server_conn_socket_manager = ct_socket_manager_new(&tcp_protocol_interface, NULL);
 
   struct sockaddr_storage addr;
   int namelen = sizeof(addr);
@@ -530,7 +532,9 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
   ct_connection_t* server_conn = ct_connection_create_server_connection(
       server_conn_socket_manager,
       remote_endpoint,
+      listener->local_endpoint,
       listener->security_parameters,
+      &listener->connection_callbacks,
       NULL
   );
   ct_remote_endpoint_free(remote_endpoint);
@@ -560,10 +564,10 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
   }
 
   log_trace("TCP invoking new connection callback");
-  server_conn_socket_manager->callbacks.connection_ready(server_conn);
+  server_conn_socket_manager->callbacks.connection_received(listener, server_conn);
 }
 
-int tcp_stop_listen(ct_socket_manager_t* socket_manager) {
+int tcp_close_listener(ct_socket_manager_t* socket_manager) {
   log_debug("Stopping TCP listen for ct_socket_manager_t %p", (void*)socket_manager);
 
   if (socket_manager->internal_socket_manager_state) {
@@ -680,7 +684,7 @@ int tcp_close_socket(ct_socket_manager_t* socket_manager) {
 }
 
 int tcp_free_socket_state(ct_socket_manager_t* socket_manager) {
-  log_trace("Freeing TCP socket manager state");
+  log_debug("Freeing TCP socket manager state");
   ct_tcp_socket_state_t* socket_state = socket_manager->internal_socket_manager_state;
   if (socket_state) {
     ct_tcp_socket_state_free(socket_state);

@@ -387,7 +387,7 @@ typedef struct ct_protocol_impl_s {
   int (*listen)(struct ct_socket_manager_s* socket_manager);
 
   /** @brief Stop listening for incoming connections. */
-  int (*stop_listen)(struct ct_socket_manager_s*);
+  int (*close_listener)(struct ct_socket_manager_s*);
 
   /** @brief Close a connection. */
   int (*close)(ct_connection_t*);
@@ -426,13 +426,15 @@ extern const ct_protocol_impl_t* const ct_supported_protocols[];
 extern const size_t ct_num_protocols;
 
 typedef struct ct_listener_s {
-  ct_transport_properties_t transport_properties;     ///< Transport properties for accepted connections
-  ct_local_endpoint_t local_endpoint;                 ///< Local endpoint (listening address/port)
+  ct_transport_properties_t* transport_properties;     ///< Transport properties for accepted connections
+  ct_local_endpoint_t* local_endpoint;                 ///< Local endpoint (listening address/port)
   size_t num_local_endpoints;                         ///< Number of local endpoints
   ct_listener_callbacks_t listener_callbacks;         ///< User-provided callbacks for listener events
+  ct_connection_callbacks_t connection_callbacks;         ///< User-provided callbacks for connection events on accepted connections
   ct_listener_state_enum_t state;                     ///< Current state of the listener
   ct_security_parameters_t* security_parameters;      ///< Security configuration for accepted connections (owned copy)
   struct ct_socket_manager_s* socket_manager;         ///< Socket manager handling listening sockets
+  int close_rc;
 } ct_listener_t;
 
 
@@ -467,6 +469,9 @@ typedef struct ct_socket_manager_callbacks_s {
   void (*message_sent)(ct_connection_t* connection, ct_message_context_t* message_context);
   void (*message_send_error)(ct_connection_t* connection, ct_message_context_t* message_context, int reason_code);
   void (*socket_closed)(struct ct_socket_manager_s* socket_manager);
+  void (*connection_received)(ct_listener_t* listener, ct_connection_t* connection);
+  void (*listener_ready)(ct_listener_t* listener);
+  void (*closed_listener)(struct ct_socket_manager_s* socket_manager);
 } ct_socket_manager_callbacks_t;
 
 typedef enum {
@@ -485,6 +490,7 @@ typedef struct ct_socket_manager_s {
   struct ct_listener_s* listener;
   ct_socket_manager_callbacks_t callbacks;
   ct_socket_manager_close_reason_t close_reason;
+  int close_error_code;
 } ct_socket_manager_t;
 
 
