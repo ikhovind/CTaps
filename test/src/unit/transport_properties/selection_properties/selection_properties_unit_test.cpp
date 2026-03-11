@@ -16,9 +16,10 @@ TEST(SelectionPropertiesUnitTest, setsAdvertisesAltAddrCorrectly) {
 
   ASSERT_EQ(ct_transport_properties_get_advertises_alt_address(props), true);
   ASSERT_TRUE(props->selection_properties.list[ADVERTISES_ALT_ADDRES].set_by_user);
+  ct_transport_properties_free(props);
 }
 
-TEST(SelectionPropertiesUnitTest, SetsDefaultValues) {
+TEST(SelectionPropertiesUnitTest, setsDefaultValues) {
   // 1. Setup
   ct_transport_properties_t* props = ct_transport_properties_new();
   ASSERT_NE(props, nullptr);
@@ -129,9 +130,10 @@ TEST(SelectionPropertiesUnitTest, SetsDefaultValues) {
         break;
     }
   }
+  ct_transport_properties_free(props);
 }
 
-TEST(SelectionPropertiesUnitTest, SetsSetByUser) {
+TEST(SelectionPropertiesUnitTest, setsSetByUser) {
   // 1. Setup
   ct_transport_properties_t* props = ct_transport_properties_new();
   ASSERT_NE(props, nullptr);
@@ -246,4 +248,5 @@ TEST(SelectionPropertiesUnitTest, SetsSetByUser) {
         break;
     }
   }
+  ct_transport_properties_free(props);
 }

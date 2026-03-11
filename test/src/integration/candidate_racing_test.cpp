@@ -5,9 +5,9 @@
 #include "gtest/gtest.h"
 #include "fff.h"
 
+#include "fixtures/integration_fixture.h"
 extern "C" {
 #include "ctaps.h"
-#include "fixtures/integration_fixture.h"
 #include <logging/log.h>
 }
 

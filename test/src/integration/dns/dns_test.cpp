@@ -1,10 +1,10 @@
 #include <gmock/gmock-matchers.h>
 
+#include "fixtures/integration_fixture.h"
 #include "gtest/gtest.h"
 #include "fff.h"
 extern "C" {
 #include "ctaps.h"
-#include "fixtures/integration_fixture.h"
 }
 
 class RemoteEndpointDnsTests : public CTapsGenericFixture {};

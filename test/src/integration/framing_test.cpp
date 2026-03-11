@@ -1,9 +1,9 @@
 #include <gmock/gmock-matchers.h>
 #include "gtest/gtest.h"
 
+#include "fixtures/integration_fixture.h"
 extern "C" {
 #include "ctaps.h"
-#include "fixtures/integration_fixture.h"
 }
 
 #include <cstring>

@@ -1,11 +1,11 @@
 #include <gmock/gmock-matchers.h>
+#include "fixtures/integration_fixture.h"
 
 #include "gtest/gtest.h"
 #include "fff.h"
 extern "C" {
 #include "ctaps.h"
 #include <logging/log.h>
-#include "fixtures/integration_fixture.h"
 }
 
 class MessageContextIntegrationTests : public CTapsGenericFixture {};
@@ -124,6 +124,7 @@ TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnRec
     // Create preconnection
     ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties, security_parameters);
     ASSERT_NE(preconnection, nullptr);
+    ct_security_parameters_free(security_parameters);
 
     // Set expected remote port for verification
     test_context.expected_server_port = QUIC_PING_PORT;

@@ -1,6 +1,7 @@
 #ifndef CT_INTEGRATION_FIXTURE_H
 #define CT_INTEGRATION_FIXTURE_H
 #include <gmock/gmock-matchers.h>
+#include <unordered_set>
 
 #include "gtest/gtest.h"
 extern "C" {
@@ -74,7 +75,7 @@ struct CallbackContext {
     std::vector<ct_connection_t*> client_connections;
     std::function<void(CallbackContext*)>* closing_function; // To close any connections/listeners etc.
     size_t total_expected_messages;
-    std::vector<ct_listener_t*> listeners;
+    std::unordered_set<ct_listener_t*> listeners;
     bool connection_succeeded = false;
     uint16_t expected_server_port = 0; // Expected remote port for message context verification
     std::function<void()> listener_ready_action;
@@ -309,7 +310,7 @@ int receive_message_respond_and_close_listener_on_connection_received(ct_listene
     log_debug("ct_callback_t: receive_message_respond_and_close_listener_on_connection_received %s", ct_connection_get_uuid(new_connection));
     auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
     context->server_connections.push_back(new_connection);
-    context->listeners.push_back(listener);
+    context->listeners.insert(listener);
 
     ct_receive_callbacks_t receive_message_request = {
       .receive_callback = respond_and_close_on_message_received,
@@ -506,7 +507,7 @@ int on_connection_received_receive_message_close_listener_and_send_new_message(c
     auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
     ct_listener_close(listener);
     context->server_connections.push_back(new_connection);
-    context->listeners.push_back(listener);
+    context->listeners.insert(listener);
 
     ct_receive_callbacks_t receive_message_request = {
       .receive_callback = on_message_receive_send_new_message_and_receive_inline,
@@ -599,7 +600,7 @@ int server_sends_first_and_waits_for_response(ct_listener_t* listener, ct_connec
     
     auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
     context->server_connections.push_back(new_connection);
-    context->listeners.push_back(listener);
+    context->listeners.insert(listener);
 
     // Server sends first message
     ct_message_t* message = ct_message_new_with_content("server-hello", strlen("server-hello") + 1);
@@ -778,13 +779,12 @@ int server_on_connection_received_for_cloning(ct_listener_t* listener, ct_connec
     log_info("Server: New connection received %p", (void*)new_connection);
     auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
     context->server_connections.push_back(new_connection);
+    context->listeners.insert(listener);
 
     // Close listener after receiving both messages (original + clone)
     // Count total messages across all server connections
     if (context->server_connections.size() >= 2) {
         log_info("Server: Received all expected connections, closing listener");
-        // Don't want duplicate listeners in the list, so only add here
-        context->listeners.push_back(listener);
         ct_listener_close(listener);
     }
     else {
@@ -850,6 +850,7 @@ int receive_message_verify_and_close_listener_on_connection_received(ct_listener
     log_trace("ct_connection_t received callback from listener");
     auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
     context->server_connections.push_back(new_connection);
+    context->listeners.insert(listener);
 
     ct_receive_callbacks_t receive_message_request = {
       .receive_callback = respond_and_verify_server_message_context_remote_context_on_message_received,

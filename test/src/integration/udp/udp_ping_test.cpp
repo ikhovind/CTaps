@@ -1,11 +1,11 @@
 #include <gmock/gmock-matchers.h>
 
 #include "gtest/gtest.h"
-#include "fff.h"
+#include "fixtures/integration_fixture.h"
 extern "C" {
+#include "fff.h"
 #include "ctaps.h"
 #include <logging/log.h>
-#include "fixtures/integration_fixture.h"
 }
 
 DEFINE_FFF_GLOBALS;

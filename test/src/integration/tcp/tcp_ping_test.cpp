@@ -2,11 +2,11 @@
 
 #include "gtest/gtest.h"
 #include "fff.h"
+#include "fixtures/integration_fixture.h"
 extern "C" {
 #include "ctaps.h"
 #include <logging/log.h>
 }
-#include "fixtures/integration_fixture.h"
 
 #define TCP_PING_PORT 5006
 #define INVALID_TCP_PORT 5007

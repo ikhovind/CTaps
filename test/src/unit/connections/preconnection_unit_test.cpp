@@ -132,6 +132,7 @@ TEST_F(PreconnectionUnitTests, getLocalEndpointsHandlesNullCount) {
     ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, NULL, 0,NULL,NULL);
     const ct_local_endpoint_t* endpoints = preconnection_get_local_endpoints(preconnection, NULL);
     ASSERT_EQ(endpoints, nullptr);
+    ct_preconnection_free(preconnection);
 }
 
 TEST_F(PreconnectionUnitTests, getLocalEndpointsHandlesNullPrecon) {

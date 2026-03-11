@@ -1,7 +1,6 @@
 #include <gmock/gmock-matchers.h>
 
 #include "gtest/gtest.h"
-#include "fff.h"
 extern "C" {
 #include "ctaps.h"
 #include "ctaps_internal.h"
@@ -10,7 +9,7 @@ extern "C" {
 
 #include "fixtures/integration_fixture.h"
 
-TEST(MessageContextUnitTests, GetsLocalEndpoint) {
+TEST(MessageContextUnitTests, getsLocalEndpoint) {
     ct_message_context_t* msg_ctx = ct_message_context_new();
 
     ct_local_endpoint_t* local_ep = ct_local_endpoint_new();
@@ -27,9 +26,10 @@ TEST(MessageContextUnitTests, GetsLocalEndpoint) {
     ASSERT_EQ(msg_ctx->local_endpoint, retrieved_local_ep);
 
     ct_message_context_free(msg_ctx);
+    ct_local_endpoint_free(local_ep);
 }
 
-TEST(MessageContextUnitTests, GetsRemoteEndpoint) {
+TEST(MessageContextUnitTests, getsRemoteEndpoint) {
     ct_message_context_t* msg_ctx = ct_message_context_new();
 
     ct_remote_endpoint_t* remote_ep = ct_remote_endpoint_new();
@@ -46,9 +46,10 @@ TEST(MessageContextUnitTests, GetsRemoteEndpoint) {
     ASSERT_EQ(msg_ctx->remote_endpoint, retrieved_remote_ep);
 
     ct_message_context_free(msg_ctx);
+    ct_remote_endpoint_free(remote_ep);
 }
 
-TEST(MessageContextUnitTests, SetAndGetFinal) {
+TEST(MessageContextUnitTests, setAndGetFinal) {
     ct_message_context_t* msg_ctx = ct_message_context_new();
     ASSERT_NE(msg_ctx, nullptr);
 
@@ -59,7 +60,7 @@ TEST(MessageContextUnitTests, SetAndGetFinal) {
     ct_message_context_free(msg_ctx);
 }
 
-TEST(MessageContextUnitTests, SetAndGetSafelyReplayable) {
+TEST(MessageContextUnitTests, setAndGetSafelyReplayable) {
     ct_message_context_t* msg_ctx = ct_message_context_new();
     ASSERT_NE(msg_ctx, nullptr);
 
@@ -70,6 +71,6 @@ TEST(MessageContextUnitTests, SetAndGetSafelyReplayable) {
     ct_message_context_free(msg_ctx);
 }
 
-TEST(MessageContextUnitTests, GetMessagePropertiesReturnsNullForNullContext) {
+TEST(MessageContextUnitTests, getMessagePropertiesReturnsNullForNullContext) {
     EXPECT_EQ(ct_message_context_get_message_properties(nullptr), nullptr);
 }

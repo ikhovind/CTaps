@@ -612,12 +612,16 @@ int tcp_clone_connection(const struct ct_connection_s* source_connection,
     return rc;
   }
 
-  if (target_connection->socket_manager) {
-    ct_socket_manager_unref(target_connection->socket_manager);
-  }
 
   ct_socket_manager_t* socket_manager = ct_socket_manager_new(&tcp_protocol_interface, NULL);
-  target_connection->socket_manager = socket_manager;
+
+  if (target_connection->socket_manager) {
+    target_connection->socket_manager->all_connections = g_slist_remove(target_connection->socket_manager->all_connections, target_connection);
+    ct_socket_manager_unref(target_connection->socket_manager);
+    target_connection->socket_manager = NULL;
+  }
+  ct_socket_manager_add_connection(socket_manager, target_connection);
+  
 
   uv_connect_t* connect_req = malloc(sizeof(uv_connect_t));
   memset(connect_req, 0, sizeof(uv_connect_t));
@@ -657,7 +661,6 @@ int tcp_clone_connection(const struct ct_connection_s* source_connection,
     uv_close((uv_handle_t*)new_tcp_handle, on_libuv_close);
     return rc;
   }
-  socket_manager_insert_demuxed_connection(socket_manager, ct_connection_get_active_remote_endpoint(target_connection), target_connection);
 
   log_info("TCP clone connection initiated, establishing asynchronously");
   return 0;

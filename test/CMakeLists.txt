@@ -134,7 +134,7 @@ add_gtest(
         ASAN_ENABLED
 )
 add_gtest(quic_listener_test SOURCES src/integration/quic/quic_listen_test.cpp ${CTAPS_SOURCES} ASAN_ENABLED)
-add_gtest(connection_clone_test SOURCES src/integration/quic/connection_clone_test.cpp ${CTAPS_SOURCES})
+add_gtest(connection_clone_test SOURCES src/integration/quic/connection_clone_test.cpp ${CTAPS_SOURCES} ASAN_ENABLED)
 add_gtest(
         quic_abort_test
         SOURCES
@@ -143,13 +143,15 @@ add_gtest(
         WRAP_FUNCTIONS
             picoquic_reset_stream
             picoquic_close_immediate
+        ASAN_ENABLED
 )
-add_gtest(remote_endpoint_unit_test SOURCES src/unit/endpoint/remote_endpoint_unit_test.cpp ${CTAPS_SOURCES})
-add_gtest(endpoint_util_unit_test SOURCES src/unit/endpoint/endpoint_util_unit_test.cpp ${CTAPS_SOURCES})
+add_gtest(remote_endpoint_unit_test SOURCES src/unit/endpoint/remote_endpoint_unit_test.cpp ${CTAPS_SOURCES} ASAN_ENABLED)
+add_gtest(endpoint_util_unit_test SOURCES src/unit/endpoint/endpoint_util_unit_test.cpp ${CTAPS_SOURCES} ASAN_ENABLED)
 add_gtest(preconnection_unit_test 
   SOURCES 
     src/unit/connections/preconnection_unit_test.cpp 
     ${CTAPS_SOURCES}
+  ASAN_ENABLED
 )
 add_gtest(connection_unit_test
   SOURCES 
@@ -177,6 +179,7 @@ add_gtest(socket_manager_unit_test
     ct_message_context_free
     ct_message_free
     g_slist_prepend
+  ASAN_ENABLED
 )
 
 add_gtest(connection_group_unit_test 
@@ -210,6 +213,7 @@ add_gtest(dns_integration_test
         SOURCES
             src/integration/dns/dns_test.cpp
             ${CTAPS_SOURCES}
+        ASAN_ENABLED
 )
 
 add_gtest(remote_endpoint_resolve_test
@@ -227,16 +231,19 @@ add_gtest(selection_properties_unit_test
   SOURCES
     src/unit/transport_properties/selection_properties/selection_properties_unit_test.cpp
     ${CTAPS_SOURCES}
+  ASAN_ENABLED
 )
 add_gtest(message_properties_test
   SOURCES
     src/unit/transport_properties/message_properties/message_properties_test.cpp
     ${CTAPS_SOURCES}
+  ASAN_ENABLED
 )
 add_gtest(transport_properties_test
   SOURCES
     src/unit/transport_properties/transport_properties_unit_test.cpp
     ${CTAPS_SOURCES}
+  ASAN_ENABLED
 )
 add_gtest(candidate_racing_test
   SOURCES
@@ -249,6 +256,7 @@ add_gtest(framing_test
   SOURCES
     src/integration/framing_test.cpp
     ${CTAPS_SOURCES}
+  ASAN_ENABLED
 )
 
 add_gtest(local_endpoint_resolve_test
@@ -258,24 +266,28 @@ add_gtest(local_endpoint_resolve_test
   WRAP_FUNCTIONS
     get_service_port
     get_interface_addresses
+  ASAN_ENABLED
 )
 
 add_gtest(message_context_unit_test
   SOURCES
     src/unit/message/message_context_unit_test.cpp
     ${CTAPS_SOURCES}
+  ASAN_ENABLED
 )
 
 add_gtest(security_parameters_test
   SOURCES
     src/unit/security_parameters/security_parameters_unit_test.cpp
     ${CTAPS_SOURCES}
+  ASAN_ENABLED
 )
 
 add_gtest(message_context_integration_test
   SOURCES
     src/integration/message/message_context_integration_test.cpp
     ${CTAPS_SOURCES}
+  ASAN_ENABLED
 )
 
 add_gtest(tcp_unit_test
@@ -285,8 +297,10 @@ add_gtest(tcp_unit_test
     WRAP_FUNCTIONS
       uv_tcp_close_reset
       uv_close
+      uv_is_closing
       ct_message_free
       free
+  ASAN_ENABLED
 )
 
 add_gtest(quic_unit_test
@@ -305,12 +319,14 @@ add_gtest(udp_unit_test
   WRAP_FUNCTIONS
     ct_message_free
     free
+  ASAN_ENABLED
 )
 
 add_gtest(message_unit_test
   SOURCES
     src/unit/message/message_unit_test.cpp
     ${CTAPS_SOURCES}
+  ASAN_ENABLED
 )
 
 # Because we need root access
@@ -334,6 +350,7 @@ if(CTAPS_ENABLE_MIGRATION_TESTS)
             src/integration/quic/quic_migration_test.cpp
             ${CTAPS_SOURCES}
         TEST_PROPERTIES FIXTURES_REQUIRED QuicMigrationFixture
+        ASAN_ENABLED
     )
 
 endif()
