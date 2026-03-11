@@ -1,6 +1,7 @@
 #include "socket_manager.h"
 
 #include "connection/connection.h"
+#include "connection/listener.h"
 #include "ctaps.h"
 #include "ctaps_internal.h"
 #include <endpoint/remote_endpoint.h>
@@ -47,6 +48,7 @@ ct_socket_manager_t* ct_socket_manager_ref(ct_socket_manager_t* socket_manager) 
 }
 
 void ct_socket_manager_free(ct_socket_manager_t* socket_manager) {
+  log_debug("Freeing socket manager: %p", socket_manager);
   if (!socket_manager) {
     log_warn("Attempted to free NULL socket manager");
     return;
@@ -149,55 +151,131 @@ int ct_socket_manager_close_group(ct_socket_manager_t* socket_manager, ct_connec
   return socket_manager->protocol_impl->close_connection_group(group);
 }
 
-void ct_socket_manager_closed_socket_cb(ct_socket_manager_t* socket_manager) {
-  log_debug("Socket manager socket closed callback invoked");
-  log_debug("The number of connections on closed socket manager is: %d", g_slist_length(socket_manager->all_connections));
-  ct_connection_t* conn = NULL;
-  for (GSList* node = socket_manager->all_connections; node != NULL; node = node->next) {
-    log_debug("Checking connection: %s for closed socket notification", ((ct_connection_t*)node->data)->uuid);
-
-    if (!ct_connection_is_closed(node->data)) {
-      conn = (ct_connection_t*)node->data;
-    }
-  }
-
-  if (!conn) {
-    log_error("No open connections found for closed socket manager, nothing to notify");
+void ct_socket_manager_notify_of_listener_close(ct_socket_manager_t* socket_manager, ct_listener_t* listener) {
+  if (!socket_manager || !listener) {
+    log_warn("NULL parameter passed to socket manager notify of listener close");
+    log_debug("socket manager: %p, listener: %p", socket_manager, listener);
     return;
   }
-
-  ct_connection_mark_as_closed(conn);
   switch (socket_manager->close_reason) {
-    case CT_CLOSE_TYPE_GRACEFUL: {
-      if(conn->connection_callbacks.closed) {
-        log_debug("Notifying connection: %s of graceful close via closed callback", conn->uuid);
-        conn->connection_callbacks.closed(conn);
+    case CT_CLOSE_TYPE_ESTABLISHMENT_ERROR: {
+      log_debug("Notifying listener of graceful close via socket manager closed listener callback");
+      if (listener->listener_callbacks.establishment_error) {
+        listener->listener_callbacks.establishment_error(listener, listener->close_rc);
       }
       else {
-        log_debug("No closed callback registered for connection: %s, cannot notify of graceful close", conn->uuid);
+        log_debug("No establishment error callback registered for listener, cannot notify of establishment error close");
+      }
+      break;
+    }
+    default: {
+      log_debug("Notifying listener of connection error close via socket manager closed listener callback");
+      if (listener->listener_callbacks.listener_closed) {
+        listener->listener_callbacks.listener_closed(listener);
+      }
+      else {
+        log_debug("No closed callback registered for listener, cannot notify of connection error close");
+      }
+      break;
+    }
+  }
+}
+
+void ct_socket_manager_listener_ready_cb(ct_listener_t* listener) {
+  log_debug("Socket manager listener ready callback invoked");
+  if (listener->listener_callbacks.listener_ready) {
+    listener->listener_callbacks.listener_ready(listener);
+  }
+  else {
+    log_debug("No listener ready callback registered for listener");
+  }
+}
+
+void ct_socket_manager_listen(ct_listener_t* listener) {
+  if (!listener) {
+    log_warn("NULL socket manager parameter for socket manager listen");
+    // TODO call establishment error
+    return;
+  }
+  ct_socket_manager_t* socket_manager = listener->socket_manager;
+  int rc = socket_manager->protocol_impl->listen(socket_manager);
+  if (rc) {
+    log_error("Error from protocol when starting to listen with socket manager");
+    if (listener->listener_callbacks.establishment_error) {
+      listener->listener_callbacks.establishment_error(listener, rc);
+      return;
+    }
+  }
+  if (listener->listener_callbacks.listener_ready) {
+    log_debug("Notifying listener of ready via socket manager listener ready callback");
+    listener->listener_callbacks.listener_ready(listener);
+  }
+  else {
+    log_debug("No listener ready callback registered for listener, cannot notify of ready");
+  }
+}
+
+void ct_socket_manager_notify_of_connection_close(ct_socket_manager_t* socket_manager, ct_connection_t* connection) {
+  if (!socket_manager || !connection) {
+    log_warn("NULL parameter passed to socket manager notify of connection close");
+    log_debug("socket manager: %p, connection: %p", socket_manager, connection);
+    return;
+  }
+  switch (socket_manager->close_reason) {
+    case CT_CLOSE_TYPE_GRACEFUL: {
+      if(connection->connection_callbacks.closed) {
+        log_debug("Notifying connection: %s of graceful close via closed callback", connection->uuid);
+        connection->connection_callbacks.closed(connection);
+      }
+      else {
+        log_debug("No closed callback registered for connection: %s, cannot notify of graceful close", connection->uuid);
       }
       break;
     }
     case CT_CLOSE_TYPE_CONNECTION_ERROR: {
-      if (conn->connection_callbacks.connection_error) {
-        log_debug("Notifying connection: %s of connection error close via connection error callback", conn->uuid);
-        conn->connection_callbacks.connection_error(conn);
+      if (connection->connection_callbacks.connection_error) {
+        log_debug("Notifying connection: %s of connection error close via connection error callback", connection->uuid);
+        connection->connection_callbacks.connection_error(connection);
       }
       else {
-        log_debug("No connection error callback registered for connection: %s, cannot notify of connection error close", conn->uuid);
+        log_debug("No connection error callback registered for connection: %s, cannot notify of connection error close", connection->uuid);
       }
       break;
     }
     case CT_CLOSE_TYPE_ESTABLISHMENT_ERROR: {
-      if (conn->connection_callbacks.establishment_error) {
-        log_debug("Notifying connection: %s of establishment error close via establishment error callback", conn->uuid);
-        conn->connection_callbacks.establishment_error(conn);
+      if (connection->connection_callbacks.establishment_error) {
+        log_debug("Notifying connection: %s of establishment error close via establishment error callback", connection->uuid);
+        connection->connection_callbacks.establishment_error(connection);
       }
       else {
-        log_debug("No establishment error callback registered for connection: %s, cannot notify of establishment error close", conn->uuid);
+        log_debug("No establishment error callback registered for connection: %s, cannot notify of establishment error close", connection->uuid);
       }
       break;
     }
+  }
+}
+
+ct_connection_t* ct_socket_manager_get_last_open_connection(ct_socket_manager_t* socket_manager) {
+  for (GSList* node = socket_manager->all_connections; node != NULL; node = node->next) {
+    ct_connection_t* connection = (ct_connection_t*)node->data;
+    if (!ct_connection_is_closed(connection)) {
+      return connection;
+    }
+  }
+  return NULL;
+}
+
+void ct_socket_manager_closed_socket_cb(ct_socket_manager_t* socket_manager) {
+  log_debug("Socket manager socket closed callback invoked");
+  ct_connection_t* conn = ct_socket_manager_get_last_open_connection(socket_manager);
+  if (conn) {
+    ct_connection_mark_as_closed(conn);
+    ct_socket_manager_notify_of_connection_close(socket_manager, conn);
+  }
+  else {
+    ct_listener_t* listener = socket_manager->listener;
+    ct_listener_mark_as_closed(listener);
+    ct_socket_manager_notify_of_listener_close(socket_manager, listener);
   }
 }
 
@@ -209,6 +287,7 @@ void ct_socket_manager_closed_connection_cb(ct_connection_t* connection) {
   int num_open = ct_socket_manager_get_num_open_dependents(socket_manager);
   if (num_open == 1) {
     log_debug("The final open connection in socket manager is now closed, closing entire socket manager");
+    socket_manager->close_reason = CT_CLOSE_TYPE_GRACEFUL;
     ct_socket_manager_close(socket_manager);
     return;
   }
@@ -251,19 +330,9 @@ void ct_socket_manager_establishment_error_cb(ct_connection_t* connection) {
 }
 
 void ct_socket_manager_connection_ready_cb(ct_connection_t* connection) {
-  ct_socket_manager_t* socket_manager = connection->socket_manager;
   log_debug("Socket manager connection ready callback invoked for connection: %s", connection->uuid);
   ct_connection_mark_as_established(connection);
-  if (socket_manager->listener) {
-    ct_listener_t* listener = socket_manager->listener;
-    if (listener->listener_callbacks.connection_received) {
-      listener->listener_callbacks.connection_received(listener, connection);
-    }
-    else {
-      log_debug("No listener connection received callback registered for listener");
-    }
-  }
-  else if (connection->connection_callbacks.ready) {
+  if (connection->connection_callbacks.ready) {
     connection->connection_callbacks.ready(connection);
   }
   else {
@@ -307,11 +376,11 @@ void ct_socket_manager_aborted_connection_cb(ct_connection_t* connection) {
   }
 }
 
-int ct_socket_manager_close_connection(ct_socket_manager_t* socket_manager, ct_connection_t* connection) {
-  if (!socket_manager || !connection) {
+int ct_socket_manager_close_connection(ct_connection_t* connection) {
+  if (!connection) {
     log_error("NULL parameter passed to socket manager close connection");
-    log_debug("socket mangager: %p, connection: %p", socket_manager, connection); 
   }
+  ct_socket_manager_t* socket_manager = connection->socket_manager;
   log_debug("Socket manager: Closing attached connection: %s", connection->uuid);
   int rc = socket_manager->protocol_impl->close(connection);
   if (rc) {
@@ -321,30 +390,12 @@ int ct_socket_manager_close_connection(ct_socket_manager_t* socket_manager, ct_c
   return 0;
 }
 
-int ct_socket_manager_listener_stop(ct_socket_manager_t* socket_manager) {
+int ct_socket_manager_listener_close(ct_socket_manager_t* socket_manager) {
   log_debug("Socket manager: closing attached listener");
-  ct_listener_t* listener = socket_manager->listener;
-  listener->state = CT_LISTENER_STATE_CLOSED;
-
-  socket_manager->protocol_impl->stop_listen(socket_manager);
-
-  int num_open = ct_socket_manager_get_num_open_dependents(socket_manager);
-  // We have counted open dependents *after* closing listener, so 1 here means
-  // that there  is an unclosed connection still
-  if (num_open == 0) {
-    log_debug("Socket manager now has no open connections, closing entire socket manager");
-    ct_socket_manager_close(socket_manager);
-  }
-  else {
-    log_debug("Socket manager has %d open connections after stopping listener, not closing socket manager", num_open);
-  }
-
-  if (listener->listener_callbacks.stopped) {
-    log_debug("Invoking listener stopped callback");
-    listener->listener_callbacks.stopped(listener);
-  }
-  else {
-    log_debug("No listener stopped callback registered");
+  int rc = socket_manager->protocol_impl->close_listener(socket_manager);
+  if (rc) {
+    log_error("Error from protocol when closing listener");
+    return rc;
   }
   return 0;
 }
@@ -368,6 +419,35 @@ void ct_socket_manager_message_send_error_cb(ct_connection_t* connection, ct_mes
     log_debug("No message send error callback registered for connection: %s", connection->uuid);
   }
   ct_message_context_free(message_context);
+}
+
+void ct_socket_manager_listener_closed_cb(ct_socket_manager_t* socket_manager) {
+  log_debug("Socket manager listener closed callback invoked");
+  ct_listener_t* listener = socket_manager->listener;
+  int num_open = ct_socket_manager_get_num_open_dependents(socket_manager);
+
+  if (num_open == 1) {
+    log_debug("Socket manager now has no open connections, closing entire socket manager");
+    socket_manager->close_reason = CT_CLOSE_TYPE_GRACEFUL;
+    ct_socket_manager_close(socket_manager);
+    return;
+  }
+  else {
+    log_debug("Socket manager has %d open connections after stopping listener, not closing socket manager", num_open);
+  }
+
+  ct_listener_mark_as_closed(listener);
+  ct_socket_manager_notify_of_listener_close(socket_manager, listener);
+}
+
+void ct_socket_manager_connection_received_cb(ct_listener_t* listener, ct_connection_t* connection) {
+  ct_connection_mark_as_established(connection);
+  if (listener->listener_callbacks.connection_received) {
+    listener->listener_callbacks.connection_received(listener, connection);
+  }
+  else {
+    log_debug("No listener connection received callback registered for listener");
+  }
 }
 
 ct_socket_manager_t* ct_socket_manager_new(const ct_protocol_impl_t* protocol_impl, ct_listener_t* listener) {
@@ -394,9 +474,12 @@ ct_socket_manager_t* ct_socket_manager_new(const ct_protocol_impl_t* protocol_im
   socket_manager->callbacks.aborted_connection = ct_socket_manager_aborted_connection_cb;
   socket_manager->callbacks.establishment_error = ct_socket_manager_establishment_error_cb;
   socket_manager->callbacks.connection_ready = ct_socket_manager_connection_ready_cb;
+  socket_manager->callbacks.connection_received = ct_socket_manager_connection_received_cb;
   socket_manager->callbacks.socket_closed = ct_socket_manager_closed_socket_cb;
   socket_manager->callbacks.message_sent = ct_socket_manager_message_sent_cb;
   socket_manager->callbacks.message_send_error = ct_socket_manager_message_send_error_cb;
+  socket_manager->callbacks.closed_listener = ct_socket_manager_listener_closed_cb;
+  socket_manager->callbacks.listener_ready = ct_socket_manager_listener_ready_cb;
   log_debug("Created new socket manager: %p for protocol: %s", socket_manager, protocol_impl->name);
   return socket_manager;
 }

@@ -54,7 +54,7 @@ const ct_protocol_impl_t quic_protocol_interface = {
     .send = quic_send,
     .init_with_send = quic_init_with_send,
     .listen = quic_listen,
-    .stop_listen = quic_stop_listen,
+    .close_listener = quic_close_listener,
     .close = quic_close,
     .close_socket = quic_close_socket,
     .abort = quic_abort,
@@ -833,7 +833,7 @@ int picoquic_callback(picoquic_cnx_t* cnx,
           log_error("Failed to get UDP socket name: %s", uv_strerror(rc));
         }
         log_debug("Number of connections in socket manager: %zu", g_slist_length(socket_manager->all_connections));
-        socket_manager->callbacks.connection_ready(connection);
+        socket_manager->callbacks.connection_received(socket_manager->listener, connection);
       }
       else if (ct_connection_is_client(connection)) {
         if (picoquic_tls_is_psk_handshake(cnx)) {
@@ -1171,7 +1171,7 @@ void on_quic_poll_read(ct_socket_manager_t* socket_manager,
         free(remote_endpoint);
         return;
       }
-      ct_connection_t* connection = ct_connection_create_server_connection(listener->socket_manager, remote_endpoint, listener->security_parameters, NULL);
+      ct_connection_t* connection = ct_connection_create_server_connection(listener->socket_manager, remote_endpoint, listener->local_endpoint, listener->security_parameters, &listener->connection_callbacks, NULL);
       if (!connection) {
         log_error("Failed to create new ct_connection_t for incoming QUIC connection");
         return;
@@ -1749,7 +1749,7 @@ int quic_listen(ct_socket_manager_t* socket_manager) {
   picoquic_set_alpn_select_fn(socket_state->picoquic_ctx, quic_alpn_select_cb);
 
   // Create UDP handle bound to the listener's local endpoint
-  ct_udp_poll_handle_t* poll_handle = create_udp_poll_on_local(&listener->local_endpoint);
+  ct_udp_poll_handle_t* poll_handle = create_udp_poll_on_local(listener->local_endpoint);
   if (!poll_handle) {
     log_error("Failed to create UDP handle for QUIC listener");
     ct_close_quic_context(socket_state);
@@ -1768,12 +1768,12 @@ int quic_listen(ct_socket_manager_t* socket_manager) {
   return 0;
 }
 
-int quic_stop_listen(ct_socket_manager_t* socket_manager) {
+int quic_close_listener(ct_socket_manager_t* socket_manager) {
   log_debug("Stopping QUIC listen");
-  (void)socket_manager;
   // no-op since the socket is shared between listener and connections
   // The socket is instead closed when the socket manager sees no
   // more open connections
+  socket_manager->callbacks.closed_listener(socket_manager);
   return 0;
 }
 

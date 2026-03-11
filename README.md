@@ -138,11 +138,12 @@ int main() {
 
     ct_listener_callbacks_t listener_callbacks = {
         .connection_received = on_connection_received_receive_message,
+        .listener_closed = free_on_listener_closed
     };
 
-    ct_listener_t* listener = ct_preconnection_listen(listener_precon, listener_callbacks);
+    int rc = ct_preconnection_listen(listener_precon, listener_callbacks, NULL);
 
-    if (!listener) {
+    if (rc < 0) {
         perror("Sync error in establishing listener\n");
         return -1;
     }
@@ -150,7 +151,6 @@ int main() {
     ct_start_event_loop();
 
     // Cleanup
-    ct_listener_free(listener);
     ct_preconnection_free(listener_precon);
     ct_transport_properties_free(listener_props);
     ct_remote_endpoint_free(listener_remote);

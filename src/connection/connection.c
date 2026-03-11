@@ -38,7 +38,9 @@ ct_connection_t* ct_connection_create_empty_with_uuid(void) {
 
 ct_connection_t* ct_connection_create_server_connection(ct_socket_manager_t* socket_manager,
                                              const ct_remote_endpoint_t* remote_endpoint,
+                                             const ct_local_endpoint_t* local_endpoint,
                                              const ct_security_parameters_t* security_parameters,
+                                             const ct_connection_callbacks_t* connection_callbacks,
                                              ct_framer_impl_t* framer_impl
                                              ) {
   log_debug("Creating server connection for remote endpoint");
@@ -59,7 +61,7 @@ ct_connection_t* ct_connection_create_server_connection(ct_socket_manager_t* soc
   // > when set on Preconnections, they act as an initial default for the resulting Connections
   connection->all_remote_endpoints = ct_remote_endpoints_deep_copy(remote_endpoint, 1);
   if (!connection->all_remote_endpoints) {
-    log_error("Failed to copy remote endpoint from listener to connection");
+    log_error("Failed to copy remote endpoint to connection");
     ct_connection_free(connection);
     ct_connection_group_free(group);
     return NULL;
@@ -67,10 +69,10 @@ ct_connection_t* ct_connection_create_server_connection(ct_socket_manager_t* soc
 
   connection->num_remote_endpoints = 1;
   connection->active_remote_endpoint = 0;
-  connection->num_local_endpoints = socket_manager->listener->num_local_endpoints;
-  connection->all_local_endpoints = ct_local_endpoints_deep_copy(&socket_manager->listener->local_endpoint, socket_manager->listener->num_local_endpoints);
+  connection->num_local_endpoints = 1;
+  connection->all_local_endpoints = ct_local_endpoint_deep_copy(local_endpoint);
   if (!connection->all_local_endpoints && connection->num_local_endpoints > 0) {
-    log_error("Failed to copy local endpoits from listener to connection");
+    log_error("Failed to copy local endpoint to connection");
     ct_connection_free(connection);
     ct_connection_group_free(group);
     return NULL;
@@ -82,9 +84,14 @@ ct_connection_t* ct_connection_create_server_connection(ct_socket_manager_t* soc
   connection->security_parameters = ct_security_parameters_deep_copy(security_parameters);
   connection->framer_impl = framer_impl; // TODO - ownership here?
 
-  ct_socket_manager_add_connection(socket_manager, connection);
+  if (connection_callbacks) {
+    connection->connection_callbacks = *connection_callbacks;
+  }
+  else {
+    log_debug("No connection callbacks provided for server connection, using empty callbacks");
+  }
 
-  log_debug("Created new server connection: %s", connection->uuid);
+  ct_socket_manager_add_connection(socket_manager, connection);
 
   return connection;
 }
@@ -434,7 +441,7 @@ void ct_connection_close(ct_connection_t* connection) {
         return;
     }
     ct_connection_mark_as_closing(connection);
-    ct_socket_manager_close_connection(connection->socket_manager, connection);
+    ct_socket_manager_close_connection(connection);
 }
 
 void ct_connection_free_content(ct_connection_t* connection) {

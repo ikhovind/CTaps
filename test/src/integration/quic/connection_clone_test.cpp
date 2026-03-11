@@ -87,15 +87,20 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
 
 
     ct_preconnection_t* listener_precon = ct_preconnection_new(listener_endpoint, 1, listener_remote, 1, listener_props, server_security_parameters);
-    log_debug("checking if i get here");
-    ct_security_parameters_free(server_security_parameters);
 
     ct_listener_callbacks_t listener_callbacks = {
         .connection_received = server_on_connection_received_for_cloning,
         .user_listener_context = &test_context
     };
 
-    ct_listener_t* listener = ct_preconnection_listen(listener_precon, listener_callbacks);
+    ct_connection_callbacks_t server_connection_callbacks = {
+        .establishment_error = on_establishment_error,
+        .ready = server_connection_setup_receive_and_respond_on_ready,
+        .user_connection_context = &test_context,
+    };
+
+    rc = ct_preconnection_listen(listener_precon, listener_callbacks, &server_connection_callbacks);
+    ASSERT_EQ(rc, 0);
 
     log_info("Listener created on port %d", QUIC_CLONE_LISTENER_PORT);
 
@@ -117,7 +122,6 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     log_debug("Added client certificate to client security parameters, total client certs=%zu", client_certs);
 
     ct_preconnection_t* client_precon = ct_preconnection_new(NULL, 0, client_remote, 1, client_props, client_security_parameters);
-    ct_security_parameters_free(client_security_parameters);
 
     ct_connection_callbacks_t client_callbacks = {
         .establishment_error = on_establishment_error,
@@ -160,6 +164,8 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     ct_remote_endpoint_free(listener_remote);
     ct_preconnection_free(listener_precon);
     ct_transport_properties_free(listener_props);
+    ct_security_parameters_free(server_security_parameters);
+    ct_security_parameters_free(client_security_parameters);
 }
 
 TEST_F(ConnectionCloneTest, clonesUdpConnectionSendsOnBothAndReceivesIndividualResponses) {

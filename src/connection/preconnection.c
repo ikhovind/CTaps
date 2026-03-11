@@ -5,6 +5,7 @@
 #include "ctaps_internal.h"
 #include "message/message.h"
 #include "message/message_context.h"
+#include "preconnection.h"
 #include "transport_property/selection_properties/selection_properties.h"
 #include <candidate_gathering/candidate_gathering.h>
 #include <candidate_gathering/candidate_racing.h>
@@ -105,7 +106,7 @@ ct_preconnection_t* ct_preconnection_new(
 typedef struct listener_candidate_node_array_ready_context_s {
   const ct_preconnection_t* preconnection;
   ct_listener_callbacks_t listener_callbacks;
-  ct_listener_t* listener;
+  ct_connection_callbacks_t connection_callbacks;
 } listener_candidate_node_array_ready_context_t;
 
 void listener_candidate_node_array_ready_cb(GArray* candidate_nodes, void* context) {
@@ -113,83 +114,57 @@ void listener_candidate_node_array_ready_cb(GArray* candidate_nodes, void* conte
   listener_candidate_node_array_ready_context_t* listener_candidate_node_array_ready_context = (listener_candidate_node_array_ready_context_t*)context;
   const ct_preconnection_t* preconnection = listener_candidate_node_array_ready_context->preconnection;
   ct_listener_callbacks_t listener_callbacks = listener_candidate_node_array_ready_context->listener_callbacks;
-  ct_listener_t* listener = listener_candidate_node_array_ready_context->listener;
-  if (candidate_nodes && candidate_nodes->len > 0) {
-    const ct_candidate_node_t first_node = g_array_index(candidate_nodes, ct_candidate_node_t, 0);
-
-
-    ct_socket_manager_t* socket_manager = ct_socket_manager_new(first_node.protocol_candidate->protocol_impl, listener);
-    if (!socket_manager) {
-      log_error("Failed to create socket manager for listener");
-      free_candidate_array(candidate_nodes);
-      free(listener_candidate_node_array_ready_context);
-      if (listener->listener_callbacks.establishment_error) {
-        listener->listener_callbacks.establishment_error(listener, -ENOMEM);
-      }
-      return;
+  if (!candidate_nodes || candidate_nodes->len == 0) {
+    log_error("No candidate nodes were gathered for listener");
+    if (listener_callbacks.establishment_error) {
+      listener_callbacks.establishment_error(NULL, -ENOENT);
     }
-    log_debug("listening on port: %d with protocol: %s", first_node.local_endpoint->port, socket_manager->protocol_impl->name);
-    *listener = (ct_listener_t){
-      .listener_callbacks = listener_callbacks,
-      .num_local_endpoints = 1,
-      .socket_manager = ct_socket_manager_ref(socket_manager),
-      .state = CT_LISTENER_STATE_LISTENING,
-      .transport_properties = preconnection->transport_properties,
-      .security_parameters = preconnection->security_parameters,
-    };
-    int rc = ct_local_endpoint_copy_content(first_node.local_endpoint, &listener->local_endpoint);
-    if (rc != 0) {
-      log_error("Failed to copy local endpoint content for listener: %s", strerror(-rc));
-      ct_socket_manager_unref(socket_manager);
-      free_candidate_array(candidate_nodes);
-      free(listener_candidate_node_array_ready_context);
-      if (listener->listener_callbacks.establishment_error) {
-        listener->listener_callbacks.establishment_error(listener, rc);
-      }
-      return;
-    }
-
-    log_info("Starting to listen on ct_listener_t using protocol: %s on port: %d", socket_manager->protocol_impl->name, listener->local_endpoint.port);
-    rc = socket_manager->protocol_impl->listen(socket_manager);
-    if (rc != 0) {
-      log_error("Failed to listen on socket manager for listener: %d", rc);
-      ct_socket_manager_unref(socket_manager);
-      if (listener->listener_callbacks.establishment_error) {
-        listener->listener_callbacks.establishment_error(listener, rc);
-      }
-      return;
-    }
-    if (listener->listener_callbacks.listener_ready) {
-      log_debug("Calling listener_ready callback for listener");
-      listener->listener_callbacks.listener_ready(listener);
-    }
-    else {
-      log_debug("No listener_ready callback set for listener");
-    }
+    return;
   }
-  else {
-    log_error("No candidate node for ct_listener_t found");
-    if (listener->listener_callbacks.establishment_error) {
-      listener->listener_callbacks.establishment_error(listener, -ENOENT);
+  const ct_candidate_node_t first_node = g_array_index(candidate_nodes, ct_candidate_node_t, 0);
+
+  ct_listener_t* listener = ct_listener_new(
+    ct_preconnection_get_transport_properties(preconnection),
+    first_node.local_endpoint,
+    &listener_candidate_node_array_ready_context->listener_callbacks,
+    &listener_candidate_node_array_ready_context->connection_callbacks,
+    ct_preconnection_get_security_parameters(preconnection),
+    first_node.protocol_candidate->protocol_impl
+  );
+
+  if (!listener) {
+    log_error("Failed to create listener listener");
+    free_candidate_array(candidate_nodes);
+    free(listener_candidate_node_array_ready_context);
+    if (listener_callbacks.establishment_error) {
+      listener_callbacks.establishment_error(NULL, -1);
     }
+    return;
   }
+
+  log_info("Starting to listen on port: %d with protocol: %s", first_node.local_endpoint->port, listener->socket_manager->protocol_impl->name);
   free_candidate_array(candidate_nodes);
   free(listener_candidate_node_array_ready_context);
+
+  ct_socket_manager_listen(listener);
 }
 
-ct_listener_t* ct_preconnection_listen(const ct_preconnection_t* preconnection, ct_listener_callbacks_t listener_callbacks) {
+int ct_preconnection_listen(const ct_preconnection_t* preconnection,
+                                       ct_listener_callbacks_t listener_callbacks, // TODO Make pointer
+                                       const ct_connection_callbacks_t* connection_callbacks
+                                       ) {
   log_info("Listening from preconnection");
   listener_candidate_node_array_ready_context_t* cb_context = calloc(1, sizeof(listener_candidate_node_array_ready_context_t));
   if (!cb_context) {
     log_error("Failed to allocate memory for listener candidate node array ready context");
-    return NULL;
+    return -ENOMEM;
   }
-
-  ct_listener_t* listener = ct_listener_new();
 
   cb_context->preconnection = preconnection;
   cb_context->listener_callbacks = listener_callbacks;
-  cb_context->listener = listener;
+  if (connection_callbacks) {
+    cb_context->connection_callbacks = *connection_callbacks;
+  }
 
   ct_candidate_gathering_callbacks_t callbacks = {
     .candidate_node_array_ready_cb = listener_candidate_node_array_ready_cb,
@@ -197,13 +172,12 @@ ct_listener_t* ct_preconnection_listen(const ct_preconnection_t* preconnection, 
   };
 
   int rc = get_ordered_candidate_nodes(preconnection, callbacks);
-  if (rc != 0) {
+  if (rc < 0) {
     log_error("Failed to get ordered candidate nodes for listener");
-    ct_listener_free(listener);
     free(cb_context);
-    return NULL;
+    return rc;
   }
-  return listener;
+  return 0;
 }
 
 int ct_preconnection_initiate(ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks) {
@@ -277,7 +251,7 @@ void ct_preconnection_set_framer(ct_preconnection_t* preconnection, ct_framer_im
   preconnection->framer_impl = framer_impl;
 }
 
-const ct_local_endpoint_t* preconnection_get_local_endpoints(const ct_preconnection_t* preconnection, size_t* out_count) {
+const ct_local_endpoint_t* ct_preconnection_get_local_endpoints(const ct_preconnection_t* preconnection, size_t* out_count) {
   if (!out_count) {
     return NULL;
   }
@@ -290,7 +264,7 @@ const ct_local_endpoint_t* preconnection_get_local_endpoints(const ct_preconnect
   return preconnection->local_endpoints;
 }
 
-ct_remote_endpoint_t* const * preconnection_get_remote_endpoints(const ct_preconnection_t* preconnection, size_t* out_count) {
+ct_remote_endpoint_t* const * ct_preconnection_get_remote_endpoints(const ct_preconnection_t* preconnection, size_t* out_count) {
   if (!preconnection) {
     return NULL;
   }
@@ -300,6 +274,16 @@ ct_remote_endpoint_t* const * preconnection_get_remote_endpoints(const ct_precon
   return &preconnection->remote_endpoints;
 }
 
-const ct_transport_properties_t* preconnection_get_transport_properties(const ct_preconnection_t* preconnection) {
+const ct_transport_properties_t* ct_preconnection_get_transport_properties(const ct_preconnection_t* preconnection) {
+  if (!preconnection) {
+    return NULL;
+  }
   return &preconnection->transport_properties;
+}
+
+const ct_security_parameters_t* ct_preconnection_get_security_parameters(const ct_preconnection_t* preconnection) {
+  if (!preconnection) {
+    return NULL;
+  }
+  return preconnection->security_parameters;
 }

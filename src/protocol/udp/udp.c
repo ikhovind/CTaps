@@ -47,7 +47,7 @@ const ct_protocol_impl_t udp_protocol_interface = {
     .init_with_send = udp_init_with_send,
     .send = udp_send,
     .listen = udp_listen,
-    .stop_listen = udp_stop_listen,
+    .close_listener = udp_close_listener,
     .close = udp_close,
     .close_socket = udp_close_socket,
     .abort = udp_abort,
@@ -99,7 +99,9 @@ void udp_multiplex_received_message(ct_socket_manager_t* socket_manager, char* b
     connection = ct_connection_create_server_connection(
         socket_manager,
         remote_endpoint,
+        socket_manager->listener->local_endpoint,
         socket_manager->listener->security_parameters,
+        &socket_manager->listener->connection_callbacks,
         NULL
     );
     ct_remote_endpoint_free(remote_endpoint);
@@ -117,7 +119,7 @@ void udp_multiplex_received_message(ct_socket_manager_t* socket_manager, char* b
 
     ct_udp_socket_state_t* socket_state = (ct_udp_socket_state_t*)socket_manager->internal_socket_manager_state;
     log_debug("Calling connection received for UDP connection with handle: %p", socket_state->udp_handle);
-    socket_manager->callbacks.connection_ready(connection);
+    socket_manager->callbacks.connection_received(socket_manager->listener, connection);
   }
   ct_connection_on_protocol_receive(connection, buf, len);
 }
@@ -271,14 +273,14 @@ void udp_abort(ct_connection_t* connection) {
   }
 }
 
-int udp_stop_listen(struct ct_socket_manager_s* socket_manager) {
+int udp_close_listener(struct ct_socket_manager_s* socket_manager) {
   ct_udp_socket_state_t* socket_state = (ct_udp_socket_state_t*)socket_manager->internal_socket_manager_state;
   log_debug("Stopping UDP listen on udp handle: %p", socket_state->udp_handle);
-  int rc = uv_udp_recv_stop(socket_state->udp_handle);
-  if (rc < 0) {
-    log_error("Problem with stopping receive: %s\n", uv_strerror(rc));
-    return rc;
-  }
+
+  // no-op since the socket is shared between listener and connections
+  // The socket is instead closed when the socket manager sees no
+  // more open connections
+  socket_manager->callbacks.closed_listener(socket_manager);
   return 0;
 }
 
