@@ -221,8 +221,8 @@ add_gtest(remote_endpoint_resolve_test
             perform_dns_lookup
         ASAN_ENABLED
 )
-add_gtest(udp_listen_test SOURCES src/integration/udp/udp_listen_test.cpp ${CTAPS_SOURCES})
-add_gtest(tcp_listen_test SOURCES src/integration/tcp/tcp_listen_test.cpp ${CTAPS_SOURCES})
+add_gtest(udp_listen_test SOURCES src/integration/udp/udp_listen_test.cpp ${CTAPS_SOURCES} ASAN_ENABLED)
+add_gtest(tcp_listen_test SOURCES src/integration/tcp/tcp_listen_test.cpp ${CTAPS_SOURCES} ASAN_ENABLED)
 add_gtest(selection_properties_unit_test
   SOURCES
     src/unit/transport_properties/selection_properties/selection_properties_unit_test.cpp
