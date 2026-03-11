@@ -3,6 +3,7 @@ extern "C" {
   #include "protocol/udp/udp.h"
   #include "fff.h"
   extern void on_send(uv_udp_send_t* req, int status);
+  extern void __real_free(void* ptr);
 }
 
 DEFINE_FFF_GLOBALS;
@@ -41,7 +42,7 @@ protected:
     ct_message_context_t dummy_message_context = {0};
 };
 
-TEST_F(UdpUnitTest, MessageSendErrorInvokedOnWriteError) {
+TEST_F(UdpUnitTest, messageSendErrorInvokedOnWriteError) {
     uv_udp_send_t* req = (uv_udp_send_t*)calloc(1, sizeof(uv_udp_send_t));
     req->data = &dummy_send_data;
 
@@ -52,4 +53,7 @@ TEST_F(UdpUnitTest, MessageSendErrorInvokedOnWriteError) {
     ASSERT_EQ(faked_message_send_error_fake.arg1_val, &dummy_message_context);
     ASSERT_EQ(faked_message_send_error_fake.arg2_val, UV_ECONNRESET);
     ASSERT_EQ(faked_message_free_fake.call_count, 1);
+    // This would normally happen in on_send, but we wrap free to not free
+    // the dummy send data so
+    __real_free(req);
 }

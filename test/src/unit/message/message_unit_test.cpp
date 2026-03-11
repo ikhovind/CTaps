@@ -11,16 +11,11 @@ extern "C" {
 #include "fixtures/integration_fixture.h"
 
 TEST(MessageUnitTest, messageSetContentHandlesNullMessage) {
-    ct_message_t* message = ct_message_new_with_content("hello", 5);
-
-    ct_message_set_content(NULL, "world", 5);
-    ASSERT_EQ(message->length, 5);
-    ASSERT_STREQ((const char*)message->content, "hello");
-    ct_message_free(message);
+    ct_message_set_content(NULL, "world", strlen("world") + 1);
 }
 
 TEST(MessageUnitTest, messageSetContentHandlesNullContent) {
-    ct_message_t* message = ct_message_new_with_content("hello", 5);
+    ct_message_t* message = ct_message_new_with_content("hello", strlen("hello") + 1);
 
     ct_message_set_content(message, NULL, 0);
 
@@ -30,11 +25,11 @@ TEST(MessageUnitTest, messageSetContentHandlesNullContent) {
 }
 
 TEST(MessageUnitTest, messageSetContentHandlesMessageContentAsContent) {
-    ct_message_t* message = ct_message_new_with_content("hello", 5);
+    ct_message_t* message = ct_message_new_with_content("hello", strlen("hello") + 1);
 
     ct_message_set_content(message, message->content, message->length);
 
-    ASSERT_EQ(message->length, 5);
-    ASSERT_STREQ((const char*)message->content, "hello");
+    EXPECT_EQ(message->length, 6);
+    EXPECT_STREQ(message->content, "hello");
     ct_message_free(message);
 }
