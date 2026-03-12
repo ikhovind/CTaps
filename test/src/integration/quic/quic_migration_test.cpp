@@ -126,8 +126,8 @@ TEST_F(QuicMigrationTest, migratesAfterPrimaryLocalFails) {
     ASSERT_STREQ(per_connection_messages[connection][0]->content, "Pong: ping");
     ASSERT_STREQ(per_connection_messages[connection][1]->content, "Pong: ping");
 
-    ASSERT_EQ(test_context.local_endpoints.size(), 2);
-    ASSERT_NE(memcmp(&test_context.local_endpoints[0]->data.resolved_address, &test_context.local_endpoints[1]->data.resolved_address, sizeof(struct sockaddr_in)), 0) << "Local endpoints should have different resolved addresses after migration";
+    ASSERT_EQ(test_context.local_sockaddr.size(), 2);
+    ASSERT_NE(memcmp(&test_context.local_sockaddr[0], &test_context.local_sockaddr[1], sizeof(struct sockaddr_in)), 0) << "Local endpoints should have different resolved addresses after migration";
 
     ct_remote_endpoint_free(remote_endpoint);
     ct_preconnection_free(preconnection);
