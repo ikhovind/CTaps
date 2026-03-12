@@ -23,14 +23,6 @@ ct_queued_message_t* ct_queued_message_new(ct_message_t* message, ct_message_con
     return queued_message;
 }
 
-void ct_queued_message_free_ctaps_ownership(ct_queued_message_t* queued_message) {
-    if (!queued_message) {
-        return;
-    }
-    ct_message_context_free(queued_message->context);
-    free(queued_message);
-}
-
 void ct_queued_message_free_all(ct_queued_message_t* queued_message) {
     if (!queued_message) {
         return;
@@ -47,6 +39,8 @@ void ct_message_free(ct_message_t* message) {
     log_debug("Freeing message of size %zu", message->length);
     if (message->content) {
         free(message->content);
+        message->content = NULL;
+        message->length = 0;
     }
     free(message);
 }

@@ -4,20 +4,19 @@
 #include <string.h>
 
 void close_on_message_received(ct_connection_t* connection, 
-                              ct_message_t** received_message,
+                              ct_message_t* received_message,
                               ct_message_context_t* message_context) {
 
     uint16_t port = ct_local_endpoint_get_resolved_port(
         ct_message_context_get_local_endpoint(message_context)
     );
 
-    printf("Received message: %s on port %d\n", ct_message_get_content(*received_message), port);
-    ct_message_free(*received_message);
+    printf("Received message: %s on port %d\n", ct_message_get_content(received_message), port);
 
     ct_connection_close(connection);
 }
 
-void send_message_and_receive(struct ct_connection_s* connection) {
+void send_message_and_receive(ct_connection_t* connection) {
     ct_message_t* message = ct_message_new_with_content("ping", strlen("ping") + 1);
     // CTaps takes a deep copy of the passed content, so the message can be freed after this returns
     ct_send_message(connection, message);

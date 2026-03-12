@@ -571,17 +571,8 @@ typedef struct ct_remote_endpoint_s ct_remote_endpoint_t;
  * ### Receiving Messages
  *
  * When you receive a message in a receive callback:
- * - The client takes ownership of the received message and must free it when appropriate.
- *
- * Example:
- * ```c
- * int on_receive(ct_connection_t* conn, ct_message_t** msg, ct_message_context_t* ctx) {
- *     const char* content = ct_message_get_content(*msg);
- *     printf("Received message: %s\n", content);
- *     ct_message_free_all(*msg);  // Free when done
- *     return 0;
- * }
- * ```
+ * - The message is only valid during the callback execution,
+ *   you must take a deep copy if you need to use it after the callback returns
  */
 typedef struct ct_message_s ct_message_t;
 
@@ -642,31 +633,19 @@ get_message_property_list(output_message_context_getter_declaration)
 typedef struct ct_receive_callbacks_s {
   /** @brief Called when a complete message is received.
    * @param[in] connection The connection that received the message
-   * @param[in,out] received_message Pointer to received message. Caller takes ownership.
+   * @param[in] received_message Pointer to received message. Only valid during callback execution - copy if needed after return.
    * @param[in] ctx Message context with properties and endpoints
-   * @return 0 on success, non-zero on error
    */
-    void (*receive_callback)(ct_connection_t* connection, ct_message_t** received_message,
+    void (*receive_callback)(ct_connection_t* connection, ct_message_t* received_message,
                             ct_message_context_t* ctx);
 
     /** @brief Called when a receive error occurs.
    * @param[in] connection The connection that experienced the error
    * @param[in] ctx Message context
    * @param[in] reason Error description string
-   * @return 0 on success, non-zero on error
    */
     void (*receive_error)(ct_connection_t* connection, ct_message_context_t* ctx,
                          const char* reason);
-
-    /** @brief Called when a partial message is received (for streaming).
-   * @param[in] connection The connection that received the partial message
-   * @param[in,out] received_message Pointer to partial message data
-   * @param[in] ctx Message context
-   * @param[in] end_of_message True if this is the final fragment
-   * @return 0 on success, non-zero on error
-   */
-    void (*receive_partial)(ct_connection_t* connection, ct_message_t** received_message,
-                           ct_message_context_t* ctx, bool end_of_message);
 
     void* user_receive_context; ///< User-provided context passed to receive callbacks
 } ct_receive_callbacks_t;
@@ -1087,6 +1066,14 @@ CT_EXTERN ct_message_t* ct_message_new_with_content(const char* content, size_t 
  * @return Length of message in bytes, or 0 if message is NULL
  */
 CT_EXTERN size_t ct_message_get_length(const ct_message_t* message);
+
+
+/**
+ * @brief Create a deep copy of a message, including its content.
+ * @param[in] message Message to copy
+ * @return Pointer to newly allocated copy of the message, or NULL on failure
+ */
+CT_EXTERN ct_message_t* ct_message_deep_copy(const ct_message_t* message);
 
 /**
  * @brief Get the content buffer of a message.

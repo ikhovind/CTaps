@@ -223,33 +223,33 @@ void send_message_on_connection_ready(ct_connection_t* connection) {
 
 }
 
-void on_message_received(ct_connection_t* connection, ct_message_t** received_message,
+void on_message_received(ct_connection_t* connection, ct_message_t* received_message,
                         ct_message_context_t* message_context) {
     printf("ct_callback_t: on_message_received.\n");
     auto* ctx = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
 
     // Store the message per connection
-    (*ctx->per_connection_messages)[connection].push_back(*received_message);
+    (*ctx->per_connection_messages)[connection].push_back(ct_message_deep_copy(received_message));
 }
 
-void close_on_message_received(ct_connection_t* connection, ct_message_t** received_message,
+void close_on_message_received(ct_connection_t* connection, ct_message_t* received_message,
                               ct_message_context_t* message_context) {
     log_info("ct_callback_t: close_on_message_received.\n");
     log_info("closing connection: %s", ct_connection_get_uuid(connection));
     auto* ctx = static_cast<CallbackContext*>(message_context->user_receive_context);
 
-    (*ctx->per_connection_messages)[connection].push_back(*received_message);
+    (*ctx->per_connection_messages)[connection].push_back(ct_message_deep_copy(received_message));
 
     ct_connection_close(connection);
 }
 
 void close_on_expected_num_messages_received(ct_connection_t* connection,
-                                            ct_message_t** received_message,
+                                            ct_message_t* received_message,
                                             ct_message_context_t* message_context) {
     log_info("ct_callback_t: close_on_expected_num_messages_received.\n");
     auto* ctx = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
 
-    (*ctx->per_connection_messages)[connection].push_back(*received_message);
+    (*ctx->per_connection_messages)[connection].push_back(ct_message_deep_copy(received_message));
 
     // Count total messages across all connections
     size_t total_messages = 0;
@@ -265,11 +265,11 @@ void close_on_expected_num_messages_received(ct_connection_t* connection,
 
 // Callback that stores received message and sends "pong" response (for listener tests)
 void respond_and_close_on_message_received(ct_connection_t* connection,
-                                          ct_message_t** received_message,
+                                          ct_message_t* received_message,
                                           ct_message_context_t* message_context) {
     log_debug("ct_callback_t: respond_and_close_on_message_received.");
     auto* ctx = static_cast<CallbackContext*>(message_context->user_receive_context);
-    (*ctx->per_connection_messages)[connection].push_back(*received_message);
+    (*ctx->per_connection_messages)[connection].push_back(ct_message_deep_copy(received_message));
 
     ct_message_t* message = ct_message_new_with_content("pong", strlen("pong") + 1);
     ct_send_message(connection, message);
@@ -277,12 +277,12 @@ void respond_and_close_on_message_received(ct_connection_t* connection,
     ct_connection_close(connection);
 }
 
-void respond_on_message_received(ct_connection_t* connection, ct_message_t** received_message,
+void respond_on_message_received(ct_connection_t* connection, ct_message_t* received_message,
                                 ct_message_context_t* message_context) {
     log_info("ct_callback_t: respond_on_message_received.");
     auto* ctx = static_cast<CallbackContext*>(message_context->user_receive_context);
     log_debug("received on connection: %s", ct_connection_get_uuid(connection));
-    (*ctx->per_connection_messages)[connection].push_back(*received_message);
+    (*ctx->per_connection_messages)[connection].push_back(ct_message_deep_copy(received_message));
 
     ct_message_t* message = ct_message_new_with_content("pong", strlen("pong") + 1);
     ct_send_message(connection, message);
@@ -290,12 +290,12 @@ void respond_on_message_received(ct_connection_t* connection, ct_message_t** rec
 }
 
 void respond_and_verify_server_message_context_remote_context_on_message_received(
-    ct_connection_t* connection, ct_message_t** received_message,
+    ct_connection_t* connection, ct_message_t* received_message,
     ct_message_context_t* message_context) {
     log_info("ct_callback_t: "
              "respond_and_verify_server_message_context_remote_context_on_message_received.\n");
     auto* ctx = static_cast<CallbackContext*>(message_context->user_receive_context);
-    (*ctx->per_connection_messages)[connection].push_back(*received_message);
+    (*ctx->per_connection_messages)[connection].push_back(ct_message_deep_copy(received_message));
 
     // This is used for the connection from the point of view of the server listener
     // This means the remote endpoint should be ephemeral, since the client does not set a specific port
@@ -401,10 +401,10 @@ void send_message_and_receive(struct ct_connection_s* connection) {
 
 // Callback context needs a flag to track whether migration has been triggered
 void receive_first_pong_then_block_primary_path_for_remote(ct_connection_t* connection,
-                                                          ct_message_t** message,
+                                                          ct_message_t* message,
                                                           ct_message_context_t* ctx) {
     auto* test_ctx = static_cast<CallbackContext*>(ctx->user_receive_context);
-    (*test_ctx->per_connection_messages)[connection].push_back(*message);
+    (*test_ctx->per_connection_messages)[connection].push_back(ct_message_deep_copy(message));
 
     if (!test_ctx->path_blocked) {
         log_info("Received first pong, now blocking primary path to trigger migration");
@@ -458,10 +458,10 @@ void send_message_and_receive_blocking_primary_path_for_remote(struct ct_connect
 }
 
 void receive_first_pong_then_block_primary_path_for_local(ct_connection_t* connection,
-                                                         ct_message_t** message,
+                                                         ct_message_t* message,
                                                          ct_message_context_t* ctx) {
     auto* test_ctx = static_cast<CallbackContext*>(ctx->user_receive_context);
-    (*test_ctx->per_connection_messages)[connection].push_back(*message);
+    (*test_ctx->per_connection_messages)[connection].push_back(ct_message_deep_copy(message));
 
     if (!test_ctx->path_blocked) {
         log_info("Received first pong, now blocking primary local path to trigger migration");
@@ -530,7 +530,7 @@ void receive_on_ready(struct ct_connection_s* connection) {
 
 // Complex callback for multi-message listener tests
 void on_message_receive_send_new_message_and_receive_inline(ct_connection_t* connection,
-                                                           ct_message_t** received_message,
+                                                           ct_message_t* received_message,
                                                            ct_message_context_t* message_context) {
     printf("ct_callback_t: on_message_receive_send_new_message_and_receive.\n");
     auto* ctx = static_cast<CallbackContext*>(message_context->user_receive_context);
@@ -541,7 +541,7 @@ void on_message_receive_send_new_message_and_receive_inline(ct_connection_t* con
     ct_send_message(sending_connection, message);
     ct_message_free(message);
 
-    (*ctx->per_connection_messages)[connection].push_back(*received_message);
+    (*ctx->per_connection_messages)[connection].push_back(ct_message_deep_copy(received_message));
 
     ct_receive_callbacks_t receive_message_request = {
         .receive_callback = on_message_received,
@@ -677,11 +677,11 @@ void server_sends_first_and_waits_for_response(ct_listener_t* listener,
 }
 
 // Callback for client to wait for server's message and respond
-void client_waits_and_responds(ct_connection_t* connection, ct_message_t** received_message,
+void client_waits_and_responds(ct_connection_t* connection, ct_message_t* received_message,
                               ct_message_context_t* message_context) {
     log_info("Client: Received server-initiated message");
     auto* ctx = static_cast<CallbackContext*>(message_context->user_receive_context);
-    (*ctx->per_connection_messages)[connection].push_back(*received_message);
+    (*ctx->per_connection_messages)[connection].push_back(ct_message_deep_copy(received_message));
 
     // Client responds to server's message
     ct_message_t* response = ct_message_new_with_content("client-ack", strlen("client-ack") + 1);
@@ -806,18 +806,20 @@ void clone_send_and_setup_receive_on_both(ct_connection_t* connection) {
 
 // Server callback: Receives message, responds with "Response: " prefix
 void server_receive_and_respond_with_prefix(ct_connection_t* connection,
-                                           ct_message_t** received_message,
+                                           ct_message_t* received_message,
                                            ct_message_context_t* message_context) {
     log_info("Server: Received message on connection %p: %s", (void*)connection,
-             (*received_message)->content);
+             (received_message)->content);
     auto* ctx = static_cast<CallbackContext*>(message_context->user_receive_context);
 
+    ct_message_t* copy_of_received = ct_message_deep_copy(received_message);
+
     // Store the received message per connection
-    (*ctx->per_connection_messages)[connection].push_back(*received_message);
+    (*ctx->per_connection_messages)[connection].push_back(copy_of_received);
 
     // Send response with "Response: " prefix
     std::string response =
-        std::string("Response: ") + std::string((char*)(*received_message)->content);
+        std::string("Response: ") + std::string((char*)(copy_of_received)->content);
     ct_message_t* response_msg =
         ct_message_new_with_content(response.c_str(), response.length() + 1);
     ct_send_message(connection, response_msg);
@@ -863,13 +865,13 @@ void server_on_connection_received_for_cloning(ct_listener_t* listener,
 // --- Callbacks for message context endpoint verification ---
 
 void verify_client_message_context_endpoints_and_close(ct_connection_t* connection,
-                                                      ct_message_t** received_message,
+                                                      ct_message_t* received_message,
                                                       ct_message_context_t* message_context) {
     log_info(
         "verify_client_message_context_endpoints_and_close: checking message context endpoints");
     auto* ctx = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
 
-    (*ctx->per_connection_messages)[connection].push_back(*received_message);
+    (*ctx->per_connection_messages)[connection].push_back(ct_message_deep_copy(received_message));
 
     // Since this is from the point of view of the client connection,
     // The local endpoint will be ephemeral (client's port)
