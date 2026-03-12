@@ -20,7 +20,7 @@ void initiate_short_transfer(ct_connection_t* large_file_connection) {
     }
 }
 
-int on_msg_received(ct_connection_t* connection, ct_message_t** received_message,
+void on_msg_received(ct_connection_t* connection, ct_message_t** received_message,
                     ct_message_context_t* ctx) {
     ct_message_t* msg = *received_message;
     unsigned int msg_length = ct_message_get_length(msg);
@@ -29,7 +29,6 @@ int on_msg_received(ct_connection_t* connection, ct_message_t** received_message
     case TRANSFER_NONE_STARTED:
         if (!json_only_mode)
             printf("Error: Received message in TRANSFER_NONE_STARTED state\n");
-        return -1;
         break;
     case STATE_LARGE_STARTED:
         client_ctx.large_stats.bytes_received += msg_length;
@@ -48,7 +47,6 @@ int on_msg_received(ct_connection_t* connection, ct_message_t** received_message
     case STATE_LARGE_DONE:
         if (!json_only_mode)
             printf("Error: Received message in STATE_LARGE_DONE state\n");
-        return -1;
         break;
     case STATE_SHORT_STARTED:
         client_ctx.short_stats.bytes_received += msg_length;
@@ -68,18 +66,16 @@ int on_msg_received(ct_connection_t* connection, ct_message_t** received_message
     case STATE_BOTH_DONE:
         if (!json_only_mode)
             printf("Error: Received message in STATE_BOTH_DONE state\n");
-        return -1;
         break;
     }
-    return 0;
 }
 
-int on_connection_ready(ct_connection_t* connection) {
+void on_connection_ready(ct_connection_t* connection) {
     client_context_t* ctx = (client_context_t*)ct_connection_get_callback_context(connection);
     ct_message_t* message = NULL;
     ct_message_context_t* msg_ctx = ct_message_context_new();
     if (!msg_ctx) {
-        return -1;
+        return;
     }
     ct_message_context_set_final(msg_ctx, true);
     switch (ctx->state) {
@@ -102,7 +98,7 @@ int on_connection_ready(ct_connection_t* connection) {
         if (!json_only_mode)
             printf("Unexpected connection established in STATE_LARGE_STARTED\n");
         ct_message_context_free(msg_ctx);
-        return -1;
+        return ;
         break;
     case STATE_LARGE_DONE:
         // start small file transfer
@@ -123,21 +119,19 @@ int on_connection_ready(ct_connection_t* connection) {
         if (!json_only_mode)
             printf("Unexpected connection established in STATE_SHORT_STARTED\n");
         ct_message_context_free(msg_ctx);
-        return -1;
+        return;
         break;
     case STATE_BOTH_DONE:
         // error - should not get new connection here
         if (!json_only_mode)
             printf("Unexpected connection established in STATE_BOTH_DONE\n");
         ct_message_context_free(msg_ctx);
-        return -1;
+        return;
         break;
     }
-    return 0;
 }
 
-int on_establishment_error(ct_connection_t* connection) {
+void on_establishment_error(ct_connection_t* connection) {
     if (!json_only_mode)
         printf("Connection establishment error occurred\n");
-    return -1;
 }

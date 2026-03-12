@@ -652,7 +652,7 @@ get_message_property_list(output_message_context_getter_declaration)
    * @param[in] ctx Message context with properties and endpoints
    * @return 0 on success, non-zero on error
    */
-    int (*receive_callback)(ct_connection_t* connection, ct_message_t** received_message,
+    void (*receive_callback)(ct_connection_t* connection, ct_message_t** received_message,
                             ct_message_context_t* ctx);
 
     /** @brief Called when a receive error occurs.
@@ -661,7 +661,7 @@ get_message_property_list(output_message_context_getter_declaration)
    * @param[in] reason Error description string
    * @return 0 on success, non-zero on error
    */
-    int (*receive_error)(ct_connection_t* connection, ct_message_context_t* ctx,
+    void (*receive_error)(ct_connection_t* connection, ct_message_context_t* ctx,
                          const char* reason);
 
     /** @brief Called when a partial message is received (for streaming).
@@ -671,7 +671,7 @@ get_message_property_list(output_message_context_getter_declaration)
    * @param[in] end_of_message True if this is the final fragment
    * @return 0 on success, non-zero on error
    */
-    int (*receive_partial)(ct_connection_t* connection, ct_message_t** received_message,
+    void (*receive_partial)(ct_connection_t* connection, ct_message_t** received_message,
                            ct_message_context_t* ctx, bool end_of_message);
 
     void* user_receive_context; ///< User-provided context passed to receive callbacks
@@ -685,22 +685,22 @@ get_message_property_list(output_message_context_getter_declaration)
  */
 typedef struct ct_connection_callbacks_s {
     /** @brief Called when a connection error occurs after establishment. */
-    int (*connection_error)(ct_connection_t* connection);
+    void (*connection_error)(ct_connection_t* connection);
 
     /** @brief Called when connection establishment fails. */
-    int (*establishment_error)(ct_connection_t* connection);
+    void (*establishment_error)(ct_connection_t* connection);
 
     /** @brief Called when a connection expires (e.g., idle timeout). */
-    int (*expired)(ct_connection_t* connection);
+    void (*expired)(ct_connection_t* connection);
 
     /** @brief Called when the connection's network path changes (multipath). */
-    int (*path_change)(ct_connection_t* connection);
+    void (*path_change)(ct_connection_t* connection);
 
     /** @brief Called when connection is established and ready for data transfer. */
-    int (*ready)(ct_connection_t* connection);
+    void (*ready)(ct_connection_t* connection);
 
     /** @brief Called when connection is established and ready for data transfer. */
-    int (*closed)(ct_connection_t* connection);
+    void (*closed)(ct_connection_t* connection);
 
     /** @brief Called when a message send operation fails. */
     void (*send_error)(ct_connection_t* connection, ct_message_context_t* message_context,
@@ -710,7 +710,7 @@ typedef struct ct_connection_callbacks_s {
     void (*sent)(ct_connection_t* connection, ct_message_context_t* message_context);
 
     /** @brief Called when a non-fatal error occurs (e.g., congestion). */
-    int (*soft_error)(ct_connection_t* connection);
+    void (*soft_error)(ct_connection_t* connection);
 
     void* user_connection_context; ///< User-provided context for the connection lifetime
 } ct_connection_callbacks_t;
@@ -730,9 +730,8 @@ typedef struct ct_listener_callbacks_s {
     /** @brief Called when a new connection is received.
    * @param[in] listener The listener that accepted the connection
    * @param[in] new_conn The new connection object (caller must handle)
-   * @return 0 to accept connection, non-zero to reject - TODO implement this
    */
-    int (*connection_received)(ct_listener_t* listener, ct_connection_t* new_conn);
+    void (*connection_received)(ct_listener_t* listener, ct_connection_t* new_conn);
 
     /** 
    * @brief Called when connection establishment fails for an incoming connection.

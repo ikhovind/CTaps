@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
-int close_on_message_received(ct_connection_t* connection, ct_message_t** received_message,
+void close_on_message_received(ct_connection_t* connection, ct_message_t** received_message,
                               ct_message_context_t* message_context) {
     printf("Message received!!!...\n");
     const char* msg_cont = ct_message_get_content(*received_message);
@@ -13,15 +13,13 @@ int close_on_message_received(ct_connection_t* connection, ct_message_t** receiv
     // printf("Message length: %zu\n", ct_message_get_length(*received_message));
     //const char* msg_cont = ct_message_get_content(*received_message);
     ct_connection_close(connection);
-    return 0;
 }
 
-int establishment_error(ct_connection_t* connection) {
+void establishment_error(ct_connection_t* connection) {
     printf("Connection establishment failed!!!...\n");
-    return 0;
 }
 
-int send_message_and_receive(struct ct_connection_s* connection) {
+void send_message_and_receive(struct ct_connection_s* connection) {
     printf("Connection is ready!!!...\n");
 
     ct_receive_callbacks_t receive_message_request = {
@@ -29,7 +27,6 @@ int send_message_and_receive(struct ct_connection_s* connection) {
     };
 
     ct_receive_message(connection, receive_message_request);
-    return 0;
 }
 
 int main() {

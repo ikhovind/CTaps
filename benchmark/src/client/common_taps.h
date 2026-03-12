@@ -32,6 +32,6 @@ typedef struct {
 extern client_context_t client_ctx;
 extern int json_only_mode;
 
-int on_connection_ready(ct_connection_t* connection);
+void on_connection_ready(ct_connection_t* connection);
 
-int on_establishment_error(ct_connection_t* connection);
+void on_establishment_error(ct_connection_t* connection);

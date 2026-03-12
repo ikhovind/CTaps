@@ -26,49 +26,44 @@ extern "C" {
   } ct_candidate_racing_test_context_t;
 
   // ct_callback_t that marks connection as successful
-  int racing_test_on_ready(struct ct_connection_s* connection) {
+  void racing_test_on_ready(struct ct_connection_s* connection) {
     fake_on_ready_counter();
     log_info("ct_connection_t succeeded via protocol: %s", ct_connection_get_protocol_name(connection));
     ct_candidate_racing_test_context_t* context = (ct_candidate_racing_test_context_t*)ct_connection_get_callback_context(connection);
     context->connection_succeeded = true;
     ct_connection_close(connection);
-    return 0;
   }
 
-  int capture_connection_on_close(struct ct_connection_s* connection) {
+  void capture_connection_on_close(struct ct_connection_s* connection) {
     fake_on_ready_counter();
     ct_candidate_racing_test_context_t* test_context = (ct_candidate_racing_test_context_t*)ct_connection_get_callback_context(connection);
     test_context->captured_connection = connection;
     ct_connection_close(connection);
-    return 0;
   }
 
   // ct_callback_t that tracks failures
-  int racing_test_on_establishment_error(struct ct_connection_s* connection) {
+  void racing_test_on_establishment_error(struct ct_connection_s* connection) {
     fake_on_establishment_error_counter();
     if (connection == nullptr) {
       log_error("No successful connection could be created on establishment error");
-      return 0;
+      return;
     }
     log_error("ct_connection_t failed");
     ct_candidate_racing_test_context_t* context = (ct_candidate_racing_test_context_t*)ct_connection_get_callback_context(connection);
     context->connection_succeeded = false;
-    return 0;
   }
 
   // ct_callback_t that tracks which protocol succeeded
-  int racing_test_on_ready_track_protocol(struct ct_connection_s* connection) {
+  void racing_test_on_ready_track_protocol(struct ct_connection_s* connection) {
     log_info("ct_connection_t succeeded via protocol: %s", ct_connection_get_protocol_name(connection));
     ct_candidate_racing_test_context_t* ctx = (ct_candidate_racing_test_context_t*)ct_connection_get_callback_context(connection);
     ctx->successful_protocol = strdup(ct_connection_get_protocol_name(connection));
     ct_connection_close(connection);
-    return 0;
   }
 
-  int free_on_close(ct_connection_t* connection) {
+  void free_on_close(ct_connection_t* connection) {
     log_debug("Connection %s was closed, freeing resources", connection->uuid);
     ct_connection_free(connection);
-    return 0;
   }
 
 

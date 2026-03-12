@@ -16,8 +16,8 @@
 // Forward declarations
 static void initiate_next_attempt(ct_racing_context_t* context);
 static void on_stagger_timer(uv_timer_t* handle);
-static int racing_on_attempt_ready(struct ct_connection_s* connection);
-static int on_attempt_establishment_error(ct_connection_t* connection);
+static void racing_on_attempt_ready(struct ct_connection_s* connection);
+static void on_attempt_establishment_error(ct_connection_t* connection);
 static void cancel_all_other_attempts(ct_racing_context_t* context, size_t winning_index);
 static int start_connection_attempt(ct_racing_context_t* context, ct_racing_attempt_t* attempt);
 void handle_concluded_attempt(ct_racing_context_t* context);
@@ -42,12 +42,11 @@ void register_succesful_attempt(ct_racing_context_t* context, ct_racing_attempt_
     handle_concluded_attempt(context);
 }
 
-int raced_connection_close_cb(ct_connection_t* connection) {
+void raced_connection_close_cb(ct_connection_t* connection) {
     log_debug("Freeing failed connection: %s created in candidate racing", connection->uuid);
     ct_racing_attempt_t* attempt =
         (ct_racing_attempt_t*)connection->connection_callbacks.user_connection_context;
     register_canceled_attempt(attempt->context, attempt);
-    return 0;
 }
 
 bool all_attempts_failed(ct_racing_context_t* context) {
@@ -399,7 +398,7 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
 /**
  * @brief ct_callback_t when a connection attempt succeeds.
  */
-int racing_on_attempt_ready(ct_connection_t* connection) {
+void racing_on_attempt_ready(ct_connection_t* connection) {
     ct_racing_attempt_t* attempt =
         (ct_racing_attempt_t*)connection->connection_callbacks.user_connection_context;
     ct_racing_context_t* context = attempt->context;
@@ -412,7 +411,7 @@ int racing_on_attempt_ready(ct_connection_t* connection) {
         // If we reach this, we have already called ct_connection_close on this succesfull
         // connection, so do nothing here since we are waiting for the closed() callback
         log_debug("Race already complete, ignoring success of attempt %zu", attempt->attempt_index);
-        return 0;
+        return;
     }
 
     // Mark the race as complete
@@ -446,17 +445,15 @@ int racing_on_attempt_ready(ct_connection_t* connection) {
     // Call the user's ready callback with the winning connection
     if (connection->connection_callbacks.ready) {
         log_info("Notifying user of successful connection via ready callback");
-        return connection->connection_callbacks.ready(connection);
+        connection->connection_callbacks.ready(connection);
     }
     log_warn("User connection ready callback is NULL, cannot notify of successful connection");
-
-    return 0;
 }
 
 /**
  * @brief ct_callback_t when a connection attempt fails.
  */
-static int on_attempt_establishment_error(ct_connection_t* connection) {
+static void on_attempt_establishment_error(ct_connection_t* connection) {
     log_debug("Received establishment error for connection: %s", connection->uuid);
     ct_racing_attempt_t* attempt =
         (ct_racing_attempt_t*)connection->connection_callbacks.user_connection_context;
@@ -467,11 +464,10 @@ static int on_attempt_establishment_error(ct_connection_t* connection) {
     // Check if race is already complete (another attempt won)
     if (context->race_complete) {
         log_debug("Race already complete, ignoring this failure");
-        return 0;
+        return;
     }
 
     register_failed_attempt(context, attempt);
-    return 0;
 }
 
 /**
