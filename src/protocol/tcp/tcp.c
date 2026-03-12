@@ -127,7 +127,6 @@ void on_abort(uv_handle_t* handle) {
 }
 
 void on_stop_listen(uv_handle_t* handle) {
-  // TODO - invoke stopped callback for listener
   ct_socket_manager_t* socket_manager = handle->data;
   socket_manager->callbacks.closed_listener(socket_manager);
 }
@@ -470,8 +469,8 @@ int tcp_listen(ct_socket_manager_t* socket_manager) {
   }
 
 
-  ct_local_endpoint_t local_endpoint = ct_listener_get_local_endpoint(listener);
-  rc = uv_tcp_bind(new_tcp_handle, (const struct sockaddr*)local_endpoint_get_resolved_address(&local_endpoint), 0);
+  const ct_local_endpoint_t* local_endpoint = ct_listener_get_local_endpoint(listener);
+  rc = uv_tcp_bind(new_tcp_handle, (const struct sockaddr*)local_endpoint_get_resolved_address(local_endpoint), 0);
   if (rc < 0) {
     log_error("Error binding TCP handle: %s", uv_strerror(rc));
     free(new_tcp_handle);
@@ -567,14 +566,13 @@ void new_stream_connection_cb(uv_stream_t *server, int status) {
   server_conn_socket_manager->callbacks.connection_received(listener, server_conn);
 }
 
-int tcp_close_listener(ct_socket_manager_t* socket_manager) {
+void tcp_close_listener(ct_socket_manager_t* socket_manager) {
   log_debug("Stopping TCP listen for ct_socket_manager_t %p", (void*)socket_manager);
 
   if (socket_manager->internal_socket_manager_state) {
     ct_tcp_socket_state_t* socket_state = socket_manager->internal_socket_manager_state;
     uv_close((uv_handle_t*)socket_state->tcp_handle, on_stop_listen);
   }
-  return 0;
 }
 
 int tcp_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* resolved_peer) {

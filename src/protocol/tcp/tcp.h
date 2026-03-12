@@ -31,7 +31,7 @@ int tcp_free_socket_state(ct_socket_manager_t* socket_manager);
 void tcp_abort(ct_connection_t* connection);
 int tcp_send(ct_connection_t* connection, ct_message_t* message, ct_message_context_t*);
 int tcp_listen(struct ct_socket_manager_s* socket_manager);
-int tcp_close_listener(struct ct_socket_manager_s* socket_manager);
+void tcp_close_listener(struct ct_socket_manager_s* socket_manager);
 int tcp_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* resolved_peer);
 int tcp_clone_connection(const struct ct_connection_s* source_connection,
                          struct ct_connection_s* target_connection);

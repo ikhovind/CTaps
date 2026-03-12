@@ -116,6 +116,7 @@ void listener_candidate_node_array_ready_cb(GArray* candidate_nodes, void* conte
   ct_listener_callbacks_t listener_callbacks = listener_candidate_node_array_ready_context->listener_callbacks;
   if (!candidate_nodes || candidate_nodes->len == 0) {
     log_error("No candidate nodes were gathered for listener");
+    free(listener_candidate_node_array_ready_context);
     if (listener_callbacks.establishment_error) {
       listener_callbacks.establishment_error(NULL, -ENOENT);
     }

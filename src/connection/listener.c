@@ -8,10 +8,7 @@
 #include <stdio.h>
 
 void ct_listener_close(ct_listener_t* listener) {
-  int rc = ct_socket_manager_listener_close(listener->socket_manager); 
-  if (rc) {
-    log_error("Error in stopping listener: %d", rc);
-  }
+  ct_socket_manager_listener_close(listener->socket_manager); 
 }
 
 ct_listener_t* ct_listener_new(
@@ -61,9 +58,6 @@ ct_listener_t* ct_listener_new(
       ct_listener_free(listener);
       return NULL;
     }
-  }
-  if (listener_callbacks) {
-    listener->listener_callbacks = *listener_callbacks;
   }
   ct_socket_manager_t* socket_manager = ct_socket_manager_new(protocol_impl, listener);
   if (!socket_manager) {

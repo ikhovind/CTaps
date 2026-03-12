@@ -161,7 +161,7 @@ void ct_socket_manager_notify_of_listener_close(ct_socket_manager_t* socket_mana
     case CT_CLOSE_TYPE_ESTABLISHMENT_ERROR: {
       log_debug("Notifying listener of graceful close via socket manager closed listener callback");
       if (listener->listener_callbacks.establishment_error) {
-        listener->listener_callbacks.establishment_error(listener, listener->close_rc);
+        listener->listener_callbacks.establishment_error(listener, -1);
       }
       else {
         log_debug("No establishment error callback registered for listener, cannot notify of establishment error close");
@@ -203,8 +203,8 @@ void ct_socket_manager_listen(ct_listener_t* listener) {
     log_error("Error from protocol when starting to listen with socket manager");
     if (listener->listener_callbacks.establishment_error) {
       listener->listener_callbacks.establishment_error(listener, rc);
-      return;
     }
+    return;
   }
   if (listener->listener_callbacks.listener_ready) {
     log_debug("Notifying listener of ready via socket manager listener ready callback");
@@ -379,6 +379,7 @@ void ct_socket_manager_aborted_connection_cb(ct_connection_t* connection) {
 int ct_socket_manager_close_connection(ct_connection_t* connection) {
   if (!connection) {
     log_error("NULL parameter passed to socket manager close connection");
+    return -EINVAL;
   }
   ct_socket_manager_t* socket_manager = connection->socket_manager;
   log_debug("Socket manager: Closing attached connection: %s", connection->uuid);
@@ -390,14 +391,9 @@ int ct_socket_manager_close_connection(ct_connection_t* connection) {
   return 0;
 }
 
-int ct_socket_manager_listener_close(ct_socket_manager_t* socket_manager) {
+void ct_socket_manager_listener_close(ct_socket_manager_t* socket_manager) {
   log_debug("Socket manager: closing attached listener");
-  int rc = socket_manager->protocol_impl->close_listener(socket_manager);
-  if (rc) {
-    log_error("Error from protocol when closing listener");
-    return rc;
-  }
-  return 0;
+  socket_manager->protocol_impl->close_listener(socket_manager);
 }
 
 void ct_socket_manager_message_sent_cb(ct_connection_t* connection, ct_message_context_t* message_context) {

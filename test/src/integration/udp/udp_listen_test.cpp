@@ -141,12 +141,10 @@ TEST_F(UdpListenTests, canReceiveAfterListenerCLose) {
     // --- ASSERTIONS ---
     ASSERT_EQ(per_connection_messages.size(), 2); // Both client and server connections
 
-    // Client receives "pong"
     EXPECT_EQ(per_connection_messages[client_connection].size(), 1);
     EXPECT_EQ(per_connection_messages[client_connection][0]->length, 5);
     EXPECT_STREQ(per_connection_messages[client_connection][0]->content, "ping");
 
-    // Server receives "ping"
     EXPECT_EQ(test_context.server_connections.size(), 1);
     ct_connection_t* server_connection = test_context.server_connections[0];
     EXPECT_EQ(per_connection_messages[server_connection].size(), 1);
