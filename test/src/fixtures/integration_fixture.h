@@ -81,7 +81,7 @@ struct CallbackContext {
     uint16_t expected_server_port = 0; // Expected remote port for message context verification
     std::function<void()> listener_ready_action;
     bool path_blocked = false; // Used for migration test to simulate path failure after connection established
-    std::vector<const ct_local_endpoint_t*> local_endpoints; // Used for migration test to verify local endpoint changes
+    std::vector<struct sockaddr_storage> local_sockaddr; // Used for migration test to verify local endpoint changes
 };
 
 class CTapsGenericFixture : public ::testing::Test {
@@ -924,7 +924,7 @@ ct_connection_group_t* generate_connection_group(int num_connections) {
 void capture_local_on_sent(ct_connection_t* connection, ct_message_context_t* message_context) {
     auto* context = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
     
-    context->local_endpoints.push_back(ct_connection_get_active_local_endpoint(connection));
+    context->local_sockaddr.push_back(ct_connection_get_active_local_endpoint(connection)->data.resolved_address);
 }
 
 void close_on_listener_ready(ct_listener_t* listener) {
