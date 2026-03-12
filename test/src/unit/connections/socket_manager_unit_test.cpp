@@ -23,6 +23,10 @@ FAKE_VOID_FUNC(__wrap_ct_message_free, ct_message_t*);
 FAKE_VOID_FUNC(__wrap_ct_message_context_free, ct_message_context_t*);
 FAKE_VALUE_FUNC(int, fake_set_connection_priority, ct_connection_t*, uint8_t);
 FAKE_VALUE_FUNC(GSList*, __wrap_g_slist_prepend, GSList*, gpointer);
+FAKE_VALUE_FUNC(int, fake_listen, ct_socket_manager_t*);
+FAKE_VOID_FUNC(fake_listener_ready, ct_listener_t*);
+FAKE_VOID_FUNC(fake_establishment_error, ct_listener_t*, int);
+FAKE_VALUE_FUNC(int, fake_close, ct_connection_t*);
 }
 
 class SocketManagerUnitTests : public ::testing::Test {
@@ -34,12 +38,18 @@ protected:
         RESET_FAKE(__wrap_ct_message_context_free);
         RESET_FAKE(fake_set_connection_priority);
         RESET_FAKE(__wrap_g_slist_prepend);
+        RESET_FAKE(fake_listen);
+        RESET_FAKE(fake_listener_ready);
+        RESET_FAKE(fake_establishment_error);
+        RESET_FAKE(fake_close);
         FFF_RESET_HISTORY();
 
         fake_set_connection_priority_fake.return_val = 0;
 
         dummy_protocol_impl.name = "dummy_protocol";
         dummy_protocol_impl.set_connection_priority = fake_set_connection_priority;
+        dummy_protocol_impl.listen = fake_listen;
+        dummy_protocol_impl.close = fake_close;
 
         dummy_socket_manager.protocol_impl = &dummy_protocol_impl;
 
@@ -51,6 +61,13 @@ protected:
         dummy_connection.connection_callbacks.send_error = fake_send_error;
 
         dummy_socket_manager_without_support.protocol_impl = &dummy_protocol_without_support;
+
+
+        dummy_socket_manager.protocol_impl = &dummy_protocol_impl;
+
+        dummy_listener.listener_callbacks.listener_ready      = fake_listener_ready;
+        dummy_listener.listener_callbacks.establishment_error = fake_establishment_error;
+        dummy_listener.socket_manager = &dummy_socket_manager;
     }
 
     
@@ -68,6 +85,7 @@ protected:
 
     ct_message_t dummy_message = {0};
     ct_message_context_t dummy_message_context = {0};
+    ct_listener_t       dummy_listener       = {0};
 };
 
 TEST_F(SocketManagerUnitTests, invokesConnectionCallbackAndFreesContextOnSent) {
@@ -194,4 +212,85 @@ TEST_F(SocketManagerUnitTests, addConnectionSetsSocketManagerViaRef) {
 
     ASSERT_EQ(dummy_connection.socket_manager, &dummy_socket_manager);
     ASSERT_EQ(dummy_socket_manager.ref_count, 1);
+}
+
+TEST_F(SocketManagerUnitTests, nullListener_doesNotCallProtocol) {
+    ct_socket_manager_listen(nullptr);
+
+    ASSERT_EQ(fake_listen_fake.call_count, 0);
+}
+
+TEST_F(SocketManagerUnitTests, listenFails_callsEstablishmentErrorWithCorrectArgs) {
+    fake_listen_fake.return_val = -1;
+    dummy_listener.listener_callbacks.establishment_error = fake_establishment_error;
+
+    ct_socket_manager_listen(&dummy_listener);
+
+    ASSERT_EQ(fake_establishment_error_fake.call_count, 1);
+    ASSERT_EQ(fake_establishment_error_fake.arg0_val, &dummy_listener);
+    ASSERT_EQ(fake_establishment_error_fake.arg1_val, -1);
+    ASSERT_EQ(fake_listener_ready_fake.call_count, 0);
+}
+
+TEST_F(SocketManagerUnitTests, listenFails_noEstablishmentErrorCallback_doesNotCrash) {
+    fake_listen_fake.return_val                           = -1;
+    dummy_listener.listener_callbacks.establishment_error = nullptr;
+
+    ASSERT_NO_FATAL_FAILURE(ct_socket_manager_listen(&dummy_listener));
+
+    ASSERT_EQ(fake_listener_ready_fake.call_count, 0);
+}
+
+TEST_F(SocketManagerUnitTests, listenSucceeds_callsListenerReadyWithCorrectArgs) {
+    fake_listen_fake.return_val                      = 0;
+    dummy_listener.listener_callbacks.listener_ready = fake_listener_ready;
+
+    ct_socket_manager_listen(&dummy_listener);
+
+    ASSERT_EQ(fake_listener_ready_fake.call_count, 1);
+    ASSERT_EQ(fake_listener_ready_fake.arg0_val, &dummy_listener);
+    ASSERT_EQ(fake_establishment_error_fake.call_count, 0);
+}
+
+TEST_F(SocketManagerUnitTests, listenSucceeds_noListenerReadyCallback_doesNotCrash) {
+    fake_listen_fake.return_val                      = 0;
+    dummy_listener.listener_callbacks.listener_ready = nullptr;
+
+    ASSERT_NO_FATAL_FAILURE(ct_socket_manager_listen(&dummy_listener));
+
+    ASSERT_EQ(fake_establishment_error_fake.call_count, 0);
+}
+
+TEST_F(SocketManagerUnitTests, passesSocketManagerNotListenerToProtocol) {
+    ct_socket_manager_listen(&dummy_listener);
+
+    ASSERT_EQ(fake_listen_fake.call_count, 1);
+    ASSERT_EQ(fake_listen_fake.arg0_val, &dummy_socket_manager);
+}
+
+TEST_F(SocketManagerUnitTests, closeConnection_nullConnection_returnsEinval) {
+    int rc = ct_socket_manager_close_connection(NULL);
+
+    ASSERT_EQ(rc, -EINVAL);
+    ASSERT_EQ(fake_close_fake.call_count, 0);
+}
+
+TEST_F(SocketManagerUnitTests, closeConnection_protocolFails_propagatesError) {
+    fake_close_fake.return_val = -EIO;
+
+    int rc = ct_socket_manager_close_connection(&dummy_connection);
+
+    ASSERT_EQ(rc, -EIO);
+    ASSERT_EQ(fake_close_fake.call_count, 1);
+    ASSERT_EQ(fake_close_fake.arg0_val, &dummy_connection);
+}
+
+TEST_F(SocketManagerUnitTests, closeConnection_protocolSucceeds_returnsZero) {
+    fake_close_fake.return_val = 0;
+
+    int rc = ct_socket_manager_close_connection(&dummy_connection);
+
+    ASSERT_EQ(rc, 0);
+    ASSERT_EQ(fake_close_fake.call_count, 1);
+    ASSERT_EQ(fake_close_fake.arg0_val, &dummy_connection);
 }

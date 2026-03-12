@@ -1153,6 +1153,10 @@ void on_quic_poll_read(ct_socket_manager_t* socket_manager,
 
     // Same new-connection handling as when first reading
     if (cnx && picoquic_get_callback_context(cnx) == picoquic_get_default_callback_context(picoquic_get_quic_ctx(cnx))) {
+      if (!socket_manager->listener || ct_listener_is_closed(socket_manager->listener)) {
+        log_debug("Received packet for QUIC cnx but no listener available to accept it, ignoring");
+        return;
+      }
       log_info("Received packet for new QUIC cnx for listener");
       ct_listener_t* listener = socket_state->socket_manager->listener;
       if (!listener || ct_listener_is_closed(listener)) {
@@ -1768,13 +1772,12 @@ int quic_listen(ct_socket_manager_t* socket_manager) {
   return 0;
 }
 
-int quic_close_listener(ct_socket_manager_t* socket_manager) {
+void quic_close_listener(ct_socket_manager_t* socket_manager) {
   log_debug("Stopping QUIC listen");
   // no-op since the socket is shared between listener and connections
   // The socket is instead closed when the socket manager sees no
   // more open connections
   socket_manager->callbacks.closed_listener(socket_manager);
-  return 0;
 }
 
 int quic_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* resolved_peer) {

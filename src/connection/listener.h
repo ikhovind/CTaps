@@ -17,8 +17,8 @@ ct_listener_t* ct_listener_new(
  * @param[in] listener The listener
  * @return Local endpoint structure (copy)
  */
-ct_local_endpoint_t ct_listener_get_local_endpoint(const ct_listener_t* listener);
+const ct_local_endpoint_t* ct_listener_get_local_endpoint(const ct_listener_t* listener);
 
-ct_listener_t* ct_listener_mark_as_closed(ct_listener_t* listener);
+void ct_listener_mark_as_closed(ct_listener_t* listener);
 
 #endif

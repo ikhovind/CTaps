@@ -836,11 +836,6 @@ int server_on_connection_received_for_cloning(ct_listener_t* listener, ct_connec
     auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
     context->server_connections.push_back(new_connection);
     context->listeners.insert(listener);
-    log_debug("Server connection length after push_back: %zu", context->server_connections.size());
-    log_debug("Connection group ref count: %d", new_connection->connection_group ? new_connection->connection_group->ref_count : -1);
-    log_debug("Socket manager ref count: %d", new_connection->socket_manager->ref_count);
-
-    context->listeners.insert(listener);
 
     ct_listener_close(listener);
 

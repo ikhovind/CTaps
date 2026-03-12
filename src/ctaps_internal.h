@@ -387,7 +387,7 @@ typedef struct ct_protocol_impl_s {
   int (*listen)(struct ct_socket_manager_s* socket_manager);
 
   /** @brief Stop listening for incoming connections. */
-  int (*close_listener)(struct ct_socket_manager_s*);
+  void (*close_listener)(struct ct_socket_manager_s*);
 
   /** @brief Close a connection. */
   int (*close)(ct_connection_t*);
@@ -434,7 +434,6 @@ typedef struct ct_listener_s {
   ct_listener_state_enum_t state;                     ///< Current state of the listener
   ct_security_parameters_t* security_parameters;      ///< Security configuration for accepted connections (owned copy)
   struct ct_socket_manager_s* socket_manager;         ///< Socket manager handling listening sockets
-  int close_rc;
 } ct_listener_t;
 
 
@@ -490,7 +489,6 @@ typedef struct ct_socket_manager_s {
   struct ct_listener_s* listener;
   ct_socket_manager_callbacks_t callbacks;
   ct_socket_manager_close_reason_t close_reason;
-  int close_error_code;
 } ct_socket_manager_t;
 
 

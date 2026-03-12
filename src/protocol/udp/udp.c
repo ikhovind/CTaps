@@ -92,6 +92,11 @@ void udp_multiplex_received_message(ct_socket_manager_t* socket_manager, char* b
   ct_connection_t* connection = socket_manager_get_from_demux_table(socket_manager, remote_addr);
 
   if (!connection) {
+    if (!socket_manager->listener || ct_listener_is_closed(socket_manager->listener)) {
+      log_debug("Received UDP message from new connection but listener is closed, dropping");
+      return;
+    }
+
     log_debug("Did not find remote endpoint in existing connections, creating new connection for received UDP message");
 
     ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
@@ -273,7 +278,7 @@ void udp_abort(ct_connection_t* connection) {
   }
 }
 
-int udp_close_listener(struct ct_socket_manager_s* socket_manager) {
+void udp_close_listener(struct ct_socket_manager_s* socket_manager) {
   ct_udp_socket_state_t* socket_state = (ct_udp_socket_state_t*)socket_manager->internal_socket_manager_state;
   log_debug("Stopping UDP listen on udp handle: %p", socket_state->udp_handle);
 
@@ -281,7 +286,6 @@ int udp_close_listener(struct ct_socket_manager_s* socket_manager) {
   // The socket is instead closed when the socket manager sees no
   // more open connections
   socket_manager->callbacks.closed_listener(socket_manager);
-  return 0;
 }
 
 int udp_send(ct_connection_t* connection, ct_message_t* message, ct_message_context_t* message_context) {
@@ -348,8 +352,8 @@ void socket_listen_callback(uv_udp_t* handle,
 int udp_listen(ct_socket_manager_t* socket_manager) {
   log_debug("Listening via UDP");
 
-  ct_local_endpoint_t local_endpoint = ct_listener_get_local_endpoint(socket_manager->listener);
-  uv_udp_t* udp_handle = create_udp_listening_on_local(&local_endpoint, alloc_buffer, socket_listen_callback);
+  const ct_local_endpoint_t* local_endpoint = ct_listener_get_local_endpoint(socket_manager->listener);
+  uv_udp_t* udp_handle = create_udp_listening_on_local(local_endpoint, alloc_buffer, socket_listen_callback);
   if (!udp_handle) {
     log_error("Failed to create UDP handle for listening");
     return -EIO;

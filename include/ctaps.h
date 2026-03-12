@@ -694,7 +694,7 @@ typedef struct ct_listener_callbacks_s {
 
   /** 
    * @brief Called when connection establishment fails for an incoming connection.
-   * @param[in] listener The listener
+   * @param[in] listener The listener which failed, or NULL if a listener could not be created
    * @param[in] reason Error code
    */
   void (*establishment_error)(ct_listener_t* listener, int error_code);
@@ -1057,7 +1057,7 @@ CT_EXTERN void ct_message_set_content(ct_message_t* message, const char* content
 // Message Context
 /**
  * @brief Initialize a message context with default values.
- * @param[out] message_context Context structure to initialize
+ * @return Heap allocated empty message context
  */
 CT_EXTERN ct_message_context_t* ct_message_context_new(void);
 
@@ -1180,7 +1180,6 @@ CT_EXTERN int ct_preconnection_initiate_with_send(ct_preconnection_t* preconnect
  * @brief Start listening for incoming connections using the configured Preconnection.
  *
  * @param[in] preconnection Pointer to preconnection with listener configuration
- * @param[out] listener Pointer to listener object to initialize. Must be allocated by caller.
  * @param[in] listener_callbacks Callbacks for listener events (ready, connection_received, etc.)
  * @param[in] connection_callbacks Callbacks for connection events on accepted connections
  * @return 0 on success, negative errno on synchronous failure
