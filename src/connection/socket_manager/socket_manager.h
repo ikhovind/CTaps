@@ -27,7 +27,7 @@ void ct_socket_manager_close(ct_socket_manager_t* socket_manager);
 
 int ct_socket_manager_close_connection(ct_connection_t* connection);
 
-int ct_socket_manager_close_group(ct_socket_manager_t* socket_manager, ct_connection_group_t* group);
+void ct_socket_manager_close_group(ct_socket_manager_t* socket_manager, ct_connection_group_t* group);
 
 void ct_socket_manager_listener_close(ct_socket_manager_t* socket_manager);
 

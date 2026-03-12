@@ -51,11 +51,6 @@ ct_transport_properties_t* ct_transport_properties_deep_copy(const ct_transport_
 }
 
 int ct_transport_properties_add_preference_map(ct_transport_properties_t* transport_props, ct_selection_property_enum_t type, const char* value, ct_selection_preference_t preference) {
-  if (!transport_props || !value) {
-    log_warn("Null pointer passed to add_interface_preference");
-    log_debug("Transport properties: %p, value: %p", transport_props, value);
-    return -EINVAL;
-  }
   ct_preference_set_t* set = &transport_props->selection_properties.list[type].value.preference_set_val;
   for (size_t i = 0; i < set->num_combinations; i++) {
     if (!set->combinations[i].value) {

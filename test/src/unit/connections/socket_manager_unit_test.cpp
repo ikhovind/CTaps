@@ -49,7 +49,7 @@ protected:
         dummy_protocol_impl.name = "dummy_protocol";
         dummy_protocol_impl.set_connection_priority = fake_set_connection_priority;
         dummy_protocol_impl.listen = fake_listen;
-        dummy_protocol_impl.close = fake_close;
+        dummy_protocol_impl.close_connection = fake_close;
 
         dummy_socket_manager.protocol_impl = &dummy_protocol_impl;
 
@@ -163,32 +163,12 @@ TEST_F(SocketManagerUnitTests, errorWhenProtocolFailsOnPriorityChange) {
     ASSERT_EQ(fake_set_connection_priority_fake.arg1_val, 99);
 }
 
-TEST_F(SocketManagerUnitTests, errorOnNullConnection) {
-    int rc = ct_socket_manager_notify_protocol_of_priority_change(NULL, 99);
-
-    ASSERT_EQ(rc, -EINVAL);
-}
-
-TEST_F(SocketManagerUnitTests, errorOnNullSocketManager) {
-    dummy_connection.socket_manager = NULL;
-
-    int rc = ct_socket_manager_notify_protocol_of_priority_change(&dummy_connection, 99);
-
-    ASSERT_EQ(rc, -EINVAL);
-}
-
 TEST_F(SocketManagerUnitTests, addConnectionDoesNothingOnNullSocketManager) {
-    ct_socket_manager_add_connection(NULL, &dummy_connection);
-
-    ASSERT_EQ(__wrap_g_slist_prepend_fake.call_count, 0);
-    ASSERT_EQ(dummy_connection.socket_manager->ref_count, 0);
+    EXPECT_DEATH(ct_socket_manager_add_connection(NULL, &dummy_connection), "");
 }
 
 TEST_F(SocketManagerUnitTests, addConnectionDoesNothingOnNullConnection) {
-    ct_socket_manager_add_connection(&dummy_socket_manager, NULL);
-
-    ASSERT_EQ(__wrap_g_slist_prepend_fake.call_count, 0);
-    ASSERT_EQ(dummy_socket_manager.ref_count, 0);
+    EXPECT_DEATH(ct_socket_manager_add_connection(&dummy_socket_manager, NULL), "");
 }
 
 TEST_F(SocketManagerUnitTests, addConnectionPrependsToList) {
@@ -269,10 +249,7 @@ TEST_F(SocketManagerUnitTests, passesSocketManagerNotListenerToProtocol) {
 }
 
 TEST_F(SocketManagerUnitTests, closeConnection_nullConnection_returnsEinval) {
-    int rc = ct_socket_manager_close_connection(NULL);
-
-    ASSERT_EQ(rc, -EINVAL);
-    ASSERT_EQ(fake_close_fake.call_count, 0);
+    EXPECT_DEATH(ct_socket_manager_close_connection(NULL), "");
 }
 
 TEST_F(SocketManagerUnitTests, closeConnection_protocolFails_propagatesError) {

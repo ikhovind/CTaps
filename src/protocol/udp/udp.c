@@ -1,12 +1,11 @@
 #include "udp.h"
 
 #include "connection/connection.h"
-#include "connection/connection_group.h"
-#include "connection/socket_manager/socket_manager.h"
 #include "connection/listener.h"
+#include "connection/socket_manager/socket_manager.h"
 #include "ctaps.h"
 #include "ctaps_internal.h"
-#include <errno.h>
+#include <assert.h>
 #include <glib.h>
 #include <logging/log.h>
 #include <protocol/common/socket_utils.h>
@@ -48,11 +47,10 @@ const ct_protocol_impl_t udp_protocol_interface = {
     .send = udp_send,
     .listen = udp_listen,
     .close_listener = udp_close_listener,
-    .close = udp_close,
+    .close_connection = udp_close,
     .close_socket = udp_close_socket,
     .abort = udp_abort,
     .clone_connection = udp_clone_connection,
-    .remote_endpoint_from_peer = udp_remote_endpoint_from_peer,
     .free_connection_state = udp_free_state,
     .free_socket_state = udp_free_socket_state,
     .close_connection_group = udp_close_connection_group,
@@ -263,19 +261,21 @@ int udp_init(ct_connection_t* connection) {
 }
 
 int udp_close(ct_connection_t* connection) {
-  log_info("Closing UDP connection");
+  log_debug("Closing UDP connection");
+  // no-op since UDP is connectionless and is therefore closed
+  // whenever it is marked as "closed" by the socket manager, since we then
+  // will filter out any further messages
   connection->socket_manager->callbacks.closed_connection(connection);
   return 0;
 }
 
 void udp_abort(ct_connection_t* connection) {
-  log_info("Aborting UDP connection");
-
-  if (connection->internal_connection_state) {
-    log_debug("Stopping UDP receive and aborting handle");
-    uv_udp_recv_stop((uv_udp_t*)connection->internal_connection_state);
-    uv_close(connection->internal_connection_state, abort_handle_cb);
-  }
+  log_debug("Aborting UDP connection");
+  // no-op since UDP is connectionless and is therefore closed
+  // whenever it is marked as "closed" by the socket manager, since we then
+  // will filter out any further messages
+  ct_socket_manager_t* socket_manager = connection->socket_manager;
+  socket_manager->callbacks.aborted_connection(connection);
 }
 
 void udp_close_listener(struct ct_socket_manager_s* socket_manager) {
@@ -366,27 +366,7 @@ int udp_listen(ct_socket_manager_t* socket_manager) {
   return 0;
 }
 
-int udp_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* resolved_peer) {
-  struct sockaddr_storage remote_addr;
-  int addr_len = sizeof(remote_addr);
-  int rc = uv_udp_getpeername((uv_udp_t*)peer, (struct sockaddr *)&remote_addr, &addr_len);
-  if (rc < 0) {
-    log_error("Could not get remote address from received handle: %s", uv_strerror(rc));
-    return rc;
-  }
-  rc = ct_remote_endpoint_from_sockaddr(resolved_peer, &remote_addr);
-  if (rc < 0) {
-    log_error("Could not build remote endpoint from received handle's remote address");
-    return rc;
-  }
-  return 0;
-}
-
 int udp_clone_connection(const struct ct_connection_s* source_connection, struct ct_connection_s* target_connection) {
-  if (!source_connection || !target_connection) {
-    log_error("Source or target connection is NULL in udp_clone_connection");
-    return -EINVAL;
-  }
   // Create ephemeral local port
   uv_udp_t* new_udp_handle = create_udp_listening_on_ephemeral(alloc_buffer, on_read);
   ct_udp_socket_state_t* socket_state = ct_udp_socket_state_new(new_udp_handle);
@@ -434,43 +414,31 @@ ct_udp_socket_state_t* ct_udp_socket_state_new(uv_udp_t* udp_handle) {
   return state;
 }
 
-void ct_udp_socket_state_free(ct_udp_socket_state_t* socket_state) {
-  free(socket_state->udp_handle);
-  free(socket_state);
-}
-
 void socket_closed_success(uv_handle_t* handle) {
   log_debug("UDP socket closed successfully");
   ct_socket_manager_t* socket_manager = (ct_socket_manager_t*)handle->data;
   socket_manager->callbacks.socket_closed(socket_manager);
 }
 
-int udp_close_socket(ct_socket_manager_t* socket_manager) {
+void udp_close_socket(ct_socket_manager_t* socket_manager) {
   log_debug("Closing UDP socket");
-  if (!socket_manager) {
-    log_error("NULL parameter passed to udp close socket");
-    return -EINVAL;
-  }
   ct_udp_socket_state_t* socket_state = socket_manager->internal_socket_manager_state;
-  uv_udp_recv_stop(socket_state->udp_handle);
+  int rc = uv_udp_recv_stop(socket_state->udp_handle);
+  // This only fails on wrong handle type, so it must hold
+  assert(rc == 0);
   uv_close((uv_handle_t*)socket_state->udp_handle, socket_closed_success);
-  return 0;
 }
 
 
-int udp_free_socket_state(ct_socket_manager_t* socket_manager) {
-  if (!socket_manager) {
-    log_error("NULL parameter passed to udp free socket state");
-    return -EINVAL;
-  }
-  ct_udp_socket_state_free(socket_manager->internal_socket_manager_state);
-  return 0;
+void udp_free_socket_state(ct_socket_manager_t* socket_manager) {
+  ct_udp_socket_state_t* socket_state = socket_manager->internal_socket_manager_state;
+  free(socket_state->udp_handle);
+  free(socket_state);
 }
 
-int udp_close_connection_group(ct_connection_group_t* connection_group) {
+void udp_close_connection_group(ct_connection_group_t* connection_group) {
   // Intermediate to avoid concurrent modification
   GSList* connections = NULL;
-  int rc = 0;
   GHashTableIter iter;
   gpointer key = NULL;
   gpointer value = NULL;
@@ -481,11 +449,6 @@ int udp_close_connection_group(ct_connection_group_t* connection_group) {
   }
   for (GSList* node = connections; node != NULL; node = node->next) {
     ct_connection_t* connection = (ct_connection_t*)node->data;
-    int inner_rc = udp_close(connection);
-    if (inner_rc < 0) {
-      log_error("Error closing connection %s in udp_close_connection_group: %d", connection->uuid, inner_rc);
-      rc = inner_rc;
-    }
+    udp_close(connection);
   }
-  return rc;
 }

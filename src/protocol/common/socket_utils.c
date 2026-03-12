@@ -1,10 +1,11 @@
 #define _GNU_SOURCE
 #include "socket_utils.h"
-#include "endpoint/local_endpoint.h"
 #include "connection/connection.h"
+#include "endpoint/local_endpoint.h"
 
 #include "ctaps.h"
 #include "protocol/quic/quic.h"
+#include <assert.h>
 #include <logging/log.h>
 #include <netinet/in.h>
 #include <stdlib.h>
@@ -209,40 +210,30 @@ uv_udp_t* create_udp_listening_on_ephemeral(uv_alloc_cb alloc_cb, uv_udp_recv_cb
 
 int get_sockaddr_from_handle(const uv_handle_t* handle, struct sockaddr_storage* addr) {
   int namelen = sizeof(struct sockaddr_storage);
-  switch (handle->type) {
-    case UV_UDP: {
-      log_trace("Resolving local endpoint from UDP handle");
-      uv_udp_t* udp_handle = (uv_udp_t*)handle;
-      int rc = uv_udp_getsockname(udp_handle, (struct sockaddr*)addr, &namelen);
-      if (rc < 0) {
-        log_error("Failed to get UDP socket name: %s", uv_strerror(rc));
-        return rc;
-      }
-      break;
+  assert(handle->type == UV_UDP || handle->type == UV_TCP);
+
+  if (handle->type == UV_UDP) {
+    log_trace("Resolving local endpoint from UDP handle");
+    uv_udp_t* udp_handle = (uv_udp_t*)handle;
+    int rc = uv_udp_getsockname(udp_handle, (struct sockaddr*)addr, &namelen);
+    if (rc < 0) {
+      log_error("Failed to get UDP socket name: %s", uv_strerror(rc));
+      return rc;
     }
-    case UV_TCP: {
-      log_trace("Resolving local endpoint from TCP handle");
-      uv_tcp_t* tcp_handle = (uv_tcp_t*)handle;
-      int rc = uv_tcp_getsockname(tcp_handle, (struct sockaddr*)addr, &namelen);
-      if (rc < 0) {
-        log_error("Failed to get TCP socket name: %s", uv_strerror(rc));
-        return rc;
-      }
-      break;
+  }
+  else {
+    log_trace("Resolving local endpoint from TCP handle");
+    uv_tcp_t* tcp_handle = (uv_tcp_t*)handle;
+    int rc = uv_tcp_getsockname(tcp_handle, (struct sockaddr*)addr, &namelen);
+    if (rc < 0) {
+      log_error("Failed to get TCP socket name: %s", uv_strerror(rc));
+      return rc;
     }
-    default:
-      log_error("Unsupported handle type for resolving local endpoint: %d", handle->type);
-      return -EINVAL;
   }
   return 0;
 }
 
 int resolve_local_endpoint_from_poll(ct_udp_poll_handle_t* handle, ct_connection_t* connection) {
-  if (!handle || !connection) {
-    log_error("Handle or connection is NULL in resolve_local_endpoint_from_poll");
-    log_debug("Handle pointer: %p, connection pointer: %p", (void*)handle, (void*)connection);
-    return -EINVAL;
-  }
 
   struct sockaddr_storage addr = {0};
   socklen_t len = sizeof(addr);
@@ -271,22 +262,13 @@ int resolve_local_endpoint_from_poll(ct_udp_poll_handle_t* handle, ct_connection
   }
 
   log_debug("Setting all local port on connection to %d", ntohs(local_endpoint_get_resolved_port(&local_endpoint)));
-  rc = ct_connection_set_all_local_port(connection, local_endpoint_get_resolved_port(&local_endpoint));
-  if (rc != 0) {
-    log_error("Failed to set local port on connection: %d", rc);
-    return rc;
-  }
+  ct_connection_set_all_local_port(connection, local_endpoint_get_resolved_port(&local_endpoint));
 
   return 0;
 }
 
 
 int resolve_local_endpoint_from_handle(uv_handle_t* handle, ct_connection_t* connection) {
-  if (!handle || !connection) {
-    log_error("Handle or connection is NULL in resolve_local_endpoint_from_handle");
-    log_debug("Handle pointer: %p, connection pointer: %p", (void*)handle, (void*)connection);
-    return -EINVAL;
-  }
   ct_local_endpoint_t local_endpoint = {0};
   struct sockaddr_storage addr = {0};;
   int rc = get_sockaddr_from_handle(handle, &addr);
@@ -315,11 +297,7 @@ int resolve_local_endpoint_from_handle(uv_handle_t* handle, ct_connection_t* con
 
   log_debug("Setting all local port on connection to %d", ntohs(local_endpoint_get_resolved_port(&local_endpoint)));
 
-  rc = ct_connection_set_all_local_port(connection, local_endpoint_get_resolved_port(&local_endpoint));
-  if (rc != 0) {
-    log_error("Failed to set local port on connection: %d", rc);
-    return rc;
-  }
+  ct_connection_set_all_local_port(connection, local_endpoint_get_resolved_port(&local_endpoint));
   return 0;
 }
 

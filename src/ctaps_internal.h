@@ -361,8 +361,8 @@ typedef void (*ct_on_connection_close_cb)(ct_connection_t*);
 /**
  * @brief Protocol implementation interface.
  *
- * This interface defines the contract that all transport protocol implementations
- * (TCP, UDP, QUIC, or custom protocols) must implement.
+ * Used to define the required functions and properties for each supported protocol (e.g., TCP, UDP, QUIC).
+ * Not *all* functions are required, but are recommended to be implemented as a no-op.
  */
 typedef struct ct_protocol_impl_s {
   const char* name;                              ///< Protocol name (e.g., "TCP", "UDP", "QUIC")
@@ -390,9 +390,10 @@ typedef struct ct_protocol_impl_s {
   void (*close_listener)(struct ct_socket_manager_s*);
 
   /** @brief Close a connection. */
-  int (*close)(ct_connection_t*);
+  int (*close_connection)(ct_connection_t*);
 
-  int(*close_socket)(struct ct_socket_manager_s*);
+  /** @brief Close the underlying socket for a socket manager. */
+  void (*close_socket)(struct ct_socket_manager_s*);
 
   /** @brief Forcefully abort a connection without graceful shutdown. */
   void (*abort)(ct_connection_t* connection);
@@ -401,16 +402,13 @@ typedef struct ct_protocol_impl_s {
   int (*clone_connection)(const ct_connection_t* source_connection,
                           ct_connection_t* target_connection);
 
-  /** @brief Extract remote endpoint information from a connected peer handle. */
-  int (*remote_endpoint_from_peer)(uv_handle_t* peer, ct_remote_endpoint_t* resolved_peer);
-
   /** @brief Free protocol-specific state in a connection. */
   void (*free_connection_state)(ct_connection_t* connection);
 
   /** @brief Free socket-specific state in a connection. */
-  int (*free_socket_state)(struct ct_socket_manager_s* socket_manager);
+  void (*free_socket_state)(struct ct_socket_manager_s* socket_manager);
 
-  int (*close_connection_group)(ct_connection_group_t* connection_group);
+  void (*close_connection_group)(ct_connection_group_t* connection_group);
 
   int (*set_connection_priority)(ct_connection_t* connection, uint8_t priority);
 

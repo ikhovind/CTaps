@@ -56,6 +56,7 @@ protected:
 
         dummy_connection.socket_manager = &dummy_socket_manager;
 
+        dummy_local_endpoint.data.resolved_address.ss_family = AF_INET;
         dummy_connection.all_local_endpoints = &dummy_local_endpoint;
         dummy_connection.num_local_endpoints = 1;
         dummy_connection.active_local_endpoint = 0;
@@ -389,75 +390,26 @@ TEST_F(ConnectionUnitTests, errorOnPriorityNotifyFailure) {
     ASSERT_EQ(clone->properties.priority, 100);
 }
 
-TEST_F(ConnectionUnitTests, setActiveRemoteEndpointIndexHandlesNullConnection) {
-    int rc = ct_connection_set_active_remote_endpoint_index(nullptr, 123);
-    ASSERT_EQ(rc, -EINVAL);
-}
-
 TEST_F(ConnectionUnitTests, setActiveRemoteEndpointSetsIndex) {
     ct_connection_t connection = {0};
     connection.num_remote_endpoints = 5;
-    int rc = ct_connection_set_active_remote_endpoint_index(&connection, 3);
+    ct_connection_set_active_remote_endpoint_index(&connection, 3);
 
     ASSERT_EQ(connection.active_remote_endpoint, 3);
-    ASSERT_EQ(rc, 0);
 }
 
-TEST_F(ConnectionUnitTests, setActiveEndpointHandlesOutOfBoundsIndex) {
-    ct_connection_t connection = {0};
-    connection.num_remote_endpoints = 2;
-    connection.active_remote_endpoint = 2;
-    int rc = ct_connection_set_active_remote_endpoint_index(&connection, 3);
-
-    ASSERT_EQ(rc, -EINVAL);
-    ASSERT_EQ(connection.active_remote_endpoint, 2);
-}
-
-TEST(ConnectionSetActiveLocalEndpointTest, NullConnection_ReturnsEINVAL) {
-    EXPECT_EQ(ct_connection_set_active_local_endpoint_index(nullptr, 0), -EINVAL);
-}
-
-TEST(ConnectionSetActiveLocalEndpointTest, ValidIndex_ReturnsZero) {
-    ct_connection_t conn = {0};
-    conn.num_local_endpoints = 3;
-    EXPECT_EQ(ct_connection_set_active_local_endpoint_index(&conn, 1), 0);
-}
-
-TEST(ConnectionSetActiveLocalEndpointTest, ValidIndex_SetsActiveEndpoint) {
+TEST_F(ConnectionUnitTests, validIndex_SetsActiveEndpoint) {
     ct_connection_t conn = {0};
     conn.num_local_endpoints = 3;
     ct_connection_set_active_local_endpoint_index(&conn, 2);
     EXPECT_EQ(conn.active_local_endpoint, 2u);
 }
 
-TEST(ConnectionSetActiveLocalEndpointTest, IndexEqualToNumEndpoints_ReturnsEINVAL) {
-    ct_connection_t conn = {0};
-    conn.num_local_endpoints = 3;
-    EXPECT_EQ(ct_connection_set_active_local_endpoint_index(&conn, 3), -EINVAL);
-}
-
-TEST(ConnectionSetActiveLocalEndpointTest, IndexBeyondNumEndpoints_ReturnsEINVAL) {
-    ct_connection_t conn = {0};
-    conn.num_local_endpoints = 3;
-    EXPECT_EQ(ct_connection_set_active_local_endpoint_index(&conn, 99), -EINVAL);
-}
-
-TEST(ConnectionSetActiveLocalEndpointTest, ZeroEndpoints_ReturnsEINVAL) {
-    ct_connection_t conn = {0};
-    conn.num_local_endpoints = 0;
-    EXPECT_EQ(ct_connection_set_active_local_endpoint_index(&conn, 0), -EINVAL);
-}
-
-TEST(ConnectionSetActiveLocalEndpointTest, OutOfBoundsIndex_DoesNotModifyActiveEndpoint) {
+TEST_F(ConnectionUnitTests, outOfBoundsIndexDies) {
     ct_connection_t conn = {0};
     conn.num_local_endpoints = 3;
     conn.active_local_endpoint = 1;
-    ct_connection_set_active_local_endpoint_index(&conn, 5);
-    EXPECT_EQ(conn.active_local_endpoint, 1u);  // unchanged
-}
-
-TEST_F(ConnectionUnitTests, setActiveRemoteEndpointByObjectHandlesNullConnection) {
-    ct_connection_set_active_remote_endpoint(nullptr, &dummy_remote_endpoint);
+    EXPECT_DEATH(ct_connection_set_active_local_endpoint_index(&conn, 5), "");
 }
 
 TEST_F(ConnectionUnitTests, setActiveRemoteEndpointByObjectSetsIndex) {
@@ -487,20 +439,13 @@ TEST_F(ConnectionUnitTests, setActiveRemoteEndpointByObjectHandlesRemoteEndpoint
 
     ct_remote_endpoint_t new_endpoint = {0};
     ((struct sockaddr_in*)&new_endpoint.data.resolved_address)->sin_addr.s_addr = INADDR_DUMMY;
+    new_endpoint.data.resolved_address.ss_family = AF_INET;
 
     ct_connection_set_active_remote_endpoint(&connection, &new_endpoint);
 
     ASSERT_EQ(connection.num_remote_endpoints, 4);
     ASSERT_EQ(connection.active_remote_endpoint, 3);
     free(connection.all_remote_endpoints);
-}
-
-TEST_F(ConnectionUnitTests, setActiveLocalEndpointByObjectHandlesNullConnection) {
-    EXPECT_EQ(ct_connection_set_active_local_endpoint(nullptr, &dummy_local_endpoint), -EINVAL);
-}
-
-TEST_F(ConnectionUnitTests, setActiveLocalEndpointByObjectHandlesNullEndpoint) {
-    EXPECT_EQ(ct_connection_set_active_local_endpoint(&dummy_connection, nullptr), -EINVAL);
 }
 
 TEST_F(ConnectionUnitTests, setActiveLocalEndpointByObjectSetsIndexWhenFound) {

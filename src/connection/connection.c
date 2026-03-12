@@ -9,9 +9,8 @@
 #include "endpoint/remote_endpoint.h"
 #include "message/message.h"
 #include "message/message_context.h"
-#include "protocol/common/socket_utils.h"
-#include "transport_property/transport_properties.h"
 #include "util/uuid_util.h"
+#include <assert.h>
 #include <glib.h>
 #include <logging/log.h>
 #include <security_parameter/security_parameters.h>
@@ -804,39 +803,18 @@ const ct_local_endpoint_t* ct_connection_get_local_endpoints_list(const ct_conne
   return connection ? connection->all_local_endpoints : NULL;
 }
 
-int ct_connection_set_active_remote_endpoint_index(ct_connection_t* connection, size_t remote_endpoint_index) {
-  if (!connection) {
-    log_error("ct_connection_set_active_remote_endpoint_index called with NULL connection");
-    return -EINVAL;
-  }
-  if (remote_endpoint_index >= connection->num_remote_endpoints) {
-    log_error("ct_connection_set_active_remote_endpoint_index called with out of bounds index");
-    return -EINVAL;
-  }
+void ct_connection_set_active_remote_endpoint_index(ct_connection_t* connection, size_t remote_endpoint_index) {
+  assert(remote_endpoint_index < connection->num_remote_endpoints);
   connection->active_remote_endpoint = remote_endpoint_index;
-  return 0;
 }
 
-int ct_connection_set_active_local_endpoint_index(ct_connection_t* connection, size_t local_endpoint_index) {
-  if (!connection) {
-    log_error("ct_connection_set_active_local_endpoint_index called with NULL connection");
-    return -EINVAL;
-  }
-  if (local_endpoint_index >= connection->num_local_endpoints) {
-    log_error("ct_connection_set_active_local_endpoint_index called with out of bounds index");
-    return -EINVAL;
-  }
+void ct_connection_set_active_local_endpoint_index(ct_connection_t* connection, size_t local_endpoint_index) {
+  assert(local_endpoint_index < connection->num_local_endpoints);
   connection->active_local_endpoint = local_endpoint_index;
-  return 0;
 }
 
 int ct_connection_set_active_remote_endpoint(ct_connection_t* connection, const ct_remote_endpoint_t* remote_endpoint) {
-  if (!connection || !remote_endpoint) {
-    log_error("ct_connection_set_active_remote_endpoint called with NULL parameter");
-    log_debug("Connection pointer: %p, remote endpoint pointer: %p", (void*)connection, (void*)remote_endpoint);
-    return -EINVAL;
-  }
-
+  assert(remote_endpoint->data.resolved_address.ss_family == AF_INET || remote_endpoint->data.resolved_address.ss_family == AF_INET6);
   for (size_t remote_ix = 0; remote_ix < connection->num_remote_endpoints; remote_ix++) {
     if (ct_remote_endpoint_resolved_equals(remote_endpoint, &connection->all_remote_endpoints[remote_ix])) {
       connection->active_remote_endpoint = remote_ix;
@@ -858,23 +836,13 @@ int ct_connection_set_active_remote_endpoint(ct_connection_t* connection, const 
     return rc;
   }
 
-  rc = ct_connection_set_active_remote_endpoint_index(connection, connection->num_remote_endpoints - 1);
-  if (rc != 0) {
-    log_error("Failed to set active remote endpoint index: %d", rc);
-    return rc;
-  }
-
+  ct_connection_set_active_remote_endpoint_index(connection, connection->num_remote_endpoints - 1);
   return 0;
 }
 
 int ct_connection_set_active_local_endpoint(ct_connection_t* connection, const ct_local_endpoint_t* local_endpoint) {
-  if (!connection || !local_endpoint) {
-    log_error("ct_connection_set_active_local_endpoint called with NULL parameter");
-    log_debug("Connection pointer: %p, local endpoint pointer: %p", (void*)connection, (void*)local_endpoint);
-    return -EINVAL;
-  }
   log_debug("Setting active local endpoint for connection %s", connection->uuid);
-
+  assert(local_endpoint->data.resolved_address.ss_family == AF_INET || local_endpoint->data.resolved_address.ss_family == AF_INET6);
 
   for (size_t local_ix = 0; local_ix < ct_connection_get_num_local_endpoints(connection); local_ix++) {
     if (ct_local_endpoint_resolved_equals(local_endpoint, &connection->all_local_endpoints[local_ix])) {
@@ -899,16 +867,12 @@ int ct_connection_set_active_local_endpoint(ct_connection_t* connection, const c
     return rc;
   }
 
-  rc = ct_connection_set_active_local_endpoint_index(connection, connection->num_local_endpoints - 1);
-  if (rc != 0) {
-    log_error("Failed to set active local endpoint index: %d", rc);
-    return rc;
-  }
+  ct_connection_set_active_local_endpoint_index(connection, connection->num_local_endpoints - 1);
 
   return 0;
 }
 
-int ct_connection_set_all_local_port(ct_connection_t* connection, uint16_t port) {
+void ct_connection_set_all_local_port(ct_connection_t* connection, uint16_t port) {
   for (size_t i = 0; i < ct_connection_get_num_local_endpoints(connection); i++) {
     struct sockaddr_storage* addr = &connection->all_local_endpoints[i].data.resolved_address;
     if (addr->ss_family == AF_INET) {
@@ -919,10 +883,5 @@ int ct_connection_set_all_local_port(ct_connection_t* connection, uint16_t port)
       struct sockaddr_in6* addr_in6 = (struct sockaddr_in6*)addr;
       addr_in6->sin6_port = htons(port);
     }
-    else {
-      log_error("Unsupported address family in ct_connection_set_all_local_port");
-      return -EINVAL;
-    }
   }
-  return 0;
 }

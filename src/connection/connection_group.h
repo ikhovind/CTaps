@@ -10,7 +10,7 @@
   * @param[in,out] group Connection group to add to
   * @param[in] connection Connection to add
   *
-  * @return 0 on success, -EINVAL if connection or group is NULL, -EEXIST if connection already in group
+  * @return 0 on success, negative error code on failure
   */
 int ct_connection_group_add_connection(ct_connection_group_t* group, ct_connection_t* connection);
 

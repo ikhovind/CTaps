@@ -21,10 +21,11 @@ int ct_certificate_bundles_add_cert(ct_certificate_bundles_t* bundles, const cha
     log_error("More than a single bundle is not currently supported");
     return -ENOSYS;
   }
-  bundles->certificate_bundles = realloc(bundles->certificate_bundles, sizeof(ct_certificate_bundle_t) * (bundles->num_bundles + 1));
+  ct_certificate_bundle_t* tmp = realloc(bundles->certificate_bundles, sizeof(ct_certificate_bundle_t) * (bundles->num_bundles + 1));
   if (!bundles->certificate_bundles) {
     return -ENOMEM;
   }
+  bundles->certificate_bundles = tmp;
   bundles->certificate_bundles[bundles->num_bundles].certificate_file_name = strdup(cert_file_path);
   if (!bundles->certificate_bundles[bundles->num_bundles].certificate_file_name) {
     return -ENOMEM;
@@ -47,10 +48,6 @@ void ct_certificate_bundles_free(ct_certificate_bundles_t bundles) {
 }
 
 int ct_certificate_bundles_deep_copy(ct_certificate_bundles_t src, ct_certificate_bundles_t* dest) {
-  if (!dest) {
-    log_error("Cannot deep copy certificate bundles, destination is NULL");
-    return -EINVAL;
-  }
   memset(dest, 0, sizeof(ct_certificate_bundles_t));
   size_t num_bundles = src.num_bundles;
   if (num_bundles == 0) {

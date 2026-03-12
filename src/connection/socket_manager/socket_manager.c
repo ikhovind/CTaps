@@ -1,5 +1,6 @@
 #include "socket_manager.h"
 
+#include <assert.h>
 #include "connection/connection.h"
 #include "connection/listener.h"
 #include "ctaps.h"
@@ -68,11 +69,7 @@ void ct_socket_manager_free(ct_socket_manager_t* socket_manager) {
 }
 
 void ct_socket_manager_add_connection(ct_socket_manager_t* socket_manager, ct_connection_t* connection) {
-  if (!socket_manager || !connection) {
-    log_error("NULL parameter passed to socket manager add connection");
-    log_debug("socket manager: %p, connection: %p", socket_manager, connection);
-    return;
-  }
+  assert(socket_manager && connection);
   socket_manager->all_connections = g_slist_prepend(socket_manager->all_connections, connection);
   connection->socket_manager = ct_socket_manager_ref(socket_manager);
 }
@@ -143,12 +140,8 @@ void ct_socket_manager_close(ct_socket_manager_t* socket_manager) {
   socket_manager->protocol_impl->close_socket(socket_manager);
 }
 
-int ct_socket_manager_close_group(ct_socket_manager_t* socket_manager, ct_connection_group_t* group) {
-  if (!socket_manager) {
-    log_warn("NULL socket manager parameter for ct_socket_manager_close_group");
-    return -EINVAL;
-  }
-  return socket_manager->protocol_impl->close_connection_group(group);
+void ct_socket_manager_close_group(ct_socket_manager_t* socket_manager, ct_connection_group_t* group) {
+  socket_manager->protocol_impl->close_connection_group(group);
 }
 
 void ct_socket_manager_notify_of_listener_close(ct_socket_manager_t* socket_manager, ct_listener_t* listener) {
@@ -377,13 +370,10 @@ void ct_socket_manager_aborted_connection_cb(ct_connection_t* connection) {
 }
 
 int ct_socket_manager_close_connection(ct_connection_t* connection) {
-  if (!connection) {
-    log_error("NULL parameter passed to socket manager close connection");
-    return -EINVAL;
-  }
+  assert(connection);
   ct_socket_manager_t* socket_manager = connection->socket_manager;
   log_debug("Socket manager: Closing attached connection: %s", connection->uuid);
-  int rc = socket_manager->protocol_impl->close(connection);
+  int rc = socket_manager->protocol_impl->close_connection(connection);
   if (rc) {
     log_error("Error from protocol when closing connection: %s", connection->uuid);
     return rc;
@@ -482,11 +472,6 @@ ct_socket_manager_t* ct_socket_manager_new(const ct_protocol_impl_t* protocol_im
 
 
 int ct_socket_manager_notify_protocol_of_priority_change(ct_connection_t* connection, uint8_t priority) {
-  if (!connection || !connection->socket_manager) {
-    log_error("NULL parameter passed to ct_socket_manager_notify_protocol_of_priority_change");
-    log_debug("connection: %p, socket manager: %p", connection, connection ? connection->socket_manager : NULL);
-    return -EINVAL;
-  }
   ct_socket_manager_t* socket_manager = connection->socket_manager;
   if (socket_manager->protocol_impl->set_connection_priority) {
     return socket_manager->protocol_impl->set_connection_priority(connection, priority);
@@ -498,9 +483,6 @@ int ct_socket_manager_notify_protocol_of_priority_change(ct_connection_t* connec
 }
 
 void ct_socket_manager_free_connection_state(ct_connection_t* connection) {
-  if (!connection && !connection->socket_manager) {
-    return;
-  }
   ct_socket_manager_t* socket_manager = connection->socket_manager;
   if (socket_manager->protocol_impl->free_connection_state) {
     connection->socket_manager->protocol_impl->free_connection_state(connection);

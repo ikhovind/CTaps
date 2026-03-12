@@ -95,13 +95,13 @@ TEST_F(ConnectionGroupUnitTests, AbortAll_MixedStates_SkipsOnlyClosed) {
 
 // ── set_active_remote_endpoint ────────────────────────────────────────────────
 
-TEST_F(ConnectionGroupUnitTests, setActiveRemoteEndpoint_NullGroup_ReturnsEINVAL) {
-    EXPECT_EQ(ct_connection_group_set_active_remote_endpoint(nullptr, &dummy_remote), -EINVAL);
+TEST_F(ConnectionGroupUnitTests, setActiveRemoteEndpoint_NullGroupDies) {
+    EXPECT_DEATH(ct_connection_group_set_active_remote_endpoint(nullptr, &dummy_remote), "");
     EXPECT_EQ(__wrap_ct_connection_set_active_remote_endpoint_fake.call_count, 0u);
 }
 
-TEST_F(ConnectionGroupUnitTests, setActiveRemoteEndpoint_NullEndpoint_ReturnsEINVAL) {
-    EXPECT_EQ(ct_connection_group_set_active_remote_endpoint(group, nullptr), -EINVAL);
+TEST_F(ConnectionGroupUnitTests, setActiveRemoteEndpoint_NullEndpointDies) {
+    EXPECT_DEATH(ct_connection_group_set_active_remote_endpoint(group, nullptr), "");
     EXPECT_EQ(__wrap_ct_connection_set_active_remote_endpoint_fake.call_count, 0u);
 }
 
@@ -124,14 +124,13 @@ TEST_F(ConnectionGroupUnitTests, setActiveRemoteEndpoint_ContinuesAndReturnsErro
 
 // ── set_active_local_endpoint ─────────────────────────────────────────────────
 
-TEST_F(ConnectionGroupUnitTests, setActiveLocalEndpoint_NullGroup_ReturnsEINVAL) {
-    EXPECT_EQ(ct_connection_group_set_active_local_endpoint(nullptr, &dummy_local), -EINVAL);
+TEST_F(ConnectionGroupUnitTests, setActiveLocalEndpoint_NullGroupDies) {
+    EXPECT_DEATH(ct_connection_group_set_active_local_endpoint(nullptr, &dummy_local), "");
     EXPECT_EQ(__wrap_ct_connection_set_active_local_endpoint_fake.call_count, 0u);
 }
 
-TEST_F(ConnectionGroupUnitTests, setActiveLocalEndpoint_NullEndpoint_ReturnsEINVAL) {
-    EXPECT_EQ(ct_connection_group_set_active_local_endpoint(group, nullptr), -EINVAL);
-    EXPECT_EQ(__wrap_ct_connection_set_active_local_endpoint_fake.call_count, 0u);
+TEST_F(ConnectionGroupUnitTests, setActiveLocalEndpoint_NullEndpointDies) {
+    EXPECT_DEATH(ct_connection_group_set_active_local_endpoint(group, nullptr), "");
 }
 
 TEST_F(ConnectionGroupUnitTests, setActiveLocalEndpoint_CallsSetterOnAllConnections) {

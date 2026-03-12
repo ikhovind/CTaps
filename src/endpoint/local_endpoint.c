@@ -224,10 +224,6 @@ void local_endpoint_set_resolved_address(ct_local_endpoint_t* local_endpoint, co
 }
 
 int ct_local_endpoint_copy_content(const ct_local_endpoint_t* src, ct_local_endpoint_t* dest) {
-  if (!src || !dest) {
-    log_error("Cannot copy local endpoint content from or to NULL pointer");
-    return -EINVAL;
-  }
   *dest = *src;
   dest->service = NULL;
   dest->interface_name = NULL;

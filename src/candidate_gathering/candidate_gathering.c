@@ -5,6 +5,7 @@
 #include "ctaps_internal.h"
 #include "endpoint/local_endpoint.h"
 #include "endpoint/remote_endpoint.h"
+#include <assert.h>
 #include <glib.h>
 #include <logging/log.h>
 #include <stdbool.h>
@@ -513,14 +514,7 @@ int build_candidate_tree(ct_gather_context_t* gather_context) {
 
 int branch_by_path(GNode* parent, const ct_local_endpoint_t* local_ep) {
   struct ct_candidate_node_t* parent_data = (struct ct_candidate_node_t*)parent->data;
-  if (parent_data->type != NODE_TYPE_ROOT) {
-    log_error("branch_by_path called on non-ROOT node");
-    return -1;
-  }
-  if (!local_ep) {
-    log_error("branch_by_path called with NULL local endpoint");
-    return -1;
-  }
+  assert(parent_data->type == NODE_TYPE_ROOT);
 
   // Resolve the local endpoint. The `ct_local_endpoint_resolve` function
   // will find all available interfaces when the interface is not specified.
@@ -540,7 +534,7 @@ int branch_by_path(GNode* parent, const ct_local_endpoint_t* local_ep) {
     if (!path_node_data) {
       log_error("Could not create PATH node data");
       ct_local_endpoints_free(local_endpoint_list, num_found_local);
-      return -1;
+      return -ENOMEM;
     }
     g_node_append_data(parent, path_node_data);
   }
@@ -550,10 +544,7 @@ int branch_by_path(GNode* parent, const ct_local_endpoint_t* local_ep) {
 
 int branch_by_protocol_options(GNode* parent, ct_protocol_options_t* protocol_options) {
   struct ct_candidate_node_t* parent_data = (struct ct_candidate_node_t*)parent->data;
-  if (parent_data->type != NODE_TYPE_PATH) {
-    log_error("branch_by_protocol_options called on non-PATH node");
-    return -1;
-  }
+  assert(parent_data->type == NODE_TYPE_PATH);
 
   log_trace("Expanding node of type PATH to PROTOCOL nodes");
 
@@ -661,10 +652,7 @@ void ct_remote_endpoint_resolve_cb(ct_remote_endpoint_t* remote_endpoint, size_t
 
 int branch_by_remote(GNode* parent, const ct_remote_endpoint_t* remote_ep, ct_remote_resolve_call_context_t* context) {
   struct ct_candidate_node_t* parent_data = (struct ct_candidate_node_t*)parent->data;
-  if (parent_data->type != NODE_TYPE_PROTOCOL) {
-    log_error("branch_by_remote called on non-PROTOCOL node");
-    return -EINVAL;
-  }
+  assert(parent_data->type == NODE_TYPE_PROTOCOL);
   log_trace("Expanding node of type PROTOCOL to ENDPOINT nodes");
 
   // Resolve the remote endpoint (hostname to IP address).
@@ -719,10 +707,6 @@ void build_candidate_tree_is_complete_cb(ct_gather_context_t* gather_context) {
 
 int get_ordered_candidate_nodes(const ct_preconnection_t* precon, ct_candidate_gathering_callbacks_t callbacks) {
   log_info("Creating candidate node array from preconnection: %p", (void*)precon);
-  if (!precon) {
-    log_error("NULL preconnection provided");
-    return -EINVAL;
-  }
 
   ct_gather_context_t* gather_context = malloc(sizeof(ct_gather_context_t));
   if (!gather_context) {

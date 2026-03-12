@@ -101,7 +101,7 @@ TEST_F(TcpUnitTest, socketManagerAbortCalledOnAbort) {
 }
 
 TEST_F(TcpUnitTest, socketManagerCloseCalledOnClose) {
-    tcp_protocol_interface.close(&dummy_connection);
+    tcp_protocol_interface.close_connection(&dummy_connection);
     // We should close the connection, with the correct handle
     ASSERT_EQ(1, faked_uv_close_fake.call_count);
     ASSERT_EQ((uv_handle_t*)&dummy_tcp_handle, faked_uv_close_fake.arg0_val);

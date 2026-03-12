@@ -217,7 +217,8 @@ TEST(LocalEndpointFromSockaddrTest, ServiceAlreadySet_DoesNotModifyEndpoint) {
     EXPECT_EQ(ep.port, 9999);  // unchanged
 }
 
-TEST(LocalEndpointFromSockaddrTest, NullAddr_DoesNotCrash) {
+TEST(LocalEndpointFromSockaddrTest, nullAddrReturnsEINVAL) {
     ct_local_endpoint_t ep = {0};
-    EXPECT_EQ(ct_local_endpoint_from_sockaddr(&ep, nullptr), -EINVAL);
+    int rc = ct_local_endpoint_from_sockaddr(&ep, nullptr);
+    ASSERT_EQ(rc, -EINVAL);
 }

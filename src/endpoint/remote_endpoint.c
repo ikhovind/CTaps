@@ -120,10 +120,6 @@ int ct_remote_endpoint_resolve(const ct_remote_endpoint_t* remote_endpoint, ct_r
     log_error("Could not determine port for remote endpoint with service %s", remote_endpoint->service);
     return -EINVAL;
   }
-  if (!context) {
-    log_error("ct_remote_endpoint_resolve called with NULL context");
-    return -EINVAL;
-  }
   context->assigned_port = assigned_port;
   size_t out_count = 0;
   ct_remote_endpoint_t* out_list = NULL;

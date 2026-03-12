@@ -62,7 +62,7 @@ void on_quic_poll_read(ct_socket_manager_t* socket_manager,
                        const struct sockaddr* addr_to);
 
 void ct_quic_socket_state_free(ct_quic_socket_state_t* socket_state);
-void ct_close_quic_context(ct_quic_socket_state_t* ctx);
+void ct_close_quic_context(ct_quic_socket_state_t* socket_state);
 
 void ct_free_quic_connection_group_state(ct_connection_group_t* connection_group);
 
@@ -79,18 +79,17 @@ ct_quic_stream_state_t* ct_quic_stream_state_new(void);
 */
 int quic_init(ct_connection_t* connection);
 int quic_init_with_send(ct_connection_t* connection, ct_message_t* initial_message, ct_message_context_t* initial_message_context);
-int quic_close(ct_connection_t*);
-int quic_close_socket(ct_socket_manager_t*);
+int quic_close_connection(ct_connection_t*);
+void quic_close_socket(ct_socket_manager_t*);
 void quic_abort(ct_connection_t* connection);
 int quic_send(ct_connection_t* connection, ct_message_t* message, ct_message_context_t*);
 int quic_listen(struct ct_socket_manager_s* socket_manager);
 void quic_close_listener(struct ct_socket_manager_s* socket_manager);
-int quic_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* resolved_peer);
 int quic_clone_connection(const struct ct_connection_s* source_connection, struct ct_connection_s* target_connection);
 void quic_free_state(ct_connection_t* connection);
-int quic_close_connection_group(ct_connection_group_t* connection_group);
+void quic_close_connection_group(ct_connection_group_t* connection_group);
 int quic_set_connection_priority(ct_connection_t* connection, uint8_t priority);
-int quic_free_socket_state(struct ct_socket_manager_s* socket_manager);
+void quic_free_socket_state(struct ct_socket_manager_s* socket_manager);
 
 ct_quic_socket_state_t* ct_quic_context_ref(ct_quic_socket_state_t* context);
 ct_quic_socket_state_t* ct_quic_context_deref(ct_quic_socket_state_t* context);

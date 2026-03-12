@@ -50,11 +50,10 @@ const ct_protocol_impl_t tcp_protocol_interface = {
     .send = tcp_send,
     .listen = tcp_listen,
     .close_listener = tcp_close_listener,
-    .close = tcp_close,
+    .close_connection = tcp_close,
     .close_socket = tcp_close_socket,
     .abort = tcp_abort,
     .clone_connection = tcp_clone_connection,
-    .remote_endpoint_from_peer = tcp_remote_endpoint_from_peer,
     .free_connection_state = tcp_free_state,
     .free_socket_state = tcp_free_socket_state,
     .close_connection_group = tcp_close_connection_group,
@@ -407,7 +406,6 @@ int tcp_close(ct_connection_t* connection) {
 
   ct_tcp_socket_state_t* socket_state = connection->socket_manager->internal_socket_manager_state;
   uv_close((uv_handle_t*)socket_state->tcp_handle, on_libuv_close);
-
   return 0;
 }
 
@@ -575,29 +573,9 @@ void tcp_close_listener(ct_socket_manager_t* socket_manager) {
   }
 }
 
-int tcp_remote_endpoint_from_peer(uv_handle_t* peer, ct_remote_endpoint_t* resolved_peer) {
-  struct sockaddr_storage remote_addr;
-  int addr_len = sizeof(remote_addr);
-  int rc = uv_tcp_getpeername((uv_tcp_t*)peer, (struct sockaddr *)&remote_addr, &addr_len);
-  if (rc < 0) {
-    log_error("Could not get remote address from received handle: %s", uv_strerror(rc));
-    return rc;
-  }
-  rc = ct_remote_endpoint_from_sockaddr(resolved_peer, &remote_addr);
-  if (rc < 0) {
-    log_error("Could not build remote endpoint from received handle's remote address");
-    return rc;
-  }
-  return 0;
-}
-
 int tcp_clone_connection(const struct ct_connection_s* source_connection,
                          struct ct_connection_s* target_connection) {
-  if (!source_connection || !target_connection) {
-    log_error("Source or target connection is NULL in tcp_clone_connection");
-    return -EINVAL;
-  }
-
+  (void)source_connection;
   log_info("Cloning TCP connection");
 
   // Allocate and initialize TCP handle
@@ -676,25 +654,28 @@ void tcp_free_connection_group_state(ct_connection_group_t* connection_group) {
   (void)connection_group;
 }
 
-int tcp_close_socket(ct_socket_manager_t* socket_manager) {
+void tcp_close_socket(ct_socket_manager_t* socket_manager) {
+  // Flow is connection_close() -> socket manager close -> tcp_close_connection -> 
+  // socket_manager callback -> if it was the last user of the socket then tcp_close_socket -> 
+  // socket_manager callback for socket closed
+  //
+  // Because TCP never shares a socket between connections, we know what tcp_close_connection
+  // closed the socket, so this can just be a no-op
   socket_manager->callbacks.socket_closed(socket_manager);
-  return 0;
 }
 
-int tcp_free_socket_state(ct_socket_manager_t* socket_manager) {
+void tcp_free_socket_state(ct_socket_manager_t* socket_manager) {
   log_debug("Freeing TCP socket manager state");
   ct_tcp_socket_state_t* socket_state = socket_manager->internal_socket_manager_state;
   if (socket_state) {
     ct_tcp_socket_state_free(socket_state);
   }
   socket_manager->internal_socket_manager_state = NULL;
-  return 0;
 }
 
-int tcp_close_connection_group(ct_connection_group_t* connection_group) {
+void tcp_close_connection_group(ct_connection_group_t* connection_group) {
   // Intermediate to avoid concurrent modification
   GSList* connections = NULL;
-  int rc = 0;
   GHashTableIter iter;
   gpointer key = NULL;
   gpointer value = NULL;
@@ -706,12 +687,7 @@ int tcp_close_connection_group(ct_connection_group_t* connection_group) {
   for (GSList* node = connections; node != NULL; node = node->next) {
     ct_connection_t* connection = (ct_connection_t*)node->data;
     if (!ct_connection_is_closed_or_closing(connection)) {
-      int inner_rc = tcp_close(connection);
-      if (inner_rc < 0) {
-        log_error("Error closing connection %s in tcp_close_connection_group: %d", connection->uuid, inner_rc);
-        rc = inner_rc;
-      }
+      tcp_close(connection);
     }
   }
-  return rc;
 }

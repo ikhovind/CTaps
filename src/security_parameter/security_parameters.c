@@ -234,11 +234,6 @@ int ct_security_parameters_clear_alpn(ct_security_parameters_t* sec) {
 }
 
 int ct_security_parameters_add_to_array_of_strings(ct_security_parameters_t* sec, ct_security_property_enum_t type, const char* value) {
-  if (!sec || !value) {
-    log_warn("Attempted to add to array of strings with NULL parameters");
-    log_debug("Security parameters: %p, value: %p", sec, value);
-    return -EINVAL;
-  }
   ct_string_array_t prev_arr = sec->list[type].value.array_of_strings;
 
   char** new_strings = realloc(prev_arr.strings, (prev_arr.num_strings + 1) * sizeof(char*));

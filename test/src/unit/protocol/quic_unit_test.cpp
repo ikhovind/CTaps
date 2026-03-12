@@ -61,26 +61,19 @@ TEST_F(QuicUnitTest, errorOnPicoquicSetPriorityError) {
     ASSERT_EQ(__wrap_picoquic_set_stream_priority_fake.arg2_val, 50);
 }
 
-TEST_F(QuicUnitTest, errorOnNoPicoquicConnection) {
+TEST_F(QuicUnitTest, diesOnNoPicoquicConnection) {
     dummy_connection.connection_group->connection_group_state = NULL; // No group state, so no picoquic connection
-    int rc = quic_set_connection_priority(&dummy_connection, 50);
-
-    ASSERT_EQ(rc, -ENOTCONN);
-    ASSERT_EQ(__wrap_picoquic_set_stream_priority_fake.call_count, 0);
+    EXPECT_DEATH(quic_set_connection_priority(&dummy_connection, 50), "");
 }
 
-TEST_F(QuicUnitTest, errorOnNotInitializedStream) {
+TEST_F(QuicUnitTest, einvalOnNotInitializedStream) {
     dummy_stream_state.stream_initialized = false; // Stream not initialized
     int rc = quic_set_connection_priority(&dummy_connection, 50);
-
-    ASSERT_EQ(rc, -EINVAL);
-    ASSERT_EQ(__wrap_picoquic_set_stream_priority_fake.call_count, 0);
+    EXPECT_EQ(rc, -EINVAL);
 }
 
-TEST_F(QuicUnitTest, errorOnNoStreamState) {
+TEST_F(QuicUnitTest, diesOnNoStreamState) {
     dummy_stream_state = {0};
-    int rc = quic_set_connection_priority(&dummy_connection, 50);
-
-    ASSERT_EQ(rc, -EINVAL);
-    ASSERT_EQ(__wrap_picoquic_set_stream_priority_fake.call_count, 0);
+    dummy_connection.internal_connection_state = NULL; // No stream state
+    EXPECT_DEATH(quic_set_connection_priority(&dummy_connection, 50), "");
 }

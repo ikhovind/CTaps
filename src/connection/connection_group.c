@@ -3,7 +3,7 @@
 #include "connection/connection.h"
 #include "connection/socket_manager/socket_manager.h"
 #include "util/uuid_util.h"
-#include <errno.h>
+#include <assert.h>
 #include <glib.h>
 #include <logging/log.h>
 #include <stddef.h>
@@ -12,11 +12,6 @@
 
 
 int ct_connection_group_add_connection(ct_connection_group_t* group, ct_connection_t* connection) {
-  if (!group || !connection) {
-    log_error("ct_connection_group_add_connection called with NULL parameter");
-    log_debug("group: %p, connection: %p", (void*)group, (void*)connection);
-    return -EINVAL;
-  }
 
   if (connection->connection_group) {
     log_error("Connection with UUID %s already belonged to a connection group", connection->uuid);
@@ -86,10 +81,6 @@ uint64_t ct_connection_group_get_num_active_connections(ct_connection_group_t* g
 }
 
 int ct_connection_group_remove_connection(ct_connection_group_t* group, ct_connection_t* connection) {
-  if (!group || !connection) {
-    return -EINVAL;
-  }
-
   log_debug("Removing connection with UUID %s from connection group", connection->uuid);
   gboolean removed = g_hash_table_remove(group->connections, connection->uuid);
   if (!removed) {
@@ -280,13 +271,9 @@ typedef int (*ct_endpoint_setter_fn)(ct_connection_t*, const void*);
 static int ct_connection_group_set_active_endpoint(
     ct_connection_group_t* group,
     const void* endpoint,
-    ct_endpoint_setter_fn setter,
-    const char* fn_name)
+    ct_endpoint_setter_fn setter)
 {
-  if (!group || !endpoint) {
-    log_error("%s called with NULL parameter", fn_name);
-    return -EINVAL;
-  }
+  assert(group && endpoint);
   int at_least_one_failure = 0;
   GHashTableIter iter;
   gpointer key = NULL, value = NULL;
@@ -303,13 +290,12 @@ static int ct_connection_group_set_active_endpoint(
 
 int ct_connection_group_set_active_remote_endpoint(ct_connection_group_t* group, const ct_remote_endpoint_t* remote_endpoint) {
   return ct_connection_group_set_active_endpoint(
-      group, remote_endpoint, (ct_endpoint_setter_fn)ct_connection_set_active_remote_endpoint, __func__);
+      group, remote_endpoint, (ct_endpoint_setter_fn)ct_connection_set_active_remote_endpoint);
 }
 
 int ct_connection_group_set_active_local_endpoint(ct_connection_group_t* group, const ct_local_endpoint_t* local_endpoint) {
   return ct_connection_group_set_active_endpoint(
       group,
       local_endpoint,
-      (ct_endpoint_setter_fn)ct_connection_set_active_local_endpoint,
-      __func__);
+      (ct_endpoint_setter_fn)ct_connection_set_active_local_endpoint);
 }
