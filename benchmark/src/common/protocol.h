@@ -4,10 +4,7 @@
 #define DEFAULT_PORT 8888
 #define BUFFER_SIZE 65536
 
-typedef enum {
-    FILE_TYPE_LARGE = 0,
-    FILE_TYPE_SHORT = 1
-} file_type_t;
+typedef enum { FILE_TYPE_LARGE = 0, FILE_TYPE_SHORT = 1 } file_type_t;
 
 typedef enum {
     TRANSFER_MODE_TCP_NATIVE = 0,

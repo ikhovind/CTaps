@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 
-int generate_test_file(const char *filename, size_t size) {
-    FILE *fp = fopen(filename, "wb");
+int generate_test_file(const char* filename, size_t size) {
+    FILE* fp = fopen(filename, "wb");
     if (!fp) {
         perror("Failed to create file");
         return -1;
@@ -32,7 +32,7 @@ int generate_test_file(const char *filename, size_t size) {
     return 0;
 }
 
-int verify_file_size(const char *filename, size_t expected_size) {
+int verify_file_size(const char* filename, size_t expected_size) {
     struct stat st;
     if (stat(filename, &st) != 0) {
         perror("Failed to stat file");
@@ -40,8 +40,7 @@ int verify_file_size(const char *filename, size_t expected_size) {
     }
 
     if ((size_t)st.st_size != expected_size) {
-        fprintf(stderr, "File size mismatch: expected %zu, got %ld\n",
-                expected_size, st.st_size);
+        fprintf(stderr, "File size mismatch: expected %zu, got %ld\n", expected_size, st.st_size);
         return -1;
     }
 

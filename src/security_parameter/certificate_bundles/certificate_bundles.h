@@ -6,7 +6,8 @@
 
 ct_certificate_bundles_t* ct_certificate_bundles_new(void);
 
-int ct_certificate_bundles_add_cert(ct_certificate_bundles_t* bundles, const char* cert_file_path, const char* key_file_path);
+int ct_certificate_bundles_add_cert(ct_certificate_bundles_t* bundles, const char* cert_file_path,
+                                    const char* key_file_path);
 
 void ct_certificate_bundles_free(ct_certificate_bundles_t bundles);
 

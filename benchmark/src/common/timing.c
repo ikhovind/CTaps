@@ -2,18 +2,18 @@
 #include <stdio.h>
 #include <string.h>
 
-void timing_start(timing_t *timing) {
+void timing_start(timing_t* timing) {
     memset(timing, 0, sizeof(timing_t));
     clock_gettime(CLOCK_MONOTONIC, &timing->start);
     timing->valid = 0;
 }
 
-void timing_end(timing_t *timing) {
+void timing_end(timing_t* timing) {
     clock_gettime(CLOCK_MONOTONIC, &timing->end);
     timing->valid = 1;
 }
 
-double timing_get_duration_ms(const timing_t *timing) {
+double timing_get_duration_ms(const timing_t* timing) {
     if (!timing->valid) {
         return -1.0;
     }
@@ -24,7 +24,7 @@ double timing_get_duration_ms(const timing_t *timing) {
     return end_ms - start_ms;
 }
 
-double timing_get_duration_us(const timing_t *timing) {
+double timing_get_duration_us(const timing_t* timing) {
     if (!timing->valid) {
         return -1.0;
     }

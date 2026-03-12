@@ -31,7 +31,6 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "-s" CACHE STRING "Shared linker flags for Release build")
 
 include(tidy)
-include(format)
 include(doxygen)
 include(dependencies)
 

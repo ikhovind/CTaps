@@ -5,11 +5,11 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 
-#define TCP_IP      "127.0.0.1"
-#define TCP_PORT    5006
+#define TCP_IP "127.0.0.1"
+#define TCP_PORT 5006
 #define BUFFER_SIZE 1024
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
     int server_fd, conn_fd;
     struct sockaddr_in server_addr, client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
@@ -29,15 +29,15 @@ int main(int argc, char *argv[]) {
     }
 
     memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family      = AF_INET;
-    server_addr.sin_port        = htons(TCP_PORT);
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(TCP_PORT);
     if (inet_pton(AF_INET, TCP_IP, &server_addr.sin_addr) <= 0) {
         perror("inet_pton");
         close(server_fd);
         return EXIT_FAILURE;
     }
 
-    if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+    if (bind(server_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
         perror("bind");
         close(server_fd);
         return EXIT_FAILURE;
@@ -56,7 +56,7 @@ int main(int argc, char *argv[]) {
     printf("TCP server listening on %s:%d\n", TCP_IP, TCP_PORT);
 
     while (1) {
-        conn_fd = accept(server_fd, (struct sockaddr *)&client_addr, &client_addr_len);
+        conn_fd = accept(server_fd, (struct sockaddr*)&client_addr, &client_addr_len);
         if (conn_fd < 0) {
             perror("accept");
             continue;
@@ -74,10 +74,10 @@ int main(int argc, char *argv[]) {
             printf("Received %zd bytes from ('%s', %d)\n", n, client_ip, client_port);
 
             /* Build response: "Pong: " + received data */
-            const char *prefix      = "Pong: ";
-            size_t      prefix_len  = strlen(prefix);
-            size_t      resp_len    = prefix_len + (size_t)n;
-            unsigned char *response = malloc(resp_len);
+            const char* prefix = "Pong: ";
+            size_t prefix_len = strlen(prefix);
+            size_t resp_len = prefix_len + (size_t)n;
+            unsigned char* response = malloc(resp_len);
             if (!response) {
                 perror("malloc");
                 break;
@@ -90,8 +90,8 @@ int main(int argc, char *argv[]) {
                 free(response);
                 break;
             }
-            printf("Sent response with %zu bytes to ('%s', %d)\n",
-                   resp_len, client_ip, client_port);
+            printf("Sent response with %zu bytes to ('%s', %d)\n", resp_len, client_ip,
+                   client_port);
             free(response);
         }
 

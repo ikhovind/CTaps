@@ -19,7 +19,7 @@ typedef enum {
 } transfer_progress_t;
 
 typedef struct {
-    const char *host;
+    const char* host;
     int port;
 
     transfer_progress_t state;
@@ -32,6 +32,6 @@ typedef struct {
 extern client_context_t client_ctx;
 extern int json_only_mode;
 
-int on_connection_ready(ct_connection_t *connection);
+int on_connection_ready(ct_connection_t* connection);
 
 int on_establishment_error(ct_connection_t* connection);

@@ -17,4 +17,4 @@ ct_message_context_t* ct_message_context_deep_copy(const ct_message_context_t* s
 
 ct_message_context_t* ct_message_context_new_from_connection(const ct_connection_t* connection);
 
-#endif  // CT_MESSAGE_CONTEXT_H
+#endif // CT_MESSAGE_CONTEXT_H

@@ -3,7 +3,6 @@
  * easier mocking in tests, since this mocking happens at link time.
  */
 
-
 #ifndef PORT_UTIL_H
 #define PORT_UTIL_H
 

@@ -4,24 +4,17 @@
 #include "ctaps.h"
 #include "ctaps_internal.h"
 
-ct_connection_t* ct_connection_create_client(const ct_protocol_impl_t* protocol_impl,
-                                             ct_local_endpoint_t* local_endpoints,
-                                             size_t num_local_endpoints,
-                                             size_t local_endpoint_index,
-                                             ct_remote_endpoint_t* remote_endpoints,
-                                             size_t num_remote_endpoints,
-                                             size_t remote_endpoint_index,
-                                             const ct_security_parameters_t* security_parameters,
-                                             const ct_connection_callbacks_t* connection_callbacks,
-                                             ct_framer_impl_t* framer_impl);
+ct_connection_t* ct_connection_create_client(
+    const ct_protocol_impl_t* protocol_impl, ct_local_endpoint_t* local_endpoints,
+    size_t num_local_endpoints, size_t local_endpoint_index, ct_remote_endpoint_t* remote_endpoints,
+    size_t num_remote_endpoints, size_t remote_endpoint_index,
+    const ct_security_parameters_t* security_parameters,
+    const ct_connection_callbacks_t* connection_callbacks, ct_framer_impl_t* framer_impl);
 
-ct_connection_t* ct_connection_create_server_connection(ct_socket_manager_t* socket_manager,
-                                             const ct_remote_endpoint_t* remote_endpoint,
-                                             const ct_local_endpoint_t* local_endpoint,
-                                             const ct_security_parameters_t* security_parameters,
-                                             const ct_connection_callbacks_t* connection_callbacks,
-                                             ct_framer_impl_t* framer_impl
-                                             );
+ct_connection_t* ct_connection_create_server_connection(
+    ct_socket_manager_t* socket_manager, const ct_remote_endpoint_t* remote_endpoint,
+    const ct_local_endpoint_t* local_endpoint, const ct_security_parameters_t* security_parameters,
+    const ct_connection_callbacks_t* connection_callbacks, ct_framer_impl_t* framer_impl);
 
 /**
  * @brief Deliver received protocol data to the connection
@@ -34,10 +27,7 @@ ct_connection_t* ct_connection_create_server_connection(ct_socket_manager_t* soc
  * @param[in] data Received data buffer
  * @param[in] len Length of received data
  */
-void ct_connection_on_protocol_receive(ct_connection_t* connection,
-                                       const void* data,
-                                       size_t len);
-
+void ct_connection_on_protocol_receive(ct_connection_t* connection, const void* data, size_t len);
 
 /**
   * @brief Allocate connection with UUID and initialized queues.
@@ -90,8 +80,7 @@ void ct_connection_free_content(ct_connection_t* connection);
 ct_connection_t* ct_connection_create_clone(const ct_connection_t* src_clone,
                                             ct_socket_manager_t* socket_manager,
                                             ct_framer_impl_t* framer_impl,
-                                            void* internal_connection_state
-                                            );
+                                            void* internal_connection_state);
 
 /**
  * @brief Set the can send connection property
@@ -115,7 +104,8 @@ void ct_connection_set_can_receive(ct_connection_t* connection, bool can_receive
  * @param[in] received_handle libuv stream handle for the accepted connection
  * @return Pointer to newly created connection, or NULL on error
  */
-ct_connection_t* ct_connection_build_from_received_handle(const struct ct_listener_s* listener, uv_stream_t* received_handle);
+ct_connection_t* ct_connection_build_from_received_handle(const struct ct_listener_s* listener,
+                                                          uv_stream_t* received_handle);
 
 /**
  * @brief Initialize a multiplexed connection (internal helper).
@@ -125,7 +115,9 @@ ct_connection_t* ct_connection_build_from_received_handle(const struct ct_listen
  *
  * @return 0 on success, non-zero on error
  */
-int ct_connection_build_multiplexed(ct_connection_t* connection, const struct ct_listener_s* listener, const ct_remote_endpoint_t* remote_endpoint);
+int ct_connection_build_multiplexed(ct_connection_t* connection,
+                                    const struct ct_listener_s* listener,
+                                    const ct_remote_endpoint_t* remote_endpoint);
 
 /**
  * @brief Get the connection group of a connection (internal).
@@ -137,7 +129,8 @@ int ct_connection_build_multiplexed(ct_connection_t* connection, const struct ct
  */
 ct_connection_group_t* ct_connection_get_connection_group(const ct_connection_t* connection);
 
-void connection_set_resolved_local_address(ct_connection_t* connection, const struct sockaddr_storage* addr);
+void connection_set_resolved_local_address(ct_connection_t* connection,
+                                           const struct sockaddr_storage* addr);
 
 void ct_connection_set_sent_early_data(ct_connection_t* connection, bool used_0rtt);
 
@@ -149,18 +142,24 @@ size_t ct_connection_get_num_remote_endpoints(const ct_connection_t* connection)
 
 size_t ct_connection_get_num_local_endpoints(const ct_connection_t* connection);
 
-const ct_remote_endpoint_t* ct_connection_get_remote_endpoints_list(const ct_connection_t* connection);
+const ct_remote_endpoint_t*
+ct_connection_get_remote_endpoints_list(const ct_connection_t* connection);
 
-const ct_local_endpoint_t* ct_connection_get_local_endpoints_list(const ct_connection_t* connection);
+const ct_local_endpoint_t*
+ct_connection_get_local_endpoints_list(const ct_connection_t* connection);
 
-void ct_connection_set_active_remote_endpoint_index(ct_connection_t* connection, size_t remote_endpoint_index);
+void ct_connection_set_active_remote_endpoint_index(ct_connection_t* connection,
+                                                    size_t remote_endpoint_index);
 
-void ct_connection_set_active_local_endpoint_index(ct_connection_t* connection, size_t local_endpoint_index);
+void ct_connection_set_active_local_endpoint_index(ct_connection_t* connection,
+                                                   size_t local_endpoint_index);
 
 // Takes deep copy of remote endpoint
-int ct_connection_set_active_remote_endpoint(ct_connection_t* connection, const ct_remote_endpoint_t* remote_endpoint);
+int ct_connection_set_active_remote_endpoint(ct_connection_t* connection,
+                                             const ct_remote_endpoint_t* remote_endpoint);
 
-int ct_connection_set_active_local_endpoint(ct_connection_t* connection, const ct_local_endpoint_t* local_endpoint);
+int ct_connection_set_active_local_endpoint(ct_connection_t* connection,
+                                            const ct_local_endpoint_t* local_endpoint);
 
 void ct_connection_set_all_local_port(ct_connection_t* connection, uint16_t port);
 

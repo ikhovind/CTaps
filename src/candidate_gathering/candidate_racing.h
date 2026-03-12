@@ -13,12 +13,12 @@
 
 // Represents the state of a single racing attempt
 typedef enum {
-  ATTEMPT_STATE_PENDING,      // Not yet started
-  ATTEMPT_STATE_CONNECTING,   // ct_connection_t attempt in progress
-  ATTEMPT_STATE_CLOSING,      // ct_connection_t is being closed
-  ATTEMPT_STATE_SUCCEEDED,    // ct_connection_t established successfully
-  ATTEMPT_STATE_FAILED,       // ct_connection_t attempt failed
-  ATTEMPT_STATE_CANCELED,     // Canceled due to another attempt succeeding
+    ATTEMPT_STATE_PENDING,    // Not yet started
+    ATTEMPT_STATE_CONNECTING, // ct_connection_t attempt in progress
+    ATTEMPT_STATE_CLOSING,    // ct_connection_t is being closed
+    ATTEMPT_STATE_SUCCEEDED,  // ct_connection_t established successfully
+    ATTEMPT_STATE_FAILED,     // ct_connection_t attempt failed
+    ATTEMPT_STATE_CANCELED,   // Canceled due to another attempt succeeding
 } ct_attempt_state_t;
 
 // Forward declaration
@@ -26,40 +26,40 @@ typedef struct ct_racing_context_t ct_racing_context_t;
 
 // Tracks a single connection attempt in the race
 typedef struct ct_racing_attempt_t {
-  ct_connection_t* connection;
-  ct_candidate_node_t candidate;
-  ct_attempt_state_t state;
-  size_t attempt_index;
-  ct_racing_context_t* context;  // Back-pointer to parent racing context
+    ct_connection_t* connection;
+    ct_candidate_node_t candidate;
+    ct_attempt_state_t state;
+    size_t attempt_index;
+    ct_racing_context_t* context; // Back-pointer to parent racing context
 } ct_racing_attempt_t;
 
 // Context for managing the racing process
 struct ct_racing_context_t {
-  // Array of all racing attempts
-  ct_racing_attempt_t* attempts;
-  size_t num_attempts;
-  size_t next_attempt_index;  // Index of next attempt to initiate
+    // Array of all racing attempts
+    ct_racing_attempt_t* attempts;
+    size_t num_attempts;
+    size_t next_attempt_index; // Index of next attempt to initiate
 
-  bool should_try_early_data; // This decision is made by the preconnection
-  ct_message_t* initial_message; // not null if this racing was initiated with a send
-  ct_message_context_t* initial_message_context;
+    bool should_try_early_data;    // This decision is made by the preconnection
+    ct_message_t* initial_message; // not null if this racing was initiated with a send
+    ct_message_context_t* initial_message_context;
 
-  // User's original callbacks and the connection they provided
-  ct_connection_callbacks_t user_callbacks;
+    // User's original callbacks and the connection they provided
+    ct_connection_callbacks_t user_callbacks;
 
-  // Racing state
-  bool race_complete;
-  int winning_attempt_index;
+    // Racing state
+    bool race_complete;
+    int winning_attempt_index;
 
-  // Timer for staggered initiation
-  uv_timer_t* stagger_timer;
-  uint64_t connection_attempt_delay_ms;
+    // Timer for staggered initiation
+    uv_timer_t* stagger_timer;
+    uint64_t connection_attempt_delay_ms;
 
-  // ct_preconnection_t reference (for cleanup)
-  const ct_preconnection_t* preconnection;
+    // ct_preconnection_t reference (for cleanup)
+    const ct_preconnection_t* preconnection;
 
-  // Count of attempts that have completed (success or failure)
-  size_t completed_attempts;
+    // Count of attempts that have completed (success or failure)
+    size_t completed_attempts;
 };
 
 /**
@@ -80,11 +80,12 @@ int preconnection_race_with_early_data(ct_preconnection_t* preconnection,
                                        ct_message_context_t* initial_message_context);
 
 int preconnection_race_with_send_after_ready(ct_preconnection_t* preconnection,
-                                       ct_connection_callbacks_t connection_callbacks,
-                                       ct_message_t* initial_message,
-                                       ct_message_context_t* initial_message_context);
+                                             ct_connection_callbacks_t connection_callbacks,
+                                             ct_message_t* initial_message,
+                                             ct_message_context_t* initial_message_context);
 
-int preconnection_race(ct_preconnection_t* preconnection, ct_connection_callbacks_t connection_callbacks);
+int preconnection_race(ct_preconnection_t* preconnection,
+                       ct_connection_callbacks_t connection_callbacks);
 
 /*
  * Callback for when a candidate node array is ready.

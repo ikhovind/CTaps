@@ -13,7 +13,7 @@
 
 static int json_only_mode = 0;
 
-static int connect_to_server(const char *host, int port) {
+static int connect_to_server(const char* host, int port) {
     int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (sock_fd < 0) {
         perror("Failed to create socket");
@@ -31,7 +31,7 @@ static int connect_to_server(const char *host, int port) {
         return -1;
     }
 
-    if (connect(sock_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+    if (connect(sock_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
         perror("Failed to connect");
         close(sock_fd);
         return -1;
@@ -39,7 +39,7 @@ static int connect_to_server(const char *host, int port) {
     return sock_fd;
 }
 
-static int receive_file(int sock_fd, size_t expected_size, transfer_stats_t *stats) {
+static int receive_file(int sock_fd, size_t expected_size, transfer_stats_t* stats) {
     unsigned char buffer[BUFFER_SIZE];
     size_t total_received = 0;
 
@@ -69,8 +69,8 @@ static int receive_file(int sock_fd, size_t expected_size, transfer_stats_t *sta
     return 0;
 }
 
-static int transfer_file(const char *host, int port, const char *request,
-                         size_t expected_size, transfer_stats_t *stats) {
+static int transfer_file(const char* host, int port, const char* request, size_t expected_size,
+                         transfer_stats_t* stats) {
     timing_start(&stats->handshake_time);
 
     int sock_fd = connect_to_server(host, port);
@@ -97,8 +97,8 @@ static int transfer_file(const char *host, int port, const char *request,
     return 0;
 }
 
-int main(int argc, char *argv[]) {
-    const char *host = "127.0.0.1";
+int main(int argc, char* argv[]) {
+    const char* host = "127.0.0.1";
     int port = DEFAULT_PORT;
     int arg_idx = 1;
 
@@ -116,23 +116,26 @@ int main(int argc, char *argv[]) {
         arg_idx++;
     }
 
-    if (!json_only_mode) printf("TCP Client connecting to %s:%d\n", host, port);
+    if (!json_only_mode)
+        printf("TCP Client connecting to %s:%d\n", host, port);
 
     transfer_stats_t large_stats, short_stats;
 
-    if (!json_only_mode) printf("\n--- Transferring LARGE file ---\n");
+    if (!json_only_mode)
+        printf("\n--- Transferring LARGE file ---\n");
     if (transfer_file(host, port, REQUEST_LARGE, LARGE_FILE_SIZE, &large_stats) != 0) {
         fprintf(stderr, "ERROR: Failed to transfer large file\n");
         return -1;
     }
 
-    if (!json_only_mode) printf("\n--- Transferring SHORT file ---\n");
+    if (!json_only_mode)
+        printf("\n--- Transferring SHORT file ---\n");
     if (transfer_file(host, port, REQUEST_SHORT, SHORT_FILE_SIZE, &short_stats) != 0) {
         fprintf(stderr, "ERROR: Failed to transfer short file\n");
         return -1;
     }
 
-    char *json = get_json_stats(TRANSFER_MODE_TCP_NATIVE, &large_stats, &short_stats, 0);
+    char* json = get_json_stats(TRANSFER_MODE_TCP_NATIVE, &large_stats, &short_stats, 0);
     if (json) {
         printf("%s\n", json);
         free(json);

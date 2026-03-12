@@ -11,15 +11,20 @@ void socket_manager_free(ct_socket_manager_t* socket_manager);
 
 void ct_socket_manager_unref(ct_socket_manager_t* socket_manager);
 
-void new_stream_connection_cb(uv_stream_t *server, int status);
+void new_stream_connection_cb(uv_stream_t* server, int status);
 
-ct_connection_t* socket_manager_get_from_demux_table(ct_socket_manager_t* socket_manager, const struct sockaddr_storage* remote_addr);
+ct_connection_t* socket_manager_get_from_demux_table(ct_socket_manager_t* socket_manager,
+                                                     const struct sockaddr_storage* remote_addr);
 
-int socket_manager_insert_demuxed_connection(ct_socket_manager_t* socket_manager, const ct_remote_endpoint_t* remote, ct_connection_t* connection);
+int socket_manager_insert_demuxed_connection(ct_socket_manager_t* socket_manager,
+                                             const ct_remote_endpoint_t* remote,
+                                             ct_connection_t* connection);
 
-void ct_socket_manager_add_connection(ct_socket_manager_t* socket_manager, ct_connection_t* connection);
+void ct_socket_manager_add_connection(ct_socket_manager_t* socket_manager,
+                                      ct_connection_t* connection);
 
-ct_socket_manager_t* ct_socket_manager_new(const ct_protocol_impl_t* protocol_impl, ct_listener_t* listener);
+ct_socket_manager_t* ct_socket_manager_new(const ct_protocol_impl_t* protocol_impl,
+                                           ct_listener_t* listener);
 
 int ct_socket_manager_get_num_open_dependents(const ct_socket_manager_t* socket_manager);
 
@@ -27,7 +32,8 @@ void ct_socket_manager_close(ct_socket_manager_t* socket_manager);
 
 int ct_socket_manager_close_connection(ct_connection_t* connection);
 
-void ct_socket_manager_close_group(ct_socket_manager_t* socket_manager, ct_connection_group_t* group);
+void ct_socket_manager_close_group(ct_socket_manager_t* socket_manager,
+                                   ct_connection_group_t* group);
 
 void ct_socket_manager_listener_close(ct_socket_manager_t* socket_manager);
 
@@ -35,7 +41,8 @@ void ct_socket_manager_free_connection_state(ct_connection_t* connection);
 
 void ct_socket_manager_free(ct_socket_manager_t* socket_manager);
 
-int ct_socket_manager_notify_protocol_of_priority_change(ct_connection_t* connection, uint8_t priority);
+int ct_socket_manager_notify_protocol_of_priority_change(ct_connection_t* connection,
+                                                         uint8_t priority);
 
 void ct_socket_manager_listen(ct_listener_t* listener);
 

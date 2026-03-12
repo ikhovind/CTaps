@@ -19,7 +19,7 @@
 typedef struct {
     uint64_t stream_id;
     size_t request_len;
-    uint8_t *file_data;
+    uint8_t* file_data;
     size_t file_size;
     size_t bytes_sent;
     int is_request_complete;
@@ -27,20 +27,20 @@ typedef struct {
 } stream_context_t;
 
 typedef struct {
-    stream_context_t *first_stream;
-    uint8_t *large_file_data;
+    stream_context_t* first_stream;
+    uint8_t* large_file_data;
     size_t large_file_size;
-    uint8_t *short_file_data;
+    uint8_t* short_file_data;
     size_t short_file_size;
 } server_context_t;
 
-static uint8_t *large_file_data_global = NULL;
+static uint8_t* large_file_data_global = NULL;
 static size_t large_file_size_global = 0;
-static uint8_t *short_file_data_global = NULL;
+static uint8_t* short_file_data_global = NULL;
 static size_t short_file_size_global = 0;
 
 static void load_files() {
-    FILE *fp;
+    FILE* fp;
 
     if (access("large_file.dat", F_OK) != 0) {
         generate_test_file("large_file.dat", LARGE_FILE_SIZE);
@@ -72,8 +72,8 @@ static void load_files() {
     }
 }
 
-static stream_context_t *create_stream_context(uint64_t stream_id) {
-    stream_context_t *ctx = malloc(sizeof(stream_context_t));
+static stream_context_t* create_stream_context(uint64_t stream_id) {
+    stream_context_t* ctx = malloc(sizeof(stream_context_t));
     if (ctx) {
         memset(ctx, 0, sizeof(stream_context_t));
         ctx->stream_id = stream_id;
@@ -81,21 +81,21 @@ static stream_context_t *create_stream_context(uint64_t stream_id) {
     return ctx;
 }
 
-static void delete_stream_context(stream_context_t *ctx) {
+static void delete_stream_context(stream_context_t* ctx) {
     if (ctx) {
         free(ctx);
     }
 }
 
-static int server_callback(picoquic_cnx_t *cnx, uint64_t stream_id,
-                          uint8_t *bytes, size_t length,
-                          picoquic_call_back_event_t fin_or_event,
-                          void *callback_ctx, void *stream_ctx) {
-    server_context_t *server_ctx = (server_context_t *)callback_ctx;
-    stream_context_t *s_ctx = (stream_context_t *)stream_ctx;
+static int server_callback(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* bytes, size_t length,
+                           picoquic_call_back_event_t fin_or_event, void* callback_ctx,
+                           void* stream_ctx) {
+    server_context_t* server_ctx = (server_context_t*)callback_ctx;
+    stream_context_t* s_ctx = (stream_context_t*)stream_ctx;
     int ret = 0;
 
-    if (!callback_ctx || callback_ctx == picoquic_get_default_callback_context(picoquic_get_quic_ctx(cnx))) {
+    if (!callback_ctx ||
+        callback_ctx == picoquic_get_default_callback_context(picoquic_get_quic_ctx(cnx))) {
         server_ctx = malloc(sizeof(server_context_t));
         if (!server_ctx) {
             picoquic_close(cnx, PICOQUIC_ERROR_MEMORY);
@@ -123,21 +123,26 @@ static int server_callback(picoquic_cnx_t *cnx, uint64_t stream_id,
             printf("[SERVER CB] Stream context created successfully\n");
         }
 
-        printf("[SERVER CB] Checking request: complete=%d, length=%zu, bytes=%p\n", s_ctx->is_request_complete, length, (void*)bytes);
+        printf("[SERVER CB] Checking request: complete=%d, length=%zu, bytes=%p\n",
+               s_ctx->is_request_complete, length, (void*)bytes);
         if (!s_ctx->is_request_complete && length > 0) {
             printf("[SERVER CB] Entering data copy block\n");
             size_t to_copy = length;
 
             if (fin_or_event == picoquic_callback_stream_fin) {
-                printf( "[SERVER CB] Request is complete, parsing...\n");
+                printf("[SERVER CB] Request is complete, parsing...\n");
                 s_ctx->is_request_complete = 1;
 
-                if (strncmp((char *)bytes, REQUEST_LARGE, strlen(REQUEST_LARGE)) == 0) {
-                    printf("[Stream %llu] Request: LARGE, num bytes: %zu\n", (unsigned long long)stream_id, server_ctx->large_file_size);
-                    picoquic_add_to_stream(cnx, stream_id, server_ctx->large_file_data, server_ctx->large_file_size, 1);
-                } else if (strncmp((char *)bytes, REQUEST_SHORT, strlen(REQUEST_SHORT)) == 0) {
-                    printf("[Stream %llu] Request: SHORT, num bytes: %zu\n", (unsigned long long)stream_id, server_ctx->short_file_size);
-                    picoquic_add_to_stream(cnx, stream_id, server_ctx->short_file_data, server_ctx->short_file_size, 1);
+                if (strncmp((char*)bytes, REQUEST_LARGE, strlen(REQUEST_LARGE)) == 0) {
+                    printf("[Stream %llu] Request: LARGE, num bytes: %zu\n",
+                           (unsigned long long)stream_id, server_ctx->large_file_size);
+                    picoquic_add_to_stream(cnx, stream_id, server_ctx->large_file_data,
+                                           server_ctx->large_file_size, 1);
+                } else if (strncmp((char*)bytes, REQUEST_SHORT, strlen(REQUEST_SHORT)) == 0) {
+                    printf("[Stream %llu] Request: SHORT, num bytes: %zu\n",
+                           (unsigned long long)stream_id, server_ctx->short_file_size);
+                    picoquic_add_to_stream(cnx, stream_id, server_ctx->short_file_data,
+                                           server_ctx->short_file_size, 1);
                 } else {
                     fprintf(stderr, "[SERVER CB] Unknown request on stream %llu\n",
                             (unsigned long long)stream_id);
@@ -160,7 +165,8 @@ static int server_callback(picoquic_cnx_t *cnx, uint64_t stream_id,
 
     case picoquic_callback_close:
     case picoquic_callback_application_close:
-        if (server_ctx && server_ctx != picoquic_get_default_callback_context(picoquic_get_quic_ctx(cnx))) {
+        if (server_ctx &&
+            server_ctx != picoquic_get_default_callback_context(picoquic_get_quic_ctx(cnx))) {
             free(server_ctx);
         }
         picoquic_set_callback(cnx, server_callback, NULL);
@@ -173,10 +179,10 @@ static int server_callback(picoquic_cnx_t *cnx, uint64_t stream_id,
     return ret;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
     int port = DEFAULT_PORT;
     int ret = 0;
-    picoquic_quic_t *quic = NULL;
+    picoquic_quic_t* quic = NULL;
 
     if (argc > 1) {
         port = atoi(argv[1]);
@@ -192,7 +198,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    server_context_t *default_ctx = malloc(sizeof(server_context_t));
+    server_context_t* default_ctx = malloc(sizeof(server_context_t));
     if (!default_ctx) {
         fprintf(stderr, "Failed to allocate default context\n");
         return -1;
@@ -205,15 +211,12 @@ int main(int argc, char *argv[]) {
 
     if (access(CERT_PATH, F_OK) == 0) {
         printf("No problems accessing certificate file: %s\n", CERT_PATH);
-    }
-    else {
+    } else {
         printf("Cannot access certificate file: %s\n", CERT_PATH);
     }
 
-
-    quic = picoquic_create(8, CERT_PATH, KEY_PATH, NULL, ALPN,
-                          server_callback, default_ctx, NULL, NULL, NULL,
-                          picoquic_current_time(), NULL, NULL, NULL, 0);
+    quic = picoquic_create(8, CERT_PATH, KEY_PATH, NULL, ALPN, server_callback, default_ctx, NULL,
+                           NULL, NULL, picoquic_current_time(), NULL, NULL, NULL, 0);
     picoquic_set_textlog(quic, "server_debug.log");
 
     if (!quic) {

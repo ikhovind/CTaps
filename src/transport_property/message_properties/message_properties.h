@@ -13,10 +13,9 @@
  */
 ct_message_properties_t* ct_message_properties_deep_copy(const ct_message_properties_t* source);
 
-#define UNION_MEMBER_TYPE_UINT32  uint32_val
-#define UNION_MEMBER_TYPE_UINT64  uint64_val
-#define UNION_MEMBER_TYPE_BOOL    bool_val
-#define UNION_MEMBER_TYPE_ENUM    enum_val
+#define UNION_MEMBER_TYPE_UINT32 uint32_val
+#define UNION_MEMBER_TYPE_UINT64 uint64_val
+#define UNION_MEMBER_TYPE_BOOL bool_val
+#define UNION_MEMBER_TYPE_ENUM enum_val
 
-
-#endif  // CT_MESSAGE_PROPERTIES_H
+#endif // CT_MESSAGE_PROPERTIES_H

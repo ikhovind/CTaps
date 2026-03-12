@@ -19,8 +19,8 @@ typedef struct {
     int connection_id;
 } client_context_t;
 
-static int send_file(int client_fd, const char *filepath, size_t file_size) {
-    FILE *fp = fopen(filepath, "rb");
+static int send_file(int client_fd, const char* filepath, size_t file_size) {
+    FILE* fp = fopen(filepath, "rb");
     if (!fp) {
         perror("Failed to open file");
         return -1;
@@ -30,8 +30,8 @@ static int send_file(int client_fd, const char *filepath, size_t file_size) {
     size_t total_sent = 0;
 
     while (total_sent < file_size) {
-        size_t to_read = (file_size - total_sent < BUFFER_SIZE) ?
-                         (file_size - total_sent) : BUFFER_SIZE;
+        size_t to_read =
+            (file_size - total_sent < BUFFER_SIZE) ? (file_size - total_sent) : BUFFER_SIZE;
 
         size_t read_bytes = fread(buffer, 1, to_read, fp);
         if (read_bytes == 0) {
@@ -58,8 +58,8 @@ static int send_file(int client_fd, const char *filepath, size_t file_size) {
     return 0;
 }
 
-static void *handle_client(void *arg) {
-    client_context_t *ctx = (client_context_t *)arg;
+static void* handle_client(void* arg) {
+    client_context_t* ctx = (client_context_t*)arg;
     int client_fd = ctx->client_fd;
     int conn_id = ctx->connection_id;
     free(ctx);
@@ -70,8 +70,7 @@ static void *handle_client(void *arg) {
     int mss = 1460;
     if (setsockopt(client_fd, IPPROTO_TCP, TCP_MAXSEG, &mss, sizeof(mss)) < 0) {
         perror("[Warning] Failed to set TCP_MAXSEG");
-    }
-    else {
+    } else {
         printf("[Connection %d] Set TCP MSS to %d bytes\n", conn_id, mss);
     }
 
@@ -116,7 +115,7 @@ static void *handle_client(void *arg) {
     return NULL;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
     int port = DEFAULT_PORT;
 
     if (argc > 1) {
@@ -169,7 +168,7 @@ int main(int argc, char *argv[]) {
     server_addr.sin_addr.s_addr = INADDR_ANY;
     server_addr.sin_port = htons(port);
 
-    if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+    if (bind(server_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
         perror("Failed to bind");
         close(server_fd);
         return -1;
@@ -189,13 +188,13 @@ int main(int argc, char *argv[]) {
         struct sockaddr_in client_addr;
         socklen_t client_addr_len = sizeof(client_addr);
 
-        int client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &client_addr_len);
+        int client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &client_addr_len);
         if (client_fd < 0) {
             perror("Failed to accept connection");
             continue;
         }
 
-        client_context_t *ctx = malloc(sizeof(client_context_t));
+        client_context_t* ctx = malloc(sizeof(client_context_t));
         ctx->client_fd = client_fd;
         ctx->connection_id = ++connection_id;
 

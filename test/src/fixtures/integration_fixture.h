@@ -28,17 +28,18 @@ struct IptablesGuard {
             system("iptables -D INPUT -s 127.0.0.1 -p udp --sport 4433 -j DROP");
         }
 
-        if (system("iptables -C OUTPUT -d 127.0.0.1 -p udp --dport 4433 -j DROP 2>/dev/null") == 0) {
+        if (system("iptables -C OUTPUT -d 127.0.0.1 -p udp --dport 4433 -j DROP 2>/dev/null") ==
+            0) {
             system("iptables -D OUTPUT -d 127.0.0.1 -p udp --dport 4433 -j DROP");
         }
 
         // Local endpoint migration test
-        if (system("iptables -C OUTPUT -s 127.0.0.1 -p udp --dport 4433 -j DROP 2>/dev/null") == 0) {
+        if (system("iptables -C OUTPUT -s 127.0.0.1 -p udp --dport 4433 -j DROP 2>/dev/null") ==
+            0) {
             system("iptables -D OUTPUT -s 127.0.0.1 -p udp --dport 4433 -j DROP");
-
-
         }
-        if (system("iptables -C INPUT  -d 127.0.0.1 -p udp --sport 4433 -j DROP 2>/dev/null") == 0) {
+        if (system("iptables -C INPUT  -d 127.0.0.1 -p udp --sport 4433 -j DROP 2>/dev/null") ==
+            0) {
             system("iptables -D INPUT  -d 127.0.0.1 -p udp --sport 4433 -j DROP");
         }
     }
@@ -74,23 +75,29 @@ struct CallbackContext {
     std::map<ct_connection_t*, std::vector<ct_message_t*>>* per_connection_messages;
     std::vector<ct_connection_t*> server_connections; // created by the listener callback
     std::vector<ct_connection_t*> client_connections;
-    std::function<void(CallbackContext*)>* closing_function; // To close any connections/listeners etc.
+    std::function<void(CallbackContext*)>*
+        closing_function; // To close any connections/listeners etc.
     size_t total_expected_messages;
     std::unordered_set<ct_listener_t*> listeners;
     bool connection_succeeded = false;
     uint16_t expected_server_port = 0; // Expected remote port for message context verification
     std::function<void()> listener_ready_action;
-    bool path_blocked = false; // Used for migration test to simulate path failure after connection established
-    std::vector<struct sockaddr_storage> local_sockaddr; // Used for migration test to verify local endpoint changes
+    bool path_blocked =
+        false; // Used for migration test to simulate path failure after connection established
+    std::vector<struct sockaddr_storage>
+        local_sockaddr; // Used for migration test to verify local endpoint changes
 };
 
 class CTapsGenericFixture : public ::testing::Test {
-private:
+  private:
     inline static pid_t server_pids_[3];
 
     static pid_t launch_server(const char* path) {
         int pipefd[2];
-        if (pipe(pipefd) < 0) { perror("pipe"); return -1; }
+        if (pipe(pipefd) < 0) {
+            perror("pipe");
+            return -1;
+        }
 
         pid_t pid = fork();
         if (pid == 0) {
@@ -106,18 +113,17 @@ private:
 
         close(pipefd[1]);
         char buf[1];
-        read(pipefd[0], buf, 1);  // blocks until child writes or closes
+        read(pipefd[0], buf, 1); // blocks until child writes or closes
         close(pipefd[0]);
         return pid;
     }
 
-protected:
+  protected:
     // Each test gets its own per-connection message map
     std::map<ct_connection_t*, std::vector<ct_message_t*>> per_connection_messages;
     std::vector<ct_connection_t*> received_connections;
     std::vector<ct_connection_t*> client_connections;
     CallbackContext test_context;
-
 
     void SetUp() override {
         int rc = ct_initialize();
@@ -154,14 +160,16 @@ protected:
             ct_listener_free(listener);
         }
 
-        log_debug("Freeing %d server connections in test cleanup", (int)test_context.server_connections.size());
+        log_debug("Freeing %d server connections in test cleanup",
+                  (int)test_context.server_connections.size());
         for (ct_connection_t* conn : test_context.server_connections) {
             log_debug("Freeing server connection: %s", ct_connection_get_uuid(conn));
             log_debug("socket manager ref count: %d", conn->socket_manager->ref_count);
             ASSERT_TRUE(ct_connection_is_closed(conn));
             ct_connection_free(conn);
         }
-        log_debug("Freeing %d client connections in test cleanup", (int)test_context.client_connections.size());
+        log_debug("Freeing %d client connections in test cleanup",
+                  (int)test_context.client_connections.size());
         for (ct_connection_t* conn : test_context.client_connections) {
             ASSERT_TRUE(ct_connection_is_closed(conn));
             ct_connection_free(conn);
@@ -218,7 +226,8 @@ int send_message_on_connection_ready(ct_connection_t* connection) {
     return 0;
 }
 
-int on_message_received(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
+int on_message_received(ct_connection_t* connection, ct_message_t** received_message,
+                        ct_message_context_t* message_context) {
     printf("ct_callback_t: on_message_received.\n");
     auto* ctx = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
 
@@ -227,7 +236,8 @@ int on_message_received(ct_connection_t* connection, ct_message_t** received_mes
     return 0;
 }
 
-int close_on_message_received(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
+int close_on_message_received(ct_connection_t* connection, ct_message_t** received_message,
+                              ct_message_context_t* message_context) {
     log_info("ct_callback_t: close_on_message_received.\n");
     log_info("closing connection: %s", ct_connection_get_uuid(connection));
     auto* ctx = static_cast<CallbackContext*>(message_context->user_receive_context);
@@ -238,7 +248,9 @@ int close_on_message_received(ct_connection_t* connection, ct_message_t** receiv
     return 0;
 }
 
-int close_on_expected_num_messages_received(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
+int close_on_expected_num_messages_received(ct_connection_t* connection,
+                                            ct_message_t** received_message,
+                                            ct_message_context_t* message_context) {
     log_info("ct_callback_t: close_on_expected_num_messages_received.\n");
     auto* ctx = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
 
@@ -258,7 +270,9 @@ int close_on_expected_num_messages_received(ct_connection_t* connection, ct_mess
 }
 
 // Callback that stores received message and sends "pong" response (for listener tests)
-int respond_and_close_on_message_received(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
+int respond_and_close_on_message_received(ct_connection_t* connection,
+                                          ct_message_t** received_message,
+                                          ct_message_context_t* message_context) {
     log_debug("ct_callback_t: respond_and_close_on_message_received.");
     auto* ctx = static_cast<CallbackContext*>(message_context->user_receive_context);
     (*ctx->per_connection_messages)[connection].push_back(*received_message);
@@ -270,7 +284,8 @@ int respond_and_close_on_message_received(ct_connection_t* connection, ct_messag
     return 0;
 }
 
-int respond_on_message_received(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
+int respond_on_message_received(ct_connection_t* connection, ct_message_t** received_message,
+                                ct_message_context_t* message_context) {
     log_info("ct_callback_t: respond_on_message_received.");
     auto* ctx = static_cast<CallbackContext*>(message_context->user_receive_context);
     log_debug("received on connection: %s", ct_connection_get_uuid(connection));
@@ -282,8 +297,11 @@ int respond_on_message_received(ct_connection_t* connection, ct_message_t** rece
     return 0;
 }
 
-int respond_and_verify_server_message_context_remote_context_on_message_received(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
-    log_info("ct_callback_t: respond_and_verify_server_message_context_remote_context_on_message_received.\n");
+int respond_and_verify_server_message_context_remote_context_on_message_received(
+    ct_connection_t* connection, ct_message_t** received_message,
+    ct_message_context_t* message_context) {
+    log_info("ct_callback_t: "
+             "respond_and_verify_server_message_context_remote_context_on_message_received.\n");
     auto* ctx = static_cast<CallbackContext*>(message_context->user_receive_context);
     (*ctx->per_connection_messages)[connection].push_back(*received_message);
 
@@ -293,19 +311,21 @@ int respond_and_verify_server_message_context_remote_context_on_message_received
 
     const ct_remote_endpoint_t* remote_ep = ct_message_context_get_remote_endpoint(message_context);
     EXPECT_NE(remote_ep, nullptr) << "Remote endpoint in message context should not be null";
-    EXPECT_GT(remote_ep->port, 0) << "For server, remote endpoint port be ephemeral (greater than 0)";
+    EXPECT_GT(remote_ep->port, 0)
+        << "For server, remote endpoint port be ephemeral (greater than 0)";
 
     const ct_local_endpoint_t* local_ep = ct_message_context_get_local_endpoint(message_context);
-    log_info("Resolved address from local endpoint: %p", local_endpoint_get_resolved_address(local_ep));
+    log_info("Resolved address from local endpoint: %p",
+             local_endpoint_get_resolved_address(local_ep));
     EXPECT_NE(local_ep, nullptr) << "Local endpoint in message context should not be null";
 
     if (ct_connection_get_transport_protocol(connection) == CT_PROTOCOL_TCP) {
-        EXPECT_GT(remote_ep->port, 0) << "For TCP server, local endpoint port be ephemeral (greater than 0)";
+        EXPECT_GT(remote_ep->port, 0)
+            << "For TCP server, local endpoint port be ephemeral (greater than 0)";
+    } else {
+        EXPECT_EQ(local_endpoint_get_resolved_port(local_ep), ctx->expected_server_port)
+            << "For non-tcp server, local endpoint port should match server port";
     }
-    else {
-        EXPECT_EQ(local_endpoint_get_resolved_port(local_ep), ctx->expected_server_port) << "For non-tcp server, local endpoint port should match server port";
-    }
-
 
     ct_message_t* message = ct_message_new_with_content("pong", strlen("pong") + 1);
     ct_send_message(connection, message);
@@ -315,36 +335,43 @@ int respond_and_verify_server_message_context_remote_context_on_message_received
 
 void on_listener_ready_print_socket_manager_count(ct_listener_t* listener) {
     log_debug("ct_callback_t: on_listener_ready_print_socket_manager_count");
-    log_debug("Listener socket manager reference count is: %d", listener->socket_manager->ref_count);
+    log_debug("Listener socket manager reference count is: %d",
+              listener->socket_manager->ref_count);
 }
 
-void send_message_and_receive_from_first_server_connection_on_listener_close(ct_listener_t* listener) {
+void send_message_and_receive_from_first_server_connection_on_listener_close(
+    ct_listener_t* listener) {
     log_debug("ct_callback_t: send_message_from_first_server_connection_on_listener_close");
-    auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
+    auto* context =
+        static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
     ct_listener_free(listener);
-    EXPECT_FALSE(context->server_connections.empty()) << "expected at least one server connection to send message from on listener close";
+    EXPECT_FALSE(context->server_connections.empty())
+        << "expected at least one server connection to send message from on listener close";
     ct_connection_t* connection = context->server_connections[0];
     ct_message_t* message = ct_message_new_with_content("ping", strlen("ping") + 1);
     ct_send_message(connection, message);
     ct_message_free(message);
 
     ct_receive_callbacks_t receive_message_request = {
-      .receive_callback = close_on_message_received,
-      .user_receive_context = context,
+        .receive_callback = close_on_message_received,
+        .user_receive_context = context,
     };
 
     ct_receive_message(connection, receive_message_request);
 }
 
-int receive_message_respond_and_close_listener_on_connection_received(ct_listener_t* listener, ct_connection_t* new_connection) {
-    log_debug("ct_callback_t: receive_message_respond_and_close_listener_on_connection_received %s", ct_connection_get_uuid(new_connection));
-    auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
+int receive_message_respond_and_close_listener_on_connection_received(
+    ct_listener_t* listener, ct_connection_t* new_connection) {
+    log_debug("ct_callback_t: receive_message_respond_and_close_listener_on_connection_received %s",
+              ct_connection_get_uuid(new_connection));
+    auto* context =
+        static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
     context->server_connections.push_back(new_connection);
     context->listeners.insert(listener);
 
     ct_receive_callbacks_t receive_message_request = {
-      .receive_callback = respond_and_close_on_message_received,
-      .user_receive_context = listener->listener_callbacks.user_listener_context,
+        .receive_callback = respond_and_close_on_message_received,
+        .user_receive_context = listener->listener_callbacks.user_listener_context,
     };
 
     ct_listener_close(listener);
@@ -354,9 +381,12 @@ int receive_message_respond_and_close_listener_on_connection_received(ct_listene
     return 0;
 }
 
-int close_listener_on_connection_received(ct_listener_t* listener, ct_connection_t* new_connection) {
-    log_debug("ct_callback_t: close_listener_on_connection_received %s", ct_connection_get_uuid(new_connection));
-    auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
+int close_listener_on_connection_received(ct_listener_t* listener,
+                                          ct_connection_t* new_connection) {
+    log_debug("ct_callback_t: close_listener_on_connection_received %s",
+              ct_connection_get_uuid(new_connection));
+    auto* context =
+        static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
     context->server_connections.push_back(new_connection);
     ct_listener_close(listener);
 
@@ -373,8 +403,8 @@ int send_message_and_receive(struct ct_connection_s* connection) {
     ct_message_free(message);
 
     ct_receive_callbacks_t receive_message_request = {
-      .receive_callback = close_on_message_received,
-      .user_receive_context = ct_connection_get_callback_context(connection),
+        .receive_callback = close_on_message_received,
+        .user_receive_context = ct_connection_get_callback_context(connection),
     };
 
     ct_receive_message(connection, receive_message_request);
@@ -382,11 +412,9 @@ int send_message_and_receive(struct ct_connection_s* connection) {
 }
 
 // Callback context needs a flag to track whether migration has been triggered
-int receive_first_pong_then_block_primary_path_for_remote(
-    ct_connection_t* connection,
-    ct_message_t** message,
-    ct_message_context_t* ctx)
-{
+int receive_first_pong_then_block_primary_path_for_remote(ct_connection_t* connection,
+                                                          ct_message_t** message,
+                                                          ct_message_context_t* ctx) {
     auto* test_ctx = static_cast<CallbackContext*>(ctx->user_receive_context);
     (*test_ctx->per_connection_messages)[connection].push_back(*message);
 
@@ -435,19 +463,17 @@ int send_message_and_receive_blocking_primary_path_for_remote(struct ct_connecti
     ct_message_free(message);
 
     ct_receive_callbacks_t receive_message_request = {
-      .receive_callback = receive_first_pong_then_block_primary_path_for_remote,
-      .user_receive_context = ct_connection_get_callback_context(connection),
+        .receive_callback = receive_first_pong_then_block_primary_path_for_remote,
+        .user_receive_context = ct_connection_get_callback_context(connection),
     };
 
     ct_receive_message(connection, receive_message_request);
     return 0;
 }
 
-int receive_first_pong_then_block_primary_path_for_local(
-    ct_connection_t* connection,
-    ct_message_t** message,
-    ct_message_context_t* ctx)
-{
+int receive_first_pong_then_block_primary_path_for_local(ct_connection_t* connection,
+                                                         ct_message_t** message,
+                                                         ct_message_context_t* ctx) {
     auto* test_ctx = static_cast<CallbackContext*>(ctx->user_receive_context);
     (*test_ctx->per_connection_messages)[connection].push_back(*message);
 
@@ -496,8 +522,8 @@ int send_message_and_receive_blocking_primary_path_for_local(struct ct_connectio
     ct_message_free(message);
 
     ct_receive_callbacks_t receive_message_request = {
-      .receive_callback = receive_first_pong_then_block_primary_path_for_local,
-      .user_receive_context = ct_connection_get_callback_context(connection),
+        .receive_callback = receive_first_pong_then_block_primary_path_for_local,
+        .user_receive_context = ct_connection_get_callback_context(connection),
     };
 
     ct_receive_message(connection, receive_message_request);
@@ -510,8 +536,8 @@ int receive_on_ready(struct ct_connection_s* connection) {
     context->client_connections.push_back(connection);
 
     ct_receive_callbacks_t receive_message_request = {
-      .receive_callback = close_on_message_received,
-      .user_receive_context = ct_connection_get_callback_context(connection),
+        .receive_callback = close_on_message_received,
+        .user_receive_context = ct_connection_get_callback_context(connection),
     };
 
     log_trace("Adding receive callback from ct_connection_t");
@@ -520,7 +546,9 @@ int receive_on_ready(struct ct_connection_s* connection) {
 }
 
 // Complex callback for multi-message listener tests
-int on_message_receive_send_new_message_and_receive_inline(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
+int on_message_receive_send_new_message_and_receive_inline(ct_connection_t* connection,
+                                                           ct_message_t** received_message,
+                                                           ct_message_context_t* message_context) {
     printf("ct_callback_t: on_message_receive_send_new_message_and_receive.\n");
     auto* ctx = static_cast<CallbackContext*>(message_context->user_receive_context);
 
@@ -533,24 +561,27 @@ int on_message_receive_send_new_message_and_receive_inline(ct_connection_t* conn
     (*ctx->per_connection_messages)[connection].push_back(*received_message);
 
     ct_receive_callbacks_t receive_message_request = {
-      .receive_callback = on_message_received,
-      .user_receive_context = ct_connection_get_callback_context(connection),
+        .receive_callback = on_message_received,
+        .user_receive_context = ct_connection_get_callback_context(connection),
     };
 
     ct_receive_message(connection, receive_message_request);
     return 0;
 }
 
-int on_connection_received_receive_message_close_listener_and_send_new_message(ct_listener_t* listener, ct_connection_t* new_connection) {
-    printf("ct_callback_t: on_connection_received_receive_message_close_listener_and_send_new_message\n");
-    auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
+int on_connection_received_receive_message_close_listener_and_send_new_message(
+    ct_listener_t* listener, ct_connection_t* new_connection) {
+    printf("ct_callback_t: "
+           "on_connection_received_receive_message_close_listener_and_send_new_message\n");
+    auto* context =
+        static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
     ct_listener_close(listener);
     context->server_connections.push_back(new_connection);
     context->listeners.insert(listener);
 
     ct_receive_callbacks_t receive_message_request = {
-      .receive_callback = on_message_receive_send_new_message_and_receive_inline,
-      .user_receive_context = ct_connection_get_callback_context(new_connection),
+        .receive_callback = on_message_receive_send_new_message_and_receive_inline,
+        .user_receive_context = ct_connection_get_callback_context(new_connection),
     };
 
     ct_receive_message(new_connection, receive_message_request);
@@ -592,10 +623,11 @@ static int send_bytes_on_ready(struct ct_connection_s* connection) {
     EXPECT_EQ(rc, 0);
     ct_message_free(message);
 
-    ct_receive_message(connection, {
-      .receive_callback = close_on_message_received,
-      .user_receive_context = ct_connection_get_callback_context(connection),
-    });
+    ct_receive_message(connection,
+                       {
+                           .receive_callback = close_on_message_received,
+                           .user_receive_context = ct_connection_get_callback_context(connection),
+                       });
 
     return 0;
 }
@@ -618,15 +650,17 @@ int send_two_messages_on_ready(struct ct_connection_s* connection) {
     EXPECT_EQ(rc, 0);
     ct_message_free(message2);
 
-    ct_receive_message(connection, {
-      .receive_callback = close_on_expected_num_messages_received,
-      .user_receive_context = ct_connection_get_callback_context(connection),
-    });
+    ct_receive_message(connection,
+                       {
+                           .receive_callback = close_on_expected_num_messages_received,
+                           .user_receive_context = ct_connection_get_callback_context(connection),
+                       });
 
-    ct_receive_message(connection, {
-      .receive_callback = close_on_expected_num_messages_received,
-      .user_receive_context = ct_connection_get_callback_context(connection),
-    });
+    ct_receive_message(connection,
+                       {
+                           .receive_callback = close_on_expected_num_messages_received,
+                           .user_receive_context = ct_connection_get_callback_context(connection),
+                       });
 
     return 0;
 }
@@ -634,10 +668,12 @@ int send_two_messages_on_ready(struct ct_connection_s* connection) {
 // --- Callbacks for server-initiated stream tests ---
 
 // Callback for server to send first message when connection is received and wait for response
-int server_sends_first_and_waits_for_response(ct_listener_t* listener, ct_connection_t* new_connection) {
+int server_sends_first_and_waits_for_response(ct_listener_t* listener,
+                                              ct_connection_t* new_connection) {
     log_info("Server: Connection received, sending first and waiting for response");
-    
-    auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
+
+    auto* context =
+        static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
     context->server_connections.push_back(new_connection);
     context->listeners.insert(listener);
 
@@ -655,10 +691,9 @@ int server_sends_first_and_waits_for_response(ct_listener_t* listener, ct_connec
     }
 
     // Set up receive for client's response
-    ct_receive_callbacks_t receive_req = {
-        .receive_callback = close_on_message_received,
-        .user_receive_context = listener->listener_callbacks.user_listener_context
-    };
+    ct_receive_callbacks_t receive_req = {.receive_callback = close_on_message_received,
+                                          .user_receive_context =
+                                              listener->listener_callbacks.user_listener_context};
 
     ct_receive_message(new_connection, receive_req);
     ct_listener_close(listener);
@@ -666,7 +701,8 @@ int server_sends_first_and_waits_for_response(ct_listener_t* listener, ct_connec
 }
 
 // Callback for client to wait for server's message and respond
-int client_waits_and_responds(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
+int client_waits_and_responds(ct_connection_t* connection, ct_message_t** received_message,
+                              ct_message_context_t* message_context) {
     log_info("Client: Received server-initiated message");
     auto* ctx = static_cast<CallbackContext*>(message_context->user_receive_context);
     (*ctx->per_connection_messages)[connection].push_back(*received_message);
@@ -687,10 +723,9 @@ int client_ready_wait_for_server(ct_connection_t* connection) {
     auto* ctx = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
     ctx->client_connections.push_back(connection);
 
-    ct_receive_callbacks_t receive_req = {
-        .receive_callback = client_waits_and_responds,
-        .user_receive_context = ct_connection_get_callback_context(connection)
-    };
+    ct_receive_callbacks_t receive_req = {.receive_callback = client_waits_and_responds,
+                                          .user_receive_context =
+                                              ct_connection_get_callback_context(connection)};
 
     ct_receive_message(connection, receive_req);
     return 0;
@@ -725,8 +760,8 @@ int clone_and_abort_on_ready(ct_connection_t* connection) {
 
     if (num_grouped == 1) {
         // Original connection - clone it
-        log_info("Original connection ready (num_grouped=%llu), cloning", (unsigned long long)num_grouped);
-
+        log_info("Original connection ready (num_grouped=%llu), cloning",
+                 (unsigned long long)num_grouped);
 
         int rc = ct_connection_clone(connection);
         if (rc < 0) {
@@ -737,7 +772,8 @@ int clone_and_abort_on_ready(ct_connection_t* connection) {
         log_info("Successfully cloned connection");
     } else {
         // Cloned connection - abort this one (simulates multi-stream abort)
-        log_info("Cloned connection ready (num_grouped=%llu), aborting clone", (unsigned long long)num_grouped);
+        log_info("Cloned connection ready (num_grouped=%llu), aborting clone",
+                 (unsigned long long)num_grouped);
         for (ct_connection_t* conn : ctx->client_connections) {
             log_info("Client connection in context: %p", (void*)conn);
             ct_connection_abort(conn);
@@ -755,7 +791,6 @@ int clone_send_and_setup_receive_on_both(ct_connection_t* connection) {
     auto* ctx = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
     ctx->client_connections.push_back(connection);
 
-
     // Check connection group size to determine if this is original or cloned connection
     uint64_t num_grouped = ct_connection_get_total_num_grouped_connections(connection);
 
@@ -763,7 +798,8 @@ int clone_send_and_setup_receive_on_both(ct_connection_t* connection) {
     if (num_grouped == 1) {
         // This is the original connection - clone it
         log_info("Original connection %s ready, cloning", connection->uuid);
-        log_debug("original client connection: %s socket manager %p", ct_connection_get_uuid(connection), (void*)connection->socket_manager);
+        log_debug("original client connection: %s socket manager %p",
+                  ct_connection_get_uuid(connection), (void*)connection->socket_manager);
 
         int rc = ct_connection_clone(connection);
         if (rc < 0) {
@@ -777,36 +813,42 @@ int clone_send_and_setup_receive_on_both(ct_connection_t* connection) {
     } else {
         // This is the cloned connection
         log_info("Cloned connection %s ready", connection->uuid);
-        log_debug("cloned client connection: %s socket manager %p", ct_connection_get_uuid(connection), (void*)connection->socket_manager);
+        log_debug("cloned client connection: %s socket manager %p",
+                  ct_connection_get_uuid(connection), (void*)connection->socket_manager);
         message_content = "ping-cloned";
     }
 
     // Send and set up receive (same for both original and clone)
-    ct_message_t* message = ct_message_new_with_content(message_content, strlen(message_content) + 1);
+    ct_message_t* message =
+        ct_message_new_with_content(message_content, strlen(message_content) + 1);
     ct_send_message(connection, message);
     ct_message_free(message);
 
-    ct_receive_callbacks_t receive_req = {
-        .receive_callback = close_on_message_received,
-        .user_receive_context = ctx
-    };
+    ct_receive_callbacks_t receive_req = {.receive_callback = close_on_message_received,
+                                          .user_receive_context = ctx};
     ct_receive_message(connection, receive_req);
 
-    log_info("Sent message '%s' and set up receive on connection %s", message_content, connection->uuid);
+    log_info("Sent message '%s' and set up receive on connection %s", message_content,
+             connection->uuid);
     return 0;
 }
 
 // Server callback: Receives message, responds with "Response: " prefix
-int server_receive_and_respond_with_prefix(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
-    log_info("Server: Received message on connection %p: %s", (void*)connection, (*received_message)->content);
+int server_receive_and_respond_with_prefix(ct_connection_t* connection,
+                                           ct_message_t** received_message,
+                                           ct_message_context_t* message_context) {
+    log_info("Server: Received message on connection %p: %s", (void*)connection,
+             (*received_message)->content);
     auto* ctx = static_cast<CallbackContext*>(message_context->user_receive_context);
 
     // Store the received message per connection
     (*ctx->per_connection_messages)[connection].push_back(*received_message);
 
     // Send response with "Response: " prefix
-    std::string response = std::string("Response: ") + std::string((char*)(*received_message)->content);
-    ct_message_t* response_msg = ct_message_new_with_content(response.c_str(), response.length() + 1);
+    std::string response =
+        std::string("Response: ") + std::string((char*)(*received_message)->content);
+    ct_message_t* response_msg =
+        ct_message_new_with_content(response.c_str(), response.length() + 1);
     ct_send_message(connection, response_msg);
     ct_message_free(response_msg);
 
@@ -819,21 +861,23 @@ int server_connection_setup_receive_and_respond_on_ready(ct_connection_t* connec
     auto* ctx = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
     ctx->server_connections.push_back(connection);
     log_debug("Server connection length after push_back: %zu", ctx->server_connections.size());
-    log_debug("Connection group ref count: %d", connection->connection_group ? connection->connection_group->ref_count : -1);
+    log_debug("Connection group ref count: %d",
+              connection->connection_group ? connection->connection_group->ref_count : -1);
 
     ct_receive_callbacks_t receive_req = {
         .receive_callback = server_receive_and_respond_with_prefix,
-        .user_receive_context = ct_connection_get_callback_context(connection)
-    };
+        .user_receive_context = ct_connection_get_callback_context(connection)};
 
     ct_receive_message(connection, receive_req);
     return 0;
 }
 
 // Server listener callback for cloning: Set up receive on new connection
-int server_on_connection_received_for_cloning(ct_listener_t* listener, ct_connection_t* new_connection) {
+int server_on_connection_received_for_cloning(ct_listener_t* listener,
+                                              ct_connection_t* new_connection) {
     log_info("Server: New connection received %p", (void*)new_connection);
-    auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
+    auto* context =
+        static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
     context->server_connections.push_back(new_connection);
     context->listeners.insert(listener);
 
@@ -842,8 +886,7 @@ int server_on_connection_received_for_cloning(ct_listener_t* listener, ct_connec
     // Set up receive callback
     ct_receive_callbacks_t receive_req = {
         .receive_callback = server_receive_and_respond_with_prefix,
-        .user_receive_context = listener->listener_callbacks.user_listener_context
-    };
+        .user_receive_context = listener->listener_callbacks.user_listener_context};
 
     ct_receive_message(new_connection, receive_req);
     return 0;
@@ -851,8 +894,11 @@ int server_on_connection_received_for_cloning(ct_listener_t* listener, ct_connec
 
 // --- Callbacks for message context endpoint verification ---
 
-int verify_client_message_context_endpoints_and_close(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
-    log_info("verify_client_message_context_endpoints_and_close: checking message context endpoints");
+int verify_client_message_context_endpoints_and_close(ct_connection_t* connection,
+                                                      ct_message_t** received_message,
+                                                      ct_message_context_t* message_context) {
+    log_info(
+        "verify_client_message_context_endpoints_and_close: checking message context endpoints");
     auto* ctx = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
 
     (*ctx->per_connection_messages)[connection].push_back(*received_message);
@@ -862,12 +908,15 @@ int verify_client_message_context_endpoints_and_close(ct_connection_t* connectio
     // and the remote endpoint will be the server's listening port
     const ct_remote_endpoint_t* remote_ep = ct_message_context_get_remote_endpoint(message_context);
     EXPECT_NE(remote_ep, nullptr) << "Remote endpoint in message context should not be null";
-    EXPECT_EQ(remote_ep->port, ctx->expected_server_port) << "For client, remote endpoint port should match server port";
+    EXPECT_EQ(remote_ep->port, ctx->expected_server_port)
+        << "For client, remote endpoint port should match server port";
 
     const ct_local_endpoint_t* local_ep = ct_message_context_get_local_endpoint(message_context);
-    log_info("Resolved address from local endpoint: %p", local_endpoint_get_resolved_address(local_ep));
+    log_info("Resolved address from local endpoint: %p",
+             local_endpoint_get_resolved_address(local_ep));
     EXPECT_NE(local_ep, nullptr) << "Local endpoint in message context should not be null";
-    EXPECT_GT(local_endpoint_get_resolved_port(local_ep), 0) << "Local endpoint port should be greater than 0";
+    EXPECT_GT(local_endpoint_get_resolved_port(local_ep), 0)
+        << "Local endpoint port should be greater than 0";
 
     // Close the connection
     ct_connection_close(connection);
@@ -894,15 +943,18 @@ int send_message_and_verify_context_on_receive(ct_connection_t* connection) {
     return 0;
 }
 
-int receive_message_verify_and_close_listener_on_connection_received(ct_listener_t* listener, ct_connection_t* new_connection) {
+int receive_message_verify_and_close_listener_on_connection_received(
+    ct_listener_t* listener, ct_connection_t* new_connection) {
     log_trace("ct_connection_t received callback from listener");
-    auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
+    auto* context =
+        static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
     context->server_connections.push_back(new_connection);
     context->listeners.insert(listener);
 
     ct_receive_callbacks_t receive_message_request = {
-      .receive_callback = respond_and_verify_server_message_context_remote_context_on_message_received,
-      .user_receive_context = listener->listener_callbacks.user_listener_context,
+        .receive_callback =
+            respond_and_verify_server_message_context_remote_context_on_message_received,
+        .user_receive_context = listener->listener_callbacks.user_listener_context,
     };
 
     ct_listener_close(listener);
@@ -923,25 +975,29 @@ ct_connection_group_t* generate_connection_group(int num_connections) {
 
 void capture_local_on_sent(ct_connection_t* connection, ct_message_context_t* message_context) {
     auto* context = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
-    
-    context->local_sockaddr.push_back(ct_connection_get_active_local_endpoint(connection)->data.resolved_address);
+
+    context->local_sockaddr.push_back(
+        ct_connection_get_active_local_endpoint(connection)->data.resolved_address);
 }
 
 void close_on_listener_ready(ct_listener_t* listener) {
-    auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
+    auto* context =
+        static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
     context->listeners.insert(listener);
     ct_listener_close(listener);
 }
 
 void free_on_listener_stopped(ct_listener_t* listener) {
-    auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
+    auto* context =
+        static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
     context->listeners.erase(listener);
     ct_listener_free(listener);
 }
 
 void free_and_close_all_connections_on_listener_stopped(ct_listener_t* listener) {
     log_debug("Free and close all on listener stopped");
-    auto* context = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
+    auto* context =
+        static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
     context->listeners.erase(listener);
     for (ct_connection_t* conn : context->server_connections) {
         ct_connection_close(conn);

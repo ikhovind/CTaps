@@ -9,22 +9,23 @@ struct ct_socket_manager_s;
 // Per-socket TCP state
 // Since every TCP connection has its own socket, tcp has no other protocol state
 typedef struct ct_tcp_socket_state_s {
-  ct_connection_t* connection;
-  ct_listener_t* listener;
-  ct_message_t* initial_message;
-  ct_message_context_t* initial_message_context;
-  uv_connect_t* connect_req; // To be freed in tests etc. when we don't run the full connect flow
-  uv_tcp_t* tcp_handle;
+    ct_connection_t* connection;
+    ct_listener_t* listener;
+    ct_message_t* initial_message;
+    ct_message_context_t* initial_message_context;
+    uv_connect_t* connect_req; // To be freed in tests etc. when we don't run the full connect flow
+    uv_tcp_t* tcp_handle;
 } ct_tcp_socket_state_t;
 
 typedef struct ct_tcp_send_data_s {
-  ct_connection_t* connection;
-  ct_message_t* message;
-  ct_message_context_t* message_context;
+    ct_connection_t* connection;
+    ct_message_t* message;
+    ct_message_context_t* message_context;
 } ct_tcp_send_data_t;
 
 int tcp_init(ct_connection_t* connection);
-int tcp_init_with_send(ct_connection_t* connection, ct_message_t* initial_message, ct_message_context_t* initial_message_context);
+int tcp_init_with_send(ct_connection_t* connection, ct_message_t* initial_message,
+                       ct_message_context_t* initial_message_context);
 int tcp_close(ct_connection_t* connection);
 void tcp_close_socket(ct_socket_manager_t*);
 void tcp_free_socket_state(ct_socket_manager_t* socket_manager);
@@ -41,13 +42,10 @@ void tcp_close_connection_group(ct_connection_group_t* connection_group);
   */
 void tcp_free_connection_group_state(ct_connection_group_t* connection_group);
 
-ct_tcp_socket_state_t* ct_tcp_socket_state_new(ct_connection_t* connection,
-                                                 ct_listener_t* listener,
-                                                 ct_message_t* initial_message,
-                                                 ct_message_context_t* initial_message_context,
-                                                 uv_connect_t* connect_req,
-                                                 uv_tcp_t* uv_tcp_handle
-                                                 );
+ct_tcp_socket_state_t* ct_tcp_socket_state_new(ct_connection_t* connection, ct_listener_t* listener,
+                                               ct_message_t* initial_message,
+                                               ct_message_context_t* initial_message_context,
+                                               uv_connect_t* connect_req, uv_tcp_t* uv_tcp_handle);
 
 // Protocol interface (definition in tcp.c)
 extern const ct_protocol_impl_t tcp_protocol_interface;

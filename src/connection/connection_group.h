@@ -3,7 +3,6 @@
 #include "ctaps.h"
 #include "ctaps_internal.h"
 
-
 /**
   * @brief Add a connection to a connection group.
   *
@@ -40,7 +39,8 @@ uint64_t ct_connection_group_get_num_active_connections(ct_connection_group_t* g
  *
  * @return 0 on success, -EINVAL if group or connection is NULL, -ENOENT if connection not in group
  */
-int ct_connection_group_remove_connection(ct_connection_group_t* group, ct_connection_t* connection);
+int ct_connection_group_remove_connection(ct_connection_group_t* group,
+                                          ct_connection_t* connection);
 
 /**
  * @brief Check if a connection group is empty.
@@ -90,11 +90,12 @@ ct_connection_group_t* ct_connection_group_ref(ct_connection_group_t* group);
 
 void ct_connection_group_unref(const ct_connection_t* connection);
 
-int ct_connection_group_set_active_remote_endpoint(ct_connection_group_t* group, const ct_remote_endpoint_t* remote_endpoint);
+int ct_connection_group_set_active_remote_endpoint(ct_connection_group_t* group,
+                                                   const ct_remote_endpoint_t* remote_endpoint);
 
-int ct_connection_group_set_active_local_endpoint(ct_connection_group_t* group, const ct_local_endpoint_t* local_endpoint);
+int ct_connection_group_set_active_local_endpoint(ct_connection_group_t* group,
+                                                  const ct_local_endpoint_t* local_endpoint);
 
 ct_connection_group_t* ct_connection_group_new(void);
-
 
 #endif // CT_CONNECTION_GROUP_H
