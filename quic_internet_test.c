@@ -2,11 +2,11 @@
 #include <stdio.h>
 #include <string.h>
 
-void close_on_message_received(ct_connection_t* connection, ct_message_t** received_message,
+void close_on_message_received(ct_connection_t* connection, ct_message_t* received_message,
                               ct_message_context_t* message_context) {
     printf("Message received!!!...\n");
-    const char* msg_cont = ct_message_get_content(*received_message);
-    for (size_t i = 0; i < ct_message_get_length(*received_message); i++) {
+    const char* msg_cont = ct_message_get_content(received_message);
+    for (size_t i = 0; i < ct_message_get_length(received_message); i++) {
         printf("0x%02x \n", (unsigned char)msg_cont[i]);
     }
     printf("Message content (hex): \n");

@@ -33,15 +33,14 @@ An example of a connection can be seen in the following code snippet, adapted fr
 #include <string.h>
 
 void close_on_message_received(ct_connection_t* connection, 
-                              ct_message_t** received_message,
+                              ct_message_t* received_message,
                               ct_message_context_t* message_context) {
 
     uint16_t port = ct_local_endpoint_get_resolved_port(
         ct_message_context_get_local_endpoint(message_context)
     );
 
-    printf("Received message: %s on port %d\n", ct_message_get_content(*received_message), port);
-    ct_message_free(*received_message);
+    printf("Received message: %s on port %d\n", ct_message_get_content(received_message), port);
 
     ct_connection_close(connection);
 }
@@ -123,15 +122,14 @@ int main() {
 #include <stdio.h>
 #include <string.h>
 
-void close_on_message_received(ct_connection_t* connection, ct_message_t** received_message, ct_message_context_t* message_context) {
+void close_on_message_received(ct_connection_t* connection, ct_message_t* received_message, ct_message_context_t* message_context) {
     uint16_t port = ct_local_endpoint_get_resolved_port(
         ct_message_context_get_local_endpoint(message_context)
     );
 
-    printf("Received message: %s on port %d\n", ct_message_get_content(*received_message), port);
+    printf("Received message: %s on port %d\n", ct_message_get_content(received_message), port);
 
     ct_connection_close(connection);
-    ct_message_free(*received_message);
 }
 
 void on_connection_received_receive_message(ct_listener_t* listener, ct_connection_t* new_connection) {

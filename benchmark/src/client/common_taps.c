@@ -20,9 +20,8 @@ void initiate_short_transfer(ct_connection_t* large_file_connection) {
     }
 }
 
-void on_msg_received(ct_connection_t* connection, ct_message_t** received_message,
+void on_msg_received(ct_connection_t* connection, ct_message_t* msg,
                     ct_message_context_t* ctx) {
-    ct_message_t* msg = *received_message;
     unsigned int msg_length = ct_message_get_length(msg);
 
     switch (client_ctx.state) {
