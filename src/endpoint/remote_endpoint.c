@@ -111,7 +111,7 @@ int ct_remote_endpoint_resolve(const ct_remote_endpoint_t* remote_endpoint,
     log_trace("Resolving remote endpoint");
     int32_t assigned_port = 0;
     if (remote_endpoint->service != NULL) {
-        assigned_port = remote_endpoint_get_service_port(remote_endpoint);
+        assigned_port = ct_remote_endpoint_get_service_port(remote_endpoint);
     } else {
         assigned_port = remote_endpoint->port;
     }
@@ -215,8 +215,8 @@ ct_remote_endpoint_t* ct_remote_endpoint_deep_copy(const ct_remote_endpoint_t* r
     return res;
 }
 
-int32_t remote_endpoint_get_service_port(const ct_remote_endpoint_t* remote_endpoint) {
-    return get_service_port(ct_remote_endpoint_get_service(remote_endpoint),
+int32_t ct_remote_endpoint_get_service_port(const ct_remote_endpoint_t* remote_endpoint) {
+    return ct_get_service_port(ct_remote_endpoint_get_service(remote_endpoint),
                             remote_endpoint->data.resolved_address.ss_family);
 }
 

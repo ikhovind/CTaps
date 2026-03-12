@@ -1,5 +1,3 @@
-project(CTapsExamples)
-
 add_executable(example_client example_client.c)
 target_link_libraries(example_client PRIVATE CTaps)
 

@@ -13,7 +13,7 @@
 #include <sys/socket.h>
 #include <uv.h>
 
-void get_interface_addresses(const char* interface_name, int* num_found_addresses,
+void ct_get_interface_addresses(const char* interface_name, int* num_found_addresses,
                              struct sockaddr_storage* output_interface_addrs) {
     log_debug("Getting interface addresses for interface name: %s",
               interface_name ? interface_name : "NULL");

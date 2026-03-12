@@ -629,18 +629,18 @@ typedef struct ct_message_context_s ct_message_context_t;
 get_message_property_list(output_message_context_getter_declaration)
     get_message_property_list(output_message_conxtex_setter_declaration)
 
-    // =============================================================================
-    // Callbacks - Connection and Listener callback structures
-    // =============================================================================
+// =============================================================================
+// Callbacks - Connection and Listener callback structures
+// =============================================================================
 
-    /**
+/**
  * @brief Callback functions for receiving messages on a connection.
  *
  * Set these callbacks via ct_receive_message() to handle incoming data.
  * All callbacks are invoked from the event loop thread.
  */
-    typedef struct ct_receive_callbacks_s {
-    /** @brief Called when a complete message is received.
+typedef struct ct_receive_callbacks_s {
+  /** @brief Called when a complete message is received.
    * @param[in] connection The connection that received the message
    * @param[in,out] received_message Pointer to received message. Caller takes ownership.
    * @param[in] ctx Message context with properties and endpoints
@@ -960,6 +960,11 @@ ct_local_endpoint_t* local_endpoint_copy(const ct_local_endpoint_t* local_endpoi
  */
 CT_EXTERN const char* ct_local_endpoint_get_service(const ct_local_endpoint_t* local_endpoint);
 
+/**
+ * @brief Get the resolved port for a local endpoint after binding.
+ *
+ * @return Port number assigned to the local endpoint in host order
+ */
 CT_EXTERN uint16_t ct_local_endpoint_get_resolved_port(const ct_local_endpoint_t* local_endpoint);
 
 
