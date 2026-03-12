@@ -115,7 +115,7 @@ void on_uv_getaddrinfo_cb(uv_getaddrinfo_t* req, int status, struct addrinfo* re
     free(req);
 }
 
-int perform_dns_lookup(const char* hostname, const char* service,
+int ct_perform_dns_lookup(const char* hostname, const char* service,
                        ct_remote_resolve_call_context_t* context) {
     log_trace("Performing dns lookup for hostname: %s\n", hostname);
     uv_getaddrinfo_t* request = calloc(1, sizeof(uv_getaddrinfo_t));

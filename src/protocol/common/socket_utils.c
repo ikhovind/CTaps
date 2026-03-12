@@ -15,15 +15,15 @@
 
 uv_udp_t* create_udp_listening_on_local(const ct_local_endpoint_t* local_endpoint,
                                         uv_alloc_cb alloc_cb, uv_udp_recv_cb on_read_cb) {
-    bool is_ephemeral = local_endpoint_get_resolved_port(local_endpoint) == 0;
+    bool is_ephemeral = ct_local_endpoint_get_resolved_port(local_endpoint) == 0;
     if (!is_ephemeral) {
         log_debug("Creating UDP socket for set local endpoint");
-        if (local_endpoint_get_address_family(local_endpoint) == AF_INET) {
+        if (ct_local_endpoint_get_address_family(local_endpoint) == AF_INET) {
             log_trace("Creating UDP socket listening on IPv4 on port %d",
-                      ntohs(local_endpoint_get_resolved_port(local_endpoint)));
-        } else if (local_endpoint_get_address_family(local_endpoint) == AF_INET6) {
+                      ntohs(ct_local_endpoint_get_resolved_port(local_endpoint)));
+        } else if (ct_local_endpoint_get_address_family(local_endpoint) == AF_INET6) {
             log_trace("Creating UDP socket listening on IPv6 on port %d",
-                      ntohs(local_endpoint_get_resolved_port(local_endpoint)));
+                      ntohs(ct_local_endpoint_get_resolved_port(local_endpoint)));
         } else {
             log_error("Local endpoint is not of type IPv4 or IPv6");
             return NULL;
@@ -53,7 +53,7 @@ uv_udp_t* create_udp_listening_on_local(const ct_local_endpoint_t* local_endpoin
         log_debug("Binding UDP socket to specified local endpoint");
         rc = uv_udp_bind(
             new_udp_handle,
-            (const struct sockaddr*)local_endpoint_get_resolved_address(local_endpoint), 0);
+            (const struct sockaddr*)ct_local_endpoint_get_resolved_address(local_endpoint), 0);
     }
     if (rc < 0) {
         log_error("Problem with auto-binding: %s", uv_strerror(rc));
@@ -140,7 +140,7 @@ ct_udp_poll_handle_t* create_udp_poll_on_local(const ct_local_endpoint_t* local_
     }
     memset(wrapper, 0, sizeof(ct_udp_poll_handle_t));
 
-    int family = local_endpoint_get_address_family(local_endpoint);
+    int family = ct_local_endpoint_get_address_family(local_endpoint);
     int fd = socket(family, SOCK_DGRAM | SOCK_NONBLOCK, 0);
     if (fd < 0) {
         log_error("Failed to create UDP socket: %s", strerror(errno));
@@ -149,7 +149,7 @@ ct_udp_poll_handle_t* create_udp_poll_on_local(const ct_local_endpoint_t* local_
     }
 
     // TODO - is this the correct way of detecting ephemeral?
-    bool is_ephemeral = local_endpoint_get_resolved_port(local_endpoint) == 0;
+    bool is_ephemeral = ct_local_endpoint_get_resolved_port(local_endpoint) == 0;
     int rc;
     if (is_ephemeral) {
         log_debug("Binding UDP socket to ephemeral port");
@@ -158,7 +158,7 @@ ct_udp_poll_handle_t* create_udp_poll_on_local(const ct_local_endpoint_t* local_
         rc = bind(fd, (const struct sockaddr*)&ephemeral_addr, sizeof(ephemeral_addr));
     } else {
         log_debug("Binding UDP socket to specified local endpoint");
-        const struct sockaddr_storage* addr = local_endpoint_get_resolved_address(local_endpoint);
+        const struct sockaddr_storage* addr = ct_local_endpoint_get_resolved_address(local_endpoint);
         socklen_t len =
             (family == AF_INET6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
         rc = bind(fd, (const struct sockaddr*)addr, len);
@@ -259,8 +259,8 @@ int resolve_local_endpoint_from_poll(ct_udp_poll_handle_t* handle, ct_connection
     }
 
     log_debug("Setting all local port on connection to %d",
-              ntohs(local_endpoint_get_resolved_port(&local_endpoint)));
-    ct_connection_set_all_local_port(connection, local_endpoint_get_resolved_port(&local_endpoint));
+              ntohs(ct_local_endpoint_get_resolved_port(&local_endpoint)));
+    ct_connection_set_all_local_port(connection, ct_local_endpoint_get_resolved_port(&local_endpoint));
 
     return 0;
 }
@@ -293,9 +293,9 @@ int resolve_local_endpoint_from_handle(uv_handle_t* handle, ct_connection_t* con
     }
 
     log_debug("Setting all local port on connection to %d",
-              ntohs(local_endpoint_get_resolved_port(&local_endpoint)));
+              ntohs(ct_local_endpoint_get_resolved_port(&local_endpoint)));
 
-    ct_connection_set_all_local_port(connection, local_endpoint_get_resolved_port(&local_endpoint));
+    ct_connection_set_all_local_port(connection, ct_local_endpoint_get_resolved_port(&local_endpoint));
     return 0;
 }
 

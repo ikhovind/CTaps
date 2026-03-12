@@ -115,7 +115,7 @@ typedef struct listener_candidate_node_array_ready_context_s {
     ct_connection_callbacks_t connection_callbacks;
 } listener_candidate_node_array_ready_context_t;
 
-void listener_candidate_node_array_ready_cb(GArray* candidate_nodes, void* context) {
+void ct_listener_candidate_node_array_ready_cb(GArray* candidate_nodes, void* context) {
     log_info("Candidate gathering complete for listener, processing candidate nodes");
     listener_candidate_node_array_ready_context_t* listener_candidate_node_array_ready_context =
         (listener_candidate_node_array_ready_context_t*)context;
@@ -161,7 +161,15 @@ void listener_candidate_node_array_ready_cb(GArray* candidate_nodes, void* conte
 int ct_preconnection_listen(const ct_preconnection_t* preconnection,
                             ct_listener_callbacks_t listener_callbacks, // TODO Make pointer
                             const ct_connection_callbacks_t* connection_callbacks) {
-    log_info("Listening from preconnection");
+    if (!preconnection) {
+        log_error("Preconnection is NULL in ct_preconnection_listen");
+        return -EINVAL;
+    }
+    if (preconnection->num_local_endpoints == 0) {
+        log_error("Preconnection must have at least one local endpoint to listen");
+        return -EINVAL;
+    }
+    log_info("Starting Listener from preconnection");
     listener_candidate_node_array_ready_context_t* cb_context =
         calloc(1, sizeof(listener_candidate_node_array_ready_context_t));
     if (!cb_context) {
@@ -176,15 +184,25 @@ int ct_preconnection_listen(const ct_preconnection_t* preconnection,
     }
 
     ct_candidate_gathering_callbacks_t callbacks = {
-        .candidate_node_array_ready_cb = listener_candidate_node_array_ready_cb,
+        .candidate_node_array_ready_cb = ct_listener_candidate_node_array_ready_cb,
         .context = cb_context,
     };
 
-    int rc = get_ordered_candidate_nodes(preconnection, callbacks);
-    if (rc < 0) {
-        log_error("Failed to get ordered candidate nodes for listener");
-        free(cb_context);
-        return rc;
+    if (preconnection->num_remote_endpoints > 0) {
+        int rc = ct_get_ordered_candidate_nodes(preconnection, callbacks);
+        if (rc < 0) {
+            log_error("Failed to get ordered candidate nodes for listener");
+            free(cb_context);
+            return rc;
+        }
+    }
+    else {
+        int rc = ct_get_ordered_local_candidate_nodes(preconnection, callbacks);
+        if (rc < 0) {
+            log_error("Failed to get ordered local candidate nodes for listener");
+            free(cb_context);
+            return rc;
+        }
     }
     return 0;
 }
@@ -192,6 +210,14 @@ int ct_preconnection_listen(const ct_preconnection_t* preconnection,
 int ct_preconnection_initiate(ct_preconnection_t* preconnection,
                               ct_connection_callbacks_t connection_callbacks) {
     log_info("Initiating connection from preconnection with candidate racing");
+    if (!preconnection) {
+        log_error("Preconnection is NULL in ct_preconnection_initiate");
+        return -EINVAL;
+    }
+    if (preconnection->num_remote_endpoints == 0) {
+        log_error("Preconnection must have at least one remote endpoint to initiate connection");
+        return -EINVAL;
+    }
 
     // The winning connection will be passed to the ready()
     return preconnection_race(preconnection, connection_callbacks);
@@ -201,7 +227,15 @@ int ct_preconnection_initiate_with_send(ct_preconnection_t* preconnection,
                                         ct_connection_callbacks_t connection_callbacks,
                                         const ct_message_t* message,
                                         const ct_message_context_t* message_context) {
-    log_debug("Initiating connection from preconnection with send");
+    log_info("Initiating connection from preconnection with send");
+    if (!preconnection) {
+        log_error("Preconnection is NULL in ct_preconnection_initiate_with_send");
+        return -EINVAL;
+    }
+    if (preconnection->num_remote_endpoints == 0) {
+        log_error("Preconnection must have at least one remote endpoint to initiate connection");
+        return -EINVAL;
+    }
     ct_message_t* msg_copy = NULL;
     if (message) {
         msg_copy = ct_message_deep_copy(message);
@@ -279,15 +313,14 @@ ct_preconnection_get_local_endpoints(const ct_preconnection_t* preconnection, si
     return preconnection->local_endpoints;
 }
 
-ct_remote_endpoint_t* const*
-ct_preconnection_get_remote_endpoints(const ct_preconnection_t* preconnection, size_t* out_count) {
+const ct_remote_endpoint_t* ct_preconnection_get_remote_endpoints(const ct_preconnection_t* preconnection, size_t* out_count) {
     if (!preconnection) {
         return NULL;
     }
     if (out_count) {
         *out_count = preconnection->num_remote_endpoints;
     }
-    return &preconnection->remote_endpoints;
+    return preconnection->remote_endpoints;
 }
 
 const ct_transport_properties_t*
