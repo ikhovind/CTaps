@@ -48,6 +48,7 @@ typedef struct ct_gather_context_s {
     size_t num_in_flight;
     ct_candidate_gathering_callbacks_t gathering_callbacks;
     bool failed;
+    bool local_only; // Set to true for preconnection_listen with no remote endpoints
 } ct_gather_context_t;
 
 typedef struct ct_remote_resolve_call_context_s {
@@ -66,8 +67,23 @@ void ct_remote_endpoint_resolve_cb(ct_remote_endpoint_t* remote_endpoint, size_t
   * @param callback The callback to be called when the candidate array is ready.
   * @return Negative value on asynchronous error, 0 on success. The caller is responsible for freeing the candidate array and its contents.
   */
-int get_ordered_candidate_nodes(const ct_preconnection_t* precon,
+int ct_get_ordered_candidate_nodes(const ct_preconnection_t* precon,
                                 ct_candidate_gathering_callbacks_t callbacks);
+
+/**
+  * @brief Candidate gathering for listeners, which have no remote endpoints.
+  *
+  * Builds the candidate tree through PATH and PROTOCOL nodes only (no remote
+  * endpoint resolution). Leaf nodes in the returned array will be of type
+  * NODE_TYPE_PROTOCOL with remote_endpoint == NULL. Suitable for ranking
+  * local interfaces and protocols before calling Listen.
+  *
+  * @param precon The preconnection containing all necessary information for candidate gathering.
+  * @param callbacks The callback to be called when the candidate array is ready.
+  * @return Negative value on error, 0 on success. The caller is responsible for freeing the candidate array and its contents.
+  */
+int ct_get_ordered_local_candidate_nodes(const ct_preconnection_t* precon,
+                                         ct_candidate_gathering_callbacks_t callbacks);
 
 void free_candidate_array(GArray* candidate_array);
 

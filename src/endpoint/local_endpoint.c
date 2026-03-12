@@ -1,9 +1,10 @@
 #include "ctaps.h"
 #include "ctaps_internal.h"
+#include "endpoint/port_util.h"
+#include "endpoint/util.h"
 #include "local_endpoint.h"
 
-#include "endpoint/util.h"
-#include <endpoint/port_util.h>
+#include <assert.h>
 #include <logging/log.h>
 #include <netinet/in.h>
 #include <stdint.h>
@@ -24,7 +25,7 @@ void ct_local_endpoint_with_port(ct_local_endpoint_t* local_endpoint, int port) 
     }
 }
 
-char* local_endpoint_get_interface_name(const ct_local_endpoint_t* local_endpoint) {
+char* ct_local_endpoint_get_interface_name(const ct_local_endpoint_t* local_endpoint) {
     return local_endpoint->interface_name;
 }
 
@@ -58,15 +59,7 @@ int ct_local_endpoint_with_service(ct_local_endpoint_t* local_endpoint, char* se
 
 ct_local_endpoint_t* ct_local_endpoint_resolve(const ct_local_endpoint_t* local_endpoint,
                                                size_t* out_count) {
-    if (!out_count) {
-        log_error("Output count pointer was NULL, cannot resolve local endpoint");
-        return NULL;
-    }
-    if (!local_endpoint) {
-        log_error("Local endpoint pointer was NULL, cannot resolve local endpoint");
-        *out_count = 0;
-        return NULL;
-    }
+    assert(out_count && local_endpoint);
     int num_found_addresses = 0;
     ct_local_endpoint_t* out_list = NULL;
     *out_count = 0;
@@ -86,7 +79,7 @@ ct_local_endpoint_t* ct_local_endpoint_resolve(const ct_local_endpoint_t* local_
     uint16_t assigned_port = 0;
     if (local_endpoint->service != NULL) {
         log_trace("Service was not NULL, resolving service to port");
-        assigned_port = local_endpoint_get_service_port(local_endpoint);
+        assigned_port = ct_local_endpoint_get_service_port(local_endpoint);
         log_trace("Resolved service to port: %d", assigned_port);
     } else {
         log_trace("Service was NULL, using port: %d", local_endpoint->port);
@@ -182,7 +175,7 @@ ct_local_endpoint_t* ct_local_endpoint_deep_copy(const ct_local_endpoint_t* loca
     return res;
 }
 
-int32_t local_endpoint_get_service_port(const ct_local_endpoint_t* local_endpoint) {
+int32_t ct_local_endpoint_get_service_port(const ct_local_endpoint_t* local_endpoint) {
     return get_service_port(ct_local_endpoint_get_service(local_endpoint),
                             local_endpoint->data.resolved_address.ss_family);
 }
@@ -192,46 +185,40 @@ const char* ct_local_endpoint_get_service(const ct_local_endpoint_t* local_endpo
 }
 
 const struct sockaddr_storage*
-local_endpoint_get_resolved_address(const ct_local_endpoint_t* local_endpoint) {
+ct_local_endpoint_get_resolved_address(const ct_local_endpoint_t* local_endpoint) {
     if (!local_endpoint) {
         return NULL;
     }
     return &local_endpoint->data.resolved_address;
 }
 
-sa_family_t local_endpoint_get_address_family(const ct_local_endpoint_t* local_endpoint) {
+sa_family_t ct_local_endpoint_get_address_family(const ct_local_endpoint_t* local_endpoint) {
     if (!local_endpoint) {
         return 0;
     }
-    return local_endpoint_get_resolved_address(local_endpoint)->ss_family;
+    return ct_local_endpoint_get_resolved_address(local_endpoint)->ss_family;
 }
 
-uint16_t local_endpoint_get_resolved_port(const ct_local_endpoint_t* local_endpoint) {
+uint16_t ct_local_endpoint_get_resolved_port(const ct_local_endpoint_t* local_endpoint) {
     const struct sockaddr_storage* resolved_addr =
-        local_endpoint_get_resolved_address(local_endpoint);
+        ct_local_endpoint_get_resolved_address(local_endpoint);
     if (!resolved_addr) {
         return 0;
     }
-    if (local_endpoint_get_address_family(local_endpoint) == AF_INET6) {
+    if (ct_local_endpoint_get_address_family(local_endpoint) == AF_INET6) {
         return ntohs(
-            ((struct sockaddr_in6*)local_endpoint_get_resolved_address(local_endpoint))->sin6_port);
+            ((struct sockaddr_in6*)ct_local_endpoint_get_resolved_address(local_endpoint))->sin6_port);
     }
-    if (local_endpoint_get_address_family(local_endpoint) == AF_INET) {
+    if (ct_local_endpoint_get_address_family(local_endpoint) == AF_INET) {
         return ntohs(
-            ((struct sockaddr_in*)local_endpoint_get_resolved_address(local_endpoint))->sin_port);
+            ((struct sockaddr_in*)ct_local_endpoint_get_resolved_address(local_endpoint))->sin_port);
     }
     return 0;
 }
 
-void local_endpoint_set_resolved_address(ct_local_endpoint_t* local_endpoint,
+void ct_local_endpoint_set_resolved_address(ct_local_endpoint_t* local_endpoint,
                                          const struct sockaddr_storage* resolved_address) {
-    if (!local_endpoint || !resolved_address) {
-        log_error(
-            "Cannot set resolved address on NULL local endpoint or with NULL resolved address");
-        log_debug("local_endpoint: %p, resolved_address: %p", (void*)local_endpoint,
-                  (void*)resolved_address);
-        return;
-    }
+    assert(local_endpoint && resolved_address);
     local_endpoint->data.resolved_address = *resolved_address;
 }
 

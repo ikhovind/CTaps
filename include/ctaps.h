@@ -24,12 +24,6 @@
 
 #define CT_CONNECTION_DEFAULT_PRIORITY 100
 
-// =============================================================================
-// Library State and Configuration
-// =============================================================================
-
-typedef struct ct_config_s ct_config_t;
-
 /**
  * @brief Active connection object.
  *
@@ -965,6 +959,9 @@ ct_local_endpoint_t* local_endpoint_copy(const ct_local_endpoint_t* local_endpoi
  * @return char* pointer to service name, NULL if endpoint is null, or if service is not set
  */
 CT_EXTERN const char* ct_local_endpoint_get_service(const ct_local_endpoint_t* local_endpoint);
+
+CT_EXTERN uint16_t ct_local_endpoint_get_resolved_port(const ct_local_endpoint_t* local_endpoint);
+
 
 // Remote Endpoint
 /**

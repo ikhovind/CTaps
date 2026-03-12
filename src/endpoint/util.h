@@ -8,7 +8,7 @@
 void get_interface_addresses(const char* interface_name, int* num_found_addresses,
                              struct sockaddr_storage* output_interface_addrs);
 
-int perform_dns_lookup(const char* hostname, const char* service,
+int ct_perform_dns_lookup(const char* hostname, const char* service,
                        ct_remote_resolve_call_context_t* context);
 
 bool ct_sockaddr_equal(const struct sockaddr_storage* a, const struct sockaddr_storage* b);

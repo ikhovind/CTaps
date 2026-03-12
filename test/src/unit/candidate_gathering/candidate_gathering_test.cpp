@@ -95,7 +95,7 @@ protected:
             .candidate_node_array_ready_cb = capture_candidate_array,
             .context = &candidates,
         };
-        int rc = get_ordered_candidate_nodes(preconnection, callbacks);
+        int rc = ct_get_ordered_candidate_nodes(preconnection, callbacks);
         EXPECT_EQ(rc, 0);
         return candidates;
     }

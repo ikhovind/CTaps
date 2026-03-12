@@ -128,7 +128,7 @@ int ct_remote_endpoint_resolve(const ct_remote_endpoint_t* remote_endpoint,
         log_debug("Endpoint was a hostname, performing DNS lookup for %s",
                   remote_endpoint->hostname);
 
-        int rc = perform_dns_lookup(remote_endpoint->hostname, remote_endpoint->service, context);
+        int rc = ct_perform_dns_lookup(remote_endpoint->hostname, remote_endpoint->service, context);
         if (rc != 0) {
             log_error("DNS lookup failed for hostname %s with service %s: %s",
                       remote_endpoint->hostname, remote_endpoint->service, strerror(-rc));

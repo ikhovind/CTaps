@@ -55,10 +55,10 @@ ct_protocol_impl_array_t* ct_protocol_impl_array_new(void);
 
 void build_candidate_tree_is_complete_cb(ct_gather_context_t* gather_context);
 
-int build_candidate_tree(ct_gather_context_t* gather_context);
-int branch_by_path(GNode* parent, const ct_local_endpoint_t* local_ep);
+int ct_build_candidate_tree(ct_gather_context_t* gather_context);
+int ct_branch_by_path(GNode* parent, const ct_local_endpoint_t* local_ep);
 int branch_by_protocol_options(GNode* parent, ct_protocol_options_t* protocol_options);
-int branch_by_remote(GNode* parent, const ct_remote_endpoint_t* remote_ep,
+int ct_branch_by_remote(GNode* parent, const ct_remote_endpoint_t* remote_ep,
                      ct_remote_resolve_call_context_t* resolve_call_context);
 
 ct_protocol_options_t* ct_protocol_options_new(const ct_preconnection_t* precon) {
@@ -191,8 +191,8 @@ gboolean gather_incompatible_path_nodes(GNode* node, gpointer user_data) {
     struct ct_node_pruning_data_t* pruning_data = (struct ct_node_pruning_data_t*)user_data;
     char* interface_name = "any";
 
-    if (local_endpoint_get_interface_name(node_data->local_endpoint) != NULL) {
-        interface_name = local_endpoint_get_interface_name(node_data->local_endpoint);
+    if (ct_local_endpoint_get_interface_name(node_data->local_endpoint) != NULL) {
+        interface_name = ct_local_endpoint_get_interface_name(node_data->local_endpoint);
     }
     if (!interface_is_compatible(interface_name, node_data->transport_properties)) {
         log_trace("Found incompatible path node with interface %s", interface_name);
@@ -280,7 +280,7 @@ void prune_candidate_tree(GNode* root, ct_selection_properties_t selection_prope
 
     // Prune from the bottom up, otherwise we may remove a parent first, then try to remove the child
     log_trace("About to gather incompatible protocol nodes");
-    g_node_traverse(root, G_LEVEL_ORDER, G_TRAVERSE_NON_LEAVES, -1,
+    g_node_traverse(root, G_LEVEL_ORDER, G_TRAVERSE_ALL, -1,
                     gather_incompatible_protocol_nodes, &pruning_data);
 
     log_trace("About to gather incompatible path nodes");
@@ -294,13 +294,14 @@ void prune_candidate_tree(GNode* root, ct_selection_properties_t selection_prope
 
 gint compare_prefer_and_avoid_preferences(gconstpointer a, gconstpointer b,
                                           gpointer desired_selection_properties) {
-    log_trace("In candidate sorting - comparing two candidate nodes based on prefer and avoid "
-              "selection properties");
-
     const ct_candidate_node_t* candidate_a = (const ct_candidate_node_t*)a;
     const ct_candidate_node_t* candidate_b = (const ct_candidate_node_t*)b;
     const ct_selection_properties_t* selection_properties =
         (const ct_selection_properties_t*)desired_selection_properties;
+
+    log_trace("In candidate sorting - comparing two candidate nodes with protocol %s and %s based on prefer and avoid "
+              "selection properties", candidate_a->protocol_candidate->protocol_impl->name, candidate_b->protocol_candidate->protocol_impl->name);
+
 
     // order the branches according to the preferred Properties and use any avoided Properties as a tiebreaker
     int a_prefer_score = 0;
@@ -308,31 +309,31 @@ gint compare_prefer_and_avoid_preferences(gconstpointer a, gconstpointer b,
     for (int i = 0; i < SELECTION_PROPERTY_END; i++) {
         if (selection_properties->list[i].type == TYPE_PREFERENCE) {
             if (selection_properties->list[i].value.simple_preference == PREFER) {
-                log_trace("Found PREFER property at index %d", i);
+                log_trace("Found PREFER property: %s", selection_properties->list[i].name);
                 // If A can provide this property then bump its score
                 if (candidate_a->protocol_candidate->protocol_impl->selection_properties.list[i]
                         .value.simple_preference != PROHIBIT) {
-                    log_trace("A could supply prefer property at index %d", i);
+                    log_trace("%s can supply prefer property: %s", candidate_a->protocol_candidate->protocol_impl->name, selection_properties->list[i].name);
                     a_prefer_score++;
                 }
                 // But if B can provide it too, then do not bump it after all
                 // If A cannot provide but B can, then A's score should decrease
                 if (candidate_b->protocol_candidate->protocol_impl->selection_properties.list[i]
                         .value.simple_preference != PROHIBIT) {
-                    log_trace("B could supply prefer property at index %d", i);
+                    log_trace("%s can supply prefer property: %s", candidate_b->protocol_candidate->protocol_impl->name, selection_properties->list[i].name);
                     a_prefer_score--;
                 }
             } else if (selection_properties->list[i].value.simple_preference == AVOID) {
-                log_trace("Found AVOID property at index %d", i);
+                log_trace("Found AVOID property: %s", selection_properties->list[i].name);
 
                 if (candidate_a->protocol_candidate->protocol_impl->selection_properties.list[i]
                         .value.simple_preference != REQUIRE) {
-                    log_trace("A could unsupply avoid property at index %d", i);
+                    log_trace("%s can unsupply prefer property: %s", candidate_b->protocol_candidate->protocol_impl->name, selection_properties->list[i].name);
                     a_avoid_score++;
                 }
                 if (candidate_b->protocol_candidate->protocol_impl->selection_properties.list[i]
                         .value.simple_preference != REQUIRE) {
-                    log_trace("B could unsupply avoid property at index %d", i);
+                    log_trace("%s can unsupply prefer property: %s", candidate_b->protocol_candidate->protocol_impl->name, selection_properties->list[i].name);
                     a_avoid_score--;
                 }
             }
@@ -398,13 +399,15 @@ gboolean get_deep_copy_leaf_nodes(GNode* node, gpointer user_data) {
     log_trace("Iterating candidate tree for getting candidate leaf nodes");
     GArray* node_array = user_data;
 
-    if (((ct_candidate_node_t*)node->data)->type == NODE_TYPE_ENDPOINT) {
-        log_trace(
-            "Found candidate node of type ENDPOINT in candidate tree, adding to output array");
-        ct_candidate_node_t* candidate_node = ct_candidate_node_copy(node->data);
-        g_array_append_val(node_array, *candidate_node);
-        free(candidate_node);
-    }
+    // G_TRAVERSE_LEAVES already ensures only structural leaf nodes are visited,
+    // so no type check is needed here. For a normal (remote) gather, leaves are
+    // NODE_TYPE_ENDPOINT; for a local-only gather (listener), leaves are
+    // NODE_TYPE_PROTOCOL with remote_endpoint == NULL.
+    ct_candidate_node_t* candidate_node = ct_candidate_node_copy(node->data);
+    log_trace("Found leaf candidate node of type %d, adding to output array",
+              ((ct_candidate_node_t*)node->data)->type);
+    g_array_append_val(node_array, *candidate_node);
+    free(candidate_node);
 
     return false;
 }
@@ -417,7 +420,7 @@ static gboolean collect_leaves(GNode* node, gpointer user_data) {
     return false;
 }
 
-int build_candidate_tree(ct_gather_context_t* gather_context) {
+int ct_build_candidate_tree(ct_gather_context_t* gather_context) {
     const ct_preconnection_t* precon = gather_context->preconnection;
     struct ct_candidate_node_t* root = candidate_node_new(
         NODE_TYPE_ROOT, NULL, NULL, NULL, ct_preconnection_get_transport_properties(precon));
@@ -454,7 +457,7 @@ int build_candidate_tree(ct_gather_context_t* gather_context) {
 
     log_debug("Branching candidate tree by path for %zu local endpoints", num_local_eps);
     for (size_t i = 0; i < num_local_eps; i++) {
-        int rc = branch_by_path(root_node, &local_eps[i]);
+        int rc = ct_branch_by_path(root_node, &local_eps[i]);
         if (rc != 0) {
             log_error("Error branching by path for local endpoint at index %zu: %d", i, rc);
             if (ephemeral_local_ep) {
@@ -481,6 +484,7 @@ int build_candidate_tree(ct_gather_context_t* gather_context) {
         g_node_destroy(root_node);
         return -ENOMEM;
     }
+    log_debug("Branching by protocol options when building candidate tree");
     for (GList* iter = leaves; iter != NULL; iter = iter->next) {
         GNode* leaf_node = (GNode*)iter->data;
         branch_by_protocol_options(leaf_node, protocol_options);
@@ -493,17 +497,36 @@ int build_candidate_tree(ct_gather_context_t* gather_context) {
     g_node_traverse(root_node, G_IN_ORDER, G_TRAVERSE_LEAVES, -1, collect_leaves, &leaves);
     // null list means zero length, We have this early check to make sure we invoke the completion callback no matter what
     if (leaves == NULL) {
-        log_trace("No candidate leaf nodes found after branching by protocol options, finishing "
+        log_debug("No candidate leaf nodes found after branching by protocol options, finishing "
                   "candidate tree building");
         build_candidate_tree_is_complete_cb(gather_context);
         return 0;
     }
 
+    // For listeners we do not need remote endpoints: stop here and treat
+    // PROTOCOL nodes as the final candidates.
+    if (gather_context->local_only) {
+        log_debug("local_only mode: skipping remote endpoint branching, PROTOCOL nodes are leaves");
+        g_list_free(leaves);
+        build_candidate_tree_is_complete_cb(gather_context);
+        return 0;
+    }
+    size_t num_remote_endpoints = 0;
+    const ct_remote_endpoint_t* remote_endpoints = ct_preconnection_get_remote_endpoints(precon, &num_remote_endpoints);
+    ct_remote_endpoint_t* ephemeral_remo = NULL;
+    if (num_remote_endpoints == 0) {
+        log_debug("No remote endpoints specified in preconnection, branching by ephemeral remote");
+        ephemeral_remo = ct_remote_endpoint_new();
+        remote_endpoints = ephemeral_remo;
+        num_remote_endpoints = 1;
+    }
+
+    log_debug("Branching by remote endpoints for %zu leaf nodes and %zu remote endpoints per node",
+              g_list_length(leaves), precon->num_remote_endpoints);
     gather_context->pending_resolutions = g_list_length(leaves) * precon->num_remote_endpoints;
     for (GList* iter = leaves; iter != NULL; iter = iter->next) {
         GNode* leaf_node = (GNode*)iter->data;
-        for (size_t precon_remote = 0; precon_remote < precon->num_remote_endpoints;
-             precon_remote++) {
+        for (size_t remote_ix = 0; remote_ix < num_remote_endpoints; remote_ix++) {
             ct_remote_resolve_call_context_t* context =
                 ct_remote_resolve_call_context_new(leaf_node, gather_context);
             if (!context) {
@@ -513,11 +536,15 @@ int build_candidate_tree(ct_gather_context_t* gather_context) {
                 if (gather_context->pending_resolutions == 0) {
                     build_candidate_tree_is_complete_cb(gather_context);
                 }
+
+                if (ephemeral_remo) {
+                    ct_remote_endpoint_free(ephemeral_remo);
+                }
                 g_list_free(leaves);
                 return -ENOMEM;
             }
             gather_context->num_in_flight++;
-            int rc = branch_by_remote(leaf_node, &precon->remote_endpoints[precon_remote], context);
+            int rc = ct_branch_by_remote(leaf_node, &remote_endpoints[remote_ix], context);
             if (rc != 0) {
                 gather_context->num_in_flight--;
                 log_error("Error branching by remote endpoint: %d", rc);
@@ -528,15 +555,23 @@ int build_candidate_tree(ct_gather_context_t* gather_context) {
                 }
                 ct_remote_resolve_call_context_free(context);
                 g_list_free(leaves);
+
+                if (ephemeral_remo) {
+                    ct_remote_endpoint_free(ephemeral_remo);
+                }
                 return rc;
             }
         }
     }
     g_list_free(leaves);
+
+    if (ephemeral_remo) {
+        ct_remote_endpoint_free(ephemeral_remo);
+    }
     return 0;
 }
 
-int branch_by_path(GNode* parent, const ct_local_endpoint_t* local_ep) {
+int ct_branch_by_path(GNode* parent, const ct_local_endpoint_t* local_ep) {
     struct ct_candidate_node_t* parent_data = (struct ct_candidate_node_t*)parent->data;
     assert(parent_data->type == NODE_TYPE_ROOT);
 
@@ -545,7 +580,7 @@ int branch_by_path(GNode* parent, const ct_local_endpoint_t* local_ep) {
     size_t num_found_local = 0;
     ct_local_endpoint_t* local_endpoint_list =
         ct_local_endpoint_resolve(local_ep, &num_found_local);
-    log_debug("Found %zu local endpoints, adding as children to ROOT node", num_found_local);
+    log_trace("Found %zu local endpoints, adding as children to ROOT node", num_found_local);
 
     for (size_t i = 0; i < num_found_local; i++) {
         // Create a child node for each local endpoint found.
@@ -592,9 +627,11 @@ int branch_by_protocol_options(GNode* parent, ct_protocol_options_t* protocol_op
                 }
 
                 // Create a child node for each supported protocol.
-                ct_candidate_node_t* candidate_node =
-                    candidate_node_new(NODE_TYPE_PROTOCOL, parent_data->local_endpoint, NULL,
-                                       candidate, parent_data->transport_properties);
+                ct_candidate_node_t* candidate_node = candidate_node_new(NODE_TYPE_PROTOCOL,
+                                                                         parent_data->local_endpoint,
+                                                                         NULL,
+                                                                         candidate,
+                                                                         parent_data->transport_properties);
                 ct_protocol_candidate_free(candidate); // candidate_node_new copies it
                 if (!candidate_node) {
                     log_error("Could not create PROTOCOL node data");
@@ -603,6 +640,8 @@ int branch_by_protocol_options(GNode* parent, ct_protocol_options_t* protocol_op
                 g_node_append_data(parent, candidate_node);
             }
         } else {
+            log_trace("Protocol %s does not support ALPN or no ALPN values provided, creating single candidate without ALPN",
+                      protocol_options->protocol_arr.protocols[i]->name);
             // If the current protocol does not support ALPN, just create a single candidate without any alpn
             ct_protocol_candidate_t* candidate =
                 ct_protocol_candidate_new(protocol_options->protocol_arr.protocols[i], NULL);
@@ -629,6 +668,7 @@ int branch_by_protocol_options(GNode* parent, ct_protocol_options_t* protocol_op
 
 void ct_remote_endpoint_resolve_cb(ct_remote_endpoint_t* remote_endpoint, size_t out_count,
                                    ct_remote_resolve_call_context_t* context) {
+    log_debug("Received resolved remote endpoint with %zu addresses", out_count);
     GNode* parent = context->parent_node;
     ct_candidate_node_t* parent_data = (ct_candidate_node_t*)parent->data;
 
@@ -655,7 +695,7 @@ void ct_remote_endpoint_resolve_cb(ct_remote_endpoint_t* remote_endpoint, size_t
     free(context);
 }
 
-int branch_by_remote(GNode* parent, const ct_remote_endpoint_t* remote_ep,
+int ct_branch_by_remote(GNode* parent, const ct_remote_endpoint_t* remote_ep,
                      ct_remote_resolve_call_context_t* context) {
     struct ct_candidate_node_t* parent_data = (struct ct_candidate_node_t*)parent->data;
     assert(parent_data->type == NODE_TYPE_PROTOCOL);
@@ -719,7 +759,7 @@ void build_candidate_tree_is_complete_cb(ct_gather_context_t* gather_context) {
     free(gather_context);
 }
 
-int get_ordered_candidate_nodes(const ct_preconnection_t* precon,
+int ct_get_ordered_candidate_nodes(const ct_preconnection_t* precon,
                                 ct_candidate_gathering_callbacks_t callbacks) {
     log_info("Creating candidate node array from preconnection: %p", (void*)precon);
 
@@ -734,12 +774,42 @@ int get_ordered_candidate_nodes(const ct_preconnection_t* precon,
     gather_context->num_in_flight = 0;
     gather_context->root_node = NULL;
     gather_context->preconnection = precon;
+    gather_context->local_only = false;
 
     // This is async and calls the ready function on completion or failure
-    int rc = build_candidate_tree(gather_context);
+    int rc = ct_build_candidate_tree(gather_context);
     if (rc != 0) {
         free(gather_context);
         log_error("Could not build candidate tree");
+        return rc;
+    }
+    return 0;
+}
+
+int ct_get_ordered_local_candidate_nodes(const ct_preconnection_t* precon,
+                                         ct_candidate_gathering_callbacks_t callbacks) {
+    log_info("Creating local-only candidate node array from preconnection: %p (listener path)",
+             (void*)precon);
+
+    ct_gather_context_t* gather_context = malloc(sizeof(ct_gather_context_t));
+    if (!gather_context) {
+        log_error("Could not allocate memory for gather context");
+        return -ENOMEM;
+    }
+    memset(gather_context, 0, sizeof(ct_gather_context_t));
+    gather_context->gathering_callbacks = callbacks;
+    gather_context->pending_resolutions = 0;
+    gather_context->num_in_flight = 0;
+    gather_context->root_node = NULL;
+    gather_context->preconnection = precon;
+    gather_context->local_only = true;
+
+    // Synchronous in the local-only case (no DNS resolution), but we go through
+    // the same tree-building path for consistency.
+    int rc = ct_build_candidate_tree(gather_context);
+    if (rc != 0) {
+        free(gather_context);
+        log_error("Could not build local candidate tree");
         return rc;
     }
     return 0;
@@ -750,7 +820,9 @@ void free_candidate_array(GArray* candidate_array) {
         const ct_candidate_node_t candidate_node =
             g_array_index(candidate_array, ct_candidate_node_t, i);
         ct_local_endpoint_free(candidate_node.local_endpoint);
-        ct_remote_endpoint_free(candidate_node.remote_endpoint);
+        if (candidate_node.remote_endpoint) {
+            ct_remote_endpoint_free(candidate_node.remote_endpoint);
+        }
         ct_protocol_candidate_free(candidate_node.protocol_candidate);
     }
     g_array_free(candidate_array, true);

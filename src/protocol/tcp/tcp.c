@@ -459,7 +459,7 @@ int tcp_listen(ct_socket_manager_t* socket_manager) {
     const ct_local_endpoint_t* local_endpoint = ct_listener_get_local_endpoint(listener);
     rc =
         uv_tcp_bind(new_tcp_handle,
-                    (const struct sockaddr*)local_endpoint_get_resolved_address(local_endpoint), 0);
+                    (const struct sockaddr*)ct_local_endpoint_get_resolved_address(local_endpoint), 0);
     if (rc < 0) {
         log_error("Error binding TCP handle: %s", uv_strerror(rc));
         free(new_tcp_handle);

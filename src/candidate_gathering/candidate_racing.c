@@ -617,7 +617,7 @@ int start_candidate_racing(ct_preconnection_t* preconnection,
     };
 
     // Get ordered candidate nodes
-    int rc = get_ordered_candidate_nodes(preconnection, gathering_callbacks);
+    int rc = ct_get_ordered_candidate_nodes(preconnection, gathering_callbacks);
     if (rc != 0) {
         log_error("Synchronous error in getting ordered candidate nodes: %d", rc);
         return rc;

@@ -27,7 +27,7 @@ An example of a connection can be seen in the following code snippet, adapted fr
 <summary>Example CTaps client</summary>
 
 ```C
-#include <ctaps.h>
+
 #include <stdio.h>
 #include <string.h>
 

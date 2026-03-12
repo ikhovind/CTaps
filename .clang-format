@@ -7,3 +7,5 @@ AllowShortLoopsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: None
 SortIncludes: Never
 ReflowComments: false
+AlignAfterOpenBracket: Align
+BinPackArguments: false

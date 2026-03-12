@@ -308,14 +308,14 @@ void respond_and_verify_server_message_context_remote_context_on_message_receive
 
     const ct_local_endpoint_t* local_ep = ct_message_context_get_local_endpoint(message_context);
     log_info("Resolved address from local endpoint: %p",
-             local_endpoint_get_resolved_address(local_ep));
+             ct_local_endpoint_get_resolved_address(local_ep));
     EXPECT_NE(local_ep, nullptr) << "Local endpoint in message context should not be null";
 
     if (ct_connection_get_transport_protocol(connection) == CT_PROTOCOL_TCP) {
         EXPECT_GT(remote_ep->port, 0)
             << "For TCP server, local endpoint port be ephemeral (greater than 0)";
     } else {
-        EXPECT_EQ(local_endpoint_get_resolved_port(local_ep), ctx->expected_server_port)
+        EXPECT_EQ(ct_local_endpoint_get_resolved_port(local_ep), ctx->expected_server_port)
             << "For non-tcp server, local endpoint port should match server port";
     }
 
@@ -881,9 +881,9 @@ void verify_client_message_context_endpoints_and_close(ct_connection_t* connecti
 
     const ct_local_endpoint_t* local_ep = ct_message_context_get_local_endpoint(message_context);
     log_info("Resolved address from local endpoint: %p",
-             local_endpoint_get_resolved_address(local_ep));
+             ct_local_endpoint_get_resolved_address(local_ep));
     EXPECT_NE(local_ep, nullptr) << "Local endpoint in message context should not be null";
-    EXPECT_GT(local_endpoint_get_resolved_port(local_ep), 0)
+    EXPECT_GT(ct_local_endpoint_get_resolved_port(local_ep), 0)
         << "Local endpoint port should be greater than 0";
 
     // Close the connection
