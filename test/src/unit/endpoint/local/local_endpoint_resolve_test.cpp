@@ -11,8 +11,8 @@ extern "C" {
   #include <logging/log.h>
   #include "fff.h"
   DEFINE_FFF_GLOBALS;
-  FAKE_VOID_FUNC(__wrap_get_interface_addresses, const char*, int*, struct sockaddr_storage*);
-  FAKE_VALUE_FUNC(int32_t, __wrap_get_service_port, const char*, int);
+  FAKE_VOID_FUNC(__wrap_ct_get_interface_addresses, const char*, int*, struct sockaddr_storage*);
+  FAKE_VALUE_FUNC(int32_t, __wrap_ct_get_service_port, const char*, int);
 }
 
 // --- Test Fixture ---
@@ -21,8 +21,8 @@ protected:
   void SetUp() override {
     // Reset all mock data before each test
     FFF_RESET_HISTORY();
-    RESET_FAKE(__wrap_get_interface_addresses);
-    RESET_FAKE(__wrap_get_service_port);
+    RESET_FAKE(__wrap_ct_get_interface_addresses);
+    RESET_FAKE(__wrap_ct_get_service_port);
   }
 };
 
@@ -57,10 +57,10 @@ void custom_get_interface_addresses_fail(const char* interface_name, int* num_fo
 }
 
 
-TEST_F(LocalEndpointResolveTest, UsesInterfaceAddress_whenInterfaceIsSpecified) {
+TEST_F(LocalEndpointResolveTest, usesInterfaceAddress_whenInterfaceIsSpecified) {
   // --- ARRANGE ---
-  __wrap_get_interface_addresses_fake.custom_fake = custom_get_interface_addresses_success;
-  __wrap_get_service_port_fake.return_val = 8080; // Simulate resolving "http-alt" to 8080
+  __wrap_ct_get_interface_addresses_fake.custom_fake = custom_get_interface_addresses_success;
+  __wrap_ct_get_service_port_fake.return_val = 8080; // Simulate resolving "http-alt" to 8080
 
   ct_local_endpoint_t* input_endpoint = ct_local_endpoint_new();
   ASSERT_NE(input_endpoint, nullptr);
@@ -71,12 +71,13 @@ TEST_F(LocalEndpointResolveTest, UsesInterfaceAddress_whenInterfaceIsSpecified) 
   ct_local_endpoint_t* out_list = nullptr;
   size_t num_found = 0;
   out_list = ct_local_endpoint_resolve(input_endpoint, &num_found);
+  ASSERT_NE(out_list, nullptr);
   ct_local_endpoint_t endpoint = out_list[0];
 
   // --- ASSERT ---
   ASSERT_EQ(num_found, 1);
-  ASSERT_EQ(__wrap_get_interface_addresses_fake.call_count, 1);
-  ASSERT_EQ(__wrap_get_service_port_fake.call_count, 1);
+  ASSERT_EQ(__wrap_ct_get_interface_addresses_fake.call_count, 1);
+  ASSERT_EQ(__wrap_ct_get_service_port_fake.call_count, 1);
 
   ASSERT_EQ(endpoint.data.resolved_address.ss_family, AF_INET);
 
@@ -97,7 +98,7 @@ TEST_F(LocalEndpointResolveTest, UsesInterfaceAddress_whenInterfaceIsSpecified) 
 TEST_F(LocalEndpointResolveTest, DefaultsToAnyAddress_WhenNoInterfaceIsFound) {
   // --- ARRANGE ---
   // 1. Set the behavior of our mocks
-  __wrap_get_interface_addresses_fake.custom_fake = custom_get_interface_addresses_success;
+  __wrap_ct_get_interface_addresses_fake.custom_fake = custom_get_interface_addresses_success;
   // We are not calling `with_service`, so get_service_port_local should not be called.
 
   // 2. Prepare the input
@@ -112,9 +113,9 @@ TEST_F(LocalEndpointResolveTest, DefaultsToAnyAddress_WhenNoInterfaceIsFound) {
   ct_local_endpoint_t endpoint = out_list[0];
 
   // --- ASSERT ---
-  ASSERT_EQ(__wrap_get_interface_addresses_fake.call_count, 1);
-  ASSERT_STREQ(__wrap_get_interface_addresses_fake.arg0_val, "any");
-  ASSERT_EQ(__wrap_get_service_port_fake.call_count, 0); // Verify it was NOT called
+  ASSERT_EQ(__wrap_ct_get_interface_addresses_fake.call_count, 1);
+  ASSERT_STREQ(__wrap_ct_get_interface_addresses_fake.arg0_val, "any");
+  ASSERT_EQ(__wrap_ct_get_service_port_fake.call_count, 0); // Verify it was NOT called
 
   ASSERT_EQ(endpoint.data.resolved_address.ss_family, AF_INET);
 
@@ -131,7 +132,7 @@ TEST_F(LocalEndpointResolveTest, DefaultsToAnyAddress_WhenNoInterfaceIsFound) {
 
 TEST_F(LocalEndpointResolveTest, resolvesEphemeralLocalEndpoint) {
   // --- ARRANGE ---
-  __wrap_get_interface_addresses_fake.custom_fake = custom_get_two_interface_addresses_success;
+  __wrap_ct_get_interface_addresses_fake.custom_fake = custom_get_two_interface_addresses_success;
 
   ct_local_endpoint_t* input_endpoint = ct_local_endpoint_new();
 
@@ -144,8 +145,8 @@ TEST_F(LocalEndpointResolveTest, resolvesEphemeralLocalEndpoint) {
 
   // --- ASSERT ---
   ASSERT_EQ(num_found, 2);
-  ASSERT_EQ(__wrap_get_interface_addresses_fake.call_count, 1);
-  ASSERT_EQ(__wrap_get_service_port_fake.call_count, 0);
+  ASSERT_EQ(__wrap_ct_get_interface_addresses_fake.call_count, 1);
+  ASSERT_EQ(__wrap_ct_get_service_port_fake.call_count, 0);
 
   ASSERT_EQ(endpoint->data.resolved_address.ss_family, AF_INET);
 
@@ -168,13 +169,7 @@ TEST_F(LocalEndpointResolveTest, resolveHandlesNullCounter) {
   ct_local_endpoint_t* input_endpoint = ct_local_endpoint_new();
 
   // --- ACT ---
-  ct_local_endpoint_t* out_list = nullptr;
-  out_list = ct_local_endpoint_resolve(input_endpoint, NULL);
-
-  // --- ASSERT ---
-  ASSERT_EQ(out_list, nullptr);
-  ASSERT_EQ(__wrap_get_interface_addresses_fake.call_count, 0);
-
+  EXPECT_DEATH(ct_local_endpoint_resolve(input_endpoint, NULL), "");
   ct_local_endpoint_free(input_endpoint);
 }
 
@@ -183,10 +178,5 @@ TEST_F(LocalEndpointResolveTest, resolveHandlesNullEndpoint) {
   size_t dummy_count = 1234;
 
   // --- ACT ---
-  ct_local_endpoint_t* out_list = ct_local_endpoint_resolve(NULL, &dummy_count);
-
-  // --- ASSERT ---
-  ASSERT_EQ(out_list, nullptr);
-  ASSERT_EQ(__wrap_get_interface_addresses_fake.call_count, 0);
-  ASSERT_EQ(dummy_count, 0);
+  EXPECT_DEATH(ct_local_endpoint_resolve(NULL, &dummy_count), "");
 }

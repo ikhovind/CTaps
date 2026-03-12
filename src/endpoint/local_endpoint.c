@@ -66,11 +66,11 @@ ct_local_endpoint_t* ct_local_endpoint_resolve(const ct_local_endpoint_t* local_
     struct sockaddr_storage found_interface_addrs[MAX_FOUND_INTERFACE_ADDRS] = {0};
     if (!local_endpoint->interface_name) {
         log_debug("Interface name was NULL, getting addresses for 'any' interface");
-        get_interface_addresses("any", &num_found_addresses, found_interface_addrs);
+        ct_get_interface_addresses("any", &num_found_addresses, found_interface_addrs);
     } else {
         log_debug("Interface name was not NULL, getting addresses for '%s' interface",
                   local_endpoint->interface_name);
-        get_interface_addresses(local_endpoint->interface_name, &num_found_addresses,
+        ct_get_interface_addresses(local_endpoint->interface_name, &num_found_addresses,
                                 found_interface_addrs);
     }
     log_debug("Found %d addresses for interface %s", num_found_addresses,
@@ -176,7 +176,7 @@ ct_local_endpoint_t* ct_local_endpoint_deep_copy(const ct_local_endpoint_t* loca
 }
 
 int32_t ct_local_endpoint_get_service_port(const ct_local_endpoint_t* local_endpoint) {
-    return get_service_port(ct_local_endpoint_get_service(local_endpoint),
+    return ct_get_service_port(ct_local_endpoint_get_service(local_endpoint),
                             local_endpoint->data.resolved_address.ss_family);
 }
 

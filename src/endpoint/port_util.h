@@ -9,6 +9,6 @@
 #include <uv.h>
 #include "ctaps.h"
 
-int32_t get_service_port(const char* service, int family);
+int32_t ct_get_service_port(const char* service, int family);
 
 #endif //PORT_UTIL_H

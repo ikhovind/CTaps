@@ -222,7 +222,7 @@ add_gtest(remote_endpoint_resolve_test
             ${CTAPS_SOURCES}
         WRAP_FUNCTIONS
             ct_remote_endpoint_resolve_cb
-            perform_dns_lookup
+            ct_perform_dns_lookup
         ASAN_ENABLED
 )
 add_gtest(udp_listen_test SOURCES src/integration/udp/udp_listen_test.cpp ${CTAPS_SOURCES} ASAN_ENABLED)
@@ -264,8 +264,8 @@ add_gtest(local_endpoint_resolve_test
     src/unit/endpoint/local/local_endpoint_resolve_test.cpp
     ${CTAPS_SOURCES}
   WRAP_FUNCTIONS
-    get_service_port
-    get_interface_addresses
+    ct_get_service_port
+    ct_get_interface_addresses
   ASAN_ENABLED
 )
 

@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
-int close_on_message_received(ct_connection_t* connection, 
+void close_on_message_received(ct_connection_t* connection, 
                               ct_message_t** received_message,
                               ct_message_context_t* message_context) {
 
@@ -12,12 +12,12 @@ int close_on_message_received(ct_connection_t* connection,
     );
 
     printf("Received message: %s on port %d\n", ct_message_get_content(*received_message), port);
+    ct_message_free(*received_message);
 
     ct_connection_close(connection);
-    return 0;
 }
 
-int send_message_and_receive(struct ct_connection_s* connection) {
+void send_message_and_receive(struct ct_connection_s* connection) {
     ct_message_t* message = ct_message_new_with_content("ping", strlen("ping") + 1);
     // CTaps takes a deep copy of the passed content, so the message can be freed after this returns
     ct_send_message(connection, message);
@@ -28,7 +28,10 @@ int send_message_and_receive(struct ct_connection_s* connection) {
     };
 
     ct_receive_message(connection, receive_message_request);
-    return 0;
+}
+
+void free_on_connection_closed(ct_connection_t* connection) {
+    ct_connection_free(connection);
 }
 
 int main() {
@@ -58,6 +61,7 @@ int main() {
 
     ct_connection_callbacks_t connection_callbacks = {
         .ready = send_message_and_receive,
+        .closed = free_on_connection_closed
     };
 
     int rc = ct_preconnection_initiate(

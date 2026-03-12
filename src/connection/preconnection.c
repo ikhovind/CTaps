@@ -188,21 +188,14 @@ int ct_preconnection_listen(const ct_preconnection_t* preconnection,
         .context = cb_context,
     };
 
-    if (preconnection->num_remote_endpoints > 0) {
-        int rc = ct_get_ordered_candidate_nodes(preconnection, callbacks);
-        if (rc < 0) {
-            log_error("Failed to get ordered candidate nodes for listener");
-            free(cb_context);
-            return rc;
-        }
-    }
-    else {
-        int rc = ct_get_ordered_local_candidate_nodes(preconnection, callbacks);
-        if (rc < 0) {
-            log_error("Failed to get ordered local candidate nodes for listener");
-            free(cb_context);
-            return rc;
-        }
+    // TODO - we currently just discard the remote endpoints, but should in
+    // the future gather candidates for them as well and pass them to the listener
+    // for remote filtering
+    int rc = ct_get_ordered_local_candidate_nodes(preconnection, callbacks);
+    if (rc < 0) {
+        log_error("Failed to get ordered local candidate nodes for listener");
+        free(cb_context);
+        return rc;
     }
     return 0;
 }

@@ -20,10 +20,10 @@ uv_udp_t* create_udp_listening_on_local(const ct_local_endpoint_t* local_endpoin
         log_debug("Creating UDP socket for set local endpoint");
         if (ct_local_endpoint_get_address_family(local_endpoint) == AF_INET) {
             log_trace("Creating UDP socket listening on IPv4 on port %d",
-                      ntohs(ct_local_endpoint_get_resolved_port(local_endpoint)));
+                      ct_local_endpoint_get_resolved_port(local_endpoint));
         } else if (ct_local_endpoint_get_address_family(local_endpoint) == AF_INET6) {
             log_trace("Creating UDP socket listening on IPv6 on port %d",
-                      ntohs(ct_local_endpoint_get_resolved_port(local_endpoint)));
+                      ct_local_endpoint_get_resolved_port(local_endpoint));
         } else {
             log_error("Local endpoint is not of type IPv4 or IPv6");
             return NULL;
@@ -259,7 +259,7 @@ int resolve_local_endpoint_from_poll(ct_udp_poll_handle_t* handle, ct_connection
     }
 
     log_debug("Setting all local port on connection to %d",
-              ntohs(ct_local_endpoint_get_resolved_port(&local_endpoint)));
+              ct_local_endpoint_get_resolved_port(&local_endpoint));
     ct_connection_set_all_local_port(connection, ct_local_endpoint_get_resolved_port(&local_endpoint));
 
     return 0;
@@ -293,7 +293,7 @@ int resolve_local_endpoint_from_handle(uv_handle_t* handle, ct_connection_t* con
     }
 
     log_debug("Setting all local port on connection to %d",
-              ntohs(ct_local_endpoint_get_resolved_port(&local_endpoint)));
+              ct_local_endpoint_get_resolved_port(&local_endpoint));
 
     ct_connection_set_all_local_port(connection, ct_local_endpoint_get_resolved_port(&local_endpoint));
     return 0;

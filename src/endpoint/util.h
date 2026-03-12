@@ -5,7 +5,7 @@
 
 #include <uv.h>
 
-void get_interface_addresses(const char* interface_name, int* num_found_addresses,
+void ct_get_interface_addresses(const char* interface_name, int* num_found_addresses,
                              struct sockaddr_storage* output_interface_addrs);
 
 int ct_perform_dns_lookup(const char* hostname, const char* service,

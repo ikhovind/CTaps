@@ -8,22 +8,18 @@ extern "C" {
   #include "ctaps_internal.h"
   #include "endpoint/remote_endpoint.h"
   #include "candidate_gathering/candidate_gathering.h"
+  DEFINE_FFF_GLOBALS;
+
+    // The two external calls made by ct_remote_endpoint_resolve that we want to intercept.
+    // ct_remote_endpoint_resolve_cb is defined in candidate_gathering.c — wrap it.
+    // perform_dns_lookup is defined in the DNS module — wrap it.
+  FAKE_VOID_FUNC(faked_ct_remote_endpoint_resolve_cb, ct_remote_endpoint_t*, size_t, ct_remote_resolve_call_context_t*);
+  FAKE_VOID_FUNC(__wrap_ct_perform_dns_lookup, const char*, const char*, ct_remote_resolve_call_context_t*);
 }
 
-DEFINE_FFF_GLOBALS;
-
-// The two external calls made by ct_remote_endpoint_resolve that we want to intercept.
-// ct_remote_endpoint_resolve_cb is defined in candidate_gathering.c — wrap it.
-// perform_dns_lookup is defined in the DNS module — wrap it.
-FAKE_VOID_FUNC(faked_ct_remote_endpoint_resolve_cb, ct_remote_endpoint_t*, size_t, ct_remote_resolve_call_context_t*);
-FAKE_VOID_FUNC(faked_perform_dns_lookup, const char*, const char*, ct_remote_resolve_call_context_t*);
 
 extern "C" void __wrap_ct_remote_endpoint_resolve_cb(ct_remote_endpoint_t* ep, size_t count, ct_remote_resolve_call_context_t* ctx) {
     faked_ct_remote_endpoint_resolve_cb(ep, count, ctx);
-}
-
-extern "C" void __wrap_perform_dns_lookup(const char* hostname, const char* service, ct_remote_resolve_call_context_t* ctx) {
-    faked_perform_dns_lookup(hostname, service, ctx);
 }
 
 class RemoteEndpointResolveTest : public ::testing::Test {
@@ -36,7 +32,7 @@ protected:
     void SetUp() override {
         FFF_RESET_HISTORY();
         RESET_FAKE(faked_ct_remote_endpoint_resolve_cb);
-        RESET_FAKE(faked_perform_dns_lookup);
+        RESET_FAKE(__wrap_ct_perform_dns_lookup);
         remote_endpoint = ct_remote_endpoint_new();
         ASSERT_NE(remote_endpoint, nullptr);
     }
@@ -55,7 +51,7 @@ TEST_F(RemoteEndpointResolveTest, IPv4CallsResolveCbWithOneResult) {
 
     EXPECT_EQ(rc, 0);
     EXPECT_EQ(faked_ct_remote_endpoint_resolve_cb_fake.call_count, 1);
-    EXPECT_EQ(faked_perform_dns_lookup_fake.call_count, 0);
+    EXPECT_EQ(__wrap_ct_perform_dns_lookup_fake.call_count, 0);
     EXPECT_EQ(faked_ct_remote_endpoint_resolve_cb_fake.arg1_val, 1u);
     EXPECT_EQ(faked_ct_remote_endpoint_resolve_cb_fake.arg2_val, &context);
 }
@@ -125,9 +121,9 @@ TEST_F(RemoteEndpointResolveTest, HostnameTriggersDnsLookup) {
     int rc = ct_remote_endpoint_resolve(remote_endpoint, &context);
 
     EXPECT_EQ(rc, 0);
-    EXPECT_EQ(faked_perform_dns_lookup_fake.call_count, 1);
-    EXPECT_STREQ(faked_perform_dns_lookup_fake.arg0_val, "example.com");
-    EXPECT_EQ(faked_perform_dns_lookup_fake.arg2_val, &context);
+    EXPECT_EQ(__wrap_ct_perform_dns_lookup_fake.call_count, 1);
+    EXPECT_STREQ(__wrap_ct_perform_dns_lookup_fake.arg0_val, "example.com");
+    EXPECT_EQ(__wrap_ct_perform_dns_lookup_fake.arg2_val, &context);
     // resolve_cb must NOT be called synchronously for the hostname path
     EXPECT_EQ(faked_ct_remote_endpoint_resolve_cb_fake.call_count, 0);
 }
@@ -138,7 +134,7 @@ TEST_F(RemoteEndpointResolveTest, HostnamePassesServiceToDnsLookup) {
 
     ct_remote_endpoint_resolve(remote_endpoint, &context);
 
-    EXPECT_STREQ(faked_perform_dns_lookup_fake.arg1_val, "https");
+    EXPECT_STREQ(__wrap_ct_perform_dns_lookup_fake.arg1_val, "https");
 }
 
 TEST_F(RemoteEndpointResolveTest, HostnameWithNullServicePassesNullToDnsLookup) {
@@ -147,7 +143,7 @@ TEST_F(RemoteEndpointResolveTest, HostnameWithNullServicePassesNullToDnsLookup) 
 
     ct_remote_endpoint_resolve(remote_endpoint, &context);
 
-    EXPECT_EQ(faked_perform_dns_lookup_fake.arg1_val, nullptr);
+    EXPECT_EQ(__wrap_ct_perform_dns_lookup_fake.arg1_val, nullptr);
 }
 
 // --- Unspecified endpoint ---
