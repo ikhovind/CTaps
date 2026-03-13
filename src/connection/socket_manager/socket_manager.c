@@ -358,7 +358,7 @@ void ct_socket_manager_aborted_connection_cb(ct_connection_t* connection) {
     if (num_open == 1) {
         log_debug("Socket manager now has no open connections, closing entire socket manager");
         socket_manager->close_reason = CT_CLOSE_TYPE_CONNECTION_ERROR;
-        if (incoming_state == CONN_STATE_ESTABLISHING) {
+        if (incoming_state == CT_CONN_STATE_ESTABLISHING) {
             socket_manager->close_reason = CT_CLOSE_TYPE_ESTABLISHMENT_ERROR;
         }
         log_debug("close reason is: %d", socket_manager->close_reason);
@@ -366,7 +366,7 @@ void ct_socket_manager_aborted_connection_cb(ct_connection_t* connection) {
         return;
     }
     ct_connection_mark_as_closed(connection);
-    if (incoming_state == CONN_STATE_ESTABLISHING) {
+    if (incoming_state == CT_CONN_STATE_ESTABLISHING) {
         if (connection->connection_callbacks.establishment_error) {
             connection->connection_callbacks.establishment_error(connection);
         } else {

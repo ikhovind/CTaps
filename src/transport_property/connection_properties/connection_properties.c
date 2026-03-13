@@ -92,7 +92,7 @@ ct_connection_scheduler_enum_t
 ct_connection_properties_get_conn_scheduler(ct_connection_properties_t* conn_props) {
     if (!conn_props) {
         log_warn("Null pointer passed to get_conn_scheduler");
-        return CONN_SCHEDULER_WEIGHTED_FAIR_QUEUEING;
+        return CT_CONN_SCHEDULER_WEIGHTED_FAIR_QUEUEING;
     }
     return (ct_connection_scheduler_enum_t)conn_props->list[CONN_SCHEDULER].value.enum_val;
 }
@@ -101,7 +101,7 @@ ct_capacity_profile_enum_t
 ct_connection_properties_get_conn_capacity_profile(ct_connection_properties_t* conn_props) {
     if (!conn_props) {
         log_warn("Null pointer passed to get_conn_capacity_profile");
-        return CAPACITY_PROFILE_BEST_EFFORT;
+        return CT_CAPACITY_PROFILE_BEST_EFFORT;
     }
     return (ct_capacity_profile_enum_t)conn_props->list[CONN_CAPACITY_PROFILE].value.enum_val;
 }
@@ -110,7 +110,7 @@ ct_multipath_policy_enum_t
 ct_connection_properties_get_multipath_policy(ct_connection_properties_t* conn_props) {
     if (!conn_props) {
         log_warn("Null pointer passed to get_multipath_policy");
-        return MULTIPATH_POLICY_HANDOVER;
+        return CT_MULTIPATH_POLICY_HANDOVER;
     }
     return (ct_multipath_policy_enum_t)conn_props->list[MULTIPATH_POLICY].value.enum_val;
 }

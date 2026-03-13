@@ -22,10 +22,13 @@ TIMESTAMP              = YES
 # Configuration options related to the input files
 #---------------------------------------------------------------------------
 
-INPUT                  = @CMAKE_CURRENT_SOURCE_DIR@/src @CMAKE_CURRENT_SOURCE_DIR@/include @CMAKE_CURRENT_SOURCE_DIR@/README.md
-FILE_PATTERNS          = *.h *.c
+INPUT                  = @CMAKE_CURRENT_SOURCE_DIR@/include  @CMAKE_CURRENT_SOURCE_DIR@/README.md @CMAKE_CURRENT_SOURCE_DIR@/docs
+FILE_PATTERNS          = *.h
 RECURSIVE              = YES
 EXCLUDE_PATTERNS       = */test/* */out/*
+OPTIMIZE_OUTPUT_FOR_C  = YES
+INTERNAL_DOCS          = NO
+TYPEDEF_HIDES_STRUCT   = YES
 
 #---------------------------------------------------------------------------
 # Configuration options related to source browsing
@@ -36,13 +39,18 @@ STRIP_CODE_COMMENTS    = NO
 REFERENCED_BY_RELATION = YES
 REFERENCES_RELATION    = YES
 REFERENCES_LINK_SOURCE = YES
+ALPHABETICAL_INDEX     = NO
 
 #---------------------------------------------------------------------------
 # Configuration options related to the HTML output
 #---------------------------------------------------------------------------
 
 GENERATE_HTML          = YES
-HTML_DYNAMIC_SECTIONS  = YES
+GENERATE_TREEVIEW      = YES
+DISABLE_INDEX          = NO
+FULL_SIDEBAR           = NO
+HTML_COLORSTYLE        = LIGHT
+HTML_EXTRA_STYLESHEET  = @AWESOME_CSS_DIR@/doxygen-awesome.css
 
 #---------------------------------------------------------------------------
 # Configuration options related to the LaTeX output
@@ -57,3 +65,4 @@ GENERATE_LATEX         = YES
 ENABLE_PREPROCESSING   = YES
 MACRO_EXPANSION        = YES
 INCLUDE_PATH           = @CMAKE_CURRENT_SOURCE_DIR@/include
+

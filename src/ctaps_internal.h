@@ -55,10 +55,28 @@ typedef struct ct_message_s {
     size_t length; ///< Length of message data in bytes
 } ct_message_t;
 
+
+// =============================================================================
+// Generic shared property types
+// =============================================================================
+
+typedef enum ct_property_type_t {
+    TYPE_PREFERENCE,     ///< Simple preference value (PROHIBIT through REQUIRE)
+    TYPE_PREFERENCE_SET, ///< Set of preferences (e.g., interface preferences)
+    TYPE_BOOL,           ///< Boolean flag
+    TYPE_UINT32,
+    TYPE_UINT64,
+    TYPE_ENUM,                ///< Communication direction enumeration
+    TYPE_STRING_ARRAY,        ///< Array of strings (e.g., ALPN protocols, cipher suites)
+    TYPE_CERTIFICATE_BUNDLES, ///< ct_certificate_bundles_t for certificate configuration
+    TYPE_STRING,              ///< Single string value
+    TYPE_BYTE_ARRAY           ///< Byte array value
+} ct_property_type_t;
+
+
 // =============================================================================
 // Security Parameters Internal Definitions
 // =============================================================================
-//
 
 /**
  * @brief Union holding security parameter values.
@@ -390,6 +408,12 @@ extern const ct_protocol_impl_t* const ct_supported_protocols[];
 
 extern const size_t ct_num_protocols;
 
+typedef enum {
+    CT_LISTENER_STATE_ESTABLISHING = 0, ///< Listener is being set up (e.g., gathering candidates)
+    CT_LISTENER_STATE_LISTENING,        ///< Listener is active and accepting connections
+    CT_LISTENER_STATE_CLOSED            ///< Listener is closed and not accepting connections
+} ct_listener_state_enum_t;
+
 typedef struct ct_listener_s {
     ct_transport_properties_t*
         transport_properties;                   ///< Transport properties for accepted connections
@@ -481,19 +505,16 @@ typedef struct ct_per_connection_properties_s {
 } ct_per_connection_properties_t;
 
 typedef struct ct_connection_s {
-    char uuid[37]; ///< Unique identifier for this connection (UUID string)
+    char uuid[37]; ///< Unique identifier for this connection (Should not be used in a crypto sensitive context)
     ct_connection_group_t* connection_group; ///< Connection group (never NULL)
-    ct_security_parameters_t*
-        security_parameters; ///< Security configuration (TLS/QUIC, owned copy)
+    ct_security_parameters_t* security_parameters; ///< Security configuration (TLS/QUIC, owned copy)
 
     size_t num_local_endpoints;
-    size_t
-        active_local_endpoint; ///< index into all_local_endpoints for currently active local endpoint
+    size_t active_local_endpoint; ///< index into all_local_endpoints
     ct_local_endpoint_t* all_local_endpoints; ///< Local endpoint (bound address/port)
 
     size_t num_remote_endpoints;
-    size_t
-        active_remote_endpoint; ///< index into all_remote_endpoints for currently active remote endpoint
+    size_t active_remote_endpoint; ///< index into all_remote_endpoints for currently active remote endpoint
     ct_remote_endpoint_t* all_remote_endpoints;
 
     ct_per_connection_properties_t properties;
@@ -504,7 +525,7 @@ typedef struct ct_connection_s {
 
     ct_connection_callbacks_t connection_callbacks; ///< User-provided callbacks for events
 
-    struct ct_socket_manager_s* socket_manager; ///< Socket manager
+    ct_socket_manager_t* socket_manager; ///< Socket manager
 
     GQueue* received_callbacks; ///< Queue of pending receive callbacks
     GQueue* received_messages;  ///< Queue of received messages

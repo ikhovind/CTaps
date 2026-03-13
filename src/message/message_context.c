@@ -86,6 +86,13 @@ ct_message_context_get_local_endpoint(const ct_message_context_t* message_contex
     return message_context->local_endpoint;
 }
 
+void* ct_message_context_get_receive_context(const ct_message_context_t* message_context) {
+    if (!message_context) {
+        return NULL;
+    }
+    return message_context->user_receive_context;
+}
+
 #define DEFINE_MSG_CONTEXT_PROPERTY_GETTER(ENUM, STRING, TYPE, FIELD, DEFAULT, TYPE_TAG)           \
     TYPE ct_message_context_get_##FIELD(const ct_message_context_t* ctx) {                         \
         if (!ctx) {                                                                                \

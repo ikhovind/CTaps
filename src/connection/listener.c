@@ -108,3 +108,11 @@ void ct_listener_mark_as_closed(ct_listener_t* listener) {
     }
     listener->state = CT_LISTENER_STATE_CLOSED;
 }
+
+void* ct_listener_get_callback_context(const ct_listener_t* listener) {
+    if (!listener) {
+        log_warn("NULL listener parameter for ct_listener_get_callback_context");
+        return NULL;
+    }
+    return listener->listener_callbacks.per_listener_context;
+}

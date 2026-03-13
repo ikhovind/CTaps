@@ -304,12 +304,11 @@ int ct_security_parameters_set_session_ticket_encryption_key(ct_security_paramet
         sec->list[SESSION_TICKET_ENCRYPTION_KEY].value.byte_array.length = 0;
     }
     if (key_len > 0) {
-        sec->list[SESSION_TICKET_ENCRYPTION_KEY].value.byte_array.bytes = malloc(key_len);
+        sec->list[SESSION_TICKET_ENCRYPTION_KEY].value.byte_array.bytes = calloc(1, key_len);
         if (!sec->list[SESSION_TICKET_ENCRYPTION_KEY].value.byte_array.bytes) {
             log_error("Failed to allocate memory for session ticket encryption key");
             return -ENOMEM;
         }
-        memset(sec->list[SESSION_TICKET_ENCRYPTION_KEY].value.byte_array.bytes, 0, key_len);
         memcpy(sec->list[SESSION_TICKET_ENCRYPTION_KEY].value.byte_array.bytes, key, key_len);
         sec->list[SESSION_TICKET_ENCRYPTION_KEY].value.byte_array.length = key_len;
     }
