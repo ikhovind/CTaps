@@ -404,7 +404,7 @@ int ct_receive_message(ct_connection_t* connection, ct_receive_callbacks_t recei
     if (!g_queue_is_empty(connection->received_messages)) {
         log_debug("Calling receive callback immediately");
         ct_queued_message_t* queued_message = g_queue_pop_head(connection->received_messages);
-        queued_message->context->user_receive_context = receive_callbacks.per_receive_context;
+        queued_message->context->per_receive_context = receive_callbacks.per_receive_context;
         receive_callbacks.receive_callback(connection, queued_message->message,
                                            queued_message->context);
         ct_queued_message_free_all(queued_message);
@@ -536,7 +536,7 @@ void ct_connection_deliver_to_app(ct_connection_t* connection, ct_message_t* mes
                 return;
             }
         }
-        context->user_receive_context = receive_callback->per_receive_context;
+        context->per_receive_context = receive_callback->per_receive_context;
 
         receive_callback->receive_callback(connection, message, context);
         free(receive_callback);

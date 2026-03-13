@@ -38,7 +38,7 @@ TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnRec
     ct_connection_callbacks_t connection_callbacks = {
         .establishment_error = on_establishment_error,
         .ready = send_message_and_verify_context_on_receive,
-        .user_connection_context = &test_context,
+        .per_connection_context = &test_context,
     };
 
     // Initiate connection
@@ -81,7 +81,7 @@ TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnRec
     ct_connection_callbacks_t connection_callbacks = {
         .establishment_error = on_establishment_error,
         .ready = send_message_and_verify_context_on_receive,
-        .user_connection_context = &test_context,
+        .per_connection_context = &test_context,
     };
 
     // Initiate connection
@@ -133,7 +133,7 @@ TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnRec
     ct_connection_callbacks_t connection_callbacks = {
         .establishment_error = on_establishment_error,
         .ready = send_message_and_verify_context_on_receive,
-        .user_connection_context = &test_context,
+        .per_connection_context = &test_context,
     };
 
     // Initiate connection
@@ -177,7 +177,7 @@ TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnRec
 
     ct_listener_callbacks_t listener_callbacks = {
         .connection_received = receive_message_verify_and_close_listener_on_connection_received,
-        .user_listener_context = &test_context
+        .per_listener_context = &test_context
     };
 
     int rc = ct_preconnection_listen(listener_precon, listener_callbacks, NULL);
@@ -204,7 +204,7 @@ TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnRec
 
     ct_connection_callbacks_t client_callbacks {
         .ready = send_message_and_verify_context_on_receive,
-        .user_connection_context = &test_context
+        .per_connection_context = &test_context
     };
 
     ct_preconnection_initiate(client_precon, client_callbacks);

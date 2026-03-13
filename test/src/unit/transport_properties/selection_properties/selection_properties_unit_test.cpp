@@ -112,7 +112,7 @@ TEST(SelectionPropertiesUnitTest, setsDefaultValues) {
       case DIRECTION:
         EXPECT_STREQ(current_prop.name, "direction");
         EXPECT_EQ(current_prop.type, TYPE_ENUM);
-        EXPECT_EQ(current_prop.value.enum_val, DIRECTION_BIDIRECTIONAL);
+        EXPECT_EQ(current_prop.value.enum_val, CT_DIRECTION_BIDIRECTIONAL);
         break;
       case SOFT_ERROR_NOTIFY:
         EXPECT_STREQ(current_prop.name, "softErrorNotify");
@@ -139,7 +139,7 @@ TEST(SelectionPropertiesUnitTest, setsSetByUser) {
   ASSERT_NE(props, nullptr);
   // Allocated with ct_transport_properties_new()
 
-  ct_transport_properties_set_direction(props, DIRECTION_UNIDIRECTIONAL_SEND);
+  ct_transport_properties_set_direction(props, CT_DIRECTION_UNIDIRECTIONAL_SEND);
 
   for (int i = 0; i < SELECTION_PROPERTY_END; i++) {
     const ct_selection_property_t& current_prop = props->selection_properties.list[i];
@@ -230,7 +230,7 @@ TEST(SelectionPropertiesUnitTest, setsSetByUser) {
         EXPECT_EQ(current_prop.set_by_user, true);
         EXPECT_STREQ(current_prop.name, "direction");
         EXPECT_EQ(current_prop.type, TYPE_ENUM);
-        EXPECT_EQ(current_prop.value.enum_val, DIRECTION_UNIDIRECTIONAL_SEND);
+        EXPECT_EQ(current_prop.value.enum_val, CT_DIRECTION_UNIDIRECTIONAL_SEND);
         break;
       case SOFT_ERROR_NOTIFY:
         EXPECT_STREQ(current_prop.name, "softErrorNotify");

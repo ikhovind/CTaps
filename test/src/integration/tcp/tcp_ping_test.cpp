@@ -45,7 +45,7 @@ TEST_F(TcpPingTest, successfullyConnectsToTcpServer) {
     .establishment_error = on_establishment_error,
     .ready = mark_connection_as_success_and_close,
     .sent = fake_message_sent,
-    .user_connection_context = &test_context,
+    .per_connection_context = &test_context,
   };
 
   int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
@@ -85,7 +85,7 @@ TEST_F(TcpPingTest, connectionErrorCalledWhenNoServer) {
     .establishment_error = on_establishment_error,
     .ready = on_connection_ready,
     .sent = fake_message_sent,
-    .user_connection_context = &test_context,
+    .per_connection_context = &test_context,
   };
 
   int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
@@ -121,7 +121,7 @@ TEST_F(TcpPingTest, sendsSingleTcpMessage) {
   ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties,NULL);
 
   ct_message_t* msg_received = nullptr;
-  ct_receive_callbacks_t receive_req = { .receive_callback = close_on_message_received, .user_receive_context = &test_context };
+  ct_receive_callbacks_t receive_req = { .receive_callback = close_on_message_received, .per_receive_context = &test_context };
 
 
   // Set to true, since only on_connection_error will set it to false
@@ -129,7 +129,7 @@ TEST_F(TcpPingTest, sendsSingleTcpMessage) {
     .establishment_error = on_establishment_error,
     .ready = send_message_and_receive,
     .sent = fake_message_sent,
-    .user_connection_context = &test_context,
+    .per_connection_context = &test_context,
   };
 
   rc = ct_preconnection_initiate(preconnection, connection_callbacks);

@@ -49,7 +49,7 @@ TEST_F(QuicPingTest, successfullyPingsQuicServerWithout0Rtt) {
     .establishment_error = on_establishment_error,
     .ready = send_message_and_receive,
     .sent = fake_message_sent,
-    .user_connection_context = &test_context,
+    .per_connection_context = &test_context,
   };
 
   int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
@@ -104,7 +104,7 @@ TEST_F(QuicPingTest, connectionFailsIfAlpnDoesNotMatch) {
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
     .ready = send_message_and_receive,
-    .user_connection_context = &test_context,
+    .per_connection_context = &test_context,
   };
 
   int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
@@ -149,7 +149,7 @@ TEST_F(QuicPingTest, successfullyPingsQuicServerEvenIfFirstAlpnDoesNotMatch) {
     .establishment_error = on_establishment_error,
     .ready = send_message_and_receive,
     .sent = fake_message_sent,
-    .user_connection_context = &test_context,
+    .per_connection_context = &test_context,
   };
 
   int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
@@ -207,7 +207,7 @@ TEST_F(QuicPingTest, successfullyPingsQuicServerWith0Rtt) {
     .establishment_error = on_establishment_error,
     .ready = send_message_and_receive,
     .sent = fake_message_sent,
-    .user_connection_context = &test_context,
+    .per_connection_context = &test_context,
   };
 
   int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
@@ -241,7 +241,7 @@ TEST_F(QuicPingTest, successfullyPingsQuicServerWith0Rtt) {
     .establishment_error = on_establishment_error,
     .ready = receive_on_ready,
     .sent = fake_message_sent,
-    .user_connection_context = &test_context,
+    .per_connection_context = &test_context,
   };
 
   ct_message_t* message = ct_message_new_with_content("ping", strlen("ping") + 1);
@@ -304,7 +304,7 @@ TEST_F(QuicPingTest, doesNotUse0rttWithNormalInitiate) {
     .establishment_error = on_establishment_error,
     .ready = send_message_and_receive,
     .sent = fake_message_sent,
-    .user_connection_context = &test_context,
+    .per_connection_context = &test_context,
   };
 
   int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
@@ -379,7 +379,7 @@ TEST_F(QuicPingTest, doesNotUse0rttWhenReplayableNotSet) {
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
     .ready = send_message_and_receive,
-    .user_connection_context = &test_context,
+    .per_connection_context = &test_context,
   };
 
   int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
@@ -406,7 +406,7 @@ TEST_F(QuicPingTest, doesNotUse0rttWhenReplayableNotSet) {
   connection_callbacks = {
     .establishment_error = on_establishment_error,
     .ready = receive_on_ready,
-    .user_connection_context = &test_context,
+    .per_connection_context = &test_context,
   };
 
   ct_message_t* message = ct_message_new_with_content("ping", strlen("ping") + 1);

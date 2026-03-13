@@ -25,7 +25,7 @@ TEST_F(TcpListenTests, receivesConnectionFromListenerAndExchangesMessages) {
 
     ct_listener_callbacks_t listener_callbacks = {
         .connection_received = receive_message_respond_and_close_listener_on_connection_received,
-        .user_listener_context = &test_context
+        .per_listener_context = &test_context
     };
 
     int rc = ct_preconnection_listen(listener_precon, listener_callbacks, NULL);
@@ -51,7 +51,7 @@ TEST_F(TcpListenTests, receivesConnectionFromListenerAndExchangesMessages) {
 
     ct_connection_callbacks_t client_callbacks {
         .ready = send_message_and_receive,
-        .user_connection_context = &test_context
+        .per_connection_context = &test_context
     };
 
     ct_preconnection_initiate(client_precon, client_callbacks);
@@ -106,7 +106,7 @@ TEST_F(TcpListenTests, canFreeOnListenerClose) {
     ct_listener_callbacks_t listener_callbacks = {
         .connection_received = close_listener_on_connection_received,
         .listener_closed = free_and_close_all_connections_on_listener_stopped,
-        .user_listener_context = &test_context
+        .per_listener_context = &test_context
     };
 
     int rc = ct_preconnection_listen(listener_precon, listener_callbacks, NULL);
@@ -132,7 +132,7 @@ TEST_F(TcpListenTests, canFreeOnListenerClose) {
 
     ct_connection_callbacks_t client_callbacks {
         .ready = on_connection_ready_do_nothing,
-        .user_connection_context = &test_context
+        .per_connection_context = &test_context
     };
 
     ct_preconnection_initiate(client_precon, client_callbacks);

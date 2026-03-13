@@ -49,7 +49,7 @@ ct_message_context_t* ct_message_context_deep_copy(const ct_message_context_t* s
     copy->remote_endpoint = source->remote_endpoint;
 
     // Copy user context pointer (shallow copy - user owns the actual data)
-    copy->user_receive_context = source->user_receive_context;
+    copy->per_receive_context = source->per_receive_context;
 
     return copy;
 }
@@ -90,7 +90,7 @@ void* ct_message_context_get_receive_context(const ct_message_context_t* message
     if (!message_context) {
         return NULL;
     }
-    return message_context->user_receive_context;
+    return message_context->per_receive_context;
 }
 
 #define DEFINE_MSG_CONTEXT_PROPERTY_GETTER(ENUM, STRING, TYPE, FIELD, DEFAULT, TYPE_TAG)           \

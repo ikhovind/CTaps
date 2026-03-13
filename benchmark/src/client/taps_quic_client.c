@@ -84,7 +84,7 @@ int main(int argc, char* argv[]) {
 
     ct_connection_callbacks_t connection_callbacks = {.ready = on_connection_ready,
                                                       .establishment_error = on_establishment_error,
-                                                      .user_connection_context = &client_ctx};
+                                                      .per_connection_context = &client_ctx};
 
     timing_start(&client_ctx.large_stats.handshake_time);
 
