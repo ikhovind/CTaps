@@ -36,7 +36,6 @@ typedef struct ct_quic_socket_state_s {
 typedef struct ct_connection_quic_group_state_s {
     picoquic_cnx_t* picoquic_connection;
     bool attempted_early_data;
-    bool close_initiated;
 } ct_quic_connection_group_state_t;
 
 // Per QUIC stream. This maps to a ct_connection_t in a connection group

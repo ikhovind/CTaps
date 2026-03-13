@@ -74,16 +74,6 @@ udp_send_data_t* udp_send_data_new(ct_connection_t* connection, ct_message_t* me
     return send_data;
 }
 
-void udp_send_data_free(udp_send_data_t* send_data) {
-    if (!send_data) {
-        log_debug("Attempted to free NULL UDP send data");
-        return;
-    }
-    ct_message_free(send_data->message);
-    ct_message_context_free(send_data->message_context);
-    free(send_data);
-}
-
 void alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
     (void)handle;
     *buf = uv_buf_init(malloc(suggested_size), suggested_size);
@@ -183,28 +173,6 @@ void on_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const struct 
     // Delegate to connection receive handler (handles framing if present)
     ct_connection_on_protocol_receive(connection, buf->base, nread);
     free(buf->base);
-}
-
-void abort_handle_cb(uv_handle_t* handle) {
-    log_info("UDP handle abort callback invoked with handle: %p", handle);
-    ct_socket_manager_t* socket_manager = (ct_socket_manager_t*)handle->data;
-
-    // If we aborted this handle, then any connection relying on this handle
-    // is aborted as well. However we not unref the socket manager, since that
-    // is related to freeing, not closing!
-    for (GSList* node = socket_manager->all_connections; node != NULL; node = node->next) {
-        ct_connection_t* connection = (ct_connection_t*)node->data;
-        if (!ct_connection_is_closed(connection)) {
-            log_trace("Closing connection: %s associated with aborted socket", connection->uuid);
-            ct_connection_mark_as_closed(connection);
-            if (connection->connection_callbacks.connection_error) {
-                connection->connection_callbacks.connection_error(connection);
-            } else {
-                log_debug("No connection error callback set for UDP connection %s",
-                          connection->uuid);
-            }
-        }
-    }
 }
 
 void closed_handle_cb(uv_handle_t* handle) {

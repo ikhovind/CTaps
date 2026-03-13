@@ -1,15 +1,12 @@
 #define _GNU_SOURCE
-#include <net/if.h>
 #include "quic.h"
 #include "connection/connection.h"
 #include "connection/connection_group.h"
-#include "connection/socket_manager/socket_manager.h"
 #include "ctaps.h"
-#include "endpoint/local_endpoint.h"
-#include "picosocks.h"
 #include "protocol/common/socket_utils.h"
 #include <glib.h>
 #include <logging/log.h>
+#include <net/if.h>
 #include <netinet/in.h>
 #include <picoquic.h>
 #include <picoquic_utils.h>
@@ -114,18 +111,6 @@ void ct_quic_send_state_free(ct_quic_send_state_t* state) {
 int picoquic_callback(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* bytes, size_t length,
                       picoquic_call_back_event_t fin_or_event, void* callback_ctx,
                       void* v_stream_ctx);
-
-bool ct_quic_connection_group_get_close_initiated(const ct_connection_group_t* group) {
-    const ct_quic_connection_group_state_t* group_state = group->connection_group_state;
-    return group_state ? group_state->close_initiated : false;
-}
-
-void ct_quic_connection_group_set_close_initiated(ct_connection_group_t* group, bool val) {
-    ct_quic_connection_group_state_t* group_state = group->connection_group_state;
-    if (group_state) {
-        group_state->close_initiated = val;
-    }
-}
 
 picoquic_cnx_t* ct_quic_connection_group_get_picoquic_cnx(const ct_connection_group_t* group) {
     const ct_quic_connection_group_state_t* group_state = group->connection_group_state;
@@ -907,7 +892,6 @@ int picoquic_callback(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* bytes, s
         // Reset the active connection counter since entire QUIC connection is closed
         log_debug("Picoquic stateless reset callback received, treating as aborted connection for "
                   "entire connection group");
-        ct_quic_connection_group_set_close_initiated(connection_group, true);
         rc = handle_aborted_picoquic_connection_group(connection_group);
         if (rc != 0) {
             log_error("Error handling stateless reset for connection group: %d", rc);
@@ -918,7 +902,6 @@ int picoquic_callback(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* bytes, s
         log_debug("Picoquic connection closed callback received");
 
         uint64_t error = picoquic_get_remote_error(cnx);
-        ct_quic_connection_group_set_close_initiated(connection_group, true);
         if (error != 0) {
             log_info("QUIC connection closed by peer with error code: %llu",
                      (unsigned long long)error);
@@ -1602,7 +1585,6 @@ void quic_abort(ct_connection_t* connection) {
     } else {
         log_info("Last active connection in group, closing entire QUIC connection");
         // Marking as closed etc. is handled in callback
-        ct_quic_connection_group_set_close_initiated(connection_group, true);
         picoquic_close_immediate(group_state->picoquic_connection);
     }
     reset_quic_timer(
