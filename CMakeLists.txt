@@ -104,16 +104,13 @@ target_include_directories(CTaps
 find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(GLIB REQUIRED glib-2.0)
-pkg_check_modules(UUID REQUIRED uuid)
 
 # This is the only way I have managed to link against picotls
 target_include_directories(CTaps
         PRIVATE 
         "${picotls_SOURCE_DIR}/include"
-        "${picoquic_SOURCE_DIR}/loglib"
         "${picoquic_SOURCE_DIR}/picoquic"
         ${GLIB_INCLUDE_DIRS}
-        ${UUID_INCLUDE_DIRS}
 )
 
 target_link_libraries(
@@ -123,17 +120,14 @@ target_link_libraries(
             picoquic-core
             picoquic-log
             ${GLIB_LIBRARIES}
-            ${UUID_LIBRARIES}
 )
 
-enable_testing()
+if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+    enable_testing()
 
-add_subdirectory (test)
+    add_subdirectory (test)
 
-add_subdirectory (benchmark)
+    add_subdirectory (benchmark)
+endif()
 
 add_subdirectory (examples)
-
-add_executable(quic_internet_test quic_internet_test.c)
-
-target_link_libraries(quic_internet_test PRIVATE CTaps)

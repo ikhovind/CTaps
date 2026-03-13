@@ -329,6 +329,15 @@ add_gtest(message_unit_test
   ASAN_ENABLED
 )
 
+add_gtest(uuid_unit_test
+  SOURCES
+    src/unit/util/uuid_unit_test.cpp
+    ${CMAKE_SOURCE_DIR}/src/util/uuid_util.c
+  WRAP_FUNCTIONS
+    getrandom
+  ASAN_ENABLED
+)
+
 # Because we need root access
 option(CTAPS_ENABLE_MIGRATION_TESTS "Enable migration tests (requires CAP_NET_ADMIN)" OFF)
 
