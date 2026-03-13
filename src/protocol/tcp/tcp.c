@@ -280,7 +280,7 @@ int tcp_init_with_send(ct_connection_t* connection, ct_message_t* initial_messag
 
     uint32_t keepalive_timeout = ct_transport_properties_get_keep_alive_timeout(
         ct_connection_get_transport_properties(connection));
-    if (keepalive_timeout != CONN_TIMEOUT_DISABLED) {
+    if (keepalive_timeout != CT_CONN_TIMEOUT_DISABLED) {
         log_info("Setting TCP keepalive with timeout: %u seconds", keepalive_timeout);
         rc = uv_tcp_keepalive(new_tcp_handle, true, keepalive_timeout);
         if (rc < 0) {
@@ -346,7 +346,7 @@ int tcp_init(ct_connection_t* connection) {
 
     uint32_t keepalive_timeout = ct_transport_properties_get_keep_alive_timeout(
         ct_connection_get_transport_properties(connection));
-    if (keepalive_timeout != CONN_TIMEOUT_DISABLED) {
+    if (keepalive_timeout != CT_CONN_TIMEOUT_DISABLED) {
         log_info("Setting TCP keepalive with timeout: %u seconds", keepalive_timeout);
         rc = uv_tcp_keepalive(new_tcp_handle, true, keepalive_timeout);
         if (rc < 0) {
@@ -602,7 +602,7 @@ int tcp_clone_connection(const struct ct_connection_s* source_connection,
     uint32_t keepalive_timeout = ct_transport_properties_get_keep_alive_timeout(
         ct_connection_get_transport_properties(target_connection));
 
-    if (keepalive_timeout != CONN_TIMEOUT_DISABLED) {
+    if (keepalive_timeout != CT_CONN_TIMEOUT_DISABLED) {
         log_info("Setting TCP keepalive with timeout: %u seconds", keepalive_timeout);
         rc = uv_tcp_keepalive(new_tcp_handle, true, keepalive_timeout);
         if (rc < 0) {

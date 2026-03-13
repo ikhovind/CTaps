@@ -173,7 +173,7 @@ ct_connection_t* ct_connection_create_clone(const ct_connection_t* source_connec
         return NULL;
     }
 
-    clone->properties.state = CONN_STATE_ESTABLISHING;
+    clone->properties.state = CT_CONN_STATE_ESTABLISHING;
     clone->security_parameters =
         ct_security_parameters_deep_copy(source_connection->security_parameters);
 
@@ -228,7 +228,7 @@ void ct_connection_mark_as_established(ct_connection_t* connection) {
         log_error("Connection is NULL in ct_connection_mark_as_established");
         return;
     }
-    connection->properties.state = CONN_STATE_ESTABLISHED;
+    connection->properties.state = CT_CONN_STATE_ESTABLISHED;
     ct_connection_set_can_send(connection, true);
     ct_connection_set_can_receive(connection, true);
     log_trace("Marked connection %s as established", connection->uuid);
@@ -239,7 +239,7 @@ void ct_connection_mark_as_closing(ct_connection_t* connection) {
         log_error("Connection is NULL in ct_connection_mark_as_closing");
         return;
     }
-    connection->properties.state = CONN_STATE_CLOSING;
+    connection->properties.state = CT_CONN_STATE_CLOSING;
     log_trace("Marked connection %s as closing", connection->uuid);
 }
 
@@ -248,7 +248,7 @@ void ct_connection_mark_as_closed(ct_connection_t* connection) {
         log_error("Connection is NULL in ct_connection_mark_as_closed");
         return;
     }
-    connection->properties.state = CONN_STATE_CLOSED;
+    connection->properties.state = CT_CONN_STATE_CLOSED;
     log_trace("Marked connection %s as closed", connection->uuid);
 }
 
@@ -256,7 +256,7 @@ bool ct_connection_is_closing(const ct_connection_t* connection) {
     if (!connection) {
         return false;
     }
-    return connection->properties.state == CONN_STATE_CLOSING;
+    return connection->properties.state == CT_CONN_STATE_CLOSING;
 }
 
 bool ct_connection_is_closed(const ct_connection_t* connection) {
@@ -264,21 +264,21 @@ bool ct_connection_is_closed(const ct_connection_t* connection) {
         log_error("Connection is NULL in ct_connection_is_closed");
         return false;
     }
-    return connection->properties.state == CONN_STATE_CLOSED;
+    return connection->properties.state == CT_CONN_STATE_CLOSED;
 }
 
 bool ct_connection_is_established(const ct_connection_t* connection) {
     if (!connection) {
         return false;
     }
-    return connection->properties.state == CONN_STATE_ESTABLISHED;
+    return connection->properties.state == CT_CONN_STATE_ESTABLISHED;
 }
 
 bool ct_connection_is_establishing(const ct_connection_t* connection) {
     if (!connection) {
         return false;
     }
-    return connection->properties.state == CONN_STATE_ESTABLISHING;
+    return connection->properties.state == CT_CONN_STATE_ESTABLISHING;
 }
 
 bool ct_connection_is_closed_or_closing(const ct_connection_t* connection) {
@@ -333,12 +333,12 @@ int ct_connection_send_to_protocol(ct_connection_t* connection, ct_message_t* me
 void ct_connection_deliver_to_app(ct_connection_t* connection, ct_message_t* message,
                                   ct_message_context_t* context);
 
-int ct_send_message(ct_connection_t* connection, ct_message_t* message) {
+int ct_send_message(ct_connection_t* connection, const ct_message_t* message) {
     return ct_send_message_full(connection, message, NULL);
 }
 
-int ct_send_message_full(ct_connection_t* connection, ct_message_t* message,
-                         ct_message_context_t* message_context) {
+int ct_send_message_full(ct_connection_t* connection, const ct_message_t* message,
+                         const ct_message_context_t* message_context) {
     // Fail early if for example FINAL has been sent already
     log_debug("Trying to send message over connection: %s", connection->uuid);
     if (!ct_connection_can_send(connection)) {
@@ -404,7 +404,7 @@ int ct_receive_message(ct_connection_t* connection, ct_receive_callbacks_t recei
     if (!g_queue_is_empty(connection->received_messages)) {
         log_debug("Calling receive callback immediately");
         ct_queued_message_t* queued_message = g_queue_pop_head(connection->received_messages);
-        queued_message->context->user_receive_context = receive_callbacks.user_receive_context;
+        queued_message->context->user_receive_context = receive_callbacks.per_receive_context;
         receive_callbacks.receive_callback(connection, queued_message->message,
                                            queued_message->context);
         ct_queued_message_free_all(queued_message);
@@ -536,7 +536,7 @@ void ct_connection_deliver_to_app(ct_connection_t* connection, ct_message_t* mes
                 return;
             }
         }
-        context->user_receive_context = receive_callback->user_receive_context;
+        context->user_receive_context = receive_callback->per_receive_context;
 
         receive_callback->receive_callback(connection, message, context);
         free(receive_callback);
@@ -599,7 +599,7 @@ void* ct_connection_get_callback_context(const ct_connection_t* connection) {
     if (!connection) {
         return NULL;
     }
-    return connection->connection_callbacks.user_connection_context;
+    return connection->connection_callbacks.per_connection_context;
 }
 
 const char* ct_connection_get_uuid(const ct_connection_t* connection) {

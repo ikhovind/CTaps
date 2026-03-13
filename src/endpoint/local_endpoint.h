@@ -3,6 +3,10 @@
 #include <ctaps.h>
 #include <stdint.h>
 
+// External users cannot access the full struct definition so will
+// never need this
+void ct_local_endpoint_free_content(ct_local_endpoint_t* local_endpoint);
+
 void ct_local_endpoint_build(ct_local_endpoint_t* local_endpoint);
 
 int32_t ct_local_endpoint_get_service_port(const ct_local_endpoint_t* local_endpoint);
@@ -15,8 +19,6 @@ char* ct_local_endpoint_get_interface_name(const ct_local_endpoint_t* local_endp
 sa_family_t ct_local_endpoint_get_address_family(const ct_local_endpoint_t* local_endpoint);
 
 int ct_local_endpoint_copy_content(const ct_local_endpoint_t* src, ct_local_endpoint_t* dest);
-
-ct_local_endpoint_t* ct_local_endpoint_deep_copy(const ct_local_endpoint_t* local_endpoint);
 
 ct_local_endpoint_t* ct_local_endpoints_deep_copy(const ct_local_endpoint_t* local_endpoints,
                                                   size_t num_local_endpoints);

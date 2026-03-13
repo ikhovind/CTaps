@@ -45,7 +45,7 @@ void register_succesful_attempt(ct_racing_context_t* context, ct_racing_attempt_
 void raced_connection_close_cb(ct_connection_t* connection) {
     log_debug("Freeing failed connection: %s created in candidate racing", connection->uuid);
     ct_racing_attempt_t* attempt =
-        (ct_racing_attempt_t*)connection->connection_callbacks.user_connection_context;
+        (ct_racing_attempt_t*)connection->connection_callbacks.per_connection_context;
     register_canceled_attempt(attempt->context, attempt);
 }
 
@@ -252,7 +252,7 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
     ct_connection_callbacks_t attempt_callbacks = {
         .ready = racing_on_attempt_ready,
         .establishment_error = on_attempt_establishment_error,
-        .user_connection_context = attempt,
+        .per_connection_context = attempt,
     };
 
     log_debug("Removing duplicate remote endpoints for connection attempt");
@@ -400,7 +400,7 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
  */
 void racing_on_attempt_ready(ct_connection_t* connection) {
     ct_racing_attempt_t* attempt =
-        (ct_racing_attempt_t*)connection->connection_callbacks.user_connection_context;
+        (ct_racing_attempt_t*)connection->connection_callbacks.per_connection_context;
     ct_racing_context_t* context = attempt->context;
 
     log_info("ct_connection_t attempt %zu succeeded!", attempt->attempt_index);
@@ -456,7 +456,7 @@ void racing_on_attempt_ready(ct_connection_t* connection) {
 static void on_attempt_establishment_error(ct_connection_t* connection) {
     log_debug("Received establishment error for connection: %s", connection->uuid);
     ct_racing_attempt_t* attempt =
-        (ct_racing_attempt_t*)connection->connection_callbacks.user_connection_context;
+        (ct_racing_attempt_t*)connection->connection_callbacks.per_connection_context;
     ct_racing_context_t* context = attempt->context;
 
     log_info("ct_connection_t attempt %zu failed", attempt->attempt_index);
