@@ -356,7 +356,7 @@ int tcp_init(ct_connection_t* connection) {
 
     const ct_remote_endpoint_t* remote_endpoint =
         ct_connection_get_active_remote_endpoint(connection);
-    struct sockaddr_storage tmp = remote_endpoint->data.resolved_address;
+    struct sockaddr_storage tmp = remote_endpoint->resolved_address;
     if (tmp.ss_family == AF_INET) {
         log_info("Connecting to remote endpoint %d via TCP",
                  ntohs(((struct sockaddr_in*)&tmp)->sin_port));

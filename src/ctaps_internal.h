@@ -17,9 +17,7 @@ typedef struct ct_local_endpoint_s {
     uint16_t port;        ///< Port number (0 = any port)
     char* interface_name; ///< Network interface name (e.g., "eth0") or NULL for any
     char* service;        ///< Service name (e.g., "http") or NULL
-    union {
-        struct sockaddr_storage resolved_address; ///< Resolved socket address
-    } data;
+    struct sockaddr_storage resolved_address; ///< Resolved socket address
 } ct_local_endpoint_t;
 
 /**
@@ -43,9 +41,7 @@ typedef struct ct_remote_endpoint_s {
     uint16_t port;  ///< Port number
     char* service;  ///< Service name (e.g., "https") or NULL
     char* hostname; ///< Hostname for DNS resolution or NULL
-    union {
-        struct sockaddr_storage resolved_address; ///< Resolved socket address
-    } data;
+    struct sockaddr_storage resolved_address; ///< Resolved socket address
 } ct_remote_endpoint_t;
 
 // =============================================================================

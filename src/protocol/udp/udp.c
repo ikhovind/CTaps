@@ -286,7 +286,7 @@ int udp_send(ct_connection_t* connection, ct_message_t* message,
     int rc =
         uv_udp_send(send_req, socket_state->udp_handle, &buffer, 1,
                     (const struct sockaddr*)&ct_connection_get_active_remote_endpoint(connection)
-                        ->data.resolved_address,
+                        ->resolved_address,
                     on_send);
 
     if (rc < 0) {

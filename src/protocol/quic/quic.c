@@ -713,8 +713,8 @@ int probe_all_paths(const ct_connection_group_t* group) {
             const ct_local_endpoint_t* local_endpoint =
                 &ct_connection_get_local_endpoints_list(connection)[j];
 
-            if (local_endpoint->data.resolved_address.ss_family !=
-                remote_endpoint->data.resolved_address.ss_family) {
+            if (local_endpoint->resolved_address.ss_family !=
+                remote_endpoint->resolved_address.ss_family) {
                 log_debug("Skipping probing local endpoint %zu to remote endpoint %zu due to "
                           "address family mismatch",
                           j, i);
@@ -726,8 +726,8 @@ int probe_all_paths(const ct_connection_group_t* group) {
             uint16_t from_port = 0;
             uint16_t dest_port = 0;
 
-            const struct sockaddr_storage* local_ss = &local_endpoint->data.resolved_address;
-            const struct sockaddr_storage* remote_ss = &remote_endpoint->data.resolved_address;
+            const struct sockaddr_storage* local_ss = &local_endpoint->resolved_address;
+            const struct sockaddr_storage* remote_ss = &remote_endpoint->resolved_address;
 
             ct_get_addr_string(local_ss, from_ip, sizeof(from_ip), &from_port);
             ct_get_addr_string(remote_ss, to_ip, sizeof(to_ip), &dest_port);
@@ -736,9 +736,8 @@ int probe_all_paths(const ct_connection_group_t* group) {
                       dest_port);
 
             int rc = picoquic_probe_new_path(
-                cnx, (const struct sockaddr*)&remote_endpoint->data.resolved_address,
-                (const struct sockaddr*)&local_endpoint->data
-                    .resolved_address, /* let picoquic pick the local address */
+                cnx, (const struct sockaddr*)&remote_endpoint->resolved_address,
+                (const struct sockaddr*)&local_endpoint->resolved_address, /* let picoquic pick the local address */
                 picoquic_get_quic_time(ct_connection_get_picoquic_instance(connection)));
             if (rc < 0) {
                 log_warn("Failed to probe path to remote endpoint %zu with error code: %d", i, rc);
@@ -1340,7 +1339,7 @@ int quic_init_with_send(ct_connection_t* connection, ct_message_t* initial_messa
 
     group_state->picoquic_connection = picoquic_create_cnx(
         quic_context->picoquic_ctx, picoquic_null_connection_id, picoquic_null_connection_id,
-        (struct sockaddr*)&remote_endpoint->data.resolved_address, current_time, 1,
+        (struct sockaddr*)&remote_endpoint->resolved_address, current_time, 1,
         ct_security_parameters_get_server_name_identification(connection->security_parameters),
         alpn_strings
             [0], // We create separate candidates for each ALPN to support 0-rtt (see candidate gathering code)
@@ -1476,7 +1475,7 @@ int quic_init(ct_connection_t* connection) {
     group_state->picoquic_connection = picoquic_create_cnx(
         quic_context->picoquic_ctx, picoquic_null_connection_id, picoquic_null_connection_id,
         (struct sockaddr*)&ct_connection_get_active_remote_endpoint(connection)
-            ->data.resolved_address,
+            ->resolved_address,
         current_time, 1,
         ct_security_parameters_get_server_name_identification(connection->security_parameters),
         alpn_strings

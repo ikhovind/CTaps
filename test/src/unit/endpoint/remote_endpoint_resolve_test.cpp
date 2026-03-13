@@ -64,7 +64,7 @@ TEST_F(RemoteEndpointResolveTest, IPv4PreservesAddress) {
 
     ct_remote_endpoint_t* out = faked_ct_remote_endpoint_resolve_cb_fake.arg0_val;
     ASSERT_NE(out, nullptr);
-    const struct sockaddr_in* addr = (const struct sockaddr_in*)&out->data.resolved_address;
+    const struct sockaddr_in* addr = (const struct sockaddr_in*)&out->resolved_address;
     EXPECT_EQ(addr->sin_family, AF_INET);
     EXPECT_EQ(addr->sin_addr.s_addr, expected);
     // ct_remote_endpoint_resolve_cb is faked, so we own the allocation
@@ -79,7 +79,7 @@ TEST_F(RemoteEndpointResolveTest, IPv4SetsPortInResolvedAddress) {
 
     ct_remote_endpoint_t* out = faked_ct_remote_endpoint_resolve_cb_fake.arg0_val;
     ASSERT_NE(out, nullptr);
-    const struct sockaddr_in* addr = (const struct sockaddr_in*)&out->data.resolved_address;
+    const struct sockaddr_in* addr = (const struct sockaddr_in*)&out->resolved_address;
     EXPECT_EQ(ntohs(addr->sin_port), 8080);
     EXPECT_EQ(context.assigned_port, 8080);
     free(out);
@@ -107,7 +107,7 @@ TEST_F(RemoteEndpointResolveTest, IPv6SetsPortInResolvedAddress) {
 
     ct_remote_endpoint_t* out = faked_ct_remote_endpoint_resolve_cb_fake.arg0_val;
     ASSERT_NE(out, nullptr);
-    const struct sockaddr_in6* addr = (const struct sockaddr_in6*)&out->data.resolved_address;
+    const struct sockaddr_in6* addr = (const struct sockaddr_in6*)&out->resolved_address;
     EXPECT_EQ(ntohs(addr->sin6_port), 443);
     EXPECT_EQ(context.assigned_port, 443);
     free(out);

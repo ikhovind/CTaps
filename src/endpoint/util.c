@@ -100,12 +100,12 @@ void on_uv_getaddrinfo_cb(uv_getaddrinfo_t* req, int status, struct addrinfo* re
         new_node->port = context->assigned_port;
 
         if (ptr->ai_family == AF_INET) {
-            memcpy(&new_node->data.resolved_address, ptr->ai_addr, sizeof(struct sockaddr_in));
-            ((struct sockaddr_in*)&new_node->data.resolved_address)->sin_port =
+            memcpy(&new_node->resolved_address, ptr->ai_addr, sizeof(struct sockaddr_in));
+            ((struct sockaddr_in*)&new_node->resolved_address)->sin_port =
                 htons(context->assigned_port);
         } else {
-            memcpy(&new_node->data.resolved_address, ptr->ai_addr, sizeof(struct sockaddr_in6));
-            ((struct sockaddr_in6*)&new_node->data.resolved_address)->sin6_port =
+            memcpy(&new_node->resolved_address, ptr->ai_addr, sizeof(struct sockaddr_in6));
+            ((struct sockaddr_in6*)&new_node->resolved_address)->sin6_port =
                 htons(context->assigned_port);
         }
         out_count++;

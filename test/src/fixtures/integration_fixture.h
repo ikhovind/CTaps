@@ -944,7 +944,7 @@ void capture_local_on_sent(ct_connection_t* connection, ct_message_context_t* me
     auto* context = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
 
     context->local_sockaddr.push_back(
-        ct_connection_get_active_local_endpoint(connection)->data.resolved_address);
+        ct_connection_get_active_local_endpoint(connection)->resolved_address);
 }
 
 void close_on_listener_ready(ct_listener_t* listener) {

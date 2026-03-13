@@ -115,8 +115,8 @@ ct_connection_t* ct_connection_create_client(
     ct_remote_endpoint_t* active_remote_endpoint =
         &connection->all_remote_endpoints[connection->active_remote_endpoint];
 
-    if (active_remote_endpoint->data.resolved_address.ss_family != AF_INET6 &&
-        active_remote_endpoint->data.resolved_address.ss_family != AF_INET) {
+    if (active_remote_endpoint->resolved_address.ss_family != AF_INET6 &&
+        active_remote_endpoint->resolved_address.ss_family != AF_INET) {
         log_error("Remote endpoint has unsupported address family");
         ct_connection_free(connection);
         return NULL;
@@ -826,8 +826,8 @@ void ct_connection_set_active_local_endpoint_index(ct_connection_t* connection,
 
 int ct_connection_set_active_remote_endpoint(ct_connection_t* connection,
                                              const ct_remote_endpoint_t* remote_endpoint) {
-    assert(remote_endpoint->data.resolved_address.ss_family == AF_INET ||
-           remote_endpoint->data.resolved_address.ss_family == AF_INET6);
+    assert(remote_endpoint->resolved_address.ss_family == AF_INET ||
+           remote_endpoint->resolved_address.ss_family == AF_INET6);
     for (size_t remote_ix = 0; remote_ix < connection->num_remote_endpoints; remote_ix++) {
         if (ct_remote_endpoint_resolved_equals(remote_endpoint,
                                                &connection->all_remote_endpoints[remote_ix])) {
@@ -861,8 +861,8 @@ int ct_connection_set_active_remote_endpoint(ct_connection_t* connection,
 int ct_connection_set_active_local_endpoint(ct_connection_t* connection,
                                             const ct_local_endpoint_t* local_endpoint) {
     log_debug("Setting active local endpoint for connection %s", connection->uuid);
-    assert(local_endpoint->data.resolved_address.ss_family == AF_INET ||
-           local_endpoint->data.resolved_address.ss_family == AF_INET6);
+    assert(local_endpoint->resolved_address.ss_family == AF_INET ||
+           local_endpoint->resolved_address.ss_family == AF_INET6);
 
     for (size_t local_ix = 0; local_ix < ct_connection_get_num_local_endpoints(connection);
          local_ix++) {
@@ -902,7 +902,7 @@ int ct_connection_set_active_local_endpoint(ct_connection_t* connection,
 
 void ct_connection_set_all_local_port(ct_connection_t* connection, uint16_t port) {
     for (size_t i = 0; i < ct_connection_get_num_local_endpoints(connection); i++) {
-        struct sockaddr_storage* addr = &connection->all_local_endpoints[i].data.resolved_address;
+        struct sockaddr_storage* addr = &connection->all_local_endpoints[i].resolved_address;
         if (addr->ss_family == AF_INET) {
             struct sockaddr_in* addr_in = (struct sockaddr_in*)addr;
             addr_in->sin_port = htons(port);

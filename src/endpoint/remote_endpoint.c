@@ -31,8 +31,8 @@ int ct_remote_endpoint_with_ipv4(ct_remote_endpoint_t* remote_endpoint, in_addr_
         log_error("Cannot specify both hostname and IP address on single remote endpoint");
         return -EINVAL;
     }
-    memset(&remote_endpoint->data.resolved_address, 0, sizeof(struct sockaddr_storage));
-    struct sockaddr_in* addr = (struct sockaddr_in*)&remote_endpoint->data.resolved_address;
+    memset(&remote_endpoint->resolved_address, 0, sizeof(struct sockaddr_storage));
+    struct sockaddr_in* addr = (struct sockaddr_in*)&remote_endpoint->resolved_address;
     addr->sin_family = AF_INET;
     addr->sin_addr.s_addr = ipv4_addr;
     return 0;
@@ -43,7 +43,7 @@ int ct_remote_endpoint_with_ipv6(ct_remote_endpoint_t* remote_endpoint, struct i
         log_error("Cannot specify both hostname and IP address on single remote endpoint");
         return -EINVAL;
     }
-    struct sockaddr_in6* addr = (struct sockaddr_in6*)&remote_endpoint->data.resolved_address;
+    struct sockaddr_in6* addr = (struct sockaddr_in6*)&remote_endpoint->resolved_address;
     addr->sin6_family = AF_INET6;
     addr->sin6_addr = ipv6_addr;
     return 0;
@@ -59,11 +59,11 @@ int ct_remote_endpoint_from_sockaddr(ct_remote_endpoint_t* remote_endpoint,
     if (addr->ss_family == AF_INET) {
         struct sockaddr_in* in_addr = (struct sockaddr_in*)addr;
         remote_endpoint->port = ntohs(in_addr->sin_port);
-        memcpy(&remote_endpoint->data.resolved_address, in_addr, sizeof(struct sockaddr_in));
+        memcpy(&remote_endpoint->resolved_address, in_addr, sizeof(struct sockaddr_in));
     } else if (addr->ss_family == AF_INET6) {
         struct sockaddr_in6* in6_addr = (struct sockaddr_in6*)addr;
         remote_endpoint->port = ntohs(in6_addr->sin6_port);
-        memcpy(&remote_endpoint->data.resolved_address, in6_addr, sizeof(struct sockaddr_in6));
+        memcpy(&remote_endpoint->resolved_address, in6_addr, sizeof(struct sockaddr_in6));
     } else {
         log_error("Unsupported resolved_address family: %d\n", addr->ss_family);
         return -EINVAL;
@@ -72,7 +72,7 @@ int ct_remote_endpoint_from_sockaddr(ct_remote_endpoint_t* remote_endpoint,
 }
 
 int ct_remote_endpoint_with_hostname(ct_remote_endpoint_t* remote_endpoint, const char* hostname) {
-    if (remote_endpoint->data.resolved_address.ss_family != AF_UNSPEC) {
+    if (remote_endpoint->resolved_address.ss_family != AF_UNSPEC) {
         log_error("Cannot specify both hostname and IP address on single remote endpoint");
         return -EINVAL;
     }
@@ -96,12 +96,12 @@ int ct_remote_endpoint_with_service(ct_remote_endpoint_t* remote_endpoint, const
 
 void ct_remote_endpoint_with_port(ct_remote_endpoint_t* remote_endpoint, const uint16_t port) {
     remote_endpoint->port = port;
-    if (remote_endpoint->data.resolved_address.ss_family == AF_INET6) {
-        struct sockaddr_in6* addr = (struct sockaddr_in6*)&remote_endpoint->data.resolved_address;
+    if (remote_endpoint->resolved_address.ss_family == AF_INET6) {
+        struct sockaddr_in6* addr = (struct sockaddr_in6*)&remote_endpoint->resolved_address;
         addr->sin6_port = htons(port);
     }
-    if (remote_endpoint->data.resolved_address.ss_family == AF_INET) {
-        struct sockaddr_in* addr = (struct sockaddr_in*)&remote_endpoint->data.resolved_address;
+    if (remote_endpoint->resolved_address.ss_family == AF_INET) {
+        struct sockaddr_in* addr = (struct sockaddr_in*)&remote_endpoint->resolved_address;
         addr->sin_port = htons(port);
     }
 }
@@ -134,7 +134,7 @@ int ct_remote_endpoint_resolve(const ct_remote_endpoint_t* remote_endpoint,
                       remote_endpoint->hostname, remote_endpoint->service, strerror(-rc));
             return rc;
         }
-    } else if (remote_endpoint->data.resolved_address.ss_family != AF_UNSPEC) {
+    } else if (remote_endpoint->resolved_address.ss_family != AF_UNSPEC) {
         out_count = 1;
         out_list = malloc(sizeof(ct_remote_endpoint_t));
         if (!out_list) {
@@ -144,11 +144,11 @@ int ct_remote_endpoint_resolve(const ct_remote_endpoint_t* remote_endpoint,
         memset(out_list, 0, sizeof(ct_remote_endpoint_t));
         memcpy(out_list, remote_endpoint, sizeof(ct_remote_endpoint_t));
         // set port in resolved_address
-        if (out_list[0].data.resolved_address.ss_family == AF_INET) {
-            struct sockaddr_in* addr = (struct sockaddr_in*)&(out_list)[0].data.resolved_address;
+        if (out_list[0].resolved_address.ss_family == AF_INET) {
+            struct sockaddr_in* addr = (struct sockaddr_in*)&(out_list)[0].resolved_address;
             addr->sin_port = htons(assigned_port);
-        } else if (out_list[0].data.resolved_address.ss_family == AF_INET6) {
-            struct sockaddr_in6* addr = (struct sockaddr_in6*)&(out_list)[0].data.resolved_address;
+        } else if (out_list[0].resolved_address.ss_family == AF_INET6) {
+            struct sockaddr_in6* addr = (struct sockaddr_in6*)&(out_list)[0].resolved_address;
             addr->sin6_port = htons(assigned_port);
         }
         ct_remote_endpoint_resolve_cb(out_list, out_count, context);
@@ -217,7 +217,7 @@ ct_remote_endpoint_t* ct_remote_endpoint_deep_copy(const ct_remote_endpoint_t* r
 
 int32_t ct_remote_endpoint_get_service_port(const ct_remote_endpoint_t* remote_endpoint) {
     return ct_get_service_port(ct_remote_endpoint_get_service(remote_endpoint),
-                            remote_endpoint->data.resolved_address.ss_family);
+                            remote_endpoint->resolved_address.ss_family);
 }
 
 const char* ct_remote_endpoint_get_service(const ct_remote_endpoint_t* remote_endpoint) {
@@ -230,7 +230,7 @@ remote_endpoint_get_resolved_address(const ct_remote_endpoint_t* remote_endpoint
         log_error("remote_endpoint_get_resolved_address called with NULL parameter");
         return NULL;
     }
-    return &remote_endpoint->data.resolved_address;
+    return &remote_endpoint->resolved_address;
 }
 
 ct_remote_endpoint_t* ct_remote_endpoints_deep_copy(const ct_remote_endpoint_t* remote_endpoints,
@@ -273,5 +273,5 @@ bool ct_remote_endpoint_resolved_equals(const ct_remote_endpoint_t* endpoint1,
         log_warn("ct_remote_endpoint_resolved_equals called with NULL parameter");
         return false;
     }
-    return ct_sockaddr_equal(&endpoint1->data.resolved_address, &endpoint2->data.resolved_address);
+    return ct_sockaddr_equal(&endpoint1->resolved_address, &endpoint2->resolved_address);
 }

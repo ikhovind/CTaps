@@ -79,9 +79,9 @@ TEST_F(LocalEndpointResolveTest, usesInterfaceAddress_whenInterfaceIsSpecified) 
   ASSERT_EQ(__wrap_ct_get_interface_addresses_fake.call_count, 1);
   ASSERT_EQ(__wrap_ct_get_service_port_fake.call_count, 1);
 
-  ASSERT_EQ(endpoint.data.resolved_address.ss_family, AF_INET);
+  ASSERT_EQ(endpoint.resolved_address.ss_family, AF_INET);
 
-  struct sockaddr_in* final_addr = (struct sockaddr_in*)&endpoint.data.resolved_address;
+  struct sockaddr_in* final_addr = (struct sockaddr_in*)&endpoint.resolved_address;
 
   EXPECT_EQ(ntohs(final_addr->sin_port), 8080);
 
@@ -117,9 +117,9 @@ TEST_F(LocalEndpointResolveTest, DefaultsToAnyAddress_WhenNoInterfaceIsFound) {
   ASSERT_STREQ(__wrap_ct_get_interface_addresses_fake.arg0_val, "any");
   ASSERT_EQ(__wrap_ct_get_service_port_fake.call_count, 0); // Verify it was NOT called
 
-  ASSERT_EQ(endpoint.data.resolved_address.ss_family, AF_INET);
+  ASSERT_EQ(endpoint.resolved_address.ss_family, AF_INET);
 
-  struct sockaddr_in* final_addr = (struct sockaddr_in*)&endpoint.data.resolved_address;
+  struct sockaddr_in* final_addr = (struct sockaddr_in*)&endpoint.resolved_address;
 
   EXPECT_EQ(ntohs(final_addr->sin_port), 9090);
 
@@ -148,14 +148,14 @@ TEST_F(LocalEndpointResolveTest, resolvesEphemeralLocalEndpoint) {
   ASSERT_EQ(__wrap_ct_get_interface_addresses_fake.call_count, 1);
   ASSERT_EQ(__wrap_ct_get_service_port_fake.call_count, 0);
 
-  ASSERT_EQ(endpoint->data.resolved_address.ss_family, AF_INET);
+  ASSERT_EQ(endpoint->resolved_address.ss_family, AF_INET);
 
-  struct sockaddr_in* final_addr = (struct sockaddr_in*)&endpoint->data.resolved_address;
+  struct sockaddr_in* final_addr = (struct sockaddr_in*)&endpoint->resolved_address;
   char ip_str[INET_ADDRSTRLEN] = {0};
   inet_ntop(AF_INET, &final_addr->sin_addr, ip_str, sizeof(ip_str));
   EXPECT_STREQ(ip_str, "192.168.1.101");
 
-  struct sockaddr_in* final_addr2 = (struct sockaddr_in*)&endpoint2->data.resolved_address;
+  struct sockaddr_in* final_addr2 = (struct sockaddr_in*)&endpoint2->resolved_address;
   inet_ntop(AF_INET, &final_addr2->sin_addr, ip_str, sizeof(ip_str));
   EXPECT_STREQ(ip_str, "192.168.1.201");
 

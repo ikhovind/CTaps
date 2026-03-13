@@ -20,7 +20,7 @@ TEST(LocalEndpointUnitTests, SetsIpv4FamilyAndAddress) {
 
     ct_local_endpoint_with_port(&local_endpoint, 5005);
 
-    sockaddr_in* addr = (struct sockaddr_in*)&local_endpoint.data.resolved_address;
+    sockaddr_in* addr = (struct sockaddr_in*)&local_endpoint.resolved_address;
 
     EXPECT_EQ(5005, ntohs(addr->sin_port));
     EXPECT_EQ(5005, local_endpoint.port);
@@ -38,7 +38,7 @@ TEST(LocalEndpointUnitTests, SetsIpv6FamilyAndAddress) {
     in6_addr ipv6_addr = { .__in6_u = { .__u6_addr8 = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1} } };
 
     ct_local_endpoint_with_port(&local_endpoint, 5005);
-    sockaddr_in6* addr = (struct sockaddr_in6*)&local_endpoint.data.resolved_address;
+    sockaddr_in6* addr = (struct sockaddr_in6*)&local_endpoint.resolved_address;
 
     EXPECT_EQ(AF_INET6, addr->sin6_family);
     EXPECT_EQ(5005, ntohs(addr->sin6_port));
@@ -119,13 +119,13 @@ TEST(LocalEndpointUnitTests, TakesDeepCopyOfInterface) {
 
 TEST(LocalEndpointResolvedEqualsTest, NullEndpoint1_ReturnsFalse) {
     ct_local_endpoint_t loc = {0};
-    ((struct sockaddr_in*)&loc.data.resolved_address)->sin_family = AF_INET;
+    ((struct sockaddr_in*)&loc.resolved_address)->sin_family = AF_INET;
     EXPECT_FALSE(ct_local_endpoint_resolved_equals(nullptr, &loc));
 }
 
 TEST(LocalEndpointResolvedEqualsTest, NullEndpoint2_ReturnsFalse) {
     ct_local_endpoint_t loc = {0};
-    ((struct sockaddr_in*)&loc.data.resolved_address)->sin_family = AF_INET;
+    ((struct sockaddr_in*)&loc.resolved_address)->sin_family = AF_INET;
     EXPECT_FALSE(ct_local_endpoint_resolved_equals(&loc, nullptr));
 }
 
@@ -135,8 +135,8 @@ TEST(LocalEndpointResolvedEqualsTest, BothNull_ReturnsFalse) {
 
 TEST(LocalEndpointResolvedEqualsTest, EqualAddresses_ReturnsTrue) {
     ct_local_endpoint_t loc1 = {0}, loc2 = {0};
-    struct sockaddr_in* a = (struct sockaddr_in*)&loc1.data.resolved_address;
-    struct sockaddr_in* b = (struct sockaddr_in*)&loc2.data.resolved_address;
+    struct sockaddr_in* a = (struct sockaddr_in*)&loc1.resolved_address;
+    struct sockaddr_in* b = (struct sockaddr_in*)&loc2.resolved_address;
     a->sin_family = b->sin_family = AF_INET;
     a->sin_port   = b->sin_port   = htons(8080);
     inet_pton(AF_INET, "10.0.0.1", &a->sin_addr);
@@ -146,8 +146,8 @@ TEST(LocalEndpointResolvedEqualsTest, EqualAddresses_ReturnsTrue) {
 
 TEST(LocalEndpointResolvedEqualsTest, DifferentAddresses_ReturnsFalse) {
     ct_local_endpoint_t loc1 = {0}, loc2 = {0};
-    struct sockaddr_in* a = (struct sockaddr_in*)&loc1.data.resolved_address;
-    struct sockaddr_in* b = (struct sockaddr_in*)&loc2.data.resolved_address;
+    struct sockaddr_in* a = (struct sockaddr_in*)&loc1.resolved_address;
+    struct sockaddr_in* b = (struct sockaddr_in*)&loc2.resolved_address;
     a->sin_family = b->sin_family = AF_INET;
     a->sin_port   = b->sin_port   = htons(8080);
     inet_pton(AF_INET, "10.0.0.1", &a->sin_addr);
@@ -166,7 +166,7 @@ TEST(LocalEndpointFromSockaddrTest, IPv4_SetsPortAndAddress) {
     ASSERT_EQ(ct_local_endpoint_from_sockaddr(&ep, &addr), 0);
     EXPECT_EQ(ep.port, 8080);
 
-    struct sockaddr_in* stored = (struct sockaddr_in*)&ep.data.resolved_address;
+    struct sockaddr_in* stored = (struct sockaddr_in*)&ep.resolved_address;
     EXPECT_EQ(stored->sin_family, AF_INET);
     EXPECT_EQ(stored->sin_port, htons(8080));
     EXPECT_EQ(memcmp(&stored->sin_addr, &in->sin_addr, sizeof(struct in_addr)), 0);
@@ -183,7 +183,7 @@ TEST(LocalEndpointFromSockaddrTest, IPv6_SetsPortAndAddress) {
     ASSERT_EQ(ct_local_endpoint_from_sockaddr(&ep, &addr), 0);
     EXPECT_EQ(ep.port, 443);
 
-    struct sockaddr_in6* stored = (struct sockaddr_in6*)&ep.data.resolved_address;
+    struct sockaddr_in6* stored = (struct sockaddr_in6*)&ep.resolved_address;
     EXPECT_EQ(stored->sin6_family, AF_INET6);
     EXPECT_EQ(stored->sin6_port, htons(443));
     EXPECT_EQ(memcmp(&stored->sin6_addr, &in6->sin6_addr, sizeof(struct in6_addr)), 0);

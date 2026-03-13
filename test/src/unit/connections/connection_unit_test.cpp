@@ -56,7 +56,7 @@ protected:
 
         dummy_connection.socket_manager = &dummy_socket_manager;
 
-        dummy_local_endpoint.data.resolved_address.ss_family = AF_INET;
+        dummy_local_endpoint.resolved_address.ss_family = AF_INET;
         dummy_connection.all_local_endpoints = &dummy_local_endpoint;
         dummy_connection.num_local_endpoints = 1;
         dummy_connection.active_local_endpoint = 0;
@@ -415,8 +415,8 @@ TEST_F(ConnectionUnitTests, outOfBoundsIndexDies) {
 TEST_F(ConnectionUnitTests, setActiveRemoteEndpointByObjectSetsIndex) {
     ct_connection_t connection = {0};
     ct_remote_endpoint_t remote_endpoints[3] = {0};
-    ((struct sockaddr_in*)&remote_endpoints[2].data.resolved_address)->sin_addr.s_addr = INADDR_LOOPBACK;
-    ((struct sockaddr_in*)&remote_endpoints[2].data.resolved_address)->sin_family = AF_INET;
+    ((struct sockaddr_in*)&remote_endpoints[2].resolved_address)->sin_addr.s_addr = INADDR_LOOPBACK;
+    ((struct sockaddr_in*)&remote_endpoints[2].resolved_address)->sin_family = AF_INET;
 
     connection.all_remote_endpoints = remote_endpoints;
     connection.num_remote_endpoints = 3;
@@ -431,15 +431,15 @@ TEST_F(ConnectionUnitTests, setActiveRemoteEndpointByObjectSetsIndex) {
 TEST_F(ConnectionUnitTests, setActiveRemoteEndpointByObjectHandlesRemoteEndpointNotInList) {
     ct_connection_t connection = {0};
     ct_remote_endpoint_t* remote_endpoints = (ct_remote_endpoint_t*)calloc(3, sizeof(ct_remote_endpoint_t));
-    ((struct sockaddr_in*)&remote_endpoints[2].data.resolved_address)->sin_addr.s_addr = INADDR_LOOPBACK;
+    ((struct sockaddr_in*)&remote_endpoints[2].resolved_address)->sin_addr.s_addr = INADDR_LOOPBACK;
 
     connection.all_remote_endpoints = remote_endpoints;
     connection.num_remote_endpoints = 3;
     connection.active_remote_endpoint = 0;
 
     ct_remote_endpoint_t new_endpoint = {0};
-    ((struct sockaddr_in*)&new_endpoint.data.resolved_address)->sin_addr.s_addr = INADDR_DUMMY;
-    new_endpoint.data.resolved_address.ss_family = AF_INET;
+    ((struct sockaddr_in*)&new_endpoint.resolved_address)->sin_addr.s_addr = INADDR_DUMMY;
+    new_endpoint.resolved_address.ss_family = AF_INET;
 
     ct_connection_set_active_remote_endpoint(&connection, &new_endpoint);
 

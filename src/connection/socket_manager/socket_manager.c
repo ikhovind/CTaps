@@ -80,7 +80,7 @@ int socket_manager_insert_demuxed_connection(ct_socket_manager_t* socket_manager
                                              ct_connection_t* connection) {
     log_trace("Inserting demuxed connection: %s into socket manager for remote endpoint",
               connection->uuid);
-    struct sockaddr_storage remote_addr = remote->data.resolved_address;
+    struct sockaddr_storage remote_addr = remote->resolved_address;
 
     log_trace("Inserting connection into socket manager demux table for UDP protocol");
     GBytes* addr_bytes = NULL;

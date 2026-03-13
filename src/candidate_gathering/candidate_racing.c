@@ -262,7 +262,7 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
     for (size_t i = 0; i < context->num_attempts; i++) {
         if (!g_hash_table_contains(
                 remote_hash,
-                &context->attempts[i].candidate.remote_endpoint->data.resolved_address)) {
+                &context->attempts[i].candidate.remote_endpoint->resolved_address)) {
             ct_remote_endpoint_t* tmp =
                 realloc(remote_endpoints, sizeof(ct_remote_endpoint_t) * (remote_counter + 1));
             if (!tmp) {
@@ -277,7 +277,7 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
             remote_endpoints = tmp;
             g_hash_table_add(
                 remote_hash,
-                &context->attempts[i].candidate.remote_endpoint->data.resolved_address);
+                &context->attempts[i].candidate.remote_endpoint->resolved_address);
             int rc = ct_remote_endpoint_copy_content(context->attempts[i].candidate.remote_endpoint,
                                                      &remote_endpoints[remote_counter]);
             if (rc != 0) {
@@ -301,7 +301,7 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
     for (size_t i = 0; i < context->num_attempts; i++) {
         if (!g_hash_table_contains(
                 local_hash,
-                &context->attempts[i].candidate.local_endpoint->data.resolved_address)) {
+                &context->attempts[i].candidate.local_endpoint->resolved_address)) {
             ct_local_endpoint_t* tmp = realloc(local_endpoints, sizeof(ct_local_endpoint_t) *
                                                                     (local_endpoint_counter + 1));
             if (!tmp) {
@@ -317,7 +317,7 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
             log_trace(
                 "Adding local endpoint for attempt %zu to hash table and local endpoints array", i);
             g_hash_table_add(local_hash,
-                             &context->attempts[i].candidate.local_endpoint->data.resolved_address);
+                             &context->attempts[i].candidate.local_endpoint->resolved_address);
             int rc = ct_local_endpoint_copy_content(context->attempts[i].candidate.local_endpoint,
                                                     &local_endpoints[local_endpoint_counter]);
             if (rc != 0) {
@@ -335,8 +335,8 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
     g_hash_table_destroy(local_hash);
     size_t active_remote_index = 0;
     for (size_t i = 0; i < remote_counter; i++) {
-        if (memcmp(&remote_endpoints[i].data.resolved_address,
-                   &attempt->candidate.remote_endpoint->data.resolved_address,
+        if (memcmp(&remote_endpoints[i].resolved_address,
+                   &attempt->candidate.remote_endpoint->resolved_address,
                    sizeof(struct sockaddr_storage)) == 0) {
             active_remote_index = i;
             break;
@@ -345,8 +345,8 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
 
     size_t active_local_index = 0;
     for (size_t i = 0; i < local_endpoint_counter; i++) {
-        if (memcmp(&local_endpoints[i].data.resolved_address,
-                   &attempt->candidate.local_endpoint->data.resolved_address,
+        if (memcmp(&local_endpoints[i].resolved_address,
+                   &attempt->candidate.local_endpoint->resolved_address,
                    sizeof(struct sockaddr_storage)) == 0) {
             active_local_index = i;
             break;

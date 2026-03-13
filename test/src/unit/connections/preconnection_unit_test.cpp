@@ -42,8 +42,8 @@ TEST_F(PreconnectionUnitTests, SetsPreconnectionAsExpected) {
 
     EXPECT_EQ(0, preconnection->num_local_endpoints);
     EXPECT_EQ(1, preconnection->num_remote_endpoints);
-    EXPECT_EQ(AF_INET, preconnection->remote_endpoints[0].data.resolved_address.ss_family);
-    struct sockaddr_in* addr_in = (struct sockaddr_in*)&preconnection->remote_endpoints[0].data.resolved_address;
+    EXPECT_EQ(AF_INET, preconnection->remote_endpoints[0].resolved_address.ss_family);
+    struct sockaddr_in* addr_in = (struct sockaddr_in*)&preconnection->remote_endpoints[0].resolved_address;
     EXPECT_EQ(5005, ntohs(addr_in->sin_port));
     EXPECT_EQ(memcmp(preconnection->remote_endpoints, remote_endpoint, sizeof(ct_remote_endpoint_t)), 0);
 
@@ -73,7 +73,7 @@ TEST_F(PreconnectionUnitTests, TakesDeepCopyOfRemoteEndpoint) {
     memset(remote_endpoint, 0, sizeof(ct_remote_endpoint_t));
     ASSERT_EQ(0, remote_endpoint->port);
 
-    sockaddr_in* addr_in = (struct sockaddr_in*)&preconnection->remote_endpoints[0].data.resolved_address;
+    sockaddr_in* addr_in = (struct sockaddr_in*)&preconnection->remote_endpoints[0].resolved_address;
     EXPECT_EQ(5005, ntohs(addr_in->sin_port));
 
     ct_remote_endpoint_free(remote_endpoint);
@@ -107,7 +107,7 @@ TEST_F(PreconnectionUnitTests, TakesDeepCopyOfRemoteEndpointWhenBuildingWithLoca
     memset(remote_endpoint, 0, sizeof(ct_remote_endpoint_t));
     ASSERT_EQ(0, remote_endpoint->port);
 
-    sockaddr_in* addr_in = (struct sockaddr_in*)&preconnection->remote_endpoints[0].data.resolved_address;
+    sockaddr_in* addr_in = (struct sockaddr_in*)&preconnection->remote_endpoints[0].resolved_address;
     EXPECT_EQ(5005, ntohs(addr_in->sin_port));
 
     ct_local_endpoint_free(local_endpoint);
