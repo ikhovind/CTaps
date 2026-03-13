@@ -40,7 +40,7 @@ void on_msg_received(ct_connection_t* connection, ct_message_t* msg,
         } else {
             ct_receive_message(connection,
                                (ct_receive_callbacks_t){.receive_callback = on_msg_received,
-                                                        .user_receive_context = ctx});
+                                                        .per_receive_context = ctx});
         }
         break;
     case STATE_LARGE_DONE:
@@ -59,7 +59,7 @@ void on_msg_received(ct_connection_t* connection, ct_message_t* msg,
         } else {
             ct_receive_message(connection,
                                (ct_receive_callbacks_t){.receive_callback = on_msg_received,
-                                                        .user_receive_context = ctx});
+                                                        .per_receive_context = ctx});
         }
         break;
     case STATE_BOTH_DONE:
@@ -90,7 +90,7 @@ void on_connection_ready(ct_connection_t* connection) {
         ct_message_free(message);
         ctx->state = STATE_LARGE_STARTED;
         ct_receive_message(connection, (ct_receive_callbacks_t){.receive_callback = on_msg_received,
-                                                                .user_receive_context = ctx});
+                                                                .per_receive_context = ctx});
         break;
     case STATE_LARGE_STARTED:
         // error - should not get new connection here
@@ -107,7 +107,7 @@ void on_connection_ready(ct_connection_t* connection) {
         timing_end(&ctx->short_stats.handshake_time);
         timing_start(&ctx->short_stats.transfer_time);
         ct_receive_message(connection, (ct_receive_callbacks_t){.receive_callback = on_msg_received,
-                                                                .user_receive_context = ctx});
+                                                                .per_receive_context = ctx});
         message = ct_message_new_with_content("SHORT", 6);
         ct_send_message_full(connection, message, msg_ctx);
         ct_message_free(message);

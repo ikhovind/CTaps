@@ -36,7 +36,7 @@ TEST_F(ConnectionCloneTest, clonesConnectionSendsOnBothAndReceivesIndividualResp
     ct_connection_callbacks_t connection_callbacks = {
         .establishment_error = on_establishment_error,
         .ready = clone_send_and_setup_receive_on_both,
-        .user_connection_context = &test_context,
+        .per_connection_context = &test_context,
     };
 
     int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
@@ -90,13 +90,13 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
 
     ct_listener_callbacks_t listener_callbacks = {
         .connection_received = server_on_connection_received_for_cloning,
-        .user_listener_context = &test_context
+        .per_listener_context = &test_context
     };
 
     ct_connection_callbacks_t server_connection_callbacks = {
         .establishment_error = on_establishment_error,
         .ready = server_connection_setup_receive_and_respond_on_ready,
-        .user_connection_context = &test_context,
+        .per_connection_context = &test_context,
     };
 
     rc = ct_preconnection_listen(listener_precon, listener_callbacks, &server_connection_callbacks);
@@ -126,7 +126,7 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     ct_connection_callbacks_t client_callbacks = {
         .establishment_error = on_establishment_error,
         .ready = clone_send_and_setup_receive_on_both,
-        .user_connection_context = &test_context,
+        .per_connection_context = &test_context,
     };
 
     rc = ct_preconnection_initiate(client_precon, client_callbacks);
@@ -187,7 +187,7 @@ TEST_F(ConnectionCloneTest, clonesUdpConnectionSendsOnBothAndReceivesIndividualR
     ct_connection_callbacks_t connection_callbacks = {
         .establishment_error = on_establishment_error,
         .ready = clone_send_and_setup_receive_on_both,
-        .user_connection_context = &test_context,
+        .per_connection_context = &test_context,
     };
 
     int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
@@ -234,7 +234,7 @@ TEST_F(ConnectionCloneTest, clonesTcpConnectionSendsOnBothAndReceivesIndividualR
     ct_connection_callbacks_t connection_callbacks = {
         .establishment_error = on_establishment_error,
         .ready = clone_send_and_setup_receive_on_both,
-        .user_connection_context = &test_context,
+        .per_connection_context = &test_context,
     };
 
     int rc = ct_preconnection_initiate(preconnection, connection_callbacks);

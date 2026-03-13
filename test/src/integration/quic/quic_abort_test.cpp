@@ -74,7 +74,7 @@ TEST_F(QuicAbortTest, singleConnectionAbortCallsCloseImmediate) {
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
     .ready = abort_on_ready,
-    .user_connection_context = &test_context,
+    .per_connection_context = &test_context,
   };
 
   int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
@@ -128,7 +128,7 @@ TEST_F(QuicAbortTest, multiStreamAbortCallsResetStream) {
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
     .ready = clone_and_abort_on_ready,
-    .user_connection_context = &test_context,
+    .per_connection_context = &test_context,
   };
 
   int rc = ct_preconnection_initiate(preconnection, connection_callbacks);

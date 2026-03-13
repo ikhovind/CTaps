@@ -41,7 +41,7 @@ TEST_F(QuicListenTests, quicReceivesConnectionFromListenerAndExchangesMessages) 
     ct_listener_callbacks_t listener_callbacks = {
         .listener_ready = on_listener_ready_print_socket_manager_count,
         .connection_received = receive_message_respond_and_close_listener_on_connection_received,
-        .user_listener_context = &test_context
+        .per_listener_context = &test_context
     };
 
     int rc = ct_preconnection_listen(listener_precon, listener_callbacks, NULL);
@@ -73,7 +73,7 @@ TEST_F(QuicListenTests, quicReceivesConnectionFromListenerAndExchangesMessages) 
 
     ct_connection_callbacks_t client_callbacks {
         .ready = send_message_and_receive,
-        .user_connection_context = &test_context
+        .per_connection_context = &test_context
     };
 
     ct_preconnection_initiate(client_precon, client_callbacks);
@@ -140,7 +140,7 @@ TEST_F(QuicListenTests, ServerInitiatesStreamByWritingFirst) {
 
     ct_listener_callbacks_t listener_callbacks = {
         .connection_received = server_sends_first_and_waits_for_response,
-        .user_listener_context = &test_context
+        .per_listener_context = &test_context
     };
 
     int rc = ct_preconnection_listen(listener_precon, listener_callbacks, NULL);
@@ -171,7 +171,7 @@ TEST_F(QuicListenTests, ServerInitiatesStreamByWritingFirst) {
 
     ct_connection_callbacks_t client_callbacks {
         .ready = client_ready_wait_for_server,
-        .user_connection_context = &test_context
+        .per_connection_context = &test_context
     };
 
     ct_preconnection_initiate(client_precon, client_callbacks);
@@ -241,7 +241,7 @@ TEST_F(QuicListenTests, listenerCanReceive0RttMessage) {
     ct_listener_callbacks_t listener_callbacks = {
         .listener_ready = on_listener_ready_print_socket_manager_count,
         .connection_received = receive_message_respond_and_close_listener_on_connection_received,
-        .user_listener_context = &test_context
+        .per_listener_context = &test_context
     };
 
     int rc = ct_preconnection_listen(listener_precon, listener_callbacks, NULL);
@@ -276,7 +276,7 @@ TEST_F(QuicListenTests, listenerCanReceive0RttMessage) {
 
     ct_connection_callbacks_t client_callbacks {
         .ready = send_message_and_receive,
-        .user_connection_context = &test_context
+        .per_connection_context = &test_context
     };
 
     ct_preconnection_initiate(client_precon, client_callbacks);

@@ -33,7 +33,7 @@ TEST_F(RemoteEndpointDnsTests, canDnsLookupHostName) {
 
     ct_connection_callbacks_t connection_callbacks = {
         .ready = on_connection_ready,
-        .user_connection_context = &test_context
+        .per_connection_context = &test_context
     };
 
     ct_preconnection_initiate(preconnection, connection_callbacks);

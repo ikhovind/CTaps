@@ -113,7 +113,7 @@ TEST_F(CandidateRacingTests, FirstCandidateSucceeds) {
     .establishment_error = racing_test_on_establishment_error,
     .ready = racing_test_on_ready,
     .closed = free_on_close,
-    .user_connection_context = &racing_context,
+    .per_connection_context = &racing_context,
   };
 
   // Execute
@@ -149,7 +149,7 @@ TEST_F(CandidateRacingTests, connectionContainsSeveralRemotes) {
     .establishment_error = racing_test_on_establishment_error,
     .ready = racing_test_on_ready,
     .closed = capture_connection_on_close,
-    .user_connection_context = &racing_context,
+    .per_connection_context = &racing_context,
   };
 
   // Execute
@@ -195,7 +195,7 @@ TEST_F(CandidateRacingTests, connectionContainsSeveralLocals) {
     .establishment_error = racing_test_on_establishment_error,
     .ready = racing_test_on_ready,
     .closed = capture_connection_on_close,
-    .user_connection_context = &racing_context,
+    .per_connection_context = &racing_context,
   };
 
   // Execute
@@ -234,7 +234,7 @@ TEST_F(CandidateRacingTests, AllCandidatesFail) {
     .establishment_error = racing_test_on_establishment_error,
     .ready = racing_test_on_ready,
     .closed = free_on_close,
-    .user_connection_context = &racing_context,
+    .per_connection_context = &racing_context,
   };
 
   // Execute
@@ -277,7 +277,7 @@ TEST_F(CandidateRacingTests, RespectsProtocolPreferences) {
     .establishment_error = racing_test_on_establishment_error,
     .ready = racing_test_on_ready_track_protocol,
     .closed = free_on_close,
-    .user_connection_context = &racing_context,
+    .per_connection_context = &racing_context,
   };
 
   // Execute
@@ -314,7 +314,7 @@ TEST_F(CandidateRacingTests, WorksWithHostnameResolution) {
     .establishment_error = racing_test_on_establishment_error,
     .ready = racing_test_on_ready,
     .closed = free_on_close,
-    .user_connection_context = &racing_context,
+    .per_connection_context = &racing_context,
   };
 
   // Execute
@@ -356,7 +356,7 @@ TEST_F(CandidateRacingTests, SingleCandidateOptimization) {
     .establishment_error = racing_test_on_establishment_error,
     .ready = racing_test_on_ready,
     .closed = free_on_close,
-    .user_connection_context = &racing_context,
+    .per_connection_context = &racing_context,
   };
 
   // Execute - should use single-candidate path
@@ -398,7 +398,7 @@ TEST_F(CandidateRacingTests, HandlesNoCandidates) {
     .establishment_error = racing_test_on_establishment_error,
     .ready = racing_test_on_ready,
     .closed = free_on_close,
-    .user_connection_context = &test_context,
+    .per_connection_context = &test_context,
   };
 
   // Execute

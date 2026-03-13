@@ -328,7 +328,7 @@ typedef struct ct_message_context_s {
     ct_message_properties_t message_properties;  ///< Per-message transmission properties
     const ct_local_endpoint_t* local_endpoint;   ///< Local endpoint for this message (optional)
     const ct_remote_endpoint_t* remote_endpoint; ///< Remote endpoint for this message (optional)
-    void* user_receive_context;                  ///< User context from ct_receive_callbacks_t
+    void* per_receive_context;                  ///< User context from ct_receive_callbacks_t
 } ct_message_context_t;
 
 /**

@@ -11,7 +11,7 @@ extern "C" {
 
 void on_listener_ready(ct_listener_t* listener) {
     log_debug("Listener is ready: %p", (void*)listener);
-    auto* ctx = static_cast<CallbackContext*>(listener->listener_callbacks.user_listener_context);
+    auto* ctx = static_cast<CallbackContext*>(listener->listener_callbacks.per_listener_context);
     if (ctx && ctx->listener_ready_action) {
         ctx->listener_ready_action();
     }
@@ -44,7 +44,7 @@ TEST_F(UdpListenTests, receivesConnectionFromListenerAndExchangesMessages) {
 
     ct_connection_callbacks_t client_callbacks {
         .ready = send_message_and_receive,
-        .user_connection_context = &test_context
+        .per_connection_context = &test_context
     };
 
     // Initiation is deferred until the listener signals it's ready
@@ -55,7 +55,7 @@ TEST_F(UdpListenTests, receivesConnectionFromListenerAndExchangesMessages) {
     ct_listener_callbacks_t listener_callbacks = {
         .listener_ready = on_listener_ready,
         .connection_received = receive_message_respond_and_close_listener_on_connection_received,
-        .user_listener_context = &test_context
+        .per_listener_context = &test_context
     };
 
     int rc = ct_preconnection_listen(listener_precon, listener_callbacks, NULL);
@@ -115,7 +115,7 @@ TEST_F(UdpListenTests, canReceiveAfterListenerCLose) {
 
     ct_connection_callbacks_t client_callbacks {
         .ready = send_message_and_receive,
-        .user_connection_context = &test_context
+        .per_connection_context = &test_context
     };
 
     // Initiation is deferred until the listener signals it's ready
@@ -127,7 +127,7 @@ TEST_F(UdpListenTests, canReceiveAfterListenerCLose) {
         .listener_ready = on_listener_ready,
         .connection_received = close_listener_on_connection_received,
         .listener_closed = send_message_and_receive_from_first_server_connection_on_listener_close,
-        .user_listener_context = &test_context
+        .per_listener_context = &test_context
     };
 
     int rc = ct_preconnection_listen(listener_precon, listener_callbacks, NULL);

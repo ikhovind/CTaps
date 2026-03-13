@@ -42,7 +42,7 @@ TEST_F(UdpPingTests, sendsSingleUdpPacketWithoutEarlySend) {
     .establishment_error = on_establishment_error,
     .ready = send_message_and_receive,
     .sent = fake_message_sent,
-    .user_connection_context = &test_context,
+    .per_connection_context = &test_context,
   };
 
   int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
@@ -89,7 +89,7 @@ TEST_F(UdpPingTests, packetsAreReadInOrder) {
     .establishment_error = on_establishment_error,
     .ready = send_two_messages_on_ready,
     .sent = fake_message_sent,
-    .user_connection_context = &test_context,
+    .per_connection_context = &test_context,
   };
 
   int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
@@ -135,7 +135,7 @@ TEST_F(UdpPingTests, canPingArbitraryBytes) {
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = on_establishment_error,
     .ready = send_bytes_on_ready,
-    .user_connection_context = &test_context,
+    .per_connection_context = &test_context,
   };
 
   int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
@@ -182,7 +182,7 @@ TEST_F(UdpPingTests, sendsSingleUdpPacketWithInitiateWithSend) {
     .establishment_error = on_establishment_error,
     .ready = receive_on_ready,
     .sent = fake_message_sent,
-    .user_connection_context = &test_context,
+    .per_connection_context = &test_context,
   };
 
   ct_message_t* message = ct_message_new_with_content("ping", strlen("ping") + 1);
