@@ -39,3 +39,6 @@ compile_commands.json
 benchmark/results/
 CLAUDE.md
 cmake-variants.yaml
+rfc9621.txt
+rfc9622.txt
+rfc9623.txt
