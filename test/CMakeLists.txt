@@ -18,6 +18,7 @@ FetchContent_Declare(
   DOWNLOAD_EXTRACT_TIMESTAMP TRUE  # Ensure the extracted files use the timestamp of extraction
   URL https://github.com/meekrosoft/fff/archive/refs/heads/master.zip
 )
+
 FetchContent_MakeAvailable(fff)
 
 add_executable(picoquic_ping_server picoquic_ping_server.c)
@@ -26,7 +27,12 @@ target_link_libraries(picoquic_ping_server PRIVATE picoquic-core)
 add_executable(tcp_ping_server tcp_ping_server.c)
 add_executable(udp_ping_server udp_ping_server.c)
 
-target_compile_definitions(picoquic_ping_server PRIVATE TEST_RESOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/resources\")
+target_compile_definitions(
+  picoquic_ping_server
+    PRIVATE 
+      _GNU_SOURCE
+      TEST_RESOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/resources\"
+)
 
 # ---- Tests ----
 function(add_gtest test_name)
@@ -48,6 +54,7 @@ function(add_gtest test_name)
 
     target_compile_definitions(${test_name}
             PRIVATE
+            _GNU_SOURCE
             TEST_RESOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/resources\"
             PICOQUIC_PING_SERVER_PATH="$<TARGET_FILE:picoquic_ping_server>"
             TCP_PING_SERVER_PATH="$<TARGET_FILE:tcp_ping_server>"
@@ -85,9 +92,9 @@ function(add_gtest test_name)
             ${GLIB_LIBRARIES}
             ${UUID_LIBRARIES}
             uv
-            picoquic-log
             picoquic-core
     )
+
 
     target_compile_features(${test_name} PRIVATE c_std_99)
     target_include_directories(${test_name} PRIVATE
@@ -96,13 +103,6 @@ function(add_gtest test_name)
             ${CMAKE_SOURCE_DIR}/src
             ${GLIB_INCLUDE_DIRS}
             ${GLIB_LIBRARIES}
-    )
-
-    target_include_directories(${test_name}
-            PRIVATE
-            "${picotls_SOURCE_DIR}/include"
-            "${picoquic_SOURCE_DIR}/loglib"
-            "${picoquic_SOURCE_DIR}/picoquic"
     )
 
     # Always malloc helps us discover memory leaks with ASAN

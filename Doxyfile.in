@@ -14,7 +14,7 @@ OUTPUT_DIRECTORY       = @CMAKE_CURRENT_BINARY_DIR@/docs
 #---------------------------------------------------------------------------
 
 EXTRACT_ALL            = YES
-WARN_NO_PARAMDOC       = YES
+WARN_NO_PARAMDOC       = NO
 TIMESTAMP              = YES
 
 #---------------------------------------------------------------------------

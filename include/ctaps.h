@@ -16,7 +16,7 @@
 #include <sys/socket.h>
 
 // Symbol visibility control - only export public API functions
-#if defined(__GNUC__) || defined(__clang__)
+#if defined(__GNUC__)
 #define CT_EXTERN __attribute__((visibility("default")))
 #else
 #define CT_EXTERN
@@ -312,7 +312,6 @@ f(RECV_MESSAGE_MAX_LEN,              "recvMessageMaxLen",             uint64_t, 
 f(USER_TIMEOUT_VALUE_MS,   "userTimeoutValueMs",   uint32_t, user_timeout_value_ms,   TCP_USER_TIMEOUT, TYPE_UINT32) \
 f(USER_TIMEOUT_ENABLED,    "userTimeoutEnabled",    bool,     user_timeout_enabled,    false,            TYPE_BOOL)   \
 f(USER_TIMEOUT_CHANGEABLE, "userTimeoutChangeable", bool,     user_timeout_changeable, true,             TYPE_BOOL)
-// clang-format on
 
 // =============================================================================
 // Transport Properties - Combination of selection and connection properties
@@ -351,23 +350,25 @@ typedef struct ct_transport_properties_s ct_transport_properties_t;
         ct_selection_preference_t preference);
 
 get_selection_property_list(output_transport_property_getter_declaration)
-    get_selection_property_list(output_transport_property_setter_declaration)
+get_selection_property_list(output_transport_property_setter_declaration)
 
-        get_preference_set_selection_property_list(
-            output_transport_property_preference_getter_declaration)
-            get_preference_set_selection_property_list(
-                output_transport_property_preference_set_adder)
+get_preference_set_selection_property_list(
+    output_transport_property_preference_getter_declaration)
+get_preference_set_selection_property_list(
+    output_transport_property_preference_set_adder)
 
-                get_writable_connection_property_list(output_transport_property_getter_declaration)
-                    get_writable_connection_property_list(
-                        output_transport_property_setter_declaration)
+get_writable_connection_property_list(output_transport_property_getter_declaration)
+get_writable_connection_property_list(
+    output_transport_property_setter_declaration)
 
-                        get_tcp_connection_properties(output_transport_property_getter_declaration)
-                            get_tcp_connection_properties(
-                                output_transport_property_setter_declaration)
+get_tcp_connection_properties(output_transport_property_getter_declaration)
+get_tcp_connection_properties(
+    output_transport_property_setter_declaration)
 
-                                get_read_only_connection_properties(
-                                    output_transport_property_getter_declaration)
+get_read_only_connection_properties(
+    output_transport_property_getter_declaration)
+
+// clang-format on
 
     // #################
     // # Message Properties

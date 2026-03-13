@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include "benchmark_stats.h"
 #include <stdio.h>
 #include <stdlib.h>

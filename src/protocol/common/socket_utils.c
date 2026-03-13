@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include "socket_utils.h"
 #include "connection/connection.h"
 #include "endpoint/local_endpoint.h"

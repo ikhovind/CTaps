@@ -3,35 +3,27 @@ cmake_minimum_required(VERSION 3.21)
 project(
     CTaps
     VERSION 0.1.0
-    DESCRIPTION "A C implementation of the Transport Services as described in RFC 9622"
+    DESCRIPTION "A C implementation of the TAPS as described in RFC 9621 - 9623"
     HOMEPAGE_URL "https://github.com/ikhovind/ctaps"
     LANGUAGES C
 )
 
-find_program(CCACHE_PROGRAM ccache)
-if(CCACHE_PROGRAM)
-    set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
-endif()
-
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+# Needed for picoquic (picotls specifically)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-set(CMAKE_MESSAGE_LOG_LEVEL DEBUG)
 
-
-# ---- Build Type Configuration ----
-# Set default build type to Debug if not specified
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
 endif()
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
-# Linker flags for Release build (strip symbols)
-set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "-s" CACHE STRING "Shared linker flags for Release build")
+find_package(PkgConfig REQUIRED)
 
-include(tidy)
-include(doxygen)
+pkg_check_modules(GLIB REQUIRED IMPORTED_TARGET glib-2.0)
+
+
 include(dependencies)
 
 set(CTAPS_SOURCES
@@ -81,7 +73,12 @@ add_library(
         ${CTAPS_SOURCES}
 )
 
-# Set symbol visibility to hidden by default - only CT_EXTERN functions are exported
+target_compile_definitions(CTaps PRIVATE
+    _GNU_SOURCE
+    $<$<CONFIG:Release>:NDEBUG>
+)
+
+# Hidden by default - only CT_EXTERN functions are exported
 set_target_properties(CTaps PROPERTIES
     C_VISIBILITY_PRESET hidden
 )
@@ -89,28 +86,14 @@ set_target_properties(CTaps PROPERTIES
 target_compile_options(CTaps PRIVATE
      -Wall -Wextra -Wpedantic -Werror
      $<$<CONFIG:Debug>:-O0 -g3>
-     $<$<CONFIG:DebugMig>:-O0 -g3>
-     $<$<CONFIG:Release>:-O2 -DNDEBUG>
+     $<$<CONFIG:Release>:-O2>
 )
 
 target_include_directories(CTaps
         PUBLIC
           $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-          $<INSTALL_INTERFACE:include> # Path after installation
         PRIVATE
           $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
-)
-
-find_package(PkgConfig REQUIRED)
-
-pkg_check_modules(GLIB REQUIRED glib-2.0)
-
-# This is the only way I have managed to link against picotls
-target_include_directories(CTaps
-        PRIVATE 
-        "${picotls_SOURCE_DIR}/include"
-        "${picoquic_SOURCE_DIR}/picoquic"
-        ${GLIB_INCLUDE_DIRS}
 )
 
 target_link_libraries(
@@ -118,16 +101,18 @@ target_link_libraries(
         PRIVATE
             uv
             picoquic-core
-            picoquic-log
-            ${GLIB_LIBRARIES}
+            PkgConfig::GLIB
 )
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+    include(tidy)
+    include(doxygen)
+
     enable_testing()
 
     add_subdirectory (test)
 
     add_subdirectory (benchmark)
-endif()
 
-add_subdirectory (examples)
+    add_subdirectory (examples)
+endif()

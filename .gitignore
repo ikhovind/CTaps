@@ -38,3 +38,4 @@ compile_commands.json
 # Benchmark results
 benchmark/results/
 CLAUDE.md
+cmake-variants.yaml

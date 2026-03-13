@@ -14,6 +14,12 @@ add_library(benchmark_common
     src/common/benchmark_stats.c
 )
 
+target_compile_definitions(benchmark_common
+    PUBLIC
+    RESOURCE_FOLDER=\"${CMAKE_CURRENT_SOURCE_DIR}/../test/quic\"
+    _GNU_SOURCE
+)
+
 target_include_directories(benchmark_common PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
@@ -59,19 +65,9 @@ target_link_libraries(taps_quic_client
     CTaps
 )
 
-target_compile_definitions(taps_quic_client
-    PRIVATE
-    RESOURCE_FOLDER=\"${CMAKE_CURRENT_SOURCE_DIR}/../test/quic\"
-)
-
 # QUIC Server
 add_executable(quic_server
     src/server/quic_server.c
-)
-
-target_compile_definitions(quic_server
-    PRIVATE
-    RESOURCE_FOLDER=\"${CMAKE_CURRENT_SOURCE_DIR}/../test/quic\"
 )
 
 target_link_libraries(quic_server

@@ -1,16 +1,15 @@
-#define _GNU_SOURCE
 #include "quic.h"
 #include "connection/connection.h"
 #include "connection/connection_group.h"
 #include "ctaps.h"
 #include "protocol/common/socket_utils.h"
+#include <assert.h>
 #include <glib.h>
 #include <logging/log.h>
 #include <net/if.h>
 #include <netinet/in.h>
 #include <picoquic.h>
 #include <picoquic_utils.h>
-#include <picotls.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -444,7 +443,7 @@ ct_quic_socket_state_t* ct_connection_get_quic_socket_state(const ct_connection_
     return (ct_quic_socket_state_t*)connection->socket_manager->internal_socket_manager_state;
 }
 
-size_t quic_alpn_select_cb(picoquic_quic_t* quic, ptls_iovec_t* list, size_t count) {
+size_t quic_alpn_select_cb(picoquic_quic_t* quic, picoquic_iovec_t* list, size_t count) {
     log_trace("QUIC server alpn select cb");
 
     (void)count;
@@ -1702,7 +1701,7 @@ int quic_listen(ct_socket_manager_t* socket_manager) {
     }
 
     // Set ALPN select callback
-    picoquic_set_alpn_select_fn(socket_state->picoquic_ctx, quic_alpn_select_cb);
+    picoquic_set_alpn_select_fn_v2(socket_state->picoquic_ctx, quic_alpn_select_cb);
 
     // Create UDP handle bound to the listener's local endpoint
     ct_udp_poll_handle_t* poll_handle = create_udp_poll_on_local(listener->local_endpoint);
