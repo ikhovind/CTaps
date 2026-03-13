@@ -23,7 +23,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Install doxygen 
-        run: sudo apt-get update && sudo apt-get install -y doxygen libglib2.0-dev
+        run: sudo apt-get update && sudo apt-get install -y doxygen libglib2.0-dev graphviz
       - name: Build Doxygen
         run: |
              cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Debug
