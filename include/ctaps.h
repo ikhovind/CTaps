@@ -694,7 +694,6 @@ typedef struct ct_remote_endpoint_s ct_remote_endpoint_t;
  * when done.
  *
  * @return Pointer to newly allocated endpoint, or NULL on error
- * @see endpoint_ownership
  */
 CT_EXTERN ct_local_endpoint_t* ct_local_endpoint_new(void);
 
@@ -751,7 +750,8 @@ CT_EXTERN int ct_local_endpoint_with_ipv6(ct_local_endpoint_t* local_endpoint,
  * @ingroup local_endpoints
  * @brief Initialize a local endpoint from a sockaddr structure.
  *
- * @note caller retains ownership of passed sockaddr structure
+ * CTaps also does not take ownership of the addr pointer,
+ * so it can be safely freed after return.
  *
  * @param[out] local_endpoint Endpoint to initialize
  * @param[in] addr Socket address structure
@@ -1363,6 +1363,10 @@ CT_EXTERN void ct_preconnection_free(ct_preconnection_t* preconnection);
 /**
  * @ingroup preconnection
  * @brief Set a message framer for the preconnection.
+ *
+ * CTaps does not take ownership of the framer, so it can be
+ * safely freed after return.
+ *
  * @param[in,out] preconnection Preconnection to modify
  * @param[in] framer_impl Framer implementation to use, or NULL for no framing
  */
@@ -1376,6 +1380,12 @@ CT_EXTERN void ct_preconnection_set_framer(ct_preconnection_t* preconnection,
  * Initiates a connection using the configured Preconnection. The connection is allocated
  * internally and provided to the user via the ready() callback.
  *
+ * CTaps also does not take ownership of the preconnection pointer, so it can be
+ * safely freed after return.
+ *
+ * CTaps also does not take ownership of the connection_callbacks pointer,
+ * so it can be safely freed after return if needed.
+ *
  * @param[in] preconnection Pointer to the Preconnection object containing the connection
  *                          configuration.
  * @param[in] connection_callbacks Struct containing callback functions for connection events:
@@ -1385,8 +1395,8 @@ CT_EXTERN void ct_preconnection_set_framer(ct_preconnection_t* preconnection,
  *
  * @note Asynchronous errors are reported via the establishment_error callback
  */
-CT_EXTERN int ct_preconnection_initiate(ct_preconnection_t* preconnection,
-                                        ct_connection_callbacks_t connection_callbacks);
+CT_EXTERN int ct_preconnection_initiate(const ct_preconnection_t* preconnection,
+                                        const ct_connection_callbacks_t* connection_callbacks);
 
 /**
  * @ingroup preconnection
@@ -1396,6 +1406,9 @@ CT_EXTERN int ct_preconnection_initiate(ct_preconnection_t* preconnection,
  * internally and provided to the user via the ready() callback. If the underlying protocol
  * supports 0-RTT or early data, the message may be sent during the handshake.
  * Otherwise the data will be sent immediately after establishment.
+ *
+ * CTaps also does not take ownership of any passed pointer, so they can all be
+ * safely freed after this connection returns.
  *
  * @param[in] preconnection Pointer to the Preconnection object containing the connection
  *                          configuration.
@@ -1407,14 +1420,17 @@ CT_EXTERN int ct_preconnection_initiate(ct_preconnection_t* preconnection,
  * @note Asynchronous errors are reported via the establishment_error callback
  * @note the message context must have the MSG_SAFELY_REPLAYABLE property set to make use of 0-RTT
  */
-CT_EXTERN int ct_preconnection_initiate_with_send(ct_preconnection_t* preconnection,
-                                                  ct_connection_callbacks_t connection_callbacks,
+CT_EXTERN int ct_preconnection_initiate_with_send(const ct_preconnection_t* preconnection,
+                                                  const ct_connection_callbacks_t* connection_callbacks,
                                                   const ct_message_t* message,
                                                   const ct_message_context_t* message_context);
 
 /**
  * @ingroup preconnection
  * @brief Start listening for incoming connections using the configured Preconnection.
+ *
+ * CTaps also does not take ownership of any passed pointer, so they can all be
+ * safely freed after this connection returns.
  *
  * @param[in] preconnection Pointer to preconnection with listener configuration
  * @param[in] listener_callbacks Callbacks for listener events (ready, connection_received, etc.)
@@ -1424,7 +1440,7 @@ CT_EXTERN int ct_preconnection_initiate_with_send(ct_preconnection_t* preconnect
  * @see ct_listener_close() to stop accepting new connections
  */
 CT_EXTERN int ct_preconnection_listen(const ct_preconnection_t* preconnection,
-                                      ct_listener_callbacks_t listener_callbacks,
+                                      const ct_listener_callbacks_t* listener_callbacks,
                                       const ct_connection_callbacks_t* connection_callbacks);
 
 /**
@@ -1458,12 +1474,16 @@ CT_EXTERN int ct_send_message_full(ct_connection_t* connection, const ct_message
 /**
  * @ingroup connection
  * @brief Register callbacks to receive messages on a connection.
+ *
+ * CTaps does not take ownership of the receive_callbacks pointer,
+ * so it can be safely freed after return.
+ *
  * @param[in] connection The connection to receive on
  * @param[in] receive_callbacks Callbacks for receive events
  * @return 0 on success, non-zero on error
  */
 CT_EXTERN int ct_receive_message(ct_connection_t* connection,
-                                 ct_receive_callbacks_t receive_callbacks);
+                                 const ct_receive_callbacks_t* receive_callbacks);
 
 /**
  * @ingroup connection
@@ -1748,9 +1768,6 @@ CT_EXTERN void ct_connection_abort_group(ct_connection_t* connection);
 /**
  * @ingroup connection
  * @brief Enumeration of currently supported transport protocols.
- *
- * @param[in] connection The connection to query
- * @return The transport protocol enum value, or CT_PROTOCOL_ERROR if protocol cannot be determined
  */
 typedef enum {
     CT_PROTOCOL_ERROR = -1, // returned from getters in errors, e.g. null connection

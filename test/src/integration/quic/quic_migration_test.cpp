@@ -54,7 +54,7 @@ TEST_F(QuicMigrationTest, migratesAfterPrimaryRemoteFails) {
         .user_connection_context = &test_context,
     };
 
-    ct_preconnection_initiate(preconnection, callbacks);
+    ct_preconnection_initiate(preconnection, &callbacks);
     ct_start_event_loop();
 
     ct_connection_t* connection = test_context.client_connections[0];
@@ -117,7 +117,7 @@ TEST_F(QuicMigrationTest, migratesAfterPrimaryLocalFails) {
         .user_connection_context = &test_context,
     };
 
-    ct_preconnection_initiate(preconnection, callbacks);
+    ct_preconnection_initiate(preconnection, &callbacks);
     ct_start_event_loop();
 
     ct_connection_t* connection = test_context.client_connections[0];

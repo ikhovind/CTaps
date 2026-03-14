@@ -52,7 +52,7 @@ TEST_F(QuicPingTest, successfullyPingsQuicServerWithout0Rtt) {
     .per_connection_context = &test_context,
   };
 
-  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -107,7 +107,7 @@ TEST_F(QuicPingTest, connectionFailsIfAlpnDoesNotMatch) {
     .per_connection_context = &test_context,
   };
 
-  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
 
   ct_start_event_loop();
 
@@ -152,7 +152,7 @@ TEST_F(QuicPingTest, successfullyPingsQuicServerEvenIfFirstAlpnDoesNotMatch) {
     .per_connection_context = &test_context,
   };
 
-  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -210,7 +210,7 @@ TEST_F(QuicPingTest, successfullyPingsQuicServerWith0Rtt) {
     .per_connection_context = &test_context,
   };
 
-  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -248,7 +248,7 @@ TEST_F(QuicPingTest, successfullyPingsQuicServerWith0Rtt) {
   ct_message_context_t* message_context = ct_message_context_new();
   ct_message_context_set_safely_replayable(message_context, true);
 
-  rc = ct_preconnection_initiate_with_send(preconnection, connection_callbacks, message, message_context);
+  rc = ct_preconnection_initiate_with_send(preconnection, &connection_callbacks, message, message_context);
   ct_message_context_free(message_context);
 
   ct_message_free(message);
@@ -307,7 +307,7 @@ TEST_F(QuicPingTest, doesNotUse0rttWithNormalInitiate) {
     .per_connection_context = &test_context,
   };
 
-  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -329,7 +329,7 @@ TEST_F(QuicPingTest, doesNotUse0rttWithNormalInitiate) {
 
   // --- 2nd Connection with 0-RTT ---
 
-  rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+  rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -382,7 +382,7 @@ TEST_F(QuicPingTest, doesNotUse0rttWhenReplayableNotSet) {
     .per_connection_context = &test_context,
   };
 
-  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -413,7 +413,7 @@ TEST_F(QuicPingTest, doesNotUse0rttWhenReplayableNotSet) {
   ct_message_context_t* message_context = ct_message_context_new();
   ct_message_context_set_safely_replayable(message_context, false);
 
-  rc = ct_preconnection_initiate_with_send(preconnection, connection_callbacks, message, message_context);
+  rc = ct_preconnection_initiate_with_send(preconnection, &connection_callbacks, message, message_context);
   ct_message_context_free(message_context);
 
   ct_message_free(message);

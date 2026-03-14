@@ -66,7 +66,7 @@ TEST_F(DnsIntegrationTest, canDnsLookupHostName) {
         .ready = on_connection_ready,
         .per_connection_context = &test_context
     };
-    ct_preconnection_initiate(preconnection, connection_callbacks);
+    ct_preconnection_initiate(preconnection, &connection_callbacks);
     ct_start_event_loop();
 
     ct_connection_t* saved_connection = test_context.client_connections[0];

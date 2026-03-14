@@ -48,7 +48,7 @@ TEST_F(TcpPingTest, successfullyConnectsToTcpServer) {
     .per_connection_context = &test_context,
   };
 
-  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -88,7 +88,7 @@ TEST_F(TcpPingTest, connectionErrorCalledWhenNoServer) {
     .per_connection_context = &test_context,
   };
 
-  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -132,7 +132,7 @@ TEST_F(TcpPingTest, sendsSingleTcpMessage) {
     .per_connection_context = &test_context,
   };
 
-  rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+  rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 

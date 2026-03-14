@@ -44,7 +44,7 @@ TEST_F(QuicListenTests, quicReceivesConnectionFromListenerAndExchangesMessages) 
         .per_listener_context = &test_context
     };
 
-    int rc = ct_preconnection_listen(listener_precon, listener_callbacks, NULL);
+    int rc = ct_preconnection_listen(listener_precon, &listener_callbacks, NULL);
     ASSERT_EQ(rc, 0);
 
     // --- SETUP CLIENT ---
@@ -76,7 +76,7 @@ TEST_F(QuicListenTests, quicReceivesConnectionFromListenerAndExchangesMessages) 
         .per_connection_context = &test_context
     };
 
-    ct_preconnection_initiate(client_precon, client_callbacks);
+    ct_preconnection_initiate(client_precon, &client_callbacks);
   /*
 
     // --- RUN EVENT LOOP ---
@@ -143,7 +143,7 @@ TEST_F(QuicListenTests, ServerInitiatesStreamByWritingFirst) {
         .per_listener_context = &test_context
     };
 
-    int rc = ct_preconnection_listen(listener_precon, listener_callbacks, NULL);
+    int rc = ct_preconnection_listen(listener_precon, &listener_callbacks, NULL);
     ASSERT_EQ(rc, 0);
 
     // --- SETUP CLIENT ---
@@ -174,7 +174,7 @@ TEST_F(QuicListenTests, ServerInitiatesStreamByWritingFirst) {
         .per_connection_context = &test_context
     };
 
-    ct_preconnection_initiate(client_precon, client_callbacks);
+    ct_preconnection_initiate(client_precon, &client_callbacks);
 
     // --- RUN EVENT LOOP ---
     ct_start_event_loop();
@@ -244,7 +244,7 @@ TEST_F(QuicListenTests, listenerCanReceive0RttMessage) {
         .per_listener_context = &test_context
     };
 
-    int rc = ct_preconnection_listen(listener_precon, listener_callbacks, NULL);
+    int rc = ct_preconnection_listen(listener_precon, &listener_callbacks, NULL);
     ASSERT_EQ(rc, 0);
 
     // --- SETUP CLIENT ---
@@ -279,7 +279,7 @@ TEST_F(QuicListenTests, listenerCanReceive0RttMessage) {
         .per_connection_context = &test_context
     };
 
-    ct_preconnection_initiate(client_precon, client_callbacks);
+    ct_preconnection_initiate(client_precon, &client_callbacks);
   /*
 
     // --- RUN EVENT LOOP ---
@@ -306,7 +306,7 @@ TEST_F(QuicListenTests, listenerCanReceive0RttMessage) {
     ASSERT_FALSE(ct_connection_sent_early_data(client_connection));
 
     // ============= second round with 0-RTT =============
-    rc = ct_preconnection_listen(listener_precon, listener_callbacks, NULL);
+    rc = ct_preconnection_listen(listener_precon, &listener_callbacks, NULL);
     ASSERT_EQ(rc, 0);
 
     // --- SETUP CLIENT ---
@@ -316,7 +316,7 @@ TEST_F(QuicListenTests, listenerCanReceive0RttMessage) {
     ct_message_context_t* early_data_ctx = ct_message_context_new();
     ct_message_context_set_safely_replayable(early_data_ctx, true);
 
-    ct_preconnection_initiate_with_send(client_precon, client_callbacks, early_data_msg, early_data_ctx);
+    ct_preconnection_initiate_with_send(client_precon, &client_callbacks, early_data_msg, early_data_ctx);
     ct_message_context_free(early_data_ctx);
     ct_message_free(early_data_msg);
 

@@ -38,9 +38,11 @@ void on_msg_received(ct_connection_t* connection, ct_message_t* msg,
             client_ctx.state = STATE_LARGE_DONE;
             initiate_short_transfer(connection);
         } else {
-            ct_receive_message(connection,
-                               (ct_receive_callbacks_t){.receive_callback = on_msg_received,
-                                                        .per_receive_context = ctx});
+                ct_receive_callbacks_t receive_callbacks = {
+                    .receive_callback = on_msg_received,
+                    .per_receive_context = ctx
+                };
+            ct_receive_message(connection, &receive_callbacks);
         }
         break;
     case STATE_LARGE_DONE:
@@ -57,9 +59,11 @@ void on_msg_received(ct_connection_t* connection, ct_message_t* msg,
                 printf("Both LARGE and SHORT file transfers completed successfully.\n");
             ct_connection_close_group(connection);
         } else {
-            ct_receive_message(connection,
-                               (ct_receive_callbacks_t){.receive_callback = on_msg_received,
-                                                        .per_receive_context = ctx});
+            ct_receive_callbacks_t receive_callbacks = {
+                .receive_callback = on_msg_received,
+                .per_receive_context = ctx
+            };
+            ct_receive_message(connection, &receive_callbacks);
         }
         break;
     case STATE_BOTH_DONE:
@@ -78,7 +82,7 @@ void on_connection_ready(ct_connection_t* connection) {
     }
     ct_message_context_set_final(msg_ctx, true);
     switch (ctx->state) {
-    case TRANSFER_NONE_STARTED:
+    case TRANSFER_NONE_STARTED: {
         // start large file transfer
         if (!json_only_mode)
             printf("Connection established, starting LARGE file transfer: %s\n",
@@ -89,30 +93,39 @@ void on_connection_ready(ct_connection_t* connection) {
         ct_send_message_full(connection, message, msg_ctx);
         ct_message_free(message);
         ctx->state = STATE_LARGE_STARTED;
-        ct_receive_message(connection, (ct_receive_callbacks_t){.receive_callback = on_msg_received,
-                                                                .per_receive_context = ctx});
+        ct_receive_callbacks_t receive_callbacks = {
+                .receive_callback = on_msg_received,
+                .per_receive_context = ctx
+            };
+        ct_receive_message(connection, &receive_callbacks);
         break;
-    case STATE_LARGE_STARTED:
+    }
+    case STATE_LARGE_STARTED: {
         // error - should not get new connection here
         if (!json_only_mode)
             printf("Unexpected connection established in STATE_LARGE_STARTED\n");
         ct_message_context_free(msg_ctx);
         return ;
         break;
-    case STATE_LARGE_DONE:
+    }
+    case STATE_LARGE_DONE: {
         // start small file transfer
         if (!json_only_mode)
             printf("Connection established, starting SHORT file transfer: %s\n",
                    ct_connection_get_uuid(connection));
         timing_end(&ctx->short_stats.handshake_time);
         timing_start(&ctx->short_stats.transfer_time);
-        ct_receive_message(connection, (ct_receive_callbacks_t){.receive_callback = on_msg_received,
-                                                                .per_receive_context = ctx});
+        ct_receive_callbacks_t receive_callbacks = {
+                .receive_callback = on_msg_received,
+                .per_receive_context = ctx
+            };
+        ct_receive_message(connection, &receive_callbacks);
         message = ct_message_new_with_content("SHORT", 6);
         ct_send_message_full(connection, message, msg_ctx);
         ct_message_free(message);
         ctx->state = STATE_SHORT_STARTED;
         break;
+            }
     case STATE_SHORT_STARTED:
         // error - should not get new connection here
         if (!json_only_mode)

@@ -49,7 +49,7 @@ TEST_F(UdpListenTests, receivesConnectionFromListenerAndExchangesMessages) {
 
     // Initiation is deferred until the listener signals it's ready
     test_context.listener_ready_action = [client_precon, client_callbacks]() {
-        ct_preconnection_initiate(client_precon, client_callbacks);
+        ct_preconnection_initiate(client_precon, &client_callbacks);
     };
 
     ct_listener_callbacks_t listener_callbacks = {
@@ -58,7 +58,7 @@ TEST_F(UdpListenTests, receivesConnectionFromListenerAndExchangesMessages) {
         .per_listener_context = &test_context
     };
 
-    int rc = ct_preconnection_listen(listener_precon, listener_callbacks, NULL);
+    int rc = ct_preconnection_listen(listener_precon, &listener_callbacks, NULL);
     ASSERT_EQ(rc, 0);
 
     // --- RUN EVENT LOOP ---
@@ -120,7 +120,7 @@ TEST_F(UdpListenTests, canReceiveAfterListenerCLose) {
 
     // Initiation is deferred until the listener signals it's ready
     test_context.listener_ready_action = [client_precon, client_callbacks]() {
-        ct_preconnection_initiate(client_precon, client_callbacks);
+        ct_preconnection_initiate(client_precon, &client_callbacks);
     };
 
     ct_listener_callbacks_t listener_callbacks = {
@@ -130,7 +130,7 @@ TEST_F(UdpListenTests, canReceiveAfterListenerCLose) {
         .per_listener_context = &test_context
     };
 
-    int rc = ct_preconnection_listen(listener_precon, listener_callbacks, NULL);
+    int rc = ct_preconnection_listen(listener_precon, &listener_callbacks, NULL);
     ASSERT_EQ(rc, 0);
 
     // --- RUN EVENT LOOP ---

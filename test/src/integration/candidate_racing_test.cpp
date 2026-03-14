@@ -117,7 +117,7 @@ TEST_F(CandidateRacingTests, FirstCandidateSucceeds) {
   };
 
   // Execute
-  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -153,7 +153,7 @@ TEST_F(CandidateRacingTests, connectionContainsSeveralRemotes) {
   };
 
   // Execute
-  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -199,7 +199,7 @@ TEST_F(CandidateRacingTests, connectionContainsSeveralLocals) {
   };
 
   // Execute
-  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -238,7 +238,7 @@ TEST_F(CandidateRacingTests, AllCandidatesFail) {
   };
 
   // Execute
-  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -281,7 +281,7 @@ TEST_F(CandidateRacingTests, RespectsProtocolPreferences) {
   };
 
   // Execute
-  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -318,7 +318,7 @@ TEST_F(CandidateRacingTests, WorksWithHostnameResolution) {
   };
 
   // Execute
-  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -360,7 +360,7 @@ TEST_F(CandidateRacingTests, SingleCandidateOptimization) {
   };
 
   // Execute - should use single-candidate path
-  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -402,7 +402,7 @@ TEST_F(CandidateRacingTests, HandlesNoCandidates) {
   };
 
   // Execute
-  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 

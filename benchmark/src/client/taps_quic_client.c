@@ -88,7 +88,7 @@ int main(int argc, char* argv[]) {
 
     timing_start(&client_ctx.large_stats.handshake_time);
 
-    int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+    int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
 
     ct_start_event_loop();
 

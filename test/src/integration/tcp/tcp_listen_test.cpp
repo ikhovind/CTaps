@@ -28,7 +28,7 @@ TEST_F(TcpListenTests, receivesConnectionFromListenerAndExchangesMessages) {
         .per_listener_context = &test_context
     };
 
-    int rc = ct_preconnection_listen(listener_precon, listener_callbacks, NULL);
+    int rc = ct_preconnection_listen(listener_precon, &listener_callbacks, NULL);
     ASSERT_EQ(rc, 0);
 
     // --- SETUP CLIENT ---
@@ -54,7 +54,7 @@ TEST_F(TcpListenTests, receivesConnectionFromListenerAndExchangesMessages) {
         .per_connection_context = &test_context
     };
 
-    ct_preconnection_initiate(client_precon, client_callbacks);
+    ct_preconnection_initiate(client_precon, &client_callbacks);
 
     // --- RUN EVENT LOOP ---
     // This will block until the callbacks close the handles
@@ -109,7 +109,7 @@ TEST_F(TcpListenTests, canFreeOnListenerClose) {
         .per_listener_context = &test_context
     };
 
-    int rc = ct_preconnection_listen(listener_precon, listener_callbacks, NULL);
+    int rc = ct_preconnection_listen(listener_precon, &listener_callbacks, NULL);
     ASSERT_EQ(rc, 0);
 
     // --- SETUP CLIENT ---
@@ -135,7 +135,7 @@ TEST_F(TcpListenTests, canFreeOnListenerClose) {
         .per_connection_context = &test_context
     };
 
-    ct_preconnection_initiate(client_precon, client_callbacks);
+    ct_preconnection_initiate(client_precon, &client_callbacks);
 
     // --- RUN EVENT LOOP ---
     // This will block until the callbacks close the handles

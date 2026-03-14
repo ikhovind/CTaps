@@ -596,7 +596,7 @@ void start_candidate_racing_on_nodes_ready(GArray* candidate_nodes, void* contex
 /**
  * @brief Main entry point for initiating connection with racing.
  */
-int start_candidate_racing(ct_preconnection_t* preconnection,
+int start_candidate_racing(const ct_preconnection_t* preconnection,
                            ct_connection_callbacks_t connection_callbacks,
                            ct_message_t* initial_message,
                            ct_message_context_t* initial_message_context,
@@ -625,7 +625,7 @@ int start_candidate_racing(ct_preconnection_t* preconnection,
     return 0;
 }
 
-int preconnection_race_with_early_data(ct_preconnection_t* preconnection,
+int preconnection_race_with_early_data(const ct_preconnection_t* preconnection,
                                        ct_connection_callbacks_t connection_callbacks,
                                        ct_message_t* initial_message,
                                        ct_message_context_t* initial_message_context) {
@@ -633,7 +633,7 @@ int preconnection_race_with_early_data(ct_preconnection_t* preconnection,
                                   initial_message_context, true);
 }
 
-int preconnection_race_with_send_after_ready(ct_preconnection_t* preconnection,
+int preconnection_race_with_send_after_ready(const ct_preconnection_t* preconnection,
                                              ct_connection_callbacks_t connection_callbacks,
                                              ct_message_t* initial_message,
                                              ct_message_context_t* initial_message_context) {
@@ -641,7 +641,7 @@ int preconnection_race_with_send_after_ready(ct_preconnection_t* preconnection,
                                   initial_message_context, false);
 }
 
-int preconnection_race(ct_preconnection_t* preconnection,
+int preconnection_race(const ct_preconnection_t* preconnection,
                        ct_connection_callbacks_t connection_callbacks) {
     return start_candidate_racing(preconnection, connection_callbacks, NULL, NULL, false);
 }

@@ -394,7 +394,11 @@ int ct_send_message_full(ct_connection_t* connection, const ct_message_t* messag
     return rc;
 }
 
-int ct_receive_message(ct_connection_t* connection, ct_receive_callbacks_t receive_callbacks) {
+int ct_receive_message(ct_connection_t* connection, const ct_receive_callbacks_t* receive_callbacks) {
+    if (!connection || !receive_callbacks) {
+        log_error("Connection or receive_callbacks is NULL in ct_receive_message");
+        return -EINVAL;
+    }
     log_info("User attempting to receive message on connection: %s", connection->uuid);
     if (!connection->received_messages || !connection->received_callbacks) {
         log_error("ct_connection_t queues not initialized for receiving messages");
@@ -404,9 +408,14 @@ int ct_receive_message(ct_connection_t* connection, ct_receive_callbacks_t recei
     if (!g_queue_is_empty(connection->received_messages)) {
         log_debug("Calling receive callback immediately");
         ct_queued_message_t* queued_message = g_queue_pop_head(connection->received_messages);
-        queued_message->context->per_receive_context = receive_callbacks.per_receive_context;
-        receive_callbacks.receive_callback(connection, queued_message->message,
-                                           queued_message->context);
+        queued_message->context->per_receive_context = receive_callbacks->per_receive_context;
+        if (receive_callbacks->receive_callback) {
+            receive_callbacks->receive_callback(connection, queued_message->message,
+                                               queued_message->context);
+        }
+        else {
+            log_debug("No receive callback in provided struct, dropping received message");
+        }
         ct_queued_message_free_all(queued_message);
 
         return 0;
@@ -417,7 +426,7 @@ int ct_receive_message(ct_connection_t* connection, ct_receive_callbacks_t recei
         log_error("Failed to allocate memory for receive callbacks");
         return -ENOMEM;
     }
-    memcpy(ptr, &receive_callbacks, sizeof(ct_receive_callbacks_t));
+    memcpy(ptr, receive_callbacks, sizeof(ct_receive_callbacks_t));
 
     // If we don't have a message to receive, add the callback to the queue of
     // waiting callbacks
