@@ -159,10 +159,10 @@ void ct_listener_candidate_node_array_ready_cb(GArray* candidate_nodes, void* co
 }
 
 int ct_preconnection_listen(const ct_preconnection_t* preconnection,
-                            ct_listener_callbacks_t listener_callbacks, // TODO Make pointer
+                            const ct_listener_callbacks_t* listener_callbacks, // TODO Make pointer
                             const ct_connection_callbacks_t* connection_callbacks) {
-    if (!preconnection) {
-        log_error("Preconnection is NULL in ct_preconnection_listen");
+    if (!preconnection || !listener_callbacks) {
+        log_error("Preconnection or listener callbacks is NULL in ct_preconnection_listen");
         return -EINVAL;
     }
     if (preconnection->num_local_endpoints == 0) {
@@ -178,7 +178,7 @@ int ct_preconnection_listen(const ct_preconnection_t* preconnection,
     }
 
     cb_context->preconnection = preconnection;
-    cb_context->listener_callbacks = listener_callbacks;
+    cb_context->listener_callbacks = *listener_callbacks;
     if (connection_callbacks) {
         cb_context->connection_callbacks = *connection_callbacks;
     }
@@ -200,11 +200,11 @@ int ct_preconnection_listen(const ct_preconnection_t* preconnection,
     return 0;
 }
 
-int ct_preconnection_initiate(ct_preconnection_t* preconnection,
-                              ct_connection_callbacks_t connection_callbacks) {
+int ct_preconnection_initiate(const ct_preconnection_t* preconnection,
+                              const ct_connection_callbacks_t* connection_callbacks) {
     log_info("Initiating connection from preconnection with candidate racing");
-    if (!preconnection) {
-        log_error("Preconnection is NULL in ct_preconnection_initiate");
+    if (!preconnection || !connection_callbacks) {
+        log_error("Preconnection or callbacks is NULL in ct_preconnection_initiate");
         return -EINVAL;
     }
     if (preconnection->num_remote_endpoints == 0) {
@@ -213,16 +213,16 @@ int ct_preconnection_initiate(ct_preconnection_t* preconnection,
     }
 
     // The winning connection will be passed to the ready()
-    return preconnection_race(preconnection, connection_callbacks);
+    return preconnection_race(preconnection, *connection_callbacks);
 }
 
-int ct_preconnection_initiate_with_send(ct_preconnection_t* preconnection,
-                                        ct_connection_callbacks_t connection_callbacks,
+int ct_preconnection_initiate_with_send(const ct_preconnection_t* preconnection,
+                                        const ct_connection_callbacks_t* connection_callbacks,
                                         const ct_message_t* message,
                                         const ct_message_context_t* message_context) {
     log_info("Initiating connection from preconnection with send");
-    if (!preconnection) {
-        log_error("Preconnection is NULL in ct_preconnection_initiate_with_send");
+    if (!preconnection || !connection_callbacks) {
+        log_error("Preconnection or callbacks is NULL in ct_preconnection_initiate_with_send");
         return -EINVAL;
     }
     if (preconnection->num_remote_endpoints == 0) {
@@ -249,11 +249,11 @@ int ct_preconnection_initiate_with_send(ct_preconnection_t* preconnection,
 
     if (message_context && ct_message_context_get_safely_replayable(message_context)) {
         log_info("Initiating connection from preconnection with candidate racing and early data");
-        return preconnection_race_with_early_data(preconnection, connection_callbacks, msg_copy,
+        return preconnection_race_with_early_data(preconnection, *connection_callbacks, msg_copy,
                                                   message_context_copy);
     }
     log_info("Initiating connection from preconnection with candidate racing and send after ready");
-    return preconnection_race_with_send_after_ready(preconnection, connection_callbacks, msg_copy,
+    return preconnection_race_with_send_after_ready(preconnection, *connection_callbacks, msg_copy,
                                                     message_context_copy);
 }
 

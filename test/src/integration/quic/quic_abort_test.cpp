@@ -77,7 +77,7 @@ TEST_F(QuicAbortTest, singleConnectionAbortCallsCloseImmediate) {
     .per_connection_context = &test_context,
   };
 
-  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
   ASSERT_EQ(rc, 0);
 
   ct_start_event_loop();
@@ -131,7 +131,7 @@ TEST_F(QuicAbortTest, multiStreamAbortCallsResetStream) {
     .per_connection_context = &test_context,
   };
 
-  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
   ASSERT_EQ(rc, 0);
 
   ct_start_event_loop();

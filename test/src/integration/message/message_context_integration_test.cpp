@@ -42,7 +42,7 @@ TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnRec
     };
 
     // Initiate connection
-    int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+    int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
     ASSERT_EQ(rc, 0);
 
     // Run event loop
@@ -85,7 +85,7 @@ TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnRec
     };
 
     // Initiate connection
-    int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+    int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
     ASSERT_EQ(rc, 0);
 
     // Run event loop
@@ -137,7 +137,7 @@ TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnRec
     };
 
     // Initiate connection
-    int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+    int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
     ASSERT_EQ(rc, 0);
 
     // Run event loop
@@ -180,7 +180,7 @@ TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnRec
         .per_listener_context = &test_context
     };
 
-    int rc = ct_preconnection_listen(listener_precon, listener_callbacks, NULL);
+    int rc = ct_preconnection_listen(listener_precon, &listener_callbacks, NULL);
     ASSERT_EQ(rc, 0);
 
 
@@ -207,7 +207,7 @@ TEST_F(MessageContextIntegrationTests, messageContextContainsValidEndpointsOnRec
         .per_connection_context = &test_context
     };
 
-    ct_preconnection_initiate(client_precon, client_callbacks);
+    ct_preconnection_initiate(client_precon, &client_callbacks);
 
     // --- RUN EVENT LOOP ---
     // This will block until the callbacks close the handles

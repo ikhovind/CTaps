@@ -45,7 +45,7 @@ TEST_F(UdpPingTests, sendsSingleUdpPacketWithoutEarlySend) {
     .per_connection_context = &test_context,
   };
 
-  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -92,7 +92,7 @@ TEST_F(UdpPingTests, packetsAreReadInOrder) {
     .per_connection_context = &test_context,
   };
 
-  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -138,7 +138,7 @@ TEST_F(UdpPingTests, canPingArbitraryBytes) {
     .per_connection_context = &test_context,
   };
 
-  int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+  int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
 
   ASSERT_EQ(rc, 0);
 
@@ -187,7 +187,7 @@ TEST_F(UdpPingTests, sendsSingleUdpPacketWithInitiateWithSend) {
 
   ct_message_t* message = ct_message_new_with_content("ping", strlen("ping") + 1);
 
-  int rc = ct_preconnection_initiate_with_send(preconnection, connection_callbacks, message, NULL);
+  int rc = ct_preconnection_initiate_with_send(preconnection, &connection_callbacks, message, NULL);
 
   ASSERT_EQ(rc, 0);
 

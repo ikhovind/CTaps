@@ -160,7 +160,7 @@ TEST_F(FramingTest, LengthPrependFramerSendsCorrectFormat) {
       .per_connection_context = &test_context,
     };
 
-    int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+    int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
     ASSERT_EQ(rc, 0);
     ct_start_event_loop();
 
@@ -198,7 +198,7 @@ TEST_F(FramingTest, StripFirstCharFramerReceivesStrippedMessage) {
       .per_connection_context = &test_context,
     };
 
-    int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+    int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
     ASSERT_EQ(rc, 0);
     ct_start_event_loop();
 
@@ -242,7 +242,7 @@ TEST_F(FramingTest, AsyncFramerDefersSendCallback) {
       .per_connection_context = &test_context,
     };
 
-    int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+    int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
     ASSERT_EQ(rc, 0);
     ct_start_event_loop();
 

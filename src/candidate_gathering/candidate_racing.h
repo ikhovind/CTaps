@@ -74,17 +74,17 @@ struct ct_racing_context_t {
  * @param connection_callbacks User's connection callbacks
  * @return 0 on success, negative error code on failure
  */
-int preconnection_race_with_early_data(ct_preconnection_t* preconnection,
+int preconnection_race_with_early_data(const ct_preconnection_t* preconnection,
                                        ct_connection_callbacks_t connection_callbacks,
                                        ct_message_t* initial_message,
                                        ct_message_context_t* initial_message_context);
 
-int preconnection_race_with_send_after_ready(ct_preconnection_t* preconnection,
+int preconnection_race_with_send_after_ready(const ct_preconnection_t* preconnection,
                                              ct_connection_callbacks_t connection_callbacks,
                                              ct_message_t* initial_message,
                                              ct_message_context_t* initial_message_context);
 
-int preconnection_race(ct_preconnection_t* preconnection,
+int preconnection_race(const ct_preconnection_t* preconnection,
                        ct_connection_callbacks_t connection_callbacks);
 
 /*

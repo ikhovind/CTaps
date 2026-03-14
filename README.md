@@ -55,7 +55,7 @@ void send_message_and_receive(struct ct_connection_s* connection) {
         .receive_callback = close_on_message_received,
     };
 
-    ct_receive_message(connection, receive_message_request);
+    ct_receive_message(connection, &receive_message_request);
 }
 
 void free_on_connection_closed(ct_connection_t* connection) {
@@ -94,7 +94,7 @@ int main() {
 
     int rc = ct_preconnection_initiate(
         preconnection,
-        connection_callbacks); // Gather potential endpoints and start racing, when event loop starts
+        &connection_callbacks); // Gather potential endpoints and start racing, when event loop starts
 
     if (rc < 0) {
         perror("Error in initiating connection\n");
@@ -138,7 +138,7 @@ void on_connection_received_receive_message(ct_listener_t* listener, ct_connecti
       .receive_callback = close_on_message_received,
     };
 
-    ct_receive_message(new_connection, receive_message_request);
+    ct_receive_message(new_connection, &receive_message_request);
     ct_listener_close(listener); // Stop accepting new connections after the first one is received
 }
 
@@ -180,7 +180,7 @@ int main() {
         .closed = free_on_connection_closed 
     };
 
-    int rc = ct_preconnection_listen(preconnection, listener_callbacks, &connection_callbacks);
+    int rc = ct_preconnection_listen(preconnection, &listener_callbacks, &connection_callbacks);
 
     if (rc < 0) {
         perror("Sync error in establishing listener\n");

@@ -39,7 +39,7 @@ TEST_F(ConnectionCloneTest, clonesConnectionSendsOnBothAndReceivesIndividualResp
         .per_connection_context = &test_context,
     };
 
-    int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+    int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
     ASSERT_EQ(rc, 0);
 
     ct_start_event_loop();
@@ -99,7 +99,7 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
         .per_connection_context = &test_context,
     };
 
-    rc = ct_preconnection_listen(listener_precon, listener_callbacks, &server_connection_callbacks);
+    rc = ct_preconnection_listen(listener_precon, &listener_callbacks, &server_connection_callbacks);
     ASSERT_EQ(rc, 0);
 
     log_info("Listener created on port %d", QUIC_CLONE_LISTENER_PORT);
@@ -129,7 +129,7 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
         .per_connection_context = &test_context,
     };
 
-    rc = ct_preconnection_initiate(client_precon, client_callbacks);
+    rc = ct_preconnection_initiate(client_precon, &client_callbacks);
     ASSERT_EQ(rc, 0);
 
     // --- RUN EVENT LOOP ---
@@ -190,7 +190,7 @@ TEST_F(ConnectionCloneTest, clonesUdpConnectionSendsOnBothAndReceivesIndividualR
         .per_connection_context = &test_context,
     };
 
-    int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+    int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
     ASSERT_EQ(rc, 0);
 
     ct_start_event_loop();
@@ -237,7 +237,7 @@ TEST_F(ConnectionCloneTest, clonesTcpConnectionSendsOnBothAndReceivesIndividualR
         .per_connection_context = &test_context,
     };
 
-    int rc = ct_preconnection_initiate(preconnection, connection_callbacks);
+    int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
     ASSERT_EQ(rc, 0);
 
     ct_start_event_loop();
