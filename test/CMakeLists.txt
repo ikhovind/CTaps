@@ -2,7 +2,6 @@ project(CTapsTests)
 
 set_property(GLOBAL PROPERTY CTAPS_TEST_TARGETS "")
 
-enable_testing()
 include(GoogleTest)
 include(FetchContent)
 
@@ -35,10 +34,14 @@ target_compile_definitions(
       TEST_RESOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/resources\"
 )
 
-# ---- CTaps object library for tests ----
 list(TRANSFORM CTAPS_SOURCES PREPEND ${CMAKE_SOURCE_DIR}/)
 
+# Compile the library once for all tests to link against.
+# This is an OBJECT library so that we can wrap internal
+# Function calls
 add_library(CTaps_test_objects OBJECT ${CTAPS_SOURCES})
+# Unlike our 'official' library, everything here is public
+# So that we can also test internal functions.
 target_include_directories(CTaps_test_objects
     PUBLIC
         ${CMAKE_SOURCE_DIR}/include
@@ -97,7 +100,6 @@ function(add_gtest test_name)
             gmock
             fff
             CTaps_test_objects
-            PkgConfig::GLIB
             uv
             picoquic-core
     )
@@ -108,6 +110,8 @@ function(add_gtest test_name)
             ${GLIB_INCLUDE_DIRS}
     )
 
+    # Always-malloc helps us discover memory
+    # leaks from memory allocated by glib
     gtest_discover_tests(
       ${test_name}
       PROPERTIES
