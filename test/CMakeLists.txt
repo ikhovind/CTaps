@@ -202,7 +202,10 @@ add_gtest(local_endpoint_unit_test
 )
 add_gtest(dns_integration_test
         SOURCES
-            src/integration/dns/dns_test.cpp
+            src/integration/dns/dns_integration_test.cpp
+        WRAP_FUNCTIONS
+            uv_getaddrinfo
+            uv_freeaddrinfo
         ASAN_ENABLED
 )
 
