@@ -1,7 +1,7 @@
 #include "../common/timing.h"
 #include "../common/file_generator.h"
 #include "../common/benchmark_stats.h"
-#include "common_taps.h"
+#include "benchmark_common_taps.h"
 #include "ctaps.h"
 #include <stdio.h>
 #include <stdlib.h>

@@ -64,6 +64,16 @@ ct_local_endpoint_t* ct_local_endpoint_resolve(const ct_local_endpoint_t* local_
     ct_local_endpoint_t* out_list = NULL;
     *out_count = 0;
     struct sockaddr_storage found_interface_addrs[MAX_FOUND_INTERFACE_ADDRS] = {0};
+    if (local_endpoint->resolved_address.ss_family != AF_UNSPEC) {
+        *out_count = 1;
+        out_list = ct_local_endpoint_deep_copy(local_endpoint);
+        if (!out_list) {
+            log_error("Failed to deep copy local endpoint for already resolved address");
+            *out_count = 0;
+            return NULL;
+        }
+        return out_list;
+    }
     if (!local_endpoint->interface_name) {
         log_debug("Interface name was NULL, getting addresses for 'any' interface");
         ct_get_interface_addresses("any", &num_found_addresses, found_interface_addrs);

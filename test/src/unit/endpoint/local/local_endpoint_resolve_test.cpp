@@ -180,3 +180,35 @@ TEST_F(LocalEndpointResolveTest, resolveHandlesNullEndpoint) {
   // --- ACT ---
   EXPECT_DEATH(ct_local_endpoint_resolve(NULL, &dummy_count), "");
 }
+
+TEST_F(LocalEndpointResolveTest, resolvesDirectlyToSingleEndpoint_WhenIPv4IsSet) {
+    // --- ARRANGE ---
+    // get_interface_addresses must NOT be called when an address is explicitly set
+    __wrap_ct_get_interface_addresses_fake.custom_fake = custom_get_interface_addresses_success;
+
+    ct_local_endpoint_t* input_endpoint = ct_local_endpoint_new();
+    ASSERT_NE(input_endpoint, nullptr);
+    ct_local_endpoint_with_ipv4(input_endpoint, inet_addr("127.0.0.1"));
+
+    // --- ACT ---
+    ct_local_endpoint_t* out_list = nullptr;
+    size_t num_found = 0;
+    out_list = ct_local_endpoint_resolve(input_endpoint, &num_found);
+    ASSERT_NE(out_list, nullptr);
+
+    // --- ASSERT ---
+    EXPECT_EQ(num_found, 1);
+    EXPECT_EQ(__wrap_ct_get_interface_addresses_fake.call_count, 0);
+
+    struct sockaddr_in* final_addr = (struct sockaddr_in*)&out_list[0].resolved_address;
+    EXPECT_EQ(final_addr->sin_family, AF_INET);
+    EXPECT_EQ(ntohs(final_addr->sin_port), 0);
+
+    char ip_str[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &final_addr->sin_addr, ip_str, sizeof(ip_str));
+    EXPECT_STREQ(ip_str, "127.0.0.1");
+
+    // Cleanup
+    ct_local_endpoints_free(out_list, num_found);
+    ct_local_endpoint_free(input_endpoint);
+}
