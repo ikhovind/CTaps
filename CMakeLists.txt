@@ -50,6 +50,7 @@ set(CTAPS_SOURCES
     # Messages
     src/message/message.c
     src/message/message_context.c
+    src/message/framer.c
     # Protocols
     src/protocol/protocol_registry.c
     src/protocol/udp/udp.c

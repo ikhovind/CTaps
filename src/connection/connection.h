@@ -9,12 +9,12 @@ ct_connection_t* ct_connection_create_client(
     size_t num_local_endpoints, size_t local_endpoint_index, ct_remote_endpoint_t* remote_endpoints,
     size_t num_remote_endpoints, size_t remote_endpoint_index,
     const ct_security_parameters_t* security_parameters,
-    const ct_connection_callbacks_t* connection_callbacks, ct_framer_impl_t* framer_impl);
+    const ct_connection_callbacks_t* connection_callbacks, const ct_framer_impl_t* framer_impl);
 
 ct_connection_t* ct_connection_create_server_connection(
     ct_socket_manager_t* socket_manager, const ct_remote_endpoint_t* remote_endpoint,
     const ct_local_endpoint_t* local_endpoint, const ct_security_parameters_t* security_parameters,
-    const ct_connection_callbacks_t* connection_callbacks, ct_framer_impl_t* framer_impl);
+    const ct_connection_callbacks_t* connection_callbacks, const ct_framer_impl_t* framer_impl);
 
 /**
  * @brief Deliver received protocol data to the connection
@@ -77,9 +77,9 @@ void ct_connection_free_content(ct_connection_t* connection);
  * @param[in] internal_connection_state Optional protocol-specific internal state for the new connection, if not set internal state will be NULL
  * @return Pointer to newly created connection, or NULL on error
  */
-ct_connection_t* ct_connection_create_clone(const ct_connection_t* src_clone,
+ct_connection_t* ct_connection_create_clone(const ct_connection_t* source_connection,
                                             ct_socket_manager_t* socket_manager,
-                                            ct_framer_impl_t* framer_impl,
+                                            const ct_framer_impl_t* framer_impl,
                                             void* internal_connection_state);
 
 /**

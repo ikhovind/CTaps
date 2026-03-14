@@ -150,6 +150,9 @@ add_gtest(endpoint_util_unit_test SOURCES src/unit/endpoint/endpoint_util_unit_t
 add_gtest(preconnection_unit_test 
   SOURCES 
     src/unit/connections/preconnection_unit_test.cpp 
+  WRAP_FUNCTIONS
+    ct_framer_impl_deep_copy
+    ct_framer_impl_free
   ASAN_ENABLED
 )
 add_gtest(connection_unit_test

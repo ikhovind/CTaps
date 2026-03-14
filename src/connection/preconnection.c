@@ -4,6 +4,7 @@
 #include "ctaps.h"
 #include "ctaps_internal.h"
 #include "message/message.h"
+#include "message/framer.h"
 #include "message/message_context.h"
 #include "preconnection.h"
 #include "transport_property/selection_properties/selection_properties.h"
@@ -276,6 +277,8 @@ void ct_preconnection_free(ct_preconnection_t* preconnection) {
         ct_local_endpoints_free(preconnection->local_endpoints, preconnection->num_local_endpoints);
     }
 
+    ct_framer_impl_free(preconnection->framer_impl);
+
     ct_selection_properties_cleanup(&preconnection->transport_properties.selection_properties);
 
     if (preconnection->security_parameters) {
@@ -285,11 +288,25 @@ void ct_preconnection_free(ct_preconnection_t* preconnection) {
     free(preconnection);
 }
 
-void ct_preconnection_set_framer(ct_preconnection_t* preconnection, ct_framer_impl_t* framer_impl) {
+int ct_preconnection_set_framer(ct_preconnection_t* preconnection, const ct_framer_impl_t* framer_impl) {
     if (!preconnection) {
-        return;
+        return -EINVAL;
     }
-    preconnection->framer_impl = framer_impl;
+    if (preconnection->framer_impl) {
+        log_debug("Replacing existing framer implementation in preconnection");
+        ct_framer_impl_free(preconnection->framer_impl);
+        preconnection->framer_impl = NULL;
+    }
+    if (!framer_impl) {
+        log_debug("Setting framer implementation to NULL in preconnection");
+        return 0;
+    }
+    preconnection->framer_impl = ct_framer_impl_deep_copy(framer_impl);
+    if (!preconnection->framer_impl) {
+        log_error("Failed to deep copy framer implementation for preconnection");
+        return -ENOMEM;
+    }
+    return 0;
 }
 
 const ct_local_endpoint_t*

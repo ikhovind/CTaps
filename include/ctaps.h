@@ -750,7 +750,7 @@ CT_EXTERN int ct_local_endpoint_with_ipv6(ct_local_endpoint_t* local_endpoint,
  * @ingroup local_endpoints
  * @brief Initialize a local endpoint from a sockaddr structure.
  *
- * CTaps also does not take ownership of the addr pointer,
+ * CTaps does not take ownership of the passed addr pointer,
  * so it can be safely freed after return.
  *
  * @param[out] local_endpoint Endpoint to initialize
@@ -1364,14 +1364,18 @@ CT_EXTERN void ct_preconnection_free(ct_preconnection_t* preconnection);
  * @ingroup preconnection
  * @brief Set a message framer for the preconnection.
  *
- * CTaps does not take ownership of the framer, so it can be
+ * CTaps does not take ownership of the passed framer pointer, so it can be
  * safely freed after return.
+ *
+ * Pass NULL to unset framer
  *
  * @param[in,out] preconnection Preconnection to modify
  * @param[in] framer_impl Framer implementation to use, or NULL for no framing
+ *
+ * @return 0 on success, non-zero on error (memory allocation failure or null parameters)
  */
-CT_EXTERN void ct_preconnection_set_framer(ct_preconnection_t* preconnection,
-                                           ct_framer_impl_t* framer_impl);
+CT_EXTERN int ct_preconnection_set_framer(ct_preconnection_t* preconnection,
+                                           const ct_framer_impl_t* framer_impl);
 
 /**
  * @ingroup preconnection
@@ -1380,10 +1384,10 @@ CT_EXTERN void ct_preconnection_set_framer(ct_preconnection_t* preconnection,
  * Initiates a connection using the configured Preconnection. The connection is allocated
  * internally and provided to the user via the ready() callback.
  *
- * CTaps also does not take ownership of the preconnection pointer, so it can be
+ * CTaps does not take ownership of the passed preconnection pointer, so it can be
  * safely freed after return.
  *
- * CTaps also does not take ownership of the connection_callbacks pointer,
+ * CTaps does not take ownership of the passed connection_callbacks pointer,
  * so it can be safely freed after return if needed.
  *
  * @param[in] preconnection Pointer to the Preconnection object containing the connection
@@ -1407,7 +1411,7 @@ CT_EXTERN int ct_preconnection_initiate(const ct_preconnection_t* preconnection,
  * supports 0-RTT or early data, the message may be sent during the handshake.
  * Otherwise the data will be sent immediately after establishment.
  *
- * CTaps also does not take ownership of any passed pointer, so they can all be
+ * CTaps does not take ownership of any passed pointer, so they can all be
  * safely freed after this connection returns.
  *
  * @param[in] preconnection Pointer to the Preconnection object containing the connection
@@ -1429,7 +1433,7 @@ CT_EXTERN int ct_preconnection_initiate_with_send(const ct_preconnection_t* prec
  * @ingroup preconnection
  * @brief Start listening for incoming connections using the configured Preconnection.
  *
- * CTaps also does not take ownership of any passed pointer, so they can all be
+ * CTaps does not take ownership of any passed pointer, so they can all be
  * safely freed after this connection returns.
  *
  * @param[in] preconnection Pointer to preconnection with listener configuration
@@ -1475,7 +1479,7 @@ CT_EXTERN int ct_send_message_full(ct_connection_t* connection, const ct_message
  * @ingroup connection
  * @brief Register callbacks to receive messages on a connection.
  *
- * CTaps does not take ownership of the receive_callbacks pointer,
+ * CTaps does not take ownership of the passed receive_callbacks pointer,
  * so it can be safely freed after return.
  *
  * @param[in] connection The connection to receive on
@@ -1712,7 +1716,7 @@ CT_EXTERN void ct_connection_abort(ct_connection_t* connection);
  * @return 0 on success, non-zero on error (e.g., source_connection is NULL, or cloning not supported by protocol)
  */
 CT_EXTERN int ct_connection_clone_full(const ct_connection_t* source_connection,
-                                       ct_framer_impl_t* framer,
+                                       const ct_framer_impl_t* framer,
                                        const ct_transport_properties_t* connection_properties);
 
 /**
