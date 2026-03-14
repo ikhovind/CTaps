@@ -2,6 +2,7 @@
 """
 Benchmark runner for CTaps project.
 Runs all server/client combinations and aggregates results into a single JSON file.
+Supports multiple runs per configuration and sweeping over RTT values.
 """
 
 import subprocess
@@ -13,7 +14,7 @@ import sys
 import argparse
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 
 class BenchmarkRunner:
@@ -27,17 +28,14 @@ class BenchmarkRunner:
         self.results_dir = benchmark_dir / "results"
         self.results_dir.mkdir(exist_ok=True)
 
-        # Network setup script path
         self.setup_script = benchmark_dir / "scripts" / "setup_network.sh"
 
-        # Network emulation parameters
         self.network_config = {
             "interface": interface,
             "rtt_ms": rtt_ms,
             "bandwidth_mbit": bandwidth_mbit
         }
 
-        # Define test configurations
         self.tests = [
             {
                 "name": "tcp_native",
@@ -84,17 +82,10 @@ class BenchmarkRunner:
         ]
 
     def setup_network_emulation(self) -> bool:
-        """Set up network emulation using setup_network.sh script."""
-        print("=" * 60)
-        print("Setting up network emulation...")
-        print("=" * 60)
-
         if not self.setup_script.exists():
             print(f"✗ Network setup script not found at {self.setup_script}", file=sys.stderr)
             return False
-
         try:
-            # Pass network configuration to the setup script
             result = subprocess.run(
                 [
                     str(self.setup_script),
@@ -103,21 +94,15 @@ class BenchmarkRunner:
                     str(self.network_config["rtt_ms"]),
                     str(self.network_config["bandwidth_mbit"])
                 ],
-                capture_output=True,
-                text=True,
-                timeout=30
+                capture_output=True, text=True, timeout=30
             )
-
             if result.returncode != 0:
                 print("✗ Network setup failed!", file=sys.stderr)
                 print(result.stderr, file=sys.stderr)
-                print(result.stdout, file=sys.stderr)
                 return False
-
             print(result.stdout)
             print("✓ Network emulation setup successful\n")
             return True
-
         except subprocess.TimeoutExpired:
             print("✗ Network setup timed out", file=sys.stderr)
             return False
@@ -126,50 +111,31 @@ class BenchmarkRunner:
             return False
 
     def teardown_network_emulation(self) -> None:
-        """Tear down network emulation using setup_network.sh script."""
-        print("\n" + "=" * 60)
-        print("Tearing down network emulation...")
-        print("=" * 60)
-
         if not self.setup_script.exists():
-            print(f"Warning: Network setup script not found at {self.setup_script}")
             return
-
         try:
             result = subprocess.run(
-                [
-                    str(self.setup_script),
-                    "teardown",
-                    self.network_config["interface"]
-                ],
-                capture_output=True,
-                text=True,
-                timeout=30
+                [str(self.setup_script), "teardown", self.network_config["interface"]],
+                capture_output=True, text=True, timeout=30
             )
-
             print(result.stdout)
-
             if result.returncode != 0:
                 print("Warning: Network teardown had issues", file=sys.stderr)
                 print(result.stderr, file=sys.stderr)
             else:
                 print("✓ Network emulation teardown successful")
-
         except Exception as e:
             print(f"Warning: Network teardown error: {e}", file=sys.stderr)
 
     def start_server(self, server_cmd: str, port: int) -> Optional[subprocess.Popen]:
-        """Start a server process in the background."""
         try:
             server_path = self.bin_dir / server_cmd
-            # Redirect stdout/stderr to devnull to suppress server output
             process = subprocess.Popen(
                 [str(server_path), str(port)],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 preexec_fn=lambda: signal.signal(signal.SIGINT, signal.SIG_IGN)
             )
-            # Give server time to start
             time.sleep(0.5)
             return process
         except Exception as e:
@@ -177,7 +143,6 @@ class BenchmarkRunner:
             return None
 
     def stop_server(self, process: subprocess.Popen) -> None:
-        """Stop a server process gracefully."""
         if process:
             try:
                 process.terminate()
@@ -190,24 +155,16 @@ class BenchmarkRunner:
                 print(f"Error stopping server: {e}", file=sys.stderr)
 
     def run_client(self, client_cmd: str, port: int) -> Tuple[bool, Optional[Dict]]:
-        """Run a client and parse its JSON output."""
         try:
             client_path = self.bin_dir / client_cmd
             result = subprocess.run(
                 [str(client_path), "127.0.0.1", str(port), "--json"],
-                capture_output=True,
-                text=True,
-                timeout=15
+                capture_output=True, text=True, timeout=15
             )
-
             stdout = result.stdout.strip()
-
-            # Check if we got an error
             if stdout == "ERROR" or result.returncode != 0:
                 print(f"  ✗ Client returned error", file=sys.stderr)
                 return False, None
-
-            # Parse JSON output
             try:
                 data = json.loads(stdout)
                 return True, data
@@ -215,7 +172,6 @@ class BenchmarkRunner:
                 print(f"  ✗ Failed to parse JSON: {e}", file=sys.stderr)
                 print(f"    Output: {stdout[:200]}", file=sys.stderr)
                 return False, None
-
         except subprocess.TimeoutExpired:
             print(f"  ✗ Client timed out", file=sys.stderr)
             return False, None
@@ -224,134 +180,137 @@ class BenchmarkRunner:
             return False, None
 
     def run_test(self, test: Dict) -> Optional[Dict]:
-        """Run a single benchmark test."""
-        print(f"Running {test['name']}... ", end="", flush=True)
-
-        # Start server
         server_process = self.start_server(test['server'], test['port'])
         if not server_process:
-            print("✗ Failed to start server")
             return None
-
         try:
-            # Run client
             success, result = self.run_client(test['client'], test['port'])
-
             if success and result:
-                print("✓")
-                # Add metadata
                 result['test_name'] = test['name']
                 result['description'] = test['description']
                 result['timestamp'] = datetime.utcnow().isoformat() + 'Z'
                 return result
-            else:
-                print("✗")
-                return None
-
+            return None
         finally:
-            # Always stop the server
             self.stop_server(server_process)
-            time.sleep(0.2)  # Brief pause between tests
+            time.sleep(0.2)
 
-    def run_all_tests(self) -> Dict:
-        """Run all benchmark tests and aggregate results."""
-        print("=" * 60)
-        print("CTaps Benchmark Suite")
-        print("=" * 60)
-        print()
-
-        results = {
-            "benchmark_suite": "CTaps Protocol Performance",
-            "run_timestamp": datetime.utcnow().isoformat() + 'Z',
-            "bin_dir": self.bin_dir.absolute().as_posix(),
-            "network_config": {
-                "interface": self.network_config["interface"],
-                "rtt_ms": self.network_config["rtt_ms"],
-                "bandwidth_mbit": self.network_config["bandwidth_mbit"]
-            },
-            "tests": []
-        }
-
-        for test in self.tests:
-            result = self.run_test(test)
-            if result:
-                results['tests'].append(result)
-            else:
-                return {}
-
-        return results
+    def run_all_tests(self, runs: int = 1) -> List[Dict]:
+        """Run all benchmark tests `runs` times, returning a flat list of results."""
+        all_results = []
+        for run_idx in range(runs):
+            print(f"\n  Run {run_idx + 1}/{runs}")
+            for test in self.tests:
+                print(f"    {test['name']}... ", end="", flush=True)
+                result = self.run_test(test)
+                if result:
+                    result['run'] = run_idx + 1
+                    all_results.append(result)
+                    print("✓")
+                else:
+                    print("✗")
+                    return []  # Abort on failure, consistent with original behaviour
+        return all_results
 
     def save_results(self, results: Dict) -> Path:
-        """Save results to a timestamped JSON file."""
         timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
         filename = f"benchmark-{timestamp}.json"
         filepath = self.results_dir / filename
-
         with open(filepath, 'w') as f:
             json.dump(results, f, indent=2)
-
         return filepath
 
 
-def main():
-    """Main entry point."""
-    parser = argparse.ArgumentParser(
-        description="Run CTaps benchmark suite",
-        formatter_class=argparse.RawDescriptionHelpFormatter
-    )
-    parser.add_argument(
-        '--binary-dir',
-        type=pathlib.Path,
-        help='Directory containing binaries to benchmark',
-        required=True
-    )
+def run_rtt_sweep(benchmark_dir: Path, bin_dir: Path, rtt_values: List[int],
+                  bandwidth_mbit: int, runs: int, interface: str) -> Dict:
+    """Run the full benchmark suite for each RTT value."""
+    output = {
+        "benchmark_suite": "CTaps Protocol Performance",
+        "run_timestamp": datetime.utcnow().isoformat() + 'Z',
+        "bin_dir": bin_dir.absolute().as_posix(),
+        "runs_per_rtt": runs,
+        "bandwidth_mbit": bandwidth_mbit,
+        "rtt_sweep": []
+    }
 
-    args = parser.parse_args()
+    for rtt in rtt_values:
+        print("\n" + "=" * 60)
+        print(f"RTT: {rtt}ms  ({runs} run(s) per test)")
+        print("=" * 60)
 
-    # Get the benchmark directory (same as script location)
-    script_dir = Path(__file__).parent.resolve()
+        runner = BenchmarkRunner(benchmark_dir, bin_dir,
+                                 interface=interface,
+                                 rtt_ms=rtt,
+                                 bandwidth_mbit=bandwidth_mbit)
 
-    # Initialize runner
-    runner = BenchmarkRunner(script_dir, bin_dir=args.binary_dir)
+        if not runner.setup_network_emulation():
+            print(f"Network setup failed for RTT={rtt}ms, aborting", file=sys.stderr)
+            sys.exit(1)
 
-    # Set up network emulation
-    if not runner.setup_network_emulation():
-        print("\nNetwork setup failed, aborting benchmarks", file=sys.stderr)
-        sys.exit(1)
-
-    network_setup_done = True
-    results = {}
-
-    try:
-        # Run benchmarks
-        results = runner.run_all_tests()
-
-        # Save results
-        if len(results) > 0:
-            output_file = runner.save_results(results)
-            print()
-            print("=" * 60)
-            print(f"Results saved to: {output_file}")
-            print("=" * 60)
-
-            successful = sum(1 for test in results['tests'] if test.get('status') != 'failed')
-            total = len(results['tests'])
-            print(f"\nSummary: {successful}/{total} tests passed")
-        else:
-            print("Not saving json, no valid results")
-
-    except KeyboardInterrupt:
-        print("\n\nBenchmark interrupted by user", file=sys.stderr)
-        raise
-
-    finally:
-        # Always tear down network emulation, even on error
-        if network_setup_done:
+        try:
+            results = runner.run_all_tests(runs=runs)
+        finally:
             runner.teardown_network_emulation()
 
-    # Exit with error code if no results
-    if len(results) == 0:
-        sys.exit(1)
+        if not results:
+            print(f"No valid results for RTT={rtt}ms, aborting", file=sys.stderr)
+            sys.exit(1)
+
+        output["rtt_sweep"].append({
+            "rtt_ms": rtt,
+            "tests": results
+        })
+
+    return output
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Run CTaps benchmark suite",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Single RTT, 10 runs
+  %(prog)s --binary-dir out/Release/benchmark --runs 10
+
+  # Sweep over multiple RTT values, 10 runs each
+  %(prog)s --binary-dir out/Release/benchmark --runs 10 --rtt-values 10 50 100 200
+        """
+    )
+    parser.add_argument('--binary-dir', type=pathlib.Path, required=True,
+                        help='Directory containing benchmark binaries')
+    parser.add_argument('--runs', type=int, default=1,
+                        help='Number of runs per test per RTT value (default: 1)')
+    parser.add_argument('--rtt-values', type=int, nargs='+', default=[50],
+                        metavar='MS',
+                        help='RTT values in ms to sweep over (default: 50)')
+    parser.add_argument('--bandwidth', type=int, default=100,
+                        metavar='MBIT',
+                        help='Bandwidth in Mbit/s (default: 100)')
+    parser.add_argument('--interface', type=str, default='lo',
+                        help='Network interface for emulation (default: lo)')
+
+    args = parser.parse_args()
+    script_dir = Path(__file__).parent.resolve()
+
+    results = run_rtt_sweep(
+        benchmark_dir=script_dir,
+        bin_dir=args.binary_dir,
+        rtt_values=args.rtt_values,
+        bandwidth_mbit=args.bandwidth,
+        runs=args.runs,
+        interface=args.interface,
+    )
+
+    runner = BenchmarkRunner(script_dir, args.binary_dir)
+    output_file = runner.save_results(results)
+
+    total_tests = sum(len(rtt["tests"]) for rtt in results["rtt_sweep"])
+    print("\n" + "=" * 60)
+    print(f"Results saved to: {output_file}")
+    print(f"Total test results: {total_tests}")
+    print("=" * 60)
+
 
 if __name__ == "__main__":
     try:

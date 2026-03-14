@@ -37,6 +37,8 @@ compile_commands.json
 *.dat
 # Benchmark results
 benchmark/results/
+benchmark/plots/
+benchmark/venv
 CLAUDE.md
 cmake-variants.yaml
 rfc9621.txt
