@@ -217,7 +217,9 @@ void on_connect(struct uv_connect_s* req, int status) {
     ct_connection_t* connection = socket_state->connection;
     if (status < 0) {
         log_error("ct_connection_t error: %s", uv_strerror(status));
-        uv_close((uv_handle_t*)socket_state->tcp_handle, on_libuv_close_after_error);
+        if (!uv_is_closing((uv_handle_t*)socket_state->tcp_handle)) {
+            uv_close((uv_handle_t*)socket_state->tcp_handle, on_libuv_close_after_error);
+        }
         return;
     }
     log_info("Successfully connected to remote endpoint using TCP");
@@ -660,6 +662,7 @@ void tcp_free_socket_state(ct_socket_manager_t* socket_manager) {
 }
 
 void tcp_close_connection_group(ct_connection_group_t* connection_group) {
+    log_debug("Closing all connections in TCP connection group: %s", connection_group->connection_group_id);
     // Intermediate to avoid concurrent modification
     GSList* connections = NULL;
     GHashTableIter iter;
