@@ -405,8 +405,8 @@ void racing_on_attempt_ready(ct_connection_t* connection) {
         (ct_racing_attempt_t*)connection->connection_callbacks.per_connection_context;
     ct_racing_context_t* context = attempt->context;
 
-    log_info("ct_connection_t attempt %zu succeeded!", attempt->attempt_index);
-    log_info("connection ptr: %p", (void*)connection);
+    log_info("ct_connection_t attempt %zu succeeded with protocol %s", attempt->attempt_index,
+             attempt->candidate.protocol_candidate->protocol_impl->name);
 
     // Check if race is already complete (another attempt won)
     if (context->race_complete) {
@@ -537,6 +537,8 @@ static void initiate_next_attempt(ct_racing_context_t* context) {
     log_info("Candidate protocol is: %s",
              context->attempts[context->next_attempt_index].candidate.protocol_candidate->protocol_impl
                  ->name);
+    log_info("Connecting to port: %d",
+             context->attempts[context->next_attempt_index].candidate.remote_endpoint->port);
 
     ct_racing_attempt_t* attempt = &context->attempts[context->next_attempt_index];
 
