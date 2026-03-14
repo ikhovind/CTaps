@@ -41,32 +41,46 @@ class BenchmarkRunner:
         self.tests = [
             {
                 "name": "tcp_native",
-                "server": "tcp_server",
-                "client": "tcp_client",
+                "server": "tcp_benchmark_server",
+                "client": "tcp_benchmark_client",
                 "port": 8080,
                 "description": "Native TCP implementation"
             },
             {
                 "name": "quic_native",
-                "server": "quic_server",
-                "client": "quic_client",
+                "server": "quic_benchmark_server",
+                "client": "quic_benchmark_client",
                 "port": 8080,
                 "description": "Pure picoquic implementation"
             },
             {
                 "name": "taps_tcp",
-                "server": "tcp_server",
-                "client": "taps_tcp_client",
+                "server": "tcp_benchmark_server",
+                "client": "taps_benchmark_tcp_client",
                 "port": 8080,
                 "description": "TAPS API with TCP backend"
             },
             {
                 "name": "taps_quic",
-                "server": "quic_server",
-                "client": "taps_quic_client",
+                "server": "quic_benchmark_server",
+                "client": "taps_benchmark_quic_client",
                 "port": 8080,
                 "description": "TAPS API with QUIC backend"
-            }
+            },
+            {
+                "name": "taps_racing_tcp",
+                "server": "tcp_benchmark_server",
+                "client": "taps_benchmark_racing_client",
+                "port": 8080,
+                "description": "TAPS Racing client with TCP server (TCP wins race)"
+            },
+            {
+                "name": "taps_racing_quic",
+                "server": "quic_benchmark_server",
+                "client": "taps_benchmark_racing_client",
+                "port": 8080,
+                "description": "TAPS Racing client with QUIC server (QUIC wins race)"
+            },
         ]
 
     def setup_network_emulation(self) -> bool:

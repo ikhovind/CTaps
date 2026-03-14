@@ -374,8 +374,10 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
         // we just overwrite this (deeply copied) ALPN value
         // The old ALPN value is freed in the setter.
         ct_security_parameters_clear_alpn(attempt->connection->security_parameters);
-        ct_security_parameters_add_alpn(attempt->connection->security_parameters,
-                                        attempt->candidate.protocol_candidate->alpn);
+        if (attempt->candidate.protocol_candidate->alpn) {
+            ct_security_parameters_add_alpn(attempt->connection->security_parameters,
+                                            attempt->candidate.protocol_candidate->alpn);
+        }
     }
 
     int rc = 0;
@@ -447,7 +449,9 @@ void racing_on_attempt_ready(ct_connection_t* connection) {
         log_info("Notifying user of successful connection via ready callback");
         connection->connection_callbacks.ready(connection);
     }
-    log_warn("User connection ready callback is NULL, cannot notify of successful connection");
+    else {
+        log_warn("User connection ready callback is NULL, cannot notify of successful connection");
+    }
 }
 
 /**
@@ -530,6 +534,9 @@ static void initiate_next_attempt(ct_racing_context_t* context) {
 
     log_info("Starting connection attempt %zu/%zu", context->next_attempt_index + 1,
              context->num_attempts);
+    log_info("Candidate protocol is: %s",
+             context->attempts[context->next_attempt_index].candidate.protocol_candidate->protocol_impl
+                 ->name);
 
     ct_racing_attempt_t* attempt = &context->attempts[context->next_attempt_index];
 

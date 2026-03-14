@@ -13,13 +13,23 @@ static double calculate_throughput_mbps(const transfer_stats_t* stats) {
 
 char* get_json_stats(transfer_mode_t mode, const transfer_stats_t* large_file_stats,
                      const transfer_stats_t* small_file_stats, int multi_streaming) {
-    const char* implementation;
-    if (mode == TRANSFER_MODE_TCP_NATIVE) {
-        implementation = "tcp_native";
-    } else if (mode == TRANSFER_MODE_PICOQUIC) {
-        implementation = "quic_native";
-    } else {
-        implementation = "taps";
+    const char* implementation = NULL;
+    switch (mode) {
+        case TRANSFER_MODE_TCP_NATIVE:
+            implementation = "TCP native";
+            break;
+        case TRANSFER_MODE_PICOQUIC:
+            implementation = "Picoquic";
+            break;
+        case TRANSFER_MODE_TAPS_TCP:
+            implementation = "TAPS TCP";
+            break;
+        case TRANSFER_MODE_TAPS_QUIC:
+            implementation = "TAPS QUIC";
+            break;
+        case TRANSFER_MODE_TAPS_RACING:
+            implementation = "TAPS Racing";
+            break;
     }
 
     double large_handshake_ms = timing_get_duration_ms(&large_file_stats->handshake_time);

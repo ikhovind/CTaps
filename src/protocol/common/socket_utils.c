@@ -150,11 +150,19 @@ ct_udp_poll_handle_t* create_udp_poll_on_local(const ct_local_endpoint_t* local_
     // TODO - is this the correct way of detecting ephemeral?
     bool is_ephemeral = ct_local_endpoint_get_resolved_port(local_endpoint) == 0;
     int rc;
+
     if (is_ephemeral) {
-        log_debug("Binding UDP socket to ephemeral port");
-        struct sockaddr_in ephemeral_addr = {0};
-        uv_ip4_addr("0.0.0.0", 0, &ephemeral_addr);
-        rc = bind(fd, (const struct sockaddr*)&ephemeral_addr, sizeof(ephemeral_addr));
+        if (family == AF_INET6) {
+            log_debug("Binding to ephemeral UDP socket on IPv6");
+            struct sockaddr_in6 ephemeral_addr = {0};
+            uv_ip6_addr("::", 0, &ephemeral_addr);
+            rc = bind(fd, (const struct sockaddr*)&ephemeral_addr, sizeof(ephemeral_addr));
+        } else {
+            log_debug("Binding to ephemeral UDP socket on IPv4");
+            struct sockaddr_in ephemeral_addr = {0};
+            uv_ip4_addr("0.0.0.0", 0, &ephemeral_addr);
+            rc = bind(fd, (const struct sockaddr*)&ephemeral_addr, sizeof(ephemeral_addr));
+        }
     } else {
         log_debug("Binding UDP socket to specified local endpoint");
         const struct sockaddr_storage* addr = ct_local_endpoint_get_resolved_address(local_endpoint);

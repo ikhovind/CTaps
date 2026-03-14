@@ -408,7 +408,7 @@ void udp_close_socket(ct_socket_manager_t* socket_manager) {
     ct_udp_socket_state_t* socket_state = socket_manager->internal_socket_manager_state;
     int rc = uv_udp_recv_stop(socket_state->udp_handle);
     // This only fails on wrong handle type, so it must hold
-    assert(rc == 0);
+    ASSERT_ZERO(rc);
     uv_close((uv_handle_t*)socket_state->udp_handle, socket_closed_success);
 }
 

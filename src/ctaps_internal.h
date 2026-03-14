@@ -4,6 +4,19 @@
 #include <glib.h>
 #include <uv.h>
 
+#define ASSERT_ZERO(expr)          \
+    do {                           \
+        int _rc = (expr);          \
+        assert(_rc == 0);          \
+        (void)_rc;                 \
+    } while (0)
+
+#define ASSERT_IS(v1, v2)          \
+    do {                           \
+        assert(v1 == v2);          \
+        (void)v1;                 \
+    } while (0)
+
 extern uv_loop_t* event_loop;
 
 struct ct_socket_manager_s;

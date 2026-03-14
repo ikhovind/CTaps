@@ -261,6 +261,10 @@ int ct_security_parameters_add_to_array_of_strings(ct_security_parameters_t* sec
 }
 
 int ct_security_parameters_add_alpn(ct_security_parameters_t* sec, const char* alpn) {
+    if (!sec || !alpn) {
+        log_warn("Attempted to add ALPN with NULL parameters");
+        return -EINVAL;
+    }
     return ct_security_parameters_add_to_array_of_strings(sec, ALPN, alpn);
 }
 

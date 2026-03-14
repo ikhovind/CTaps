@@ -1771,7 +1771,7 @@ void quic_close_connection_group(ct_connection_group_t* connection_group) {
         (ct_quic_connection_group_state_t*)connection_group->connection_group_state;
     int rc = picoquic_close(group_state->picoquic_connection, 0);
     // This only fires if there is an error in our state machine
-    assert(rc == 0);
+    ASSERT_ZERO(rc);
 }
 
 int quic_set_connection_priority(ct_connection_t* connection, uint8_t priority) {

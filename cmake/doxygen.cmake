@@ -4,6 +4,7 @@ if(DOXYGEN_FOUND)
     include(FetchContent)
     FetchContent_Declare(
         doxygen-awesome-css
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
         URL https://github.com/jothepro/doxygen-awesome-css/archive/refs/heads/main.zip
     )
     FetchContent_MakeAvailable(doxygen-awesome-css)

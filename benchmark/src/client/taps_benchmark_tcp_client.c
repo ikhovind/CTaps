@@ -82,7 +82,7 @@ int main(int argc, char* argv[]) {
 
     if (client_ctx.transfer_complete == 1) {
         char* json =
-            get_json_stats(TRANSFER_MODE_TAPS, &client_ctx.large_stats, &client_ctx.short_stats, 0);
+            get_json_stats(TRANSFER_MODE_TAPS_TCP, &client_ctx.large_stats, &client_ctx.short_stats, 0);
         if (json) {
             printf("%s\n", json);
             free(json);

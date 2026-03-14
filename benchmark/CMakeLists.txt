@@ -14,13 +14,24 @@ add_library(benchmark_common
     src/common/benchmark_stats.c
 )
 
-target_link_libraries(benchmark_common
-    CTaps
+# Common compile options for all benchmark targets
+set(BENCHMARK_COMPILE_OPTIONS
+    -Wall -Wextra
+    $<$<CONFIG:Debug>:-O0 -g3>
+    $<$<CONFIG:Release>:-O2>
+)
+
+target_compile_options(benchmark_common PUBLIC ${BENCHMARK_COMPILE_OPTIONS})
+
+target_compile_definitions(benchmark_common PUBLIC
+    RESOURCE_FOLDER=\"${CMAKE_CURRENT_SOURCE_DIR}/../test/resources\"
+    _GNU_SOURCE
+    $<$<CONFIG:Release>:NDEBUG>
 )
 
 target_compile_definitions(benchmark_common
     PUBLIC
-    RESOURCE_FOLDER=\"${CMAKE_CURRENT_SOURCE_DIR}/../test/quic\"
+    RESOURCE_FOLDER=\"${CMAKE_CURRENT_SOURCE_DIR}/../test/resources\"
     _GNU_SOURCE
 )
 
@@ -43,6 +54,16 @@ add_executable(tcp_benchmark_client
     src/client/tcp_benchmark_client.c
 )
 
+add_executable(taps_benchmark_racing_client
+    src/client/taps_benchmark_racing_client.c
+    src/client/benchmark_common_taps_callbacks.c
+)
+
+target_link_libraries(taps_benchmark_racing_client
+    benchmark_common
+    CTaps
+)
+
 target_link_libraries(tcp_benchmark_client
     benchmark_common
 )
@@ -50,7 +71,7 @@ target_link_libraries(tcp_benchmark_client
 # TAPS TCP Client
 add_executable(taps_benchmark_tcp_client
     src/client/taps_benchmark_tcp_client.c
-    src/client/benchmark_common_taps.c
+    src/client/benchmark_common_taps_callbacks.c
 )
 
 target_link_libraries(taps_benchmark_tcp_client
@@ -61,7 +82,7 @@ target_link_libraries(taps_benchmark_tcp_client
 # TAPS QUIC Client
 add_executable(taps_benchmark_quic_client
     src/client/taps_benchmark_quic_client.c
-    src/client/benchmark_common_taps.c
+    src/client/benchmark_common_taps_callbacks.c
 )
 
 target_link_libraries(taps_benchmark_quic_client
@@ -84,20 +105,10 @@ add_executable(quic_benchmark_client
     src/client/quic_benchmark_client.c
 )
 
+
 target_link_libraries(quic_benchmark_client
     benchmark_common
     picoquic-core
-)
-
-# Installation
-install(TARGETS 
-    tcp_benchmark_server
-    tcp_benchmark_client
-    taps_benchmark_tcp_client
-    taps_benchmark_quic_client
-    quic_benchmark_server
-    quic_benchmark_client
-    RUNTIME DESTINATION bin
 )
 
 add_custom_target(benchmark ALL
@@ -106,6 +117,7 @@ add_custom_target(benchmark ALL
         tcp_benchmark_client
         taps_benchmark_tcp_client
         taps_benchmark_quic_client
+        taps_benchmark_racing_client
         quic_benchmark_server
         quic_benchmark_client
 )

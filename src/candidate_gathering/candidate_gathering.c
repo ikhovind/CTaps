@@ -600,7 +600,7 @@ int ct_branch_by_path(GNode* parent, const ct_local_endpoint_t* local_ep) {
     size_t num_found_local = 0;
     ct_local_endpoint_t* local_endpoint_list =
         ct_local_endpoint_resolve(local_ep, &num_found_local);
-    log_trace("Found %zu local endpoints, adding as children to ROOT node", num_found_local);
+    log_debug("Found %zu local endpoints, adding as children to ROOT node", num_found_local);
 
     for (size_t i = 0; i < num_found_local; i++) {
         // Create a child node for each local endpoint found.
@@ -718,7 +718,7 @@ void ct_remote_endpoint_resolve_cb(ct_remote_endpoint_t* remote_endpoint, size_t
 int ct_branch_by_remote(GNode* parent, const ct_remote_endpoint_t* remote_ep,
                      ct_remote_resolve_call_context_t* context) {
     struct ct_candidate_node_t* parent_data = (struct ct_candidate_node_t*)parent->data;
-    assert(parent_data->type == NODE_TYPE_PROTOCOL);
+    ASSERT_IS(parent_data->type, NODE_TYPE_PROTOCOL);
     log_trace("Expanding node of type PROTOCOL to ENDPOINT nodes");
 
     // Resolve the remote endpoint (hostname to IP address).
