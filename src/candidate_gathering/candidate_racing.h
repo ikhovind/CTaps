@@ -19,7 +19,7 @@ typedef enum {
     ATTEMPT_STATE_SUCCEEDED,  // ct_connection_t established successfully
     ATTEMPT_STATE_FAILED,     // ct_connection_t attempt failed
     ATTEMPT_STATE_CANCELED,   // Canceled due to another attempt succeeding
-} ct_attempt_state_t;
+} ct_attempt_state_enum_t;
 
 // Forward declaration
 typedef struct ct_racing_context_t ct_racing_context_t;
@@ -28,7 +28,7 @@ typedef struct ct_racing_context_t ct_racing_context_t;
 typedef struct ct_racing_attempt_t {
     ct_connection_t* connection;
     ct_candidate_node_t candidate;
-    ct_attempt_state_t state;
+    ct_attempt_state_enum_t state;
     size_t attempt_index;
     ct_racing_context_t* context; // Back-pointer to parent racing context
 } ct_racing_attempt_t;

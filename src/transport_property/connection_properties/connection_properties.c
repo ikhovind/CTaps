@@ -1,14 +1,14 @@
 #include "ctaps.h"
 #include "ctaps_internal.h"
-
+#include "transport_property/transport_properties.h"
 #include <logging/log.h>
 #include <stdint.h>
 #include <string.h>
 
-#define create_con_property_initializer(enum_name, string_name, property_type, token_name,         \
-                                        default_value, type_name)                                  \
-    [enum_name] = {                                                                                \
-        .name = (string_name), .type = (type_name), .value = {(uint32_t)(default_value)}},
+#define create_con_property_initializer(ENUM, STRING, TYPE, FIELD, DEFAULT, TYPE_TAG)         \
+    [ENUM] = {                                                                                \
+        .name = (STRING), .type = TYPE_TAG, .value.UNION_MEMBER_##TYPE_TAG = DEFAULT},
+
 
 const ct_connection_property_t DEFAULT_CONNECTION_PROPERTIES[] = {
     get_writable_connection_property_list(create_con_property_initializer)

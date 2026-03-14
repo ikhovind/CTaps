@@ -75,7 +75,7 @@ ct_connection_t* ct_connection_create_server_connection(
     }
     connection->active_local_endpoint = 0;
 
-    connection->role = CONNECTION_ROLE_SERVER;
+    connection->role = CT_CONNECTION_ROLE_SERVER;
 
     connection->security_parameters = ct_security_parameters_deep_copy(security_parameters);
     connection->framer_impl = framer_impl; // TODO - ownership here?
@@ -300,14 +300,14 @@ bool ct_connection_is_client(const ct_connection_t* connection) {
     if (!connection) {
         return false;
     }
-    return connection->role == CONNECTION_ROLE_CLIENT;
+    return connection->role == CT_CONNECTION_ROLE_CLIENT;
 }
 
 bool ct_connection_is_server(const ct_connection_t* connection) {
     if (!connection) {
         return false;
     }
-    return connection->role == CONNECTION_ROLE_SERVER;
+    return connection->role == CT_CONNECTION_ROLE_SERVER;
 }
 
 bool ct_connection_can_send(const ct_connection_t* connection) {

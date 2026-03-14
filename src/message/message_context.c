@@ -16,7 +16,7 @@ ct_message_context_t* ct_message_context_new(void) {
     memset(ctx, 0, sizeof(ct_message_context_t));
 
     // Initialize with default message properties
-    ctx->message_properties = DEFAULT_MESSAGE_PROPERTIES;
+    memcpy(&ctx->message_properties, &DEFAULT_MESSAGE_PROPERTIES, sizeof(ct_message_properties_t));
 
     return ctx;
 }

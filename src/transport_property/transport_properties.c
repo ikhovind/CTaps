@@ -54,7 +54,7 @@ ct_transport_properties_t* ct_transport_properties_deep_copy(const ct_transport_
 
 int ct_transport_properties_add_preference_map(ct_transport_properties_t* transport_props,
                                                ct_selection_property_enum_t type, const char* value,
-                                               ct_selection_preference_t preference) {
+                                               ct_selection_preference_enum_t preference) {
     ct_preference_set_t* set =
         &transport_props->selection_properties.list[type].value.preference_set_val;
     for (size_t i = 0; i < set->num_combinations; i++) {
@@ -88,18 +88,18 @@ int ct_transport_properties_add_preference_map(ct_transport_properties_t* transp
 
 int ct_transport_properties_add_interface_preference(ct_transport_properties_t* transport_props,
                                                      const char* value,
-                                                     ct_selection_preference_t preference) {
+                                                     ct_selection_preference_enum_t preference) {
     return ct_transport_properties_add_preference_map(transport_props, INTERFACE, value,
                                                       preference);
 }
 
 int ct_transport_properties_add_pvd_preference(ct_transport_properties_t* transport_props,
                                                const char* value,
-                                               ct_selection_preference_t preference) {
+                                               ct_selection_preference_enum_t preference) {
     return ct_transport_properties_add_preference_map(transport_props, PVD, value, preference);
 }
 
-ct_selection_preference_t
+ct_selection_preference_enum_t
 ct_transport_properties_get_interface_preference(const ct_transport_properties_t* transport_props,
                                                  const char* value) {
     if (!transport_props) {
@@ -119,7 +119,7 @@ ct_transport_properties_get_interface_preference(const ct_transport_properties_t
     return NO_PREFERENCE;
 }
 
-ct_selection_preference_t
+ct_selection_preference_enum_t
 ct_transport_properties_get_pvd_preference(const ct_transport_properties_t* transport_props,
                                            const char* value) {
     if (!transport_props) {
@@ -139,15 +139,6 @@ ct_transport_properties_get_pvd_preference(const ct_transport_properties_t* tran
     }
     return NO_PREFERENCE;
 }
-
-// Map type tags to union members
-#define UNION_MEMBER_TYPE_UINT32 uint32_val
-#define UNION_MEMBER_TYPE_UINT64 uint64_val
-#define UNION_MEMBER_TYPE_BOOL bool_val
-#define UNION_MEMBER_TYPE_ENUM enum_val
-#define UNION_MEMBER_TYPE_PREFERENCE simple_preference
-#define UNION_MEMBER_TYPE_ENUM_VAL enum_val
-#define UNION_MEMBER_TYPE_PREFERENCE_SET preference_set_val
 
 #define DEFINE_CONNECTION_PROPERTY_GETTER(ENUM, STRING, TYPE, FIELD, DEFAULT, TYPE_TAG)            \
     TYPE ct_transport_properties_get_##FIELD(const ct_transport_properties_t* tp) {                \

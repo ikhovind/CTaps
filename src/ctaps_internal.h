@@ -60,10 +60,11 @@ typedef struct ct_message_s {
 // Generic shared property types
 // =============================================================================
 
-typedef enum ct_property_type_t {
+typedef enum {
     TYPE_PREFERENCE,     ///< Simple preference value (PROHIBIT through REQUIRE)
     TYPE_PREFERENCE_SET, ///< Set of preferences (e.g., interface preferences)
     TYPE_BOOL,           ///< Boolean flag
+    TYPE_UINT8,
     TYPE_UINT32,
     TYPE_UINT64,
     TYPE_ENUM,                ///< Communication direction enumeration
@@ -71,7 +72,7 @@ typedef enum ct_property_type_t {
     TYPE_CERTIFICATE_BUNDLES, ///< ct_certificate_bundles_t for certificate configuration
     TYPE_STRING,              ///< Single string value
     TYPE_BYTE_ARRAY           ///< Byte array value
-} ct_property_type_t;
+} ct_property_type_enum_t;
 
 
 // =============================================================================
@@ -153,7 +154,7 @@ typedef union ct_sec_property_value_u {
  */
 typedef struct ct_sec_property_s {
     char* name;                    ///< Parameter name string
-    ct_property_type_t type;       ///< Type of value stored
+    ct_property_type_enum_t type;       ///< Type of value stored
     bool set_by_user;              ///< True if user explicitly set this parameter
     ct_sec_property_value_t value; ///< Parameter value
 } ct_security_parameter_t;
@@ -179,7 +180,7 @@ static const ct_security_parameters_t DEFAULT_SECURITY_PARAMETERS = {
 
 typedef struct ct_preference_combination_s {
     char* value;
-    ct_selection_preference_t preference;
+    ct_selection_preference_enum_t preference;
 } ct_preference_combination_t;
 
 typedef struct ct_preference_set_s {
@@ -202,7 +203,7 @@ typedef enum {
  * @brief Union holding the value of a selection property.
  */
 typedef union {
-    ct_selection_preference_t simple_preference; ///< For TYPE_PREFERENCE properties
+    ct_selection_preference_enum_t simple_preference; ///< For TYPE_PREFERENCE properties
     ct_preference_set_t preference_set_val;      ///< For TYPE_PREFERENCE_SET properties
     uint32_t enum_val;
     bool bool_val; ///< For TYPE_BOOLEAN properties
@@ -214,7 +215,7 @@ typedef union {
 typedef struct ct_selection_property_s {
     char* name;       ///< Property name string
     bool set_by_user; ///< True if user explicitly set this property
-    ct_property_type_t type;
+    ct_property_type_enum_t type;
     ct_selection_property_value_t value; ///< Property value
 } ct_selection_property_t;
 
@@ -228,7 +229,7 @@ typedef struct ct_selection_properties_s {
     ct_selection_property_t list[SELECTION_PROPERTY_END]; ///< Array of selection properties
 } ct_selection_properties_t;
 
-extern const ct_selection_properties_t DEFAULT_SELECTION_PROPERTIES;
+extern const ct_selection_property_t DEFAULT_SELECTION_PROPERTIES[];
 
 /**
  * @brief Enumeration of all available message properties.
@@ -266,14 +267,7 @@ typedef struct ct_message_properties_s {
     ct_message_property_t list[MESSAGE_PROPERTY_END]; ///< Array of message properties
 } ct_message_properties_t;
 
-// The value cast is a hack to please the c++ compiler for our tests
-#define create_message_property_initializer(enum_name, string_name, property_type, token_name,     \
-                                            default_value, type_name)                              \
-    [enum_name] = {                                                                                \
-        .name = (string_name), .set_by_user = false, .value = {(uint32_t)(default_value)}},
-
-static const ct_message_properties_t DEFAULT_MESSAGE_PROPERTIES = {
-    .list = {get_message_property_list(create_message_property_initializer)}};
+extern const ct_message_property_t DEFAULT_MESSAGE_PROPERTIES[];
 
 /**
  * @brief Enumeration of all available connection properties.
@@ -291,6 +285,7 @@ typedef enum {
  * @brief Union holding connection property values.
  */
 typedef union {
+    uint8_t  uint8_val;
     uint32_t uint32_val;
     uint64_t uint64_val;
     bool bool_val;
@@ -303,7 +298,7 @@ typedef union {
 typedef struct ct_connection_property_s {
     char* name;     ///< Property name string
     bool read_only; ///< True if property cannot be modified by user
-    ct_property_type_t type;
+    ct_property_type_enum_t type;
     ct_connection_property_value_t value; ///< Property value
 } ct_connection_property_t;
 
@@ -469,7 +464,7 @@ typedef enum {
     CT_CLOSE_TYPE_GRACEFUL,
     CT_CLOSE_TYPE_ESTABLISHMENT_ERROR,
     CT_CLOSE_TYPE_CONNECTION_ERROR,
-} ct_socket_manager_close_reason_t;
+} ct_socket_manager_close_reason_enum_t;
 
 typedef struct ct_socket_manager_s {
     void* internal_socket_manager_state;
@@ -480,7 +475,7 @@ typedef struct ct_socket_manager_s {
     const ct_protocol_impl_t* protocol_impl;
     struct ct_listener_s* listener;
     ct_socket_manager_callbacks_t callbacks;
-    ct_socket_manager_close_reason_t close_reason;
+    ct_socket_manager_close_reason_enum_t close_reason;
 } ct_socket_manager_t;
 
 // =============================================================================
@@ -491,9 +486,9 @@ typedef struct ct_socket_manager_s {
  * @brief Connection role classification.
  */
 typedef enum {
-    CONNECTION_ROLE_CLIENT = 0, ///< Connection initiated by local endpoint
-    CONNECTION_ROLE_SERVER,     ///< Connection accepted from remote endpoint
-} ct_connection_role_t;
+    CT_CONNECTION_ROLE_CLIENT = 0, ///< Connection initiated by local endpoint
+    CT_CONNECTION_ROLE_SERVER,     ///< Connection accepted from remote endpoint
+} ct_connection_role_enum_t;
 
 typedef struct ct_per_connection_properties_s {
     ct_connection_state_enum_t state;
@@ -521,7 +516,7 @@ typedef struct ct_connection_s {
 
     void* internal_connection_state; ///< Protocol-specific per-connection state (opaque)
     ct_framer_impl_t* framer_impl;   ///< Optional message framer (NULL = no framing)
-    ct_connection_role_t role;       ///< Connection role (client/server)
+    ct_connection_role_enum_t role;       ///< Connection role (client/server)
 
     ct_connection_callbacks_t connection_callbacks; ///< User-provided callbacks for events
 
