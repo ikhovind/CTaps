@@ -257,6 +257,8 @@ f(ACTIVE_READ_BEFORE_SEND,     "activeReadBeforeSend",       ct_selection_prefer
 // Connection Properties
 // =============================================================================
 /**
+ * @ingroup connection_properties
+ * @struct ct_connection_properties_t
  * @brief Collection of all connection properties.
  */
 typedef struct ct_connection_properties_s ct_connection_properties_t;
@@ -357,6 +359,7 @@ f(USER_TIMEOUT_CHANGEABLE, "userTimeoutChangeable", bool,     user_timeout_chang
 
 /**
  * @ingroup transport_properties
+ * @struct ct_transport_properties_t
  * @brief Opaque handle representing a listener used for selecting and configuring protocols.
  *
  * Allocate a new instance using ct_transport_properties_new().
@@ -422,6 +425,7 @@ get_read_only_connection_properties(
 
 /**
  * @ingroup message_properties
+ * @struct ct_message_properties_t
  * @brief Collection of message properties for per-message transmission control.
  *
  * ## Message Properties Ownership Model
@@ -492,6 +496,8 @@ CT_EXTERN void ct_message_properties_free(ct_message_properties_t* message_prope
 // =============================================================================
 
 /**
+ * @ingroup security_parameters
+ * @struct ct_security_parameters_t
  * @brief Collection of all security parameters.
  *
  * @brief Opaque handle representing a security parameters used to configure security settings for connections and listeners.
@@ -604,12 +610,14 @@ ct_security_parameters_set_session_ticket_encryption_key(ct_security_parameters_
                                                          size_t key_len);
 
 /**
+ * @ingroup security_parameters
  * @brief Allocate a new security parameters object on the heap.
  * @return Pointer to newly allocated security parameters, or NULL on failure
  */
 CT_EXTERN ct_security_parameters_t* ct_security_parameters_new(void);
 
 /**
+ * @ingroup security_parameters
  * @brief Free resources in security parameters including the structure itself.
  * @param[in] security_parameters structure to free
  */
@@ -672,6 +680,7 @@ CT_EXTERN void ct_transport_properties_free(ct_transport_properties_t* props);
 
 /**
  * @ingroup local_endpoints
+ * @struct ct_local_endpoint_t
  * @brief Opaque handle representing a local endpoint (generic or resolved to specific ip address and port).
  *
  * Use ct_local_endpoint_new() to create and ct_local_endpoint_with_*() to configure.
@@ -680,6 +689,7 @@ typedef struct ct_local_endpoint_s ct_local_endpoint_t;
 
 /**
  * @ingroup remote_endpoints
+ * @struct ct_remote_endpoint_t
  * @brief Opaque handle representing a remote endpoint (generic or resolved to specific ip address and port).
  *
  * Use ct_remote_endpoint_new() to create and ct_remote_endpoint_with_*() to configure.
@@ -898,6 +908,7 @@ CT_EXTERN const char* ct_remote_endpoint_get_service(const ct_remote_endpoint_t*
 
 /**
  * @ingroup message
+ * @struct ct_message_t
  * @brief Opaque handle representing a single message to be sent or received.
  *
  * Use ct_message_new()/ct_message_new_with_content() to create, and ct_message_free() to free.
@@ -989,6 +1000,7 @@ CT_EXTERN void ct_message_set_content(ct_message_t* message, const char* content
 
 /**
  * @ingroup message
+ * @struct ct_message_context_t
  * @brief Opaque handle representing message metadata to pass to sending protocol.
  *
  * ## Message Context Ownership Model
@@ -1243,6 +1255,7 @@ typedef struct ct_listener_callbacks_s {
 
 /**
  * @ingroup framer
+ * @struct ct_framer_impl_t
  * @brief Opaque handle representing a framer layer, wrapping or unwrapping sent/received
  * messages.
  *
