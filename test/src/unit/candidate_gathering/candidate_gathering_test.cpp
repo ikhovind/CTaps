@@ -1,7 +1,6 @@
 #include "gtest/gtest.h"
 #include <arpa/inet.h>
 #include <netinet/in.h>
-#include <glib.h>
 #include <map>
 #include <string>
 
