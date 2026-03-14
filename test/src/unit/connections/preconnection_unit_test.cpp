@@ -1,11 +1,15 @@
 #include <gmock/gmock-matchers.h>
 
 #include "gtest/gtest.h"
-#include "fff.h"
 extern "C" {
+#include "fff.h"
 #include "ctaps.h"
 #include "ctaps_internal.h"
 #include "connection/preconnection.h"
+
+DEFINE_FFF_GLOBALS;
+FAKE_VALUE_FUNC(ct_framer_impl_t*, __wrap_ct_framer_impl_deep_copy, const ct_framer_impl_t*);
+FAKE_VOID_FUNC(__wrap_ct_framer_impl_free, ct_framer_impl_t*);
 }
 
 
@@ -13,11 +17,16 @@ class PreconnectionUnitTests : public ::testing::Test {
 protected:
     void SetUp() override {
         ct_set_log_level(CT_LOG_DEBUG);
+        RESET_FAKE(__wrap_ct_framer_impl_deep_copy);
+        RESET_FAKE(__wrap_ct_framer_impl_free);
+        FFF_RESET_HISTORY();
     }
 
     
     void TearDown() override {
     }
+
+    ct_preconnection_t dummy_precon = {0};
 
 };
 
@@ -61,8 +70,6 @@ TEST_F(PreconnectionUnitTests, TakesDeepCopyOfRemoteEndpoint) {
 
     ct_transport_properties_t* transport_properties = ct_transport_properties_new();
   ASSERT_NE(transport_properties, nullptr);
-
-    // Allocated with ct_transport_properties_new()
 
     ct_transport_properties_set_reliability(transport_properties, PROHIBIT);
     ct_transport_properties_set_preserve_order(transport_properties, PROHIBIT);
@@ -140,4 +147,93 @@ TEST_F(PreconnectionUnitTests, getLocalEndpointsHandlesNullPrecon) {
     const ct_local_endpoint_t* endpoints = ct_preconnection_get_local_endpoints(nullptr, &out_count);
     ASSERT_EQ(endpoints, nullptr);
     ASSERT_EQ(out_count, 0);
+}
+
+TEST_F(PreconnectionUnitTests, setFramerRejectsNullPreconnection) {
+    ct_framer_impl_t dummy{};
+    int result = ct_preconnection_set_framer(NULL, &dummy);
+    ASSERT_EQ(result, -EINVAL);
+    ASSERT_EQ(__wrap_ct_framer_impl_deep_copy_fake.call_count, 0);
+    ASSERT_EQ(__wrap_ct_framer_impl_free_fake.call_count, 0);
+}
+
+TEST_F(PreconnectionUnitTests, setFramerNullOnNullWorks) {
+    ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, NULL, 0, NULL, NULL);
+    EXPECT_EQ(preconnection->framer_impl, nullptr);
+    int result = ct_preconnection_set_framer(preconnection, NULL);
+    EXPECT_EQ(result, 0);
+    EXPECT_EQ(preconnection->framer_impl, nullptr);
+    EXPECT_EQ(__wrap_ct_framer_impl_free_fake.call_count, 0);
+    EXPECT_EQ(__wrap_ct_framer_impl_deep_copy_fake.call_count, 0);
+    ct_preconnection_free(preconnection);
+}
+
+TEST_F(PreconnectionUnitTests, setFramerDeepCopiesImpl) {
+    ct_framer_impl_t dummy{};
+    ct_framer_impl_t copy{};
+    __wrap_ct_framer_impl_deep_copy_fake.return_val = &copy;
+
+    ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, NULL, 0, NULL, NULL);
+    int result = ct_preconnection_set_framer(preconnection, &dummy);
+
+    EXPECT_EQ(result, 0);
+    EXPECT_EQ(__wrap_ct_framer_impl_deep_copy_fake.call_count, 1);
+    EXPECT_EQ(__wrap_ct_framer_impl_deep_copy_fake.arg0_val, &dummy);
+    EXPECT_EQ(preconnection->framer_impl, &copy);
+
+    ct_preconnection_free(preconnection);
+}
+
+TEST_F(PreconnectionUnitTests, setFramerReplacesExistingImpl) {
+    ct_framer_impl_t dummy{};
+    ct_framer_impl_t first_copy{};
+    ct_framer_impl_t second_copy{};
+    __wrap_ct_framer_impl_deep_copy_fake.return_val = &first_copy;
+
+    ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, NULL, 0, NULL, NULL);
+    EXPECT_EQ(ct_preconnection_set_framer(preconnection, &dummy), 0);
+
+    __wrap_ct_framer_impl_deep_copy_fake.return_val = &second_copy;
+    EXPECT_EQ(ct_preconnection_set_framer(preconnection, &dummy), 0);
+
+    // Old copy was freed
+    EXPECT_EQ(__wrap_ct_framer_impl_free_fake.call_count, 1);
+    EXPECT_EQ(__wrap_ct_framer_impl_free_fake.arg0_val, &first_copy);
+
+    // Deep copy was called twice, new copy is installed
+    EXPECT_EQ(__wrap_ct_framer_impl_deep_copy_fake.call_count, 2);
+    EXPECT_EQ(preconnection->framer_impl, &second_copy);
+
+    ct_preconnection_free(preconnection);
+}
+
+TEST_F(PreconnectionUnitTests, setFramerNullImplFreesExisting) {
+    ct_framer_impl_t dummy{};
+    ct_framer_impl_t copy{};
+    __wrap_ct_framer_impl_deep_copy_fake.return_val = &copy;
+
+    ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, NULL, 0, NULL, NULL);
+    EXPECT_EQ(ct_preconnection_set_framer(preconnection, &dummy), 0);
+
+    int result = ct_preconnection_set_framer(preconnection, NULL);
+    EXPECT_EQ(result, 0);
+    EXPECT_EQ(__wrap_ct_framer_impl_free_fake.call_count, 1);
+    EXPECT_EQ(__wrap_ct_framer_impl_free_fake.arg0_val, &copy);
+    EXPECT_EQ(preconnection->framer_impl, nullptr);
+
+    ct_preconnection_free(preconnection);
+}
+
+TEST_F(PreconnectionUnitTests, setFramerReturnsENOMEMOnCopyFailure) {
+    ct_framer_impl_t dummy{};
+    __wrap_ct_framer_impl_deep_copy_fake.return_val = NULL;
+
+    ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, NULL, 0, NULL, NULL);
+    int result = ct_preconnection_set_framer(preconnection, &dummy);
+
+    EXPECT_EQ(result, -ENOMEM);
+    EXPECT_EQ(preconnection->framer_impl, nullptr);
+    EXPECT_EQ(__wrap_ct_framer_impl_free_fake.call_count, 0);
+
+    ct_preconnection_free(preconnection);
 }

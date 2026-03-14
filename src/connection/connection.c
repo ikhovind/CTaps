@@ -7,6 +7,7 @@
 #include "ctaps_internal.h"
 #include "endpoint/local_endpoint.h"
 #include "endpoint/remote_endpoint.h"
+#include "message/framer.h"
 #include "message/message.h"
 #include "message/message_context.h"
 #include "util/uuid_util.h"
@@ -38,7 +39,7 @@ ct_connection_t* ct_connection_create_empty_with_uuid(void) {
 ct_connection_t* ct_connection_create_server_connection(
     ct_socket_manager_t* socket_manager, const ct_remote_endpoint_t* remote_endpoint,
     const ct_local_endpoint_t* local_endpoint, const ct_security_parameters_t* security_parameters,
-    const ct_connection_callbacks_t* connection_callbacks, ct_framer_impl_t* framer_impl) {
+    const ct_connection_callbacks_t* connection_callbacks, const ct_framer_impl_t* framer_impl) {
     log_debug("Creating server connection for remote endpoint");
     ct_connection_t* connection = ct_connection_create_empty_with_uuid();
     if (!connection) {
@@ -78,7 +79,15 @@ ct_connection_t* ct_connection_create_server_connection(
     connection->role = CT_CONNECTION_ROLE_SERVER;
 
     connection->security_parameters = ct_security_parameters_deep_copy(security_parameters);
-    connection->framer_impl = framer_impl; // TODO - ownership here?
+    if (framer_impl) {
+        connection->framer_impl = ct_framer_impl_deep_copy(framer_impl);
+        if (!connection->framer_impl) {
+            log_error("Failed to copy framer implementation for connection");
+            ct_connection_free(connection);
+            ct_connection_group_free(group);
+            return NULL;
+        }
+    }
 
     if (connection_callbacks) {
         connection->connection_callbacks = *connection_callbacks;
@@ -96,7 +105,7 @@ ct_connection_t* ct_connection_create_client(
     size_t num_local_endpoints, size_t local_endpoint_index, ct_remote_endpoint_t* remote_endpoints,
     size_t num_remote_endpoints, size_t remote_endpoint_index,
     const ct_security_parameters_t* security_parameters,
-    const ct_connection_callbacks_t* connection_callbacks, ct_framer_impl_t* framer_impl) {
+    const ct_connection_callbacks_t* connection_callbacks, const ct_framer_impl_t* framer_impl) {
     log_debug("Creating client connection to remote endpoint");
     ct_connection_t* connection = ct_connection_create_empty_with_uuid();
     if (!connection) {
@@ -158,14 +167,21 @@ ct_connection_t* ct_connection_create_client(
     } else {
         log_debug("No connection callbacks provided for client connection, using empty callbacks");
     }
-    connection->framer_impl = framer_impl; // TODO - ownership here?
+    if (framer_impl) {
+        connection->framer_impl = ct_framer_impl_deep_copy(framer_impl);
+        if (!connection->framer_impl) {
+            log_error("Failed to copy framer implementation for connection");
+            ct_connection_free(connection);
+            return NULL;
+        }
+    }
 
     return connection;
 }
 
 ct_connection_t* ct_connection_create_clone(const ct_connection_t* source_connection,
                                             ct_socket_manager_t* socket_manager,
-                                            ct_framer_impl_t* framer_impl,
+                                            const ct_framer_impl_t* framer_impl,
                                             void* internal_connection_state) {
     ct_connection_t* clone = ct_connection_create_empty_with_uuid();
     if (!clone) {
@@ -194,9 +210,19 @@ ct_connection_t* ct_connection_create_clone(const ct_connection_t* source_connec
 
     clone->role = source_connection->role;
     if (framer_impl) {
-        clone->framer_impl = framer_impl;
-    } else {
-        clone->framer_impl = source_connection->framer_impl; // TODO - ownership here?
+        clone->framer_impl = ct_framer_impl_deep_copy(framer_impl);
+        if (!clone->framer_impl) {
+            log_error("Failed to copy framer implementation for connection clone");
+            ct_connection_free(clone);
+            return NULL;
+        }
+    } else if (source_connection->framer_impl) {
+        clone->framer_impl = ct_framer_impl_deep_copy(source_connection->framer_impl);
+        if (!clone->framer_impl) {
+            log_error("Failed to copy framer implementation from source connection for connection clone");
+            ct_connection_free(clone);
+            return NULL;
+        }
     }
     clone->connection_callbacks = source_connection->connection_callbacks;
     clone->internal_connection_state = internal_connection_state;
@@ -376,7 +402,7 @@ int ct_send_message_full(ct_connection_t* connection, const ct_message_t* messag
     }
 
     int rc = 0;
-    if (connection->framer_impl != NULL) {
+    if (connection->framer_impl && connection->framer_impl->encode_message) {
         log_debug("User sending message on connection with framer");
         rc = connection->framer_impl->encode_message(connection, message_copy, message_context_copy,
                                                      ct_connection_send_to_protocol);
@@ -509,6 +535,7 @@ void ct_connection_free_content(ct_connection_t* connection) {
         ct_socket_manager_unref(socket_manager);
         connection->socket_manager = NULL;
     }
+    ct_framer_impl_free(connection->framer_impl);
 }
 
 void ct_connection_free(ct_connection_t* connection) {
@@ -567,7 +594,7 @@ void ct_connection_on_protocol_receive(ct_connection_t* connection, const void* 
         return;
     }
 
-    if (connection->framer_impl != NULL) {
+    if (connection->framer_impl && connection->framer_impl->decode_data) {
         // Framer present - let it decode, it will call ct_connection_deliver_to_app()
         connection->framer_impl->decode_data(connection, received_message, context,
                                              ct_connection_deliver_to_app);
@@ -582,7 +609,7 @@ void ct_connection_abort(ct_connection_t* connection) {
     connection->socket_manager->protocol_impl->abort(connection);
 }
 
-int ct_connection_clone_full(const ct_connection_t* source_connection, ct_framer_impl_t* framer,
+int ct_connection_clone_full(const ct_connection_t* source_connection, const ct_framer_impl_t* framer,
                              const ct_transport_properties_t* connection_properties) {
     log_debug("Creating clone from connection: %s", source_connection->uuid);
     (void)connection_properties; // TODO - apply any overridden properties to the clone
