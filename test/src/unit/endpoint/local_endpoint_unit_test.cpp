@@ -12,40 +12,6 @@ extern "C" {
 
 #include "fixtures/integration_fixture.h"
 
-TEST(LocalEndpointUnitTests, SetsIpv4FamilyAndAddress) {
-    GTEST_SKIP();
-    ct_local_endpoint_t local_endpoint;
-
-    ct_local_endpoint_build(&local_endpoint);
-
-    ct_local_endpoint_with_port(&local_endpoint, 5005);
-
-    sockaddr_in* addr = (struct sockaddr_in*)&local_endpoint.resolved_address;
-
-    EXPECT_EQ(5005, ntohs(addr->sin_port));
-    EXPECT_EQ(5005, local_endpoint.port);
-    EXPECT_EQ(AF_INET, addr->sin_family);
-    EXPECT_EQ(inet_addr("127.0.0.1"), addr->sin_addr.s_addr);
-}
-
-TEST(LocalEndpointUnitTests, SetsIpv6FamilyAndAddress) {
-    GTEST_SKIP(); // might not make sense
-    ct_local_endpoint_t local_endpoint;
-
-    ct_local_endpoint_build(&local_endpoint);
-
-    // localhost ipv6 resolved_address:
-    in6_addr ipv6_addr = { .__in6_u = { .__u6_addr8 = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1} } };
-
-    ct_local_endpoint_with_port(&local_endpoint, 5005);
-    sockaddr_in6* addr = (struct sockaddr_in6*)&local_endpoint.resolved_address;
-
-    EXPECT_EQ(AF_INET6, addr->sin6_family);
-    EXPECT_EQ(5005, ntohs(addr->sin6_port));
-    EXPECT_EQ(5005, local_endpoint.port);
-    EXPECT_EQ(0, memcmp(&ipv6_addr, &addr->sin6_addr, sizeof(in6_addr)));
-}
-
 extern "C" {
 DEFINE_FFF_GLOBALS;
 FAKE_VALUE_FUNC(int, uv_udp_bind, uv_udp_t*, const struct sockaddr*, unsigned int);
@@ -87,6 +53,15 @@ int custom_uv_interface_addresses(uv_interface_address_t** addresses, int* count
   *addresses = fake_interfaces;
   *count = sizeof(fake_interfaces) / sizeof(fake_interfaces[0]);
   return 0;
+}
+
+
+TEST(LocalEndpointUnitTests, setsPort) {
+    ct_local_endpoint_t local_endpoint;
+    ct_local_endpoint_build(&local_endpoint);
+    ct_local_endpoint_with_port(&local_endpoint, 5005);
+
+    EXPECT_EQ(local_endpoint.port, 5005);
 }
 
 
