@@ -12,7 +12,7 @@ typedef enum {
     NODE_TYPE_PATH,
     NODE_TYPE_PROTOCOL,
     NODE_TYPE_ENDPOINT,
-} ct_node_type_t;
+} ct_node_type_enum_t;
 
 /**
   * @brief A single combination of options from the ct_protocol_options_t struct
@@ -25,7 +25,7 @@ typedef struct ct_protocol_candidate_s {
 } ct_protocol_candidate_t;
 
 typedef struct ct_candidate_node_t {
-    ct_node_type_t type;
+    ct_node_type_enum_t type;
     int score;
 
     ct_local_endpoint_t* local_endpoint;

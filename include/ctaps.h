@@ -1,8 +1,5 @@
 //
-// CTaps - C implementation of RFC 9622 Transport Services API
-//
-// This is the main header file for the CTaps library.
-// Include this file to access the complete Transport Services API.
+// CTaps - C implementation Transport Services as described in RFC 9621 - 9623
 //
 
 #ifndef CTAPS_H
@@ -30,7 +27,7 @@
  * @brief Opaque handle representing a connection.
  *
  * Received via callback when a preconnection has been initiated or
- * a listener has receved a new connection.
+ * a listener has received a new connection.
  */
 typedef struct ct_connection_s ct_connection_t;
 
@@ -39,7 +36,7 @@ typedef struct ct_connection_s ct_connection_t;
  * @struct ct_listener_t
  * @brief Opaque handle representing a listener.
  *
- * Recieved via callback after ct_preconnection_listen()
+ * Received via callback after ct_preconnection_listen()
  *
  * @note Despite being received via callback, the creation
  * of the listener is currently synchronous so the callback
@@ -136,7 +133,7 @@ typedef enum {
     CT_LOG_WARN = 3,  ///< Warning messages
     CT_LOG_ERROR = 4, ///< Error messages
     CT_LOG_FATAL = 5  ///< Fatal errors (least verbose)
-} ct_log_level_t;
+} ct_log_level_enum_t;
 
 /**
  * @ingroup logging
@@ -150,9 +147,9 @@ typedef enum {
  * @note This can be called before ct_initialize() or at any time during execution
  * @note Lower numeric values are more verbose (TRACE=0, FATAL=5)
  *
- * @see ct_log_level_t for available log levels
+ * @see ct_log_level_enum_t for available log levels
  */
-CT_EXTERN void ct_set_log_level(ct_log_level_t level);
+CT_EXTERN void ct_set_log_level(ct_log_level_enum_t level);
 
 /**
  * @ingroup logging
@@ -171,7 +168,7 @@ CT_EXTERN void ct_set_log_level(ct_log_level_t level);
  * @note File handle remains open for the lifetime of the library
  * @note This should be called after ct_initialize()
  */
-CT_EXTERN int ct_add_log_file(const char* file_path, ct_log_level_t min_level);
+CT_EXTERN int ct_add_log_file(const char* file_path, ct_log_level_enum_t min_level);
 
 // =============================================================================
 // Selection Properties - Transport property preferences for protocol selection
@@ -200,14 +197,14 @@ typedef enum {
     NO_PREFERENCE, ///< No preference - property does not affect selection
     PREFER,        ///< Prefer protocols with this property if available
     REQUIRE,       ///< Protocol MUST have this property (eliminates candidates)
-} ct_selection_preference_t;
+} ct_selection_preference_enum_t;
 
 
 /**
  * @ingroup selection_properties
  * @brief Direction of communication for a connection.
  */
-typedef enum ct_direction_of_communication_t {
+typedef enum {
     CT_DIRECTION_BIDIRECTIONAL,       ///< Two-way communication (send and receive)
     CT_DIRECTION_UNIDIRECTIONAL_SEND, ///< One-way, send only
     CT_DIRECTION_UNIDIRECTIONAL_RECV  ///< One-way, receive only
@@ -217,33 +214,34 @@ typedef enum ct_direction_of_communication_t {
  * @ingroup selection_properties
  * @brief Multipath transport modes.
  */
-typedef enum ct_multipath_enum_t {
+typedef enum {
     CT_MULTIPATH_DISABLED, ///< Do not use multipath
     CT_MULTIPATH_ACTIVE,   ///< Actively use multiple paths simultaneously
     CT_MULTIPATH_PASSIVE   ///< TBD
 } ct_multipath_enum_t;
 
-#define EMPTY_PREFERENCE_SET_DEFAULT 0
+// Since it is a struct, wrap with {0}
+#define EMPTY_PREFERENCE_SET_DEFAULT {0}
 #define RUNTIME_DEPENDENT_DEFAULT 0
 
 // clang-format off
 #define get_selection_property_list(f)                                                                    \
-f(RELIABILITY,                 "reliability",                ct_selection_preference_t,           reliability,                 REQUIRE,                   TYPE_PREFERENCE)        \
-f(PRESERVE_MSG_BOUNDARIES,     "preserveMsgBoundaries",      ct_selection_preference_t,           preserve_msg_boundaries,     NO_PREFERENCE,             TYPE_PREFERENCE )  \
-f(PER_MSG_RELIABILITY,         "perMsgReliability",          ct_selection_preference_t,           per_msg_reliability,         NO_PREFERENCE,             TYPE_PREFERENCE)  \
-f(PRESERVE_ORDER,              "preserveOrder",              ct_selection_preference_t,           preserve_order,              REQUIRE,                   TYPE_PREFERENCE)        \
-f(ZERO_RTT_MSG,                "zeroRttMsg",                 ct_selection_preference_t,           zero_rtt_msg,                NO_PREFERENCE,             TYPE_PREFERENCE)  \
-f(MULTISTREAMING,              "multistreaming",             ct_selection_preference_t,           multistreaming,              PREFER,                    TYPE_PREFERENCE)         \
-f(FULL_CHECKSUM_SEND,          "fullChecksumSend",           ct_selection_preference_t,           full_checksum_send,          REQUIRE,                   TYPE_PREFERENCE)        \
-f(FULL_CHECKSUM_RECV,          "fullChecksumRecv",           ct_selection_preference_t,           full_checksum_recv,          REQUIRE,                   TYPE_PREFERENCE)        \
-f(CONGESTION_CONTROL,          "congestionControl",          ct_selection_preference_t,           congestion_control,          REQUIRE,                   TYPE_PREFERENCE)        \
-f(KEEP_ALIVE,                  "keepAlive",                  ct_selection_preference_t,           keep_alive,                  NO_PREFERENCE,             TYPE_PREFERENCE)  \
-f(USE_TEMPORARY_LOCAL_ADDRESS, "useTemporaryLocalAddress",   ct_selection_preference_t,           use_temporary_local_address, RUNTIME_DEPENDENT_DEFAULT, TYPE_PREFERENCE)         \
-f(MULTIPATH,                   "multipath",                  ct_multipath_enum_t,                 multipath,                   RUNTIME_DEPENDENT_DEFAULT, TYPE_ENUM)  \
-f(ADVERTISES_ALT_ADDRES,       "advertisesAltAddr",          bool,                                advertises_alt_address,       false,                     TYPE_BOOL)  \
-f(DIRECTION,                   "direction",                  ct_direction_of_communication_enum_t,direction,                   CT_DIRECTION_BIDIRECTIONAL,   TYPE_ENUM)  \
-f(SOFT_ERROR_NOTIFY,           "softErrorNotify",            ct_selection_preference_t,           soft_error_notify,           NO_PREFERENCE,             TYPE_PREFERENCE)  \
-f(ACTIVE_READ_BEFORE_SEND,     "activeReadBeforeSend",       ct_selection_preference_t,           active_read_before_send,     NO_PREFERENCE,             TYPE_PREFERENCE)
+f(RELIABILITY,                 "reliability",                ct_selection_preference_enum_t,           reliability,                 REQUIRE,                   TYPE_PREFERENCE)        \
+f(PRESERVE_MSG_BOUNDARIES,     "preserveMsgBoundaries",      ct_selection_preference_enum_t,           preserve_msg_boundaries,     NO_PREFERENCE,             TYPE_PREFERENCE )  \
+f(PER_MSG_RELIABILITY,         "perMsgReliability",          ct_selection_preference_enum_t,           per_msg_reliability,         NO_PREFERENCE,             TYPE_PREFERENCE)  \
+f(PRESERVE_ORDER,              "preserveOrder",              ct_selection_preference_enum_t,           preserve_order,              REQUIRE,                   TYPE_PREFERENCE)        \
+f(ZERO_RTT_MSG,                "zeroRttMsg",                 ct_selection_preference_enum_t,           zero_rtt_msg,                NO_PREFERENCE,             TYPE_PREFERENCE)  \
+f(MULTISTREAMING,              "multistreaming",             ct_selection_preference_enum_t,           multistreaming,              PREFER,                    TYPE_PREFERENCE)         \
+f(FULL_CHECKSUM_SEND,          "fullChecksumSend",           ct_selection_preference_enum_t,           full_checksum_send,          REQUIRE,                   TYPE_PREFERENCE)        \
+f(FULL_CHECKSUM_RECV,          "fullChecksumRecv",           ct_selection_preference_enum_t,           full_checksum_recv,          REQUIRE,                   TYPE_PREFERENCE)        \
+f(CONGESTION_CONTROL,          "congestionControl",          ct_selection_preference_enum_t,           congestion_control,          REQUIRE,                   TYPE_PREFERENCE)        \
+f(KEEP_ALIVE,                  "keepAlive",                  ct_selection_preference_enum_t,           keep_alive,                  NO_PREFERENCE,             TYPE_PREFERENCE)  \
+f(USE_TEMPORARY_LOCAL_ADDRESS, "useTemporaryLocalAddress",   ct_selection_preference_enum_t,           use_temporary_local_address, RUNTIME_DEPENDENT_DEFAULT, TYPE_PREFERENCE)         \
+f(MULTIPATH,                   "multipath",                  ct_multipath_enum_t,                      multipath,                   RUNTIME_DEPENDENT_DEFAULT, TYPE_ENUM)  \
+f(ADVERTISES_ALT_ADDRESS,      "advertisesAltAddr",          bool,                                advertises_alt_address,      false,                     TYPE_BOOL)  \
+f(DIRECTION,                   "direction",                  ct_direction_of_communication_enum_t,     direction,                   CT_DIRECTION_BIDIRECTIONAL,   TYPE_ENUM)  \
+f(SOFT_ERROR_NOTIFY,           "softErrorNotify",            ct_selection_preference_enum_t,           soft_error_notify,           NO_PREFERENCE,             TYPE_PREFERENCE)  \
+f(ACTIVE_READ_BEFORE_SEND,     "activeReadBeforeSend",       ct_selection_preference_enum_t,           active_read_before_send,     NO_PREFERENCE,             TYPE_PREFERENCE)
 
 #define get_preference_set_selection_property_list(f)                                              \
     f(INTERFACE, "interface", ct_preference_set_t, interface, EMPTY_PREFERENCE_SET_DEFAULT,        \
@@ -289,7 +287,8 @@ typedef struct ct_connection_properties_s ct_connection_properties_t;
  * @brief Connection lifecycle states.
  */
 typedef enum {
-    CT_CONN_STATE_ESTABLISHING = 0, ///< Connection is being established
+    CT_CONN_STATE_INVALID = -1,     ///< Invalid state (used for error handling)
+    CT_CONN_STATE_ESTABLISHING,     ///< Connection is being established
     CT_CONN_STATE_ESTABLISHED,      ///< Connection is ready for data transfer
     CT_CONN_STATE_CLOSING,          ///< Connection is closing gracefully
     CT_CONN_STATE_CLOSED            ///< Connection is fully closed
@@ -329,7 +328,7 @@ typedef enum {
 // clang-format off
 #define get_writable_connection_property_list(f)                                                                                   \
 f(RECV_CHECKSUM_LEN,     "recvChecksumLen",     uint32_t,                       recv_checksum_len,     CT_CONN_CHECKSUM_FULL_COVERAGE,           TYPE_UINT32) \
-f(CONN_PRIORITY,         "connPriority",        uint32_t,                       conn_priority,         100,                                   TYPE_UINT32) \
+f(CONN_PRIORITY,         "connPriority",        uint8_t,                        conn_priority,         CT_CONNECTION_DEFAULT_PRIORITY,           TYPE_UINT8) \
 f(CONN_TIMEOUT,          "connTimeout",         uint32_t,                       conn_timeout,          CT_CONN_TIMEOUT_DISABLED,                 TYPE_UINT32) \
 f(KEEP_ALIVE_TIMEOUT,    "keepAliveTimeout",    uint32_t,                       keep_alive_timeout,    CT_CONN_TIMEOUT_DISABLED,                 TYPE_UINT32) \
 f(CONN_SCHEDULER,        "connScheduler",       ct_connection_scheduler_enum_t, conn_scheduler,        CT_CONN_SCHEDULER_WEIGHTED_FAIR_QUEUEING, TYPE_ENUM)  \
@@ -372,7 +371,7 @@ typedef struct ct_transport_properties_s ct_transport_properties_t;
 
 #define output_transport_property_preference_getter_declaration(                                   \
     enum_name, string_name, property_type, token_name, default_value, type)                        \
-    CT_EXTERN ct_selection_preference_t ct_transport_properties_get_##token_name##_preference(     \
+    CT_EXTERN ct_selection_preference_enum_t ct_transport_properties_get_##token_name##_preference(     \
         const ct_transport_properties_t* transport_props, const char* value);
 
 #define output_transport_property_setter_declaration(enum_name, string_name, property_type,        \
@@ -384,7 +383,7 @@ typedef struct ct_transport_properties_s ct_transport_properties_t;
                                                        token_name, default_value, type)            \
     CT_EXTERN int ct_transport_properties_add_##token_name##_preference(                           \
         ct_transport_properties_t* transport_props, const char* value,                             \
-        ct_selection_preference_t preference);
+        ct_selection_preference_enum_t preference);
 
 /** @addtogroup selection_properties
  *  @{
@@ -715,16 +714,19 @@ CT_EXTERN int ct_local_endpoint_with_interface(ct_local_endpoint_t* local_endpoi
  * @param[in,out] local_endpoint Endpoint to modify
  * @param[in] port Port number
  */
-CT_EXTERN void ct_local_endpoint_with_port(ct_local_endpoint_t* local_endpoint, int port);
+CT_EXTERN void ct_local_endpoint_with_port(ct_local_endpoint_t* local_endpoint, uint16_t port);
 
 /**
  * @ingroup local_endpoints
  * @brief Set the service name for a local endpoint.
+ *
+ * Takes a deep copy of the provided string.
+ *
  * @param[in,out] local_endpoint Endpoint to modify
  * @param[in] service Service name (e.g., "http", "https")
  * @return 0 on success, non-zero on error
  */
-CT_EXTERN int ct_local_endpoint_with_service(ct_local_endpoint_t* local_endpoint, char* service);
+CT_EXTERN int ct_local_endpoint_with_service(ct_local_endpoint_t* local_endpoint, const char* service);
 
 /**
  * @ingroup local_endpoints
@@ -734,6 +736,16 @@ CT_EXTERN int ct_local_endpoint_with_service(ct_local_endpoint_t* local_endpoint
  * @return 0 on success, non-zero on error
  */
 CT_EXTERN int ct_local_endpoint_with_ipv4(ct_local_endpoint_t* local_endpoint, in_addr_t ipv4_addr);
+
+/**
+ * @ingroup local_endpoints
+ * @brief Set the IPv6 address for a local endpoint.
+ * @param[in,out] local_endpoint Endpoint to modify
+ * @param[in] ipv6_addr IPv6 address in network byte order
+ * @return 0 on success, non-zero on error
+ */
+CT_EXTERN int ct_local_endpoint_with_ipv6(ct_local_endpoint_t* local_endpoint,
+                                           struct in6_addr ipv6_addr);
 
 /**
  * @ingroup local_endpoints
@@ -760,12 +772,12 @@ CT_EXTERN void ct_local_endpoint_free(ct_local_endpoint_t* local_endpoint);
  * @param[in] local_endpoint Source endpoint
  * @return Pointer to newly allocated copy, or NULL on error
  */
-ct_local_endpoint_t* ct_local_endpoint_deep_copy(const ct_local_endpoint_t* local_endpoint);
+CT_EXTERN ct_local_endpoint_t* ct_local_endpoint_deep_copy(const ct_local_endpoint_t* local_endpoint);
 
 /**
  * @ingroup local_endpoints
  * @brief Get the service for a local endpoint
- * @param[in] remote_endpoint endpoint to get service for
+ * @param[in] local_endpoint endpoint to get service for
  *
  * @return char* pointer to service name, NULL if endpoint is null, or if service is not set
  */
@@ -828,7 +840,7 @@ CT_EXTERN void ct_remote_endpoint_free_content(ct_remote_endpoint_t* remote_endp
 
 /**
  * @ingroup remote_endpoints
- * @brief Free all resources in a remote endpoint without freeing the structure itself.
+ * @brief Free all resources in a remote endpoint including the structure itself.
  * @param[in] remote_endpoint Endpoint to free
  */
 CT_EXTERN void ct_remote_endpoint_free(ct_remote_endpoint_t* remote_endpoint);
@@ -849,7 +861,7 @@ CT_EXTERN int ct_remote_endpoint_from_sockaddr(ct_remote_endpoint_t* remote_endp
  * @param[in] remote_endpoint Source endpoint
  * @return Pointer to newly allocated copy, or NULL on error
  */
-ct_remote_endpoint_t* ct_remote_endpoint_deep_copy(const ct_remote_endpoint_t* remote_endpoint);
+CT_EXTERN ct_remote_endpoint_t* ct_remote_endpoint_deep_copy(const ct_remote_endpoint_t* remote_endpoint);
 
 /**
  * @ingroup remote_endpoints
@@ -1071,13 +1083,13 @@ CT_EXTERN void* ct_message_context_get_receive_context(const ct_message_context_
     CT_EXTERN property_type ct_message_context_get_##token_name(                                   \
         const ct_message_context_t* msg_ctx);
 
-#define output_message_conxtex_setter_declaration(enum_name, string_name, property_type,           \
+#define output_message_context_setter_declaration(enum_name, string_name, property_type,           \
                                                   token_name, default_value, type_enum)            \
     CT_EXTERN void ct_message_context_set_##token_name(ct_message_context_t* msg_ctx,              \
                                                        property_type val);
 
 get_message_property_list(output_message_context_getter_declaration)
-    get_message_property_list(output_message_conxtex_setter_declaration)
+    get_message_property_list(output_message_context_setter_declaration)
 
 // =============================================================================
 // Callbacks - Connection and Listener callback structures
@@ -1108,7 +1120,7 @@ typedef struct ct_receive_callbacks_s {
 
     /**
      * @brief Per-receive user context accessible when this specific callback is invoked.
-     * Can be fetched within ct_message_context_get_receiver_context(ctx)
+     * Can be fetched within ct_message_context_get_receive_context(ctx)
      *
      * @code{.c}
      *
@@ -1163,13 +1175,13 @@ typedef struct ct_connection_callbacks_s {
      * Per connection context accessible whenever a given connection is
      * passed to a callback. 
      *
-     * Can be fetched with ct_connection_get_user_context(connection)
+     * Can be fetched with ct_connection_get_callback_context(connection)
      *
      * @code{.c}
      * void count_number_of_received_messages(ct_connection_t* connection,
      *                                       ct_message_t* received_message,
      *                                       ct_message_context_t* message_context) {
-     *   my_custom_struct* recv_ctx = ct_connection_get_user_context(connection);
+     *   my_custom_struct* recv_ctx = ct_connection_get_callback_context(connection);
      *   recv_ctx->num_received_messages++;
      * }
      * @endcode
@@ -1208,16 +1220,16 @@ typedef struct ct_listener_callbacks_s {
 
 
     /**
-     * Per connection context accessible whenever a given connection is
+     * Per listener context accessible whenever a given listener is
      * passed to a callback. 
      *
-     * Can be fetched with ct_connection_get_user_context(connection)
+     * Can be fetched with ct_listener_get_callback_context(listener)
      *
      * @code{.c}
      *
      * void count_num_received_connections(ct_listener_t* listener,
      *                                     ct_connection_t* new_connection) {
-     *   my_custom_struct* recv_ctx = ct_listener_get_callback_context(connection);
+     *   my_custom_struct* recv_ctx = ct_listener_get_callback_context(listener);
      *   recv_ctx->num_received_messages++;
      * }
      * @endcode
@@ -1258,11 +1270,11 @@ typedef int (*ct_framer_done_encoding_callback)(ct_connection_t* connection,
  * @brief Callback invoked by framer when message decoding is complete.
  *
  * @param[in] connection The connection
- * @param[in] encoded_message The decoded message
+ * @param[in] decoded_message The decoded message
  * @param[in] context Message context
  */
 typedef void (*ct_framer_done_decoding_callback)(ct_connection_t* connection,
-                                                 ct_message_t* encoded_message,
+                                                 ct_message_t* decoded_message,
                                                  ct_message_context_t* context);
 
 /**
@@ -1455,22 +1467,6 @@ CT_EXTERN int ct_receive_message(ct_connection_t* connection,
 
 /**
  * @ingroup connection
- * @brief Check if a connection is closed.
- * @param[in] connection The connection to check
- * @return true if connection is closed, false if open or connection is NULL
- */
-CT_EXTERN bool ct_connection_is_closed(const ct_connection_t* connection);
-
-/**
- * @ingroup connection
- * @brief Get the current state of a connection.
- * @param[in] connection The connection to query
- * @return connection lifecycle state, -1 if connection is NULL
- */
-CT_EXTERN ct_connection_state_enum_t ct_connection_get_state(const ct_connection_t* connection);
-
-/**
- * @ingroup connection
  * @brief get shared connection properties for a connection
  * @param[in] connection The connection to query
  * @return pointer to transport properties shared with connections in the same connection group, or NULL if connection is NULL
@@ -1544,41 +1540,73 @@ ct_connection_get_active_local_endpoint(const ct_connection_t* connection);
 
 /**
  * @ingroup connection
- * @brief Check if a connection is established.
+ * @brief Get the current state of a connection.
+ * @param[in] connection The connection to query
+ * @return connection lifecycle state, -1 if connection is NULL
+ */
+CT_EXTERN ct_connection_state_enum_t ct_connection_get_state(const ct_connection_t* connection);
+
+/**
+ * @ingroup connection
+ * @brief Check if a connection's state is CT_CONN_STATE_CLOSED.
+ *
+ * @see ct_connection_get_state() for a generic getter
+ *
  * @param[in] connection The connection to check
- * @return true if connection is established, false if open or connection is NULL
+ * @return true if connection is closed, false if open or connection is NULL
+ */
+CT_EXTERN bool ct_connection_is_closed(const ct_connection_t* connection);
+
+/**
+ * @ingroup connection
+ * @brief Check if a connection's state is CT_CONN_STATE_ESTABLISHED.
+ *
+ * @see ct_connection_get_state() for a generic getter
+ *
+ * @param[in] connection The connection to check
+ * @return true if connection state matches, false otherwise, including if connection is NULL
  */
 CT_EXTERN bool ct_connection_is_established(const ct_connection_t* connection);
 
 /**
  * @ingroup connection
- * @brief Check if a connection is currently being established.
+ * @brief Check if a connection's state is CT_CONN_STATE_ESTABLISHING
+ *
+ * @see ct_connection_get_state() for a generic getter
+ *
  * @param[in] connection The connection to check
- * @return true if connection is in the process of being established, false if established, closed, or connection is NULL
+ * @return true if connection state matches, false otherwise, including if connection is NULL
  */
 CT_EXTERN bool ct_connection_is_establishing(const ct_connection_t* connection);
 
 /**
  * @ingroup connection
- * @brief Check if a connection is currently being closed.
+ * @brief Check if a connection's state is CT_CONN_STATE_CLOSING
+ *
+ * @see ct_connection_get_state() for a generic getter
+ *
  * @param[in] connection The connection to check
- * @return true if connection is closed, false if open or connection is NULL
+ * @return true if connection state matches, false otherwise, including if connection is NULL
  */
 CT_EXTERN bool ct_connection_is_closing(const ct_connection_t* connection);
 
 /**
  * @ingroup connection
- * @brief Check if a connection is closed or in the process of closing.
+ * @brief Check if a connection's state is CT_CONN_STATE_CLOSED or CT_CONN_STATE_CLOSING
+ *
+ * @see ct_connection_get_state() for a generic getter
+ *
  * @param[in] connection The connection to check
- * @return true if connection is closed/closing, false if open or connection is NULL
+ * @return true if connection state matches, false otherwise, including if connection is NULL
  */
 CT_EXTERN bool ct_connection_is_closed_or_closing(const ct_connection_t* connection);
 
 /**
  * @ingroup connection
  * @brief Check if a connection is a client connection.
+ *
  * @param[in] connection The connection to check
- * @return true if connection is client role, false otherwise or if connection is NULL
+ * @return true if connection role matches, false otherwise, including if connection is NULL
  */
 CT_EXTERN bool ct_connection_is_client(const ct_connection_t* connection);
 
@@ -1586,7 +1614,7 @@ CT_EXTERN bool ct_connection_is_client(const ct_connection_t* connection);
  * @ingroup connection
  * @brief Check if a connection is a server connection.
  * @param[in] connection The connection to check
- * @return true if connection is server role, false otherwise or if connection is NULL
+ * @return true if connection role matches, false otherwise, including if connection is NULL
  */
 CT_EXTERN bool ct_connection_is_server(const ct_connection_t* connection);
 
@@ -1601,8 +1629,9 @@ CT_EXTERN bool ct_connection_can_send(const ct_connection_t* connection);
 /**
  * @ingroup connection
  * @brief Check the value of the canReceive connection property.
+ *
  * @param[in] connection The connection to check
- * @return false if connection is NULL, closed, not established or one way closed from remote.
+ * @return false if connection is NULL of if canReceive is false.
  */
 CT_EXTERN bool ct_connection_can_receive(const ct_connection_t* connection);
 
@@ -1622,7 +1651,7 @@ CT_EXTERN void ct_connection_free(ct_connection_t* connection);
  * For UDP this simply stops further sends and receives and closes the socket.
  * For QUIC it closes the connection, if the connection it is invoked on
  * is the last open connection in the connection group. Otherwise it closes
- * the conncetion one way (sending a FIN), stopping sending but allowing receives to continue
+ * the connection one way (sending a FIN), stopping sending but allowing receives to continue
  * until the remote also closes.
  *
  * @param[in] connection Connection to close
@@ -1670,12 +1699,7 @@ CT_EXTERN int ct_connection_clone_full(const ct_connection_t* source_connection,
  * @ingroup connection
  * @brief Clone a connection with only mandatory parameters.
  *
- * Is a wrapper around ct_connection_clone_full()
- *
  * @see ct_connection_clone_full
- * @param[in] source_connection The connection to clone
- *
- * @return An allocated connection object on success, or NULL on error
  */
 CT_EXTERN int ct_connection_clone(ct_connection_t* source_connection);
 
@@ -1728,7 +1752,7 @@ CT_EXTERN void ct_connection_abort_group(ct_connection_t* connection);
  * @param[in] connection The connection to query
  * @return The transport protocol enum value, or CT_PROTOCOL_ERROR if protocol cannot be determined
  */
-typedef enum CT_TRANSPORT_PROTOCOL_ENUM_E {
+typedef enum {
     CT_PROTOCOL_ERROR = -1, // returned from getters in errors, e.g. null connection
     CT_PROTOCOL_TCP,
     CT_PROTOCOL_UDP,
@@ -1737,10 +1761,10 @@ typedef enum CT_TRANSPORT_PROTOCOL_ENUM_E {
 
 /**
  * @ingroup connection
- * @brief Get the transport protocol used by a connection.
+ * @brief Get the shared connection properties used by a connection.
  *
  * @param[in] connection The connection to query
- * @return The transport protocol enum value, or CT_PROTOCOL_ERROR if protocol cannot be determined
+ * @return A pointer to the connection properties struct, or NULL if connection is NULL
  */
 CT_EXTERN const ct_connection_properties_t*
 ct_connection_get_connection_properties(const ct_connection_t* connection);

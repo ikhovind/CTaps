@@ -40,11 +40,11 @@ void ct_start_event_loop(void) {
     uv_run(event_loop, UV_RUN_DEFAULT);
 }
 
-void ct_set_log_level(ct_log_level_t level) {
+void ct_set_log_level(ct_log_level_enum_t level) {
     log_set_level(level);
 }
 
-int ct_add_log_file(const char* file_path, ct_log_level_t min_level) {
+int ct_add_log_file(const char* file_path, ct_log_level_enum_t min_level) {
     FILE* fp = fopen(file_path, "ae");
     if (!fp) {
         return -1;

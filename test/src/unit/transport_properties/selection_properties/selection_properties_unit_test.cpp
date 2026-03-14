@@ -15,7 +15,7 @@ TEST(SelectionPropertiesUnitTest, setsAdvertisesAltAddrCorrectly) {
   ct_transport_properties_set_advertises_alt_address(props, true);
 
   ASSERT_EQ(ct_transport_properties_get_advertises_alt_address(props), true);
-  ASSERT_TRUE(props->selection_properties.list[ADVERTISES_ALT_ADDRES].set_by_user);
+  ASSERT_TRUE(props->selection_properties.list[ADVERTISES_ALT_ADDRESS].set_by_user);
   ct_transport_properties_free(props);
 }
 
@@ -104,7 +104,7 @@ TEST(SelectionPropertiesUnitTest, setsDefaultValues) {
         EXPECT_EQ(current_prop.type, TYPE_ENUM);
         EXPECT_EQ(current_prop.value.enum_val, 0);
         break;
-      case ADVERTISES_ALT_ADDRES:
+      case ADVERTISES_ALT_ADDRESS:
         EXPECT_STREQ(current_prop.name, "advertisesAltAddr");
         EXPECT_EQ(current_prop.type, TYPE_BOOL);
         EXPECT_EQ(current_prop.value.bool_val, false);
@@ -221,7 +221,7 @@ TEST(SelectionPropertiesUnitTest, setsSetByUser) {
         EXPECT_EQ(current_prop.type, TYPE_ENUM);
         EXPECT_EQ(current_prop.value.enum_val, 0);
         break;
-      case ADVERTISES_ALT_ADDRES:
+      case ADVERTISES_ALT_ADDRESS:
         EXPECT_STREQ(current_prop.name, "advertisesAltAddr");
         EXPECT_EQ(current_prop.type, TYPE_BOOL);
         EXPECT_EQ(current_prop.value.bool_val, false);

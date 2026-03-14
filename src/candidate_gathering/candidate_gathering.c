@@ -163,7 +163,7 @@ bool interface_is_compatible(const char* interface_name,
     log_debug("Interface preference map has %zu combinations", preference_map.num_combinations);
     for (size_t i = 0; i < preference_map.num_combinations; i++) {
         char* key = preference_map.combinations[i].value;
-        ct_selection_preference_t preference = preference_map.combinations[i].preference;
+        ct_selection_preference_enum_t preference = preference_map.combinations[i].preference;
         log_trace("Preference for interface type %s is %d", key, preference);
         if (strcmp(key, interface_type) == 0) {
             if (preference == PROHIBIT) {
@@ -362,7 +362,7 @@ gint compare_prefer_and_avoid_preferences(gconstpointer a, gconstpointer b,
  * @param props The transport properties.
  * @return A new candidate_node object.
  */
-struct ct_candidate_node_t* candidate_node_new(ct_node_type_t type,
+struct ct_candidate_node_t* candidate_node_new(ct_node_type_enum_t type,
                                                const ct_local_endpoint_t* local_ep,
                                                const ct_remote_endpoint_t* remote_ep,
                                                const ct_protocol_candidate_t* proto,

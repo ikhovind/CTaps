@@ -15,10 +15,10 @@
 
 #define ALPN "benchmark"
 
-typedef enum { STREAM_STATE_NOT_STARTED, STREAM_STATE_RECEIVING, STREAM_STATE_DONE } stream_state_t;
+typedef enum { STREAM_STATE_NOT_STARTED, STREAM_STATE_RECEIVING, STREAM_STATE_DONE } stream_state_enum_t;
 
 typedef struct {
-    stream_state_t state;
+    stream_state_enum_t state;
     const char* request;
     size_t expected_size;
     transfer_stats_t stats; /* Transfer statistics including handshake, transfer time, and bytes */

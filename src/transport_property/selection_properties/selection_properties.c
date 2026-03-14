@@ -1,24 +1,28 @@
 #include "ctaps.h"
 #include "ctaps_internal.h"
 #include "selection_properties.h"
+#include "transport_property/transport_properties.h"
 #include <logging/log.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define create_sel_property_initializer(enum_name, string_name, property_type, function_name,      \
-                                        default_value, type_enum)                                  \
-    [enum_name] = {.name = (string_name),                                                          \
-                   .type = type_enum,                                                              \
-                   .set_by_user = false,                                                           \
-                   .value = {(ct_selection_preference_t)(default_value)}},
+#define create_sel_property_initializer(ENUM, STRING, TYPE, FIELD, DEFAULT, TYPE_TAG)                                  \
+    [ENUM] = { \
+       .name = (STRING),                                                          \
+       .type = TYPE_TAG,                                                              \
+       .set_by_user = false,                                                           \
+       .value.UNION_MEMBER_##TYPE_TAG = DEFAULT       \
+},
 
-const ct_selection_properties_t DEFAULT_SELECTION_PROPERTIES = {
-    .list = {get_preference_set_selection_property_list(create_sel_property_initializer)
-                 get_selection_property_list(create_sel_property_initializer)}};
+
+const ct_selection_property_t DEFAULT_SELECTION_PROPERTIES[] = {
+    get_preference_set_selection_property_list(create_sel_property_initializer)
+    get_selection_property_list(create_sel_property_initializer)
+};
 
 void ct_selection_properties_build(ct_selection_properties_t* selection_properties) {
-    memcpy(selection_properties, &DEFAULT_SELECTION_PROPERTIES, sizeof(ct_selection_properties_t));
+    memcpy(selection_properties->list, &DEFAULT_SELECTION_PROPERTIES, sizeof(ct_selection_properties_t));
 }
 
 void ct_selection_properties_cleanup(ct_selection_properties_t* selection_properties) {

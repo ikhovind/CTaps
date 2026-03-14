@@ -40,6 +40,14 @@ void ct_message_properties_free(ct_message_properties_t* message_properties) {
     free(message_properties);
 }
 
+#define create_message_property_initializer(ENUM, STRING, TYPE, FIELD, DEFAULT, TYPE_TAG)         \
+    [ENUM] = {                                                                                \
+        .name = (STRING), .set_by_user = false, .value.UNION_MEMBER_##TYPE_TAG = (DEFAULT)},
+
+const ct_message_property_t DEFAULT_MESSAGE_PROPERTIES[] = {
+    get_message_property_list(create_message_property_initializer)
+};
+
 #define DEFINE_MSG_PROPERTY_GETTER(ENUM, STRING, TYPE, FIELD, DEFAULT, TYPE_TAG)                   \
     TYPE ct_message_properties_get_##FIELD(const ct_message_properties_t* msg_prop) {              \
         if (!msg_prop) {                                                                           \

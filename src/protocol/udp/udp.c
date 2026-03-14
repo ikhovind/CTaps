@@ -40,7 +40,7 @@ const ct_protocol_impl_t
                          [USE_TEMPORARY_LOCAL_ADDRESS] = {.value = {.simple_preference =
                                                                         NO_PREFERENCE}},
                          [MULTIPATH] = {.value = {.simple_preference = NO_PREFERENCE}},
-                         [ADVERTISES_ALT_ADDRES] = {.value = {.simple_preference = NO_PREFERENCE}},
+                         [ADVERTISES_ALT_ADDRESS] = {.value = {.simple_preference = NO_PREFERENCE}},
                          [DIRECTION] = {.value = {.simple_preference = NO_PREFERENCE}},
                          [SOFT_ERROR_NOTIFY] = {.value = {.simple_preference = NO_PREFERENCE}},
                          [ACTIVE_READ_BEFORE_SEND] = {.value = {.simple_preference =

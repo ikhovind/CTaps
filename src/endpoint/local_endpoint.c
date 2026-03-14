@@ -13,7 +13,7 @@
 #include <string.h>
 #include <sys/socket.h>
 
-void ct_local_endpoint_with_port(ct_local_endpoint_t* local_endpoint, int port) {
+void ct_local_endpoint_with_port(ct_local_endpoint_t* local_endpoint, uint16_t port) {
     local_endpoint->port = port;
     if (local_endpoint->resolved_address.ss_family == AF_INET6) {
         struct sockaddr_in6* addr = (struct sockaddr_in6*)&local_endpoint->resolved_address;
@@ -49,7 +49,7 @@ int ct_local_endpoint_with_interface(ct_local_endpoint_t* local_endpoint,
     return 0;
 }
 
-int ct_local_endpoint_with_service(ct_local_endpoint_t* local_endpoint, char* service) {
+int ct_local_endpoint_with_service(ct_local_endpoint_t* local_endpoint, const char* service) {
     local_endpoint->service = strdup(service);
     if (!local_endpoint->service) {
         return -ENOMEM;
@@ -288,6 +288,18 @@ int ct_local_endpoint_with_ipv4(ct_local_endpoint_t* local_endpoint, in_addr_t i
     addr->sin_addr.s_addr = ipv4_addr;
     return 0;
 }
+
+int ct_local_endpoint_with_ipv6(ct_local_endpoint_t* local_endpoint, struct in6_addr ipv6_addr) {
+    if (!local_endpoint) {
+        log_error("ct_local_endpoint_with_ipv6 called with NULL local endpoint");
+        return -EINVAL;
+    }
+    struct sockaddr_in6* addr = (struct sockaddr_in6*)&local_endpoint->resolved_address;
+    addr->sin6_family = AF_INET6;
+    addr->sin6_addr = ipv6_addr;
+    return 0;
+}
+
 
 int ct_local_endpoint_from_sockaddr(ct_local_endpoint_t* local_endpoint,
                                     const struct sockaddr_storage* addr) {
