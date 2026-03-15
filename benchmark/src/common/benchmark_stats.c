@@ -23,7 +23,7 @@ static char* get_chunk_array(const transfer_stats_t* stats) {
 
     for (size_t i = 0; i < stats->num_chunks; i++) {
         timing_t chunk_time = {0};
-        chunk_time.start = stats->transfer_time.start;
+        chunk_time.start = stats->handshake_time.start;
         chunk_time.end = stats->chunk_stats[i].receive_time;
         chunk_time.valid = 1;
         double t_ms = timing_get_duration_ms(&chunk_time);
