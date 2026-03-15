@@ -737,7 +737,7 @@ int probe_all_paths(const ct_connection_group_t* group) {
 
             int rc = picoquic_probe_new_path(
                 cnx, (const struct sockaddr*)&remote_endpoint->resolved_address,
-                (const struct sockaddr*)&local_endpoint->resolved_address, /* let picoquic pick the local address */
+                (const struct sockaddr*)&local_endpoint->resolved_address,
                 picoquic_get_quic_time(ct_connection_get_picoquic_instance(connection)));
             if (rc < 0) {
                 log_warn("Failed to probe path to remote endpoint %zu with error code: %d", i, rc);
