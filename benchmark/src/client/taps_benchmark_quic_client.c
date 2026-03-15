@@ -1,7 +1,6 @@
 #include "benchmark_common_taps.h"
 #include "../common/protocol.h"
 
-client_context_t client_ctx;
 int json_only_mode = 0;
 
 int main(int argc, char* argv[]) {
@@ -23,20 +22,27 @@ int main(int argc, char* argv[]) {
         arg_idx++;
     }
 
-    if (!json_only_mode)
+    if (!json_only_mode) {
         printf("TAPS TCP Client connecting to %s:%d\n", host, port);
+    }
 
-    memset(&client_ctx, 0, sizeof(client_ctx));
+    client_context_t client_ctx = {0};
     client_ctx.host = host;
     client_ctx.port = port;
+
+    client_ctx.large_stats = transfer_stats_new();
+    client_ctx.short_stats = transfer_stats_new();
 
     if (ct_initialize() != 0) {
         fprintf(stderr, "ERROR: Failed to initialize CTaps\n");
         return -1;
     }
 
-    if (!json_only_mode)
+    if (!json_only_mode) {
         printf("\n--- Transferring LARGE file via TAPS ---\n");
+    }
+
+    int json_only_mode = 0;
 
     ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
     if (!remote_endpoint) {
@@ -86,7 +92,7 @@ int main(int argc, char* argv[]) {
                                                       .establishment_error = on_establishment_error,
                                                       .per_connection_context = &client_ctx};
 
-    timing_start(&client_ctx.large_stats.handshake_time);
+    timing_start(&client_ctx.large_stats->handshake_time);
 
     int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
 
@@ -94,7 +100,7 @@ int main(int argc, char* argv[]) {
 
     if (client_ctx.transfer_complete == 1) {
         char* json =
-            get_json_stats(TRANSFER_MODE_TAPS_QUIC, &client_ctx.large_stats, &client_ctx.short_stats, 1);
+            get_json_stats(TRANSFER_MODE_TAPS_QUIC, &client_ctx.large_stats, &client_ctx.short_stats);
         if (json) {
             printf("%s\n", json);
             free(json);
