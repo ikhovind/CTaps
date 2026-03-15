@@ -1,10 +1,10 @@
 #include "benchmark_common_taps.h"
 #include "../common/protocol.h"
 
-client_context_t client_ctx;
 int json_only_mode = 0;
 
 int main(int argc, char* argv[]) {
+    client_context_t client_ctx;
     const char* host = "127.0.0.1";
     int port = DEFAULT_PORT;
     int arg_idx = 1;
@@ -18,12 +18,18 @@ int main(int argc, char* argv[]) {
         arg_idx++;
     }
 
-    if (!json_only_mode)
+    if (!json_only_mode) {
         printf("TAPS Racing Client connecting to %s:%d (prefer QUIC, allow TCP)\n", host, port);
+    }
 
     memset(&client_ctx, 0, sizeof(client_ctx));
     client_ctx.host = host;
     client_ctx.port = port;
+
+    transfer_stats_t* large_stats = transfer_stats_new();
+    transfer_stats_t* short_stats = transfer_stats_new();
+    client_ctx.large_stats = large_stats;
+    client_ctx.short_stats = short_stats;
 
     if (ct_initialize() != 0) {
         if (json_only_mode) {
@@ -34,8 +40,9 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    if (!json_only_mode)
+    if (!json_only_mode) {
         printf("\n--- Transferring LARGE file via TAPS (racing) ---\n");
+    }
 
     ct_set_log_level(CT_LOG_INFO);
 
@@ -102,7 +109,7 @@ int main(int argc, char* argv[]) {
         .per_connection_context = &client_ctx,
     };
 
-    timing_start(&client_ctx.large_stats.handshake_time);
+    timing_start(&client_ctx.large_stats->handshake_time);
 
     int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
 
@@ -110,8 +117,8 @@ int main(int argc, char* argv[]) {
 
     if (client_ctx.transfer_complete == 1) {
         char* json = get_json_stats(TRANSFER_MODE_TAPS_RACING,
-                                    &client_ctx.large_stats,
-                                    &client_ctx.short_stats, 1);
+                                    client_ctx.large_stats,
+                                    client_ctx.short_stats);
         if (json) {
             printf("%s\n", json);
             free(json);

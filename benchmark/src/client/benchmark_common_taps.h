@@ -24,12 +24,11 @@ typedef struct {
 
     transfer_progress_t state;
 
-    transfer_stats_t large_stats;
-    transfer_stats_t short_stats;
+    transfer_stats_t* large_stats;
+    transfer_stats_t* short_stats;
     int transfer_complete;
 } client_context_t;
 
-extern client_context_t client_ctx;
 extern int json_only_mode;
 
 void on_connection_ready(ct_connection_t* connection);

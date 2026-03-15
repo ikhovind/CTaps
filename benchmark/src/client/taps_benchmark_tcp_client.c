@@ -22,8 +22,9 @@ int main(int argc, char* argv[]) {
         arg_idx++;
     }
 
-    if (!json_only_mode)
+    if (!json_only_mode) {
         printf("TAPS TCP Client connecting to %s:%d\n", host, port);
+    }
 
     memset(&client_ctx, 0, sizeof(client_ctx));
     client_ctx.host = host;
@@ -38,8 +39,9 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    if (!json_only_mode)
+    if (!json_only_mode) {
         printf("\n--- Transferring LARGE file via TAPS ---\n");
+    }
 
     ct_set_log_level(CT_LOG_WARN);
 
@@ -74,7 +76,7 @@ int main(int argc, char* argv[]) {
                                                       .establishment_error = on_establishment_error,
                                                       .per_connection_context = &client_ctx};
 
-    timing_start(&client_ctx.large_stats.handshake_time);
+    timing_start(&client_ctx.large_stats->handshake_time);
 
     int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
 
@@ -82,7 +84,7 @@ int main(int argc, char* argv[]) {
 
     if (client_ctx.transfer_complete == 1) {
         char* json =
-            get_json_stats(TRANSFER_MODE_TAPS_TCP, &client_ctx.large_stats, &client_ctx.short_stats, 0);
+            get_json_stats(TRANSFER_MODE_TAPS_TCP, &client_ctx.large_stats, &client_ctx.short_stats);
         if (json) {
             printf("%s\n", json);
             free(json);

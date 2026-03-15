@@ -52,20 +52,6 @@ class BenchmarkRunner:
                 "description": "Pure picoquic implementation"
             },
             {
-                "name": "taps_tcp",
-                "server": "tcp_benchmark_server",
-                "client": "taps_benchmark_tcp_client",
-                "port": 8080,
-                "description": "TAPS API with TCP backend"
-            },
-            {
-                "name": "taps_quic",
-                "server": "quic_benchmark_server",
-                "client": "taps_benchmark_quic_client",
-                "port": 8080,
-                "description": "TAPS API with QUIC backend"
-            },
-            {
                 "name": "taps_racing_tcp",
                 "server": "tcp_benchmark_server",
                 "client": "taps_benchmark_racing_client",

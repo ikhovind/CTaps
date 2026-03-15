@@ -11,11 +11,13 @@
 #include <arpa/inet.h>
 
 void initiate_short_transfer(ct_connection_t* large_file_connection) {
-    timing_start(&client_ctx.short_stats.handshake_time);
+    client_context_t* client_ctx = ct_connection_get_callback_context(large_file_connection);
+    timing_start(&client_ctx->short_stats->handshake_time);
     int clone_res = ct_connection_clone(large_file_connection);
     if (clone_res < 0) {
-        if (!json_only_mode)
+        if (!json_only_mode) {
             printf("Error: Failed to clone connection for SHORT file transfer\n");
+        }
         return;
     }
 }
@@ -23,19 +25,24 @@ void initiate_short_transfer(ct_connection_t* large_file_connection) {
 void on_msg_received(ct_connection_t* connection, ct_message_t* msg,
                     ct_message_context_t* ctx) {
     unsigned int msg_length = ct_message_get_length(msg);
+    client_context_t* client_ctx = ct_connection_get_callback_context(connection);
 
-    switch (client_ctx.state) {
+    switch (client_ctx->state) {
     case TRANSFER_NONE_STARTED:
-        if (!json_only_mode)
+        if (!json_only_mode) {
             printf("Error: Received message in TRANSFER_NONE_STARTED state\n");
+        }
         break;
     case STATE_LARGE_STARTED:
-        client_ctx.large_stats.bytes_received += msg_length;
-        if (client_ctx.large_stats.bytes_received >= LARGE_FILE_SIZE) {
-            if (!json_only_mode)
+
+        client_ctx->large_stats->bytes_received += msg_length;
+        time_received_chunk(client_ctx->large_stats, msg_length);
+        if (client_ctx->large_stats->bytes_received >= LARGE_FILE_SIZE) {
+            if (!json_only_mode) {
                 printf("LARGE file transfers of size %zu completed.\n", LARGE_FILE_SIZE);
-            timing_end(&client_ctx.large_stats.transfer_time);
-            client_ctx.state = STATE_LARGE_DONE;
+            }
+            timing_end(&client_ctx->large_stats->transfer_time);
+            client_ctx->state = STATE_LARGE_DONE;
             initiate_short_transfer(connection);
         } else {
                 ct_receive_callbacks_t receive_callbacks = {
@@ -46,17 +53,19 @@ void on_msg_received(ct_connection_t* connection, ct_message_t* msg,
         }
         break;
     case STATE_LARGE_DONE:
-        if (!json_only_mode)
+        if (!json_only_mode) {
             printf("Error: Received message in STATE_LARGE_DONE state\n");
+        }
         break;
     case STATE_SHORT_STARTED:
-        client_ctx.short_stats.bytes_received += msg_length;
-        if (client_ctx.short_stats.bytes_received >= SHORT_FILE_SIZE) {
-            timing_end(&client_ctx.short_stats.transfer_time);
-            client_ctx.state = STATE_BOTH_DONE;
-            client_ctx.transfer_complete = 1;
-            if (!json_only_mode)
+        client_ctx->short_stats->bytes_received += msg_length;
+        if (client_ctx->short_stats->bytes_received >= SHORT_FILE_SIZE) {
+            timing_end(&client_ctx->short_stats->transfer_time);
+            client_ctx->state = STATE_BOTH_DONE;
+            client_ctx->transfer_complete = 1;
+            if (!json_only_mode) {
                 printf("Both LARGE and SHORT file transfers completed successfully.\n");
+         }
             ct_connection_close_group(connection);
         } else {
             ct_receive_callbacks_t receive_callbacks = {
@@ -67,8 +76,9 @@ void on_msg_received(ct_connection_t* connection, ct_message_t* msg,
         }
         break;
     case STATE_BOTH_DONE:
-        if (!json_only_mode)
+        if (!json_only_mode) {
             printf("Error: Received message in STATE_BOTH_DONE state\n");
+        }
         break;
     }
 }
@@ -84,11 +94,12 @@ void on_connection_ready(ct_connection_t* connection) {
     switch (ctx->state) {
     case TRANSFER_NONE_STARTED: {
         // start large file transfer
-        if (!json_only_mode)
+        if (!json_only_mode) {
             printf("Connection established, starting LARGE file transfer: %s\n",
                    ct_connection_get_uuid(connection));
-        timing_end(&ctx->large_stats.handshake_time);
-        timing_start(&ctx->large_stats.transfer_time);
+        }
+        timing_end(&ctx->large_stats->handshake_time);
+        timing_start(&ctx->large_stats->transfer_time);
         message = ct_message_new_with_content("LARGE", 6);
         ct_send_message_full(connection, message, msg_ctx);
         ct_message_free(message);
@@ -102,19 +113,21 @@ void on_connection_ready(ct_connection_t* connection) {
     }
     case STATE_LARGE_STARTED: {
         // error - should not get new connection here
-        if (!json_only_mode)
+        if (!json_only_mode) {
             printf("Unexpected connection established in STATE_LARGE_STARTED\n");
+        }
         ct_message_context_free(msg_ctx);
         return ;
         break;
     }
     case STATE_LARGE_DONE: {
         // start small file transfer
-        if (!json_only_mode)
+        if (!json_only_mode) {
             printf("Connection established, starting SHORT file transfer: %s\n",
                    ct_connection_get_uuid(connection));
-        timing_end(&ctx->short_stats.handshake_time);
-        timing_start(&ctx->short_stats.transfer_time);
+        }
+        timing_end(&ctx->short_stats->handshake_time);
+        timing_start(&ctx->short_stats->transfer_time);
         ct_receive_callbacks_t receive_callbacks = {
                 .receive_callback = on_msg_received,
                 .per_receive_context = ctx
@@ -128,15 +141,17 @@ void on_connection_ready(ct_connection_t* connection) {
             }
     case STATE_SHORT_STARTED:
         // error - should not get new connection here
-        if (!json_only_mode)
+        if (!json_only_mode) {
             printf("Unexpected connection established in STATE_SHORT_STARTED\n");
+        }
         ct_message_context_free(msg_ctx);
         return;
         break;
     case STATE_BOTH_DONE:
         // error - should not get new connection here
-        if (!json_only_mode)
+        if (!json_only_mode) {
             printf("Unexpected connection established in STATE_BOTH_DONE\n");
+        }
         ct_message_context_free(msg_ctx);
         return;
         break;

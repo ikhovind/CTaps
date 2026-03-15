@@ -11,7 +11,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 
-static int json_only_mode = 0;
+int json_only_mode = 0;
 
 static int connect_to_server(const char* host, int port) {
     int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -44,7 +44,6 @@ static int receive_file(int sock_fd, size_t expected_size, transfer_stats_t* sta
     size_t total_received = 0;
 
     timing_start(&stats->transfer_time);
-
     while (total_received < expected_size) {
         ssize_t received = recv(sock_fd, buffer, BUFFER_SIZE, 0);
         if (received < 0) {
@@ -55,6 +54,7 @@ static int receive_file(int sock_fd, size_t expected_size, transfer_stats_t* sta
             break;
         }
         total_received += received;
+        time_received_chunk(stats, received);
     }
     if (total_received < expected_size) {
         fprintf(stderr, "ERROR: Incomplete file received. Expected %zu bytes, got %zu bytes\n",
@@ -116,30 +116,41 @@ int main(int argc, char* argv[]) {
         arg_idx++;
     }
 
-    if (!json_only_mode)
+    if (!json_only_mode) {
         printf("TCP Client connecting to %s:%d\n", host, port);
+    }
 
-    transfer_stats_t large_stats, short_stats;
+    transfer_stats_t* large_stats = transfer_stats_new();
+    transfer_stats_t* short_stats = transfer_stats_new();
 
-    if (!json_only_mode)
+    if (!json_only_mode) {
         printf("\n--- Transferring LARGE file ---\n");
-    if (transfer_file(host, port, REQUEST_LARGE, LARGE_FILE_SIZE, &large_stats) != 0) {
+    }
+    if (transfer_file(host, port, REQUEST_LARGE, LARGE_FILE_SIZE, large_stats) != 0) {
         fprintf(stderr, "ERROR: Failed to transfer large file\n");
+        transfer_stats_free(large_stats);
+        transfer_stats_free(short_stats);
         return -1;
     }
 
-    if (!json_only_mode)
+    if (!json_only_mode) {
         printf("\n--- Transferring SHORT file ---\n");
-    if (transfer_file(host, port, REQUEST_SHORT, SHORT_FILE_SIZE, &short_stats) != 0) {
+    }
+
+    if (transfer_file(host, port, REQUEST_SHORT, SHORT_FILE_SIZE, short_stats) != 0) {
         fprintf(stderr, "ERROR: Failed to transfer short file\n");
+        transfer_stats_free(large_stats);
+        transfer_stats_free(short_stats);
         return -1;
     }
 
-    char* json = get_json_stats(TRANSFER_MODE_TCP_NATIVE, &large_stats, &short_stats, 0);
+    char* json = get_json_stats(TRANSFER_MODE_TCP_NATIVE, large_stats, short_stats);
     if (json) {
         printf("%s\n", json);
         free(json);
     }
+    transfer_stats_free(large_stats);
+    transfer_stats_free(short_stats);
 
     return 0;
 }
