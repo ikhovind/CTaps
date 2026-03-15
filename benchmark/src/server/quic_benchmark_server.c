@@ -223,6 +223,8 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "Failed to create QUIC context\n");
         return -1;
     }
+    picoquic_set_default_multipath_option(quic, 1);
+
 
     /* Set MTU to 1500 bytes for fair comparison with TCP MSS=1460 */
     picoquic_set_mtu_max(quic, 1500);

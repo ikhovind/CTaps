@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <arpa/inet.h>
 
 #define ALPN "benchmark"
 
@@ -31,6 +32,9 @@ typedef struct {
     stream_ctx_t short_stream;
     uint64_t short_stream_start_time;
     int all_done;
+    int migration_triggered;
+    struct sockaddr_storage server_addr;
+    struct sockaddr_storage new_local_addr;
 } client_ctx_t;
 
 int json_only_mode = 0;
@@ -65,6 +69,49 @@ static int client_callback(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* byt
             printf("Connection established\n");
         }
         start_stream(ctx, &ctx->large_stream);
+
+
+        struct sockaddr_in new_locals[2];
+        memset(new_locals, 0, sizeof(new_locals));
+        new_locals[0].sin_family = AF_INET;
+        new_locals[0].sin_addr.s_addr = inet_addr("127.0.0.1");
+        new_locals[1].sin_family = AF_INET;
+        new_locals[1].sin_addr.s_addr = inet_addr("127.0.0.2");
+        for (int i = 1; i < 2; i++) {
+            if (picoquic_probe_new_path(cnx,
+                    (struct sockaddr*)&ctx->server_addr,
+                    (struct sockaddr*)&new_locals[i],
+                    picoquic_current_time()) != 0) {
+                if (!json_only_mode) {
+                    fprintf(stderr, "WARNING: Failed to probe new path for migration\n");
+                }
+            } else {
+                if (!json_only_mode) {
+                    printf("Probing new path from 127.0.0.2 for connection migration\n");
+                }
+            }
+        }
+
+
+        /* Probe the migration path (127.0.0.2 -> server) */
+        break;
+
+    case picoquic_callback_path_available:
+        if (!json_only_mode) {
+                printf("New path is available\n");
+        }
+        break;
+
+    case picoquic_callback_path_suspended:
+        if (!json_only_mode) {
+            printf("Path suspended (path_id=%llu)\n", (unsigned long long)stream_id);
+        }
+        break;
+
+    case picoquic_callback_path_deleted:
+        if (!json_only_mode) {
+            printf("Path deleted (path_id=%llu)\n", (unsigned long long)stream_id);
+        }
         break;
 
     case picoquic_callback_stream_data:
@@ -104,7 +151,7 @@ static int client_callback(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* byt
         if (!json_only_mode) {
             printf("Connection closed\n");
         }
-        // This flag is checked in the loop cb to terminate the loop
+        /* This flag is checked in the loop cb to terminate the loop */
         ctx->all_done = 1;
         break;
 
@@ -152,11 +199,25 @@ int main(int argc, char* argv[]) {
     }
 
     client_ctx_t client_ctx;
-
     memset(&client_ctx, 0, sizeof(client_ctx));
 
     init_stream(&client_ctx.large_stream, REQUEST_LARGE, LARGE_FILE_SIZE);
     init_stream(&client_ctx.short_stream, REQUEST_SHORT, SHORT_FILE_SIZE);
+
+    /* Resolve and store server address in context (needed by migration probe in callback) */
+    int is_name = 0;
+    ret = picoquic_get_server_address(host, port, &client_ctx.server_addr, &is_name);
+    if (ret != 0) {
+        fprintf(stderr, "ERROR: Failed to resolve server address\n");
+        return -1;
+    }
+
+    /* Set up the migration source address: 127.0.0.2, ephemeral port */
+    struct sockaddr_in* new_local = (struct sockaddr_in*)&client_ctx.new_local_addr;
+    memset(new_local, 0, sizeof(*new_local));
+    new_local->sin_family = AF_INET;
+    new_local->sin_addr.s_addr = inet_addr("127.0.0.2");
+    new_local->sin_port = 0; /* OS picks ephemeral port */
 
     picoquic_quic_t* quic = picoquic_create(1, NULL, NULL, NULL, ALPN, NULL, NULL, NULL, NULL, NULL,
                                             picoquic_current_time(), NULL, NULL, NULL, 0);
@@ -165,31 +226,26 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    struct sockaddr_storage server_addr;
-    int is_name = 0;
-    ret = picoquic_get_server_address(host, port, &server_addr, &is_name);
-    if (ret != 0) {
-        fprintf(stderr, "ERROR: Failed to resolve server address\n");
-        picoquic_free(quic);
-        return -1;
-    }
-
     if (!json_only_mode) {
         printf("\n--- Transferring LARGE file via QUIC ---\n");
     }
     timing_start(&client_ctx.large_stream.stats->handshake_time); /* Start handshake timer */
 
+    picoquic_set_default_multipath_option(quic, 1);
+
     client_ctx.cnx = picoquic_create_cnx(
         quic, picoquic_null_connection_id, picoquic_null_connection_id,
-        (struct sockaddr*)&server_addr, picoquic_current_time(), 0, host, ALPN, 1);
+        (struct sockaddr*)&client_ctx.server_addr, picoquic_current_time(), 0, host, ALPN, 1);
 
     if (!client_ctx.cnx) {
         fprintf(stderr, "ERROR: Failed to create connection\n");
         picoquic_free(quic);
         return -1;
     }
+    picoquic_enable_path_callbacks(client_ctx.cnx, 1);
 
     picoquic_set_callback(client_ctx.cnx, client_callback, &client_ctx);
+
 
     ret = picoquic_start_client_cnx(client_ctx.cnx);
     if (ret != 0) {
@@ -198,7 +254,12 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    ret = picoquic_packet_loop(quic, 0, server_addr.ss_family, 0, 0, 0, sample_client_loop_cb,
+    /*
+     * Bind to INADDR_ANY (0.0.0.0) so the packet loop socket can send and
+     * receive on both 127.0.0.1 and 127.0.0.2. Passing 0 as the local port
+     * lets the OS assign an ephemeral port.
+     */
+    ret = picoquic_packet_loop(quic, 0, AF_INET, 0, 0, 0, sample_client_loop_cb,
                                &client_ctx);
 
     if (client_ctx.all_done) {

@@ -56,7 +56,6 @@ add_executable(tcp_benchmark_client
 
 add_executable(taps_benchmark_racing_client
     src/client/taps_benchmark_racing_client.c
-    src/client/benchmark_common_taps_callbacks.c
 )
 
 target_link_libraries(taps_benchmark_racing_client
@@ -66,28 +65,6 @@ target_link_libraries(taps_benchmark_racing_client
 
 target_link_libraries(tcp_benchmark_client
     benchmark_common
-)
-
-# TAPS TCP Client
-add_executable(taps_benchmark_tcp_client
-    src/client/taps_benchmark_tcp_client.c
-    src/client/benchmark_common_taps_callbacks.c
-)
-
-target_link_libraries(taps_benchmark_tcp_client
-    benchmark_common
-    CTaps
-)
-
-# TAPS QUIC Client
-add_executable(taps_benchmark_quic_client
-    src/client/taps_benchmark_quic_client.c
-    src/client/benchmark_common_taps_callbacks.c
-)
-
-target_link_libraries(taps_benchmark_quic_client
-    benchmark_common
-    CTaps
 )
 
 # QUIC Server
@@ -115,8 +92,6 @@ add_custom_target(benchmark ALL
     DEPENDS
         tcp_benchmark_server
         tcp_benchmark_client
-        taps_benchmark_tcp_client
-        taps_benchmark_quic_client
         taps_benchmark_racing_client
         quic_benchmark_server
         quic_benchmark_client
