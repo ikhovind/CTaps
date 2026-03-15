@@ -180,6 +180,10 @@ void tcp_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
         }
         return;
     }
+    if (nread == 0) {
+        log_trace("Received 0 byte message from TCP, ignoring");
+        return;
+    }
     log_trace("Read %zd bytes from TCP connection", nread);
 
     // Delegate to connection receive handler (handles framing if present)
