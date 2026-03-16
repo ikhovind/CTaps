@@ -11,7 +11,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 
-#define RECV_TIMEOUT_SEC 10
+#define RECV_TIMEOUT_MS 3000
 
 /* Return codes for transfer functions */
 #define TRANSFER_OK      0
@@ -27,7 +27,7 @@ static int connect_to_server(const char* host, int port) {
         return -1;
     }
 
-    struct timeval tv = { .tv_sec = RECV_TIMEOUT_SEC, .tv_usec = 0 };
+    struct timeval tv = { .tv_sec = 0, .tv_usec = 100000 };
     if (setsockopt(sock_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
         perror("Failed to set SO_RCVTIMEO");
         close(sock_fd);
@@ -57,16 +57,18 @@ static int receive_file(int sock_fd, size_t expected_size, transfer_stats_t* sta
     unsigned char buffer[BUFFER_SIZE];
     size_t total_received = 0;
 
+    int idle_ms = 0;
     timing_start(&stats->transfer_time);
     while (total_received < expected_size) {
         ssize_t received = recv(sock_fd, buffer, BUFFER_SIZE, 0);
         if (received < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                fprintf(stderr, "recv timed out after %zu/%zu bytes\n",
-                        total_received, expected_size);
-                timing_end(&stats->transfer_time);
-                stats->bytes_received = total_received;
-                return TRANSFER_TIMEOUT;
+                time_received_chunk(stats, 0);  // emit zero point
+                idle_ms += 100;
+                if (idle_ms >= RECV_TIMEOUT_MS) {
+                    return TRANSFER_TIMEOUT;
+                }
+                continue;
             }
             perror("Failed to receive data");
             return TRANSFER_ERR;

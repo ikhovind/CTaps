@@ -15,10 +15,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 SERIES = {
-    "tcp_native":       ("TCP (native)",        "#1565C0"),
-    "taps_racing_tcp":  ("TCP (TAPS)",   "#90CAF9"),
-    "quic_native":      ("QUIC (native)",         "#2E7D32"),
-    "taps_racing_quic": ("QUIC (TAPS)",   "#A5D6A7"),
+    "tcp_native":       ("TCP (Native)",        "#1565C0", "solid"),
+    "taps_racing_tcp":  ("TCP (TAPS)",   "#90CAF9", "dashed"),
+    "quic_native":      ("QUIC (Picoquic)",         "#2E7D32", "solid"),
+    "taps_racing_quic": ("QUIC (TAPS)",   "#A5D6A7", "dashed"),
 }
 
 TCP_FAMILY  = ["tcp_native", "taps_racing_tcp"]
@@ -53,14 +53,14 @@ def plot_grouped_bars(collected, out_dir):
     fig, ax = plt.subplots(figsize=(10, 5))
 
     for i, name in enumerate(all_impls):
-        label, color = SERIES[name]
+        label, color, linestyle = SERIES[name]
         medians = [np.median(collected[rtt].get(name, [np.nan])) for rtt in rtt_values]
         stds    = [np.std(collected[rtt].get(name, [np.nan]))    for rtt in rtt_values]
         offset  = (i - n_impls / 2 + 0.5) * bar_width
 
         ax.bar(x + offset, medians, bar_width * 0.9,
                label=label, color=color,
-               yerr=stds, capsize=3,
+               capsize=3,
                error_kw=dict(elinewidth=1, ecolor="black", alpha=0.7))
 
     # Divider between TCP and QUIC bar groups
@@ -71,8 +71,7 @@ def plot_grouped_bars(collected, out_dir):
     ax.set_xlabel("RTT", fontsize=11)
     ax.set_ylabel("Small file transfer time (ms)", fontsize=11)
     ax.set_title(
-        "Small file transfer time by implementation and RTT\n"
-        "(error bars = ±1 std; note variance <1% of median across all tests)",
+        "Small file transfer time by implementation and RTT",
         fontsize=11
     )
     ax.legend(fontsize=9, ncol=2)
@@ -87,19 +86,15 @@ def plot_grouped_bars(collected, out_dir):
 
 def plot_split_lines(collected, out_dir):
     rtt_values = sorted(collected.keys())
+    fig, ax = plt.subplots(figsize=(8, 5))
 
-    fig, (ax_tcp, ax_quic) = plt.subplots(1, 2, figsize=(11, 5))
-
-    for ax, family, title in [
-        (ax_tcp,  TCP_FAMILY,  "TCP family"),
-        (ax_quic, QUIC_FAMILY, "QUIC family"),
-    ]:
+    for family in [TCP_FAMILY, QUIC_FAMILY]:
         for name in family:
-            label, color = SERIES[name]
+            label, color, linestyle = SERIES[name]
             medians = [np.median(collected[rtt].get(name, [np.nan])) for rtt in rtt_values]
             stds    = [np.std(collected[rtt].get(name, [np.nan]))    for rtt in rtt_values]
-
             ax.plot(rtt_values, medians, marker="o", label=label,
+                    linestyle=linestyle,
                     color=color, linewidth=2.5, zorder=3)
             ax.fill_between(
                 rtt_values,
@@ -108,89 +103,17 @@ def plot_split_lines(collected, out_dir):
                 alpha=0.2, color=color
             )
 
-        ax.set_title(title, fontsize=11)
-        ax.set_xlabel("RTT (ms)", fontsize=10)
-        ax.set_ylabel("Small file transfer time (ms)", fontsize=10)
-        ax.set_xticks(rtt_values)
-        ax.legend(fontsize=9)
-        ax.grid(linestyle="--", alpha=0.4)
-
-    fig.suptitle(
-        "Small file transfer time vs RTT — TAPS overhead within each protocol family",
-        fontsize=12
-    )
-    fig.tight_layout()
-    out = out_dir / "rtt_sweep.png"
-    fig.savefig(out, dpi=150, bbox_inches="tight")
-    print(f"Saved {out}")
-    plt.close(fig)
-
-
-def collect_handshake(data):
-    """result[rtt_ms][test_name] = list of large_file handshake_time_ms"""
-    result = {}
-    for rtt_entry in data["rtt_sweep"]:
-        rtt = rtt_entry["rtt_ms"]
-        result[rtt] = defaultdict(list)
-        for test in rtt_entry["tests"]:
-            result[rtt][test["test_name"]].append(
-                test["large_file"]["handshake_time_ms"]
-            )
-    return result
-
-
-def plot_racing_handshake(handshake: dict, out_dir: Path) -> None:
-    """
-    Connection establishment time vs RTT for all implementations.
-    The racing stagger penalty (250ms) is visible on taps_racing_tcp,
-    while taps_racing_quic tracks taps_quic closely.
-    """
-    rtt_values = sorted(handshake.keys())
-
-    fig, ax = plt.subplots(figsize=(8, 5))
-
-    for name in TCP_FAMILY + QUIC_FAMILY:
-        label, color = SERIES[name]
-        # Thicker / solid line for racing, thinner dashed for non-racing
-        lw      = 2.5 if "racing" in name else 1.5
-        ls      = "-"  if "racing" in name else "--"
-        marker  = "o"  if "racing" in name else "s"
-
-        medians = [np.median(handshake[rtt].get(name, [np.nan])) for rtt in rtt_values]
-        stds    = [np.std(handshake[rtt].get(name, [np.nan]))    for rtt in rtt_values]
-
-        ax.plot(rtt_values, medians, marker=marker, label=label,
-                color=color, linewidth=lw, linestyle=ls, zorder=3)
-        ax.fill_between(
-            rtt_values,
-            [m - s for m, s in zip(medians, stds)],
-            [m + s for m, s in zip(medians, stds)],
-            alpha=0.15, color=color
-        )
-
-    # Annotate the 250ms stagger offset at RTT=50 as a callout
-    tcp_50   = np.median(handshake[50].get("tcp_native", [np.nan]))
-    racing_50 = np.median(handshake[50].get("taps_racing_tcp", [np.nan]))
-    ax.annotate(
-        f"+{racing_50 - tcp_50:.0f} ms\n(stagger delay)",
-        xy=(50, racing_50), xytext=(70, racing_50 - 40),
-        arrowprops=dict(arrowstyle="->", color="gray"),
-        fontsize=8, color="gray"
-    )
-
     ax.set_xlabel("RTT (ms)", fontsize=11)
-    ax.set_ylabel("Connection establishment time (ms)", fontsize=11)
+    ax.set_ylabel("Small file transfer time (ms)", fontsize=11)
     ax.set_title(
-        "Connection establishment time vs RTT\n"
-        "Racing lines solid; direct-connect dashed",
+        "Small file transfer time by RTT",
         fontsize=11
     )
     ax.set_xticks(rtt_values)
     ax.legend(fontsize=9)
     ax.grid(linestyle="--", alpha=0.4)
-
     fig.tight_layout()
-    out = out_dir / "racing_handshake.png"
+    out = out_dir / "rtt_sweep.png"
     fig.savefig(out, dpi=150, bbox_inches="tight")
     print(f"Saved {out}")
     plt.close(fig)
@@ -226,12 +149,14 @@ def plot_migration_throughput(migration_data: list, out_dir: Path,
                 idx = min(int(c["t_ms"] / bucket_duration_ms), n_buckets - 1)
                 all_runs[r_idx, idx] += c["bytes"]
 
-        mean_bytes = all_runs.mean(axis=0)
-        std_bytes  = all_runs.std(axis=0)
+        median_bytes = np.median(all_runs, axis=0)
+        q25_bytes    = np.percentile(all_runs, 25, axis=0)
+        q75_bytes    = np.percentile(all_runs, 75, axis=0)
 
         times      = [(i + 0.5) * bucket_duration_ms for i in range(n_buckets)]
-        throughput = [(b * 8) / (bucket_duration_ms * 1e3) for b in mean_bytes]
-        std_mbps   = [(s * 8) / (bucket_duration_ms * 1e3) for s in std_bytes]
+        throughput = [(b * 8) / (bucket_duration_ms * 1e3) for b in median_bytes]
+        q25_mbps   = [(b * 8) / (bucket_duration_ms * 1e3) for b in q25_bytes]
+        q75_mbps   = [(b * 8) / (bucket_duration_ms * 1e3) for b in q75_bytes]
 
         ax.plot(times, throughput,
                 marker="o", markersize=4,
@@ -240,19 +165,18 @@ def plot_migration_throughput(migration_data: list, out_dir: Path,
                 linewidth=2)
         ax.fill_between(
             times,
-            [max(0, t - s) for t, s in zip(throughput, std_mbps)],
-            [t + s for t, s in zip(throughput, std_mbps)],
+            q25_mbps,
+            q75_mbps,
             alpha=0.15, color=series["color"]
         )
 
     ax.axvline(x=path_change_ms, color="red", linestyle="--", linewidth=1.5,
-               label=f"Path change (T={path_change_ms:.0f}ms)")
+               label=f"Path becomes unavailable (T={path_change_ms:.0f}ms)")
 
     ax.set_xlabel("Time since transfer start (ms)", fontsize=11)
     ax.set_ylabel("Throughput (Mbps)", fontsize=11)
-    ax.set_title("Throughput during connection migration\n"
-                 "TCP drops to zero; QUIC recovers after path probe", fontsize=11)
-    ax.set_ylim(bottom=0)
+    ax.set_title("QUIC recovery after connection migration\n", fontsize=11)
+    ax.set_ylim(bottom=0, top=8)
     ax.legend(fontsize=9)
     ax.grid(linestyle="--", alpha=0.4)
 
@@ -262,13 +186,80 @@ def plot_migration_throughput(migration_data: list, out_dir: Path,
     print(f"Saved {out}")
     plt.close(fig)
 
+def collect_handshake(data):
+    """result[rtt_ms][test_name] = list of large_file handshake_time_ms"""
+    result = {}
+    for rtt_entry in data["rtt_sweep"]:
+        rtt = rtt_entry["rtt_ms"]
+        result[rtt] = defaultdict(list)
+        for test in rtt_entry["tests"]:
+            result[rtt][test["test_name"]].append(
+                test["large_file"]["handshake_time_ms"]
+            )
+    return result
+
+
+def plot_racing_handshake(handshake: dict, out_dir: Path) -> None:
+    """
+    Connection establishment time vs RTT for all implementations.
+    The racing stagger penalty (250ms) is visible on taps_racing_tcp,
+    while taps_racing_quic tracks taps_quic closely.
+    """
+    rtt_values = sorted(handshake.keys())
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    for name in TCP_FAMILY + QUIC_FAMILY:
+        label, color, linestyle = SERIES[name]
+        # Thicker / solid line for racing, thinner dashed for non-racing
+        lw      = 2.5 if "racing" in name else 1.5
+        ls      = "-"  if "racing" in name else "--"
+        marker  = "o"  if "racing" in name else "s"
+
+        medians = [np.median(handshake[rtt].get(name, [np.nan])) for rtt in rtt_values]
+        stds    = [np.std(handshake[rtt].get(name, [np.nan]))    for rtt in rtt_values]
+
+        ax.plot(rtt_values, medians, marker=marker, label=label,
+                color=color, linewidth=lw, linestyle=linestyle, zorder=3)
+        ax.fill_between(
+            rtt_values,
+            [m - s for m, s in zip(medians, stds)],
+            [m + s for m, s in zip(medians, stds)],
+            alpha=0.15, color=color
+        )
+
+    # Annotate the 250ms stagger offset at RTT=50 as a callout
+    tcp_50   = np.median(handshake[50].get("tcp_native", [np.nan]))
+    racing_50 = np.median(handshake[50].get("taps_racing_tcp", [np.nan]))
+    tcp_stagger = ((racing_50 - tcp_50) // 250) * 250
+    ax.annotate(
+        f"+{tcp_stagger:.0f} ms\n(stagger delay)",
+        xy=(50, racing_50), xytext=(70, racing_50 - 40),
+        arrowprops=dict(arrowstyle="->", color="gray"),
+        fontsize=8, color="gray"
+    )
+
+    ax.set_xlabel("RTT (ms)", fontsize=11)
+    ax.set_ylabel("Handshake time (ms)", fontsize=11)
+    ax.set_title(
+        "Handshake time vs RTT\n",
+        fontsize=11
+    )
+    ax.set_xticks(rtt_values)
+    ax.legend(fontsize=9)
+    ax.grid(linestyle="--", alpha=0.4)
+
+    fig.tight_layout()
+    out = out_dir / "racing_handshake.png"
+    fig.savefig(out, dpi=150, bbox_inches="tight")
+    print(f"Saved {out}")
+    plt.close(fig)
 
 def main():
     parser = argparse.ArgumentParser(description="Plot CTaps benchmark results")
     parser.add_argument("input", help="Path to benchmark JSON file")
     parser.add_argument("--out-dir", default=".", help="Output directory for plots")
-    parser.add_argument("--migration", help="Path to migration scenario JSON file",
-                        default=None)
+    parser.add_argument("--migration", help="Whether to plot as migration scenario", action="store_true")
     parser.add_argument("--bucket-duration-ms", type=float, default=100.0,
                         help="Duration of each throughput bucket in ms (default: 100)")
     parser.add_argument("--path-change-ms", type=float, default=500.0,
@@ -279,17 +270,11 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     data = load(args.input)
-    collected = collect(data)
-
-    plot_grouped_bars(collected, out_dir)
-    plot_split_lines(collected, out_dir)
-    # plot_racing_handshake(handshake, out_dir)
 
     if args.migration:
-        migration_raw = load(args.migration)
         migration_data = []
         runs_by_name = defaultdict(list)
-        for rtt_entry in migration_raw.get("rtt_sweep", []):
+        for rtt_entry in data.get("rtt_sweep", []):
             for test in rtt_entry.get("tests", []):
                 name = test.get("test_name")
                 if name not in SERIES:
@@ -299,7 +284,7 @@ def main():
                     continue
                 runs_by_name[name].append(chunks)
         for name, runs in runs_by_name.items():
-            label, color = SERIES[name]
+            label, color, linestyle = SERIES[name]
             migration_data.append({
                 "label": label,
                 "color": color,
@@ -313,6 +298,14 @@ def main():
             )
         else:
             print("Warning: no usable migration data found in migration file")
+    else:
+        collected = collect(data)
+
+        plot_grouped_bars(collected, out_dir)
+        plot_split_lines(collected, out_dir)
+        handshake = collect_handshake(data)
+        plot_racing_handshake(handshake, out_dir)
+
 
 
 if __name__ == "__main__":

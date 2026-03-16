@@ -2,6 +2,8 @@
 #include "../common/timing.h"
 #include "../common/file_generator.h"
 #include "../common/benchmark_stats.h"
+
+#include <picoquic_packet_loop.h>
 #include <picoquic.h>
 #include <picoquic_utils.h>
 #include <picosocks.h>
@@ -69,31 +71,6 @@ static int client_callback(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* byt
             printf("Connection established\n");
         }
         start_stream(ctx, &ctx->large_stream);
-
-
-        struct sockaddr_in new_locals[2];
-        memset(new_locals, 0, sizeof(new_locals));
-        new_locals[0].sin_family = AF_INET;
-        new_locals[0].sin_addr.s_addr = inet_addr("127.0.0.1");
-        new_locals[1].sin_family = AF_INET;
-        new_locals[1].sin_addr.s_addr = inet_addr("127.0.0.2");
-        for (int i = 1; i < 2; i++) {
-            if (picoquic_probe_new_path(cnx,
-                    (struct sockaddr*)&ctx->server_addr,
-                    (struct sockaddr*)&new_locals[i],
-                    picoquic_current_time()) != 0) {
-                if (!json_only_mode) {
-                    fprintf(stderr, "WARNING: Failed to probe new path for migration\n");
-                }
-            } else {
-                if (!json_only_mode) {
-                    printf("Probing new path from 127.0.0.2 for connection migration\n");
-                }
-            }
-        }
-
-
-        /* Probe the migration path (127.0.0.2 -> server) */
         break;
 
     case picoquic_callback_path_available:
@@ -106,6 +83,27 @@ static int client_callback(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* byt
         if (!json_only_mode) {
             printf("Path suspended (path_id=%llu)\n", (unsigned long long)stream_id);
         }
+
+        struct sockaddr_in new_locals[2];
+        memset(new_locals, 0, sizeof(new_locals));
+        new_locals[0].sin_family = AF_INET;
+        new_locals[0].sin_addr.s_addr = inet_addr("127.0.0.1");
+        new_locals[1].sin_family = AF_INET;
+        new_locals[1].sin_addr.s_addr = inet_addr("127.0.0.2");
+        for (int i = 1; i < 2; i++) {
+            if (picoquic_probe_new_path_ex(cnx,
+                    (struct sockaddr*)&ctx->server_addr,
+                    (struct sockaddr*)&new_locals[i], 0,
+                    picoquic_current_time(), 1) != 0) {
+                if (!json_only_mode) {
+                    fprintf(stderr, "WARNING: Failed to probe new path for migration\n");
+                }
+            } else {
+                if (!json_only_mode) {
+                    printf("Probing new path from 127.0.0.2 for connection migration\n");
+                }
+            }
+        }
         break;
 
     case picoquic_callback_path_deleted:
@@ -113,6 +111,11 @@ static int client_callback(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* byt
             printf("Path deleted (path_id=%llu)\n", (unsigned long long)stream_id);
         }
         break;
+    case picoquic_callback_path_quality_changed:
+        if (!json_only_mode) {
+            printf("Path quality changed (path_id=%llu)\n", (unsigned long long)stream_id);
+        }
+    break;
 
     case picoquic_callback_stream_data:
     case picoquic_callback_stream_fin:
@@ -231,7 +234,7 @@ int main(int argc, char* argv[]) {
     }
     timing_start(&client_ctx.large_stream.stats->handshake_time); /* Start handshake timer */
 
-    picoquic_set_default_multipath_option(quic, 1);
+    picoquic_enable_path_callbacks_default(quic, 1);
 
     client_ctx.cnx = picoquic_create_cnx(
         quic, picoquic_null_connection_id, picoquic_null_connection_id,
@@ -242,7 +245,6 @@ int main(int argc, char* argv[]) {
         picoquic_free(quic);
         return -1;
     }
-    picoquic_enable_path_callbacks(client_ctx.cnx, 1);
 
     picoquic_set_callback(client_ctx.cnx, client_callback, &client_ctx);
 
