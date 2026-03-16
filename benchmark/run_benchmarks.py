@@ -19,7 +19,7 @@ from typing import Dict, List, Optional, Tuple
 
 # Tests included in the migration benchmark suite.
 #MIGRATION_TEST_NAMES = {"tcp_native", "quic_native", "taps_racing_quic"}
-MIGRATION_TEST_NAMES = {"quic_native"}
+MIGRATION_TEST_NAMES = {"quic_native", "taps_racing_quic", "tcp_native"}
 
 
 class BenchmarkRunner:
@@ -114,7 +114,7 @@ class BenchmarkRunner:
                     str(self.network_config["rtt_ms"]),
                     str(self.network_config["bandwidth_mbit"])
                 ],
-                capture_output=True, text=True, timeout=30
+                capture_output=True, text=True, timeout=100
             )
             if result.returncode != 0:
                 print("✗ Network setup failed!", file=sys.stderr)
@@ -294,26 +294,29 @@ class BenchmarkRunner:
             # Wait for fixed offset then block the path
             time.sleep(path_change_ms / 1000.0)
             print("Blocking path");
+            # sudo iptables -A INPUT -s 127.0.0.1 -d 127.0.0.1 -p udp --dport 8080 -j REJECT
             subprocess.run(["sudo", "iptables", "-A", "INPUT",
-                            "-d", "127.0.0.2",
+                            "-d", "127.0.0.1",
                             "-s", "127.0.0.1", "-p", "udp",
-                            "--sport", "8080", "-j", "DROP"], check=True)
+                            "--dport", "8080", "-j", "REJECT"], check=True)
 
+            # sudo iptables -A OUTPUT -s 127.0.0.1 -d 127.0.0.1 -p udp --dport 8080 -j REJECT
             subprocess.run(["sudo", "iptables", "-A", "OUTPUT",
-                            "-s", "127.0.0.2",
+                            "-s", "127.0.0.1",
                             "-d", "127.0.0.1", "-p", "udp",
-                            "--dport", "8080", "-j", "DROP"], check=True)
+                            "--dport", "8080", "-j", "REJECT"], check=True)
 
             subprocess.run(["sudo", "iptables", "-A", "INPUT",
                             "-d", "127.0.0.1",
-                            "-s", block_src, "-p", "tcp",
-                            "--sport", str(block_port), "-j", "DROP"], check=True)
+                            "-s", "127.0.0.1", "-p", "tcp",
+                            "--dport", "8080", "-j", "REJECT"], check=True)
 
             subprocess.run(["sudo", "iptables", "-A", "OUTPUT",
                             "-s", "127.0.0.1",
                             "-d", "127.0.0.1", "-p", "tcp",
-                            "--dport", str(block_port), "-j", "DROP"], check=True)
+                            "--dport", "8080", "-j", "REJECT"], check=True)
             iptables_added = True
+
 
             try:
                 stdout, _ = client_process.communicate(timeout=30)
@@ -342,24 +345,26 @@ class BenchmarkRunner:
         finally:
             if iptables_added:
                 subprocess.run(["sudo", "iptables", "-D", "INPUT",
-                                "-d", "127.0.0.2",
+                                "-d", "127.0.0.1",
                                 "-s", "127.0.0.1", "-p", "udp",
-                                "--sport", "8080", "-j", "DROP"], check=True)
+                                "--dport", "8080", "-j", "REJECT"], check=True)
 
+                # sudo iptables -A OUTPUT -s 127.0.0.1 -d 127.0.0.1 -p udp --dport 8080 -j REJECT
                 subprocess.run(["sudo", "iptables", "-D", "OUTPUT",
-                                "-s", "127.0.0.2",
+                                "-s", "127.0.0.1",
                                 "-d", "127.0.0.1", "-p", "udp",
-                                "--dport", "8080", "-j", "DROP"], check=True)
+                                "--dport", "8080", "-j", "REJECT"], check=True)
 
                 subprocess.run(["sudo", "iptables", "-D", "INPUT",
                                 "-d", "127.0.0.1",
-                                "-s", block_src, "-p", "tcp",
-                                "--sport", str(block_port), "-j", "DROP"], check=True)
+                                "-s", "127.0.0.1", "-p", "tcp",
+                                "--dport", "8080", "-j", "REJECT"], check=True)
 
                 subprocess.run(["sudo", "iptables", "-D", "OUTPUT",
                                 "-s", "127.0.0.1",
                                 "-d", "127.0.0.1", "-p", "tcp",
-                                "--dport", str(block_port), "-j", "DROP"], check=True)
+                                "--dport", "8080", "-j", "REJECT"], check=True)
+
             self.stop_server(server_process)
             time.sleep(0.2)
 

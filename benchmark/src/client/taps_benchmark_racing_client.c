@@ -239,11 +239,15 @@ int main(int argc, char* argv[]) {
                                                   RESOURCE_FOLDER "/key.pem");
 
     ct_local_endpoint_t* local_endpoint = ct_local_endpoint_new();
-    ct_local_endpoint_with_port(local_endpoint, 0);
     ct_local_endpoint_with_ipv4(local_endpoint, inet_addr("127.0.0.1"));
 
+    ct_local_endpoint_t* local_endpoint2 = ct_local_endpoint_new();
+    ct_local_endpoint_with_ipv4(local_endpoint2, inet_addr("127.0.0.2"));
+
+    ct_local_endpoint_t* endpoints[] = {local_endpoint, local_endpoint2};
+
     ct_preconnection_t* preconnection = ct_preconnection_new(
-        local_endpoint, 1, remote_endpoint, 1, transport_properties, security_parameters);
+        endpoints, 2, &remote_endpoint, 1, transport_properties, security_parameters);
     if (!preconnection) {
         fprintf(stderr, "Failed to allocate preconnection\n");
         ct_security_parameters_free(security_parameters);
