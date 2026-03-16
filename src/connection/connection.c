@@ -425,7 +425,7 @@ int ct_receive_message(ct_connection_t* connection, const ct_receive_callbacks_t
         log_error("Connection or receive_callbacks is NULL in ct_receive_message");
         return -EINVAL;
     }
-    log_info("User attempting to receive message on connection: %s", connection->uuid);
+    log_debug("User attempting to receive message on connection: %s", connection->uuid);
     if (!connection->received_messages || !connection->received_callbacks) {
         log_error("ct_connection_t queues not initialized for receiving messages");
         return -EIO;
