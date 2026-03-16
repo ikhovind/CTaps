@@ -493,7 +493,7 @@ void reset_quic_timer(ct_quic_socket_state_t* quic_context) {
 }
 
 void quic_closed_poll_handle_cb(uv_handle_t* handle) {
-    log_info("Successfully closed UDP handle for QUIC connection");
+    log_trace("Successfully closed UDP handle for QUIC connection");
     ct_socket_manager_t* socket_manager = (ct_socket_manager_t*)handle->data;
     socket_manager->callbacks.socket_closed(socket_manager);
 }
@@ -738,7 +738,8 @@ int probe_all_paths(const ct_connection_group_t* group) {
             int rc = picoquic_probe_new_path(
                 cnx, (const struct sockaddr*)&remote_endpoint->resolved_address,
                 (const struct sockaddr*)&local_endpoint->resolved_address,
-                picoquic_get_quic_time(ct_connection_get_picoquic_instance(connection)));
+                picoquic_get_quic_time(ct_connection_get_picoquic_instance(connection))
+            );
             if (rc < 0) {
                 log_warn("Failed to probe path to remote endpoint %zu with error code: %d", i, rc);
             } else {
@@ -773,7 +774,6 @@ int picoquic_callback(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* bytes, s
         } else {
             log_debug("Picoquic callback for server connection");
         }
-        probe_all_paths(connection_group);
 
         // the picoquic_callback_ready event is per-cnx.
         // This means that this callback only happens once per connection group.
@@ -971,7 +971,8 @@ int picoquic_callback(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* bytes, s
         break;
     }
     case picoquic_callback_path_suspended: { /* An available path is suspended */
-        log_debug("Picoquic path suspended callback received");
+        log_info("Picoquic path suspended callback received");
+        probe_all_paths(connection_group);
         break;
     }
     case picoquic_callback_path_deleted: { /* An existing path has been deleted */
@@ -1224,12 +1225,13 @@ void on_socket_timer(uv_timer_t* timer_handle) {
                                                  send_length, &from_address, &to_address, if_index);
             free(send_buffer_base); // synchronous, no async callback to free it
             if (rc < 0) {
-                log_warn("Failed to send QUIC packet: %d", rc);
+                log_warn("Failed to send QUIC packet: %d, notifying picoquic", rc);
+
+                log_debug("notifying picoquic of unreachable path");
 
                 picoquic_notify_destination_unreachable(
                     last_cnx, picoquic_get_quic_time(socket_state->picoquic_ctx),
-                    (struct sockaddr*)&from_address, (struct sockaddr*)&to_address, if_index, rc);
-                break;
+                    (struct sockaddr*)&to_address, (struct sockaddr*)&from_address, if_index, -rc);
             }
             log_trace("Sent QUIC packet of length %zu", send_length);
         } else {
