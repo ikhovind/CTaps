@@ -54,9 +54,9 @@ int copy_remote_endpoints(ct_preconnection_t* preconnection,
     return 0;
 }
 
-ct_preconnection_t* ct_preconnection_new(const ct_local_endpoint_t* local_endpoints,
+ct_preconnection_t* ct_preconnection_new(const ct_local_endpoint_t** local_endpoints,
                                          size_t num_local_endpoints,
-                                         const ct_remote_endpoint_t* remote_endpoints,
+                                         const ct_remote_endpoint_t** remote_endpoints,
                                          const size_t num_remote_endpoints,
                                          const ct_transport_properties_t* transport_properties,
                                          const ct_security_parameters_t* security_parameters) {
@@ -93,18 +93,50 @@ ct_preconnection_t* ct_preconnection_new(const ct_local_endpoint_t* local_endpoi
             free(precon);
             return NULL;
         }
+
         precon->num_local_endpoints = num_local_endpoints;
-        precon->local_endpoints =
-            ct_local_endpoints_deep_copy(local_endpoints, num_local_endpoints);
+        precon->local_endpoints = calloc(num_local_endpoints, sizeof(ct_local_endpoint_t));
+        if (!precon->local_endpoints) {
+            log_error("Failed to allocate memory for local endpoints in preconnection");
+            free(precon);
+            return NULL;
+        }
+        for (size_t i = 0; i < num_local_endpoints; i++) {
+            int rc = ct_local_endpoint_copy_content(local_endpoints[i], &precon->local_endpoints[i]);
+            if (rc != 0) {
+                log_error("Failed to copy local endpoint content for index %zu: %s", i, strerror(-rc));
+                // Set this so that we free the local endpoints allocated so far
+                precon->num_local_endpoints = i;
+                ct_preconnection_free(precon);
+                free(precon->local_endpoints);
+                free(precon);
+                return NULL;
+            }
+        }
     }
 
     // Copy remote endpoints if provided
     if (remote_endpoints && num_remote_endpoints > 0) {
-        int ret = copy_remote_endpoints(precon, remote_endpoints, num_remote_endpoints);
-        if (ret != 0) {
-            free(precon);
+        precon->num_remote_endpoints = num_remote_endpoints;
+        precon->remote_endpoints = calloc(num_remote_endpoints, sizeof(ct_remote_endpoint_t));
+        if (!precon->remote_endpoints) {
+            log_error("Failed to allocate memory for remote endpoints in preconnection");
+            ct_preconnection_free(precon);
             return NULL;
         }
+        for (size_t i = 0; i < num_remote_endpoints; i++) {
+            int rc = ct_remote_endpoint_copy_content(remote_endpoints[i], &precon->remote_endpoints[i]);
+            if (rc != 0) {
+                log_error("Failed to copy remote endpoint content for index %zu: %s", i, strerror(-rc));
+                // Set this so that we free the preconnections allocated so far
+                precon->num_remote_endpoints = i;
+                ct_preconnection_free(precon);
+                return NULL;
+            }
+        }
+    }
+    else {
+        log_debug("No remote endpoints provided for preconnection, skipping copy");
     }
 
     return precon;
