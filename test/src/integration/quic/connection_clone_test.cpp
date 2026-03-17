@@ -29,7 +29,7 @@ TEST_F(ConnectionCloneTest, clonesConnectionSendsOnBothAndReceivesIndividualResp
 
     ct_security_parameters_add_client_certificate(security_parameters, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
 
-    ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties, security_parameters);
+    ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, &remote_endpoint, 1, transport_properties, security_parameters);
     ASSERT_NE(preconnection, nullptr);
     ct_security_parameters_free(security_parameters);
 
@@ -86,7 +86,7 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     log_info("Added server certificate to server security parameters, total server certs=%zu", server_cert);
 
 
-    ct_preconnection_t* listener_precon = ct_preconnection_new(listener_endpoint, 1, listener_remote, 1, listener_props, server_security_parameters);
+    ct_preconnection_t* listener_precon = ct_preconnection_new(&listener_endpoint, 1, &listener_remote, 1, listener_props, server_security_parameters);
 
     ct_listener_callbacks_t listener_callbacks = {
         .connection_received = server_on_connection_received_for_cloning,
@@ -121,7 +121,7 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
     size_t client_certs = ct_security_parameters_get_client_certificate_count(client_security_parameters);
     log_debug("Added client certificate to client security parameters, total client certs=%zu", client_certs);
 
-    ct_preconnection_t* client_precon = ct_preconnection_new(NULL, 0, client_remote, 1, client_props, client_security_parameters);
+    ct_preconnection_t* client_precon = ct_preconnection_new(NULL, 0, &client_remote, 1, client_props, client_security_parameters);
 
     ct_connection_callbacks_t client_callbacks = {
         .establishment_error = on_establishment_error,
@@ -181,7 +181,7 @@ TEST_F(ConnectionCloneTest, clonesUdpConnectionSendsOnBothAndReceivesIndividualR
     ct_transport_properties_set_preserve_order(transport_properties, PROHIBIT);
     ct_transport_properties_set_congestion_control(transport_properties, PROHIBIT);
 
-    ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties,NULL);
+    ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, &remote_endpoint, 1, transport_properties,NULL);
     ASSERT_NE(preconnection, nullptr);
 
     ct_connection_callbacks_t connection_callbacks = {
@@ -228,7 +228,7 @@ TEST_F(ConnectionCloneTest, clonesTcpConnectionSendsOnBothAndReceivesIndividualR
     ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PROHIBIT);
     ct_transport_properties_set_multistreaming(transport_properties, PROHIBIT);
 
-    ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties,NULL);
+    ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, &remote_endpoint, 1, transport_properties,NULL);
     ASSERT_NE(preconnection, nullptr);
 
     ct_connection_callbacks_t connection_callbacks = {

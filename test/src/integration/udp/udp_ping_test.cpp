@@ -35,7 +35,7 @@ TEST_F(UdpPingTests, sendsSingleUdpPacketWithoutEarlySend) {
   ct_transport_properties_set_preserve_order(transport_properties, PROHIBIT);
   ct_transport_properties_set_congestion_control(transport_properties, PROHIBIT);
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties,NULL);
+  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, &remote_endpoint, 1, transport_properties,NULL);
   ASSERT_NE(preconnection, nullptr);
 
   ct_connection_callbacks_t connection_callbacks = {
@@ -80,7 +80,7 @@ TEST_F(UdpPingTests, packetsAreReadInOrder) {
   ct_transport_properties_set_preserve_order(transport_properties, PROHIBIT);
   ct_transport_properties_set_congestion_control(transport_properties, PROHIBIT);
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties,NULL);
+  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, &remote_endpoint, 1, transport_properties,NULL);
   ASSERT_NE(preconnection, nullptr);
 
   test_context.total_expected_messages = 2;
@@ -129,7 +129,7 @@ TEST_F(UdpPingTests, canPingArbitraryBytes) {
   ct_transport_properties_set_preserve_order(transport_properties, PROHIBIT);
   ct_transport_properties_set_congestion_control(transport_properties, PROHIBIT);
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties,NULL);
+  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, &remote_endpoint, 1, transport_properties,NULL);
   ASSERT_NE(preconnection, nullptr);
 
   ct_connection_callbacks_t connection_callbacks = {
@@ -174,7 +174,7 @@ TEST_F(UdpPingTests, sendsSingleUdpPacketWithInitiateWithSend) {
   ct_transport_properties_set_preserve_order(transport_properties, PROHIBIT);
   ct_transport_properties_set_congestion_control(transport_properties, PROHIBIT);
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties,NULL);
+  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, &remote_endpoint, 1, transport_properties,NULL);
   ASSERT_NE(preconnection, nullptr);
 
 

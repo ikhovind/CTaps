@@ -1356,8 +1356,8 @@ typedef struct ct_preconnection_s ct_preconnection_t;
  * @return Pointer to newly allocated preconnection, or NULL on allocation failure
  */
 CT_EXTERN ct_preconnection_t*
-ct_preconnection_new(const ct_local_endpoint_t** local_endpoints, size_t num_local_endpoints,
-                     const ct_remote_endpoint_t** remote_endpoints, size_t num_remote_endpoints,
+ct_preconnection_new(const ct_local_endpoint_t* const* local_endpoints, size_t num_local_endpoints,
+                     const ct_remote_endpoint_t* const* remote_endpoints, size_t num_remote_endpoints,
                      const ct_transport_properties_t* transport_properties,
                      const ct_security_parameters_t* security_parameters);
 

@@ -57,7 +57,7 @@ int main() {
 
     // Create preconnection
     ct_preconnection_t* preconnection = ct_preconnection_new(
-        NULL, 0, remote_endpoint, 1, transport_properties, security_parameters);
+        NULL, 0, &remote_endpoint, 1, transport_properties, security_parameters);
 
     ct_connection_callbacks_t connection_callbacks = {
         .ready = send_message_and_receive,

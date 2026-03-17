@@ -46,7 +46,7 @@ TEST_F(PreconnectionUnitTests, SetsPreconnectionAsExpected) {
     ct_transport_properties_set_reliability(transport_properties, PROHIBIT);
     ct_transport_properties_set_preserve_order(transport_properties, PROHIBIT);
 
-    ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties,NULL);
+    ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, &remote_endpoint, 1, transport_properties,NULL);
     ASSERT_NE(preconnection, nullptr);
 
     EXPECT_EQ(0, preconnection->num_local_endpoints);
@@ -74,7 +74,7 @@ TEST_F(PreconnectionUnitTests, TakesDeepCopyOfRemoteEndpoint) {
     ct_transport_properties_set_reliability(transport_properties, PROHIBIT);
     ct_transport_properties_set_preserve_order(transport_properties, PROHIBIT);
 
-    ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties,NULL);
+    ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, &remote_endpoint, 1, transport_properties,NULL);
     ASSERT_NE(preconnection, nullptr);
 
     memset(remote_endpoint, 0, sizeof(ct_remote_endpoint_t));
@@ -108,7 +108,7 @@ TEST_F(PreconnectionUnitTests, TakesDeepCopyOfRemoteEndpointWhenBuildingWithLoca
     ct_transport_properties_set_reliability(transport_properties, PROHIBIT);
     ct_transport_properties_set_preserve_order(transport_properties, PROHIBIT);
 
-    ct_preconnection_t* preconnection = ct_preconnection_new(local_endpoint, 1, remote_endpoint, 1, transport_properties,NULL);
+    ct_preconnection_t* preconnection = ct_preconnection_new(&local_endpoint, 1, &remote_endpoint, 1, transport_properties,NULL);
     ASSERT_NE(preconnection, nullptr);
 
     memset(remote_endpoint, 0, sizeof(ct_remote_endpoint_t));

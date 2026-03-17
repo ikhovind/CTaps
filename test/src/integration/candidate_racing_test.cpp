@@ -107,7 +107,7 @@ TEST_F(CandidateRacingTests, FirstCandidateSucceeds) {
   // Don't require specific protocol - let racing choose
   ct_transport_properties_set_reliability(transport_properties, PREFER);
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties,NULL);
+  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, &remote_endpoint, 1, transport_properties,NULL);
 
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = racing_test_on_establishment_error,
@@ -132,12 +132,14 @@ TEST_F(CandidateRacingTests, FirstCandidateSucceeds) {
 }
 
 TEST_F(CandidateRacingTests, connectionContainsSeveralRemotes) {
-  ct_remote_endpoint_t remotes[2] = {0};
-  ct_remote_endpoint_with_ipv4(&remotes[0], inet_addr("127.0.0.1"));
-  ct_remote_endpoint_with_port(&remotes[0], TCP_PING_PORT);
+  ct_remote_endpoint_t* remotes[2] = {0};
+  remotes[0] = ct_remote_endpoint_new();
+  remotes[1] = ct_remote_endpoint_new();
+  ct_remote_endpoint_with_ipv4(remotes[0], inet_addr("127.0.0.1"));
+  ct_remote_endpoint_with_port(remotes[0], TCP_PING_PORT);
 
-  ct_remote_endpoint_with_ipv4(&remotes[1], inet_addr("127.0.0.1"));
-  ct_remote_endpoint_with_port(&remotes[1], UDP_PING_PORT);
+  ct_remote_endpoint_with_ipv4(remotes[1], inet_addr("127.0.0.1"));
+  ct_remote_endpoint_with_port(remotes[1], UDP_PING_PORT);
 
   ct_transport_properties_t* transport_properties = ct_transport_properties_new();
 
@@ -164,8 +166,8 @@ TEST_F(CandidateRacingTests, connectionContainsSeveralRemotes) {
   EXPECT_TRUE(racing_context.connection_succeeded);
   EXPECT_EQ(racing_context.captured_connection->num_remote_endpoints, 2);
 
-  ct_remote_endpoint_free_content(&remotes[0]);
-  ct_remote_endpoint_free_content(&remotes[1]);
+  ct_remote_endpoint_free(remotes[0]);
+  ct_remote_endpoint_free(remotes[1]);
   ct_preconnection_free(preconnection);
   ct_transport_properties_free(transport_properties);
   ct_connection_free(racing_context.captured_connection);
@@ -184,9 +186,9 @@ TEST_F(CandidateRacingTests, connectionContainsSeveralLocals) {
   ct_transport_properties_set_reliability(transport_properties, PREFER);
 
   ct_preconnection_t* preconnection = ct_preconnection_new(
-    local_endpoint,
+    &local_endpoint,
     1,
-    remote_endpoint,
+    &remote_endpoint,
     1,
     transport_properties,
     NULL);
@@ -228,7 +230,7 @@ TEST_F(CandidateRacingTests, AllCandidatesFail) {
   ct_transport_properties_set_reliability(transport_properties, NO_PREFERENCE);
   ct_transport_properties_set_preserve_msg_boundaries(transport_properties, NO_PREFERENCE);
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties,NULL);
+  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, &remote_endpoint, 1, transport_properties,NULL);
 
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = racing_test_on_establishment_error,
@@ -269,7 +271,7 @@ TEST_F(CandidateRacingTests, RespectsProtocolPreferences) {
 
   ct_transport_properties_set_reliability(transport_properties, REQUIRE);
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties,NULL);
+  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, &remote_endpoint, 1, transport_properties,NULL);
   ASSERT_NE(preconnection, nullptr);
 
 
@@ -307,7 +309,7 @@ TEST_F(CandidateRacingTests, WorksWithHostnameResolution) {
 
   ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PROHIBIT); // force TCP
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties,NULL);
+  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, &remote_endpoint, 1, transport_properties,NULL);
   ASSERT_NE(preconnection, nullptr);
 
   ct_connection_callbacks_t connection_callbacks = {
@@ -350,7 +352,7 @@ TEST_F(CandidateRacingTests, SingleCandidateOptimization) {
   ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PROHIBIT);
   ct_transport_properties_set_multistreaming(transport_properties, PROHIBIT);
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties,NULL);
+  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, &remote_endpoint, 1, transport_properties,NULL);
 
   ct_connection_callbacks_t connection_callbacks = {
     .establishment_error = racing_test_on_establishment_error,
@@ -386,7 +388,7 @@ TEST_F(CandidateRacingTests, HandlesNoCandidates) {
   ct_transport_properties_set_reliability(transport_properties, PROHIBIT);
   ct_transport_properties_set_multistreaming(transport_properties, REQUIRE);
 
-  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, remote_endpoint, 1, transport_properties,NULL);
+  ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, &remote_endpoint, 1, transport_properties,NULL);
 
   ct_candidate_racing_test_context_t test_context = {
     .captured_connection = nullptr,

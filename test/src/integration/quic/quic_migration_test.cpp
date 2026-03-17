@@ -20,11 +20,11 @@ protected:
 // to 127.0.0.2
 TEST_F(QuicMigrationTest, migratesAfterPrimaryRemoteFails) {
     struct IptablesGuard guard = IptablesGuard();
-    ct_remote_endpoint_t remotes[2] = {0};
-    ct_remote_endpoint_with_ipv4(&remotes[0], inet_addr("127.0.0.1"));
-    ct_remote_endpoint_with_port(&remotes[0], QUIC_PING_PORT);
-    ct_remote_endpoint_with_ipv4(&remotes[1], inet_addr("127.0.0.2"));
-    ct_remote_endpoint_with_port(&remotes[1], QUIC_PING_PORT);
+    ct_remote_endpoint_t* remotes[2] = {0};
+    ct_remote_endpoint_with_ipv4(remotes[0], inet_addr("127.0.0.1"));
+    ct_remote_endpoint_with_port(remotes[0], QUIC_PING_PORT);
+    ct_remote_endpoint_with_ipv4(remotes[1], inet_addr("127.0.0.2"));
+    ct_remote_endpoint_with_port(remotes[1], QUIC_PING_PORT);
 
     ct_transport_properties_t* transport_properties = ct_transport_properties_new();
     ASSERT_NE(transport_properties, nullptr);
@@ -51,7 +51,7 @@ TEST_F(QuicMigrationTest, migratesAfterPrimaryRemoteFails) {
     ct_connection_callbacks_t callbacks = {
         .establishment_error = on_establishment_error,
         .ready = send_message_and_receive_blocking_primary_path_for_remote,
-        .user_connection_context = &test_context,
+        .per_connection_context = &test_context,
     };
 
     ct_preconnection_initiate(preconnection, &callbacks);
@@ -66,14 +66,14 @@ TEST_F(QuicMigrationTest, migratesAfterPrimaryRemoteFails) {
 
     char to_ip[INET6_ADDRSTRLEN];
     uint16_t dest_port;
-    const struct sockaddr_in* to_addr = (const struct sockaddr_in*)&ct_connection_get_active_remote_endpoint(connection)->data.resolved_address;
+    const struct sockaddr_in* to_addr = (const struct sockaddr_in*)&ct_connection_get_active_remote_endpoint(connection)->resolved_address;
     inet_ntop(AF_INET, &to_addr->sin_addr, to_ip, sizeof(to_ip));
     dest_port = ntohs(to_addr->sin_port);
     EXPECT_STREQ(to_ip, "127.0.0.2");
     ASSERT_EQ(dest_port, QUIC_PING_PORT);
 
-    ct_remote_endpoint_free_content(&remotes[0]);
-    ct_remote_endpoint_free_content(&remotes[1]);
+    ct_remote_endpoint_free_content(remotes[0]);
+    ct_remote_endpoint_free_content(remotes[1]);
     ct_preconnection_free(preconnection);
     ct_transport_properties_free(transport_properties);
     ct_security_parameters_free(security_parameters);
@@ -104,7 +104,7 @@ TEST_F(QuicMigrationTest, migratesAfterPrimaryLocalFails) {
     ct_preconnection_t* preconnection = ct_preconnection_new(
         NULL,
         0,
-        remote_endpoint,
+        &remote_endpoint,
         1,
         transport_properties,
         security_parameters
@@ -114,7 +114,7 @@ TEST_F(QuicMigrationTest, migratesAfterPrimaryLocalFails) {
         .establishment_error = on_establishment_error,
         .ready = send_message_and_receive_blocking_primary_path_for_local,
         .sent = capture_local_on_sent,
-        .user_connection_context = &test_context,
+        .per_connection_context = &test_context,
     };
 
     ct_preconnection_initiate(preconnection, &callbacks);
