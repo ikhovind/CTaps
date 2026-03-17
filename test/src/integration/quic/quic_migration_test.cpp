@@ -20,7 +20,10 @@ protected:
 // to 127.0.0.2
 TEST_F(QuicMigrationTest, migratesAfterPrimaryRemoteFails) {
     struct IptablesGuard guard = IptablesGuard();
+    struct IpAddressGuard ipAddr = IpAddressGuard();
     ct_remote_endpoint_t* remotes[2] = {0};
+    remotes[0] = ct_remote_endpoint_new();
+    remotes[1] = ct_remote_endpoint_new();
     ct_remote_endpoint_with_ipv4(remotes[0], inet_addr("127.0.0.1"));
     ct_remote_endpoint_with_port(remotes[0], QUIC_PING_PORT);
     ct_remote_endpoint_with_ipv4(remotes[1], inet_addr("127.0.0.2"));
@@ -39,9 +42,12 @@ TEST_F(QuicMigrationTest, migratesAfterPrimaryRemoteFails) {
     ct_security_parameters_add_alpn(security_parameters, alpn_strings);
     ct_security_parameters_add_client_certificate(security_parameters, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
 
+    ct_local_endpoint_t* local_endpoint = ct_local_endpoint_new();
+    ct_local_endpoint_with_ipv4(local_endpoint, inet_addr("127.0.0.1"));
+
     ct_preconnection_t* preconnection = ct_preconnection_new(
-        NULL,
-        0,
+        &local_endpoint,
+        1,
         remotes,
         2,
         transport_properties,
@@ -59,21 +65,24 @@ TEST_F(QuicMigrationTest, migratesAfterPrimaryRemoteFails) {
 
     ct_connection_t* connection = test_context.client_connections[0];
     ASSERT_TRUE(ct_connection_is_closed(connection));
+
+
     ASSERT_EQ(per_connection_messages[connection].size(), 2);
     ASSERT_STREQ(per_connection_messages[connection][0]->content, "Pong: ping");
     ASSERT_STREQ(per_connection_messages[connection][1]->content, "Pong: ping");
 
 
-    char to_ip[INET6_ADDRSTRLEN];
-    uint16_t dest_port;
     const struct sockaddr_in* to_addr = (const struct sockaddr_in*)&ct_connection_get_active_remote_endpoint(connection)->resolved_address;
-    inet_ntop(AF_INET, &to_addr->sin_addr, to_ip, sizeof(to_ip));
-    dest_port = ntohs(to_addr->sin_port);
-    EXPECT_STREQ(to_ip, "127.0.0.2");
-    ASSERT_EQ(dest_port, QUIC_PING_PORT);
+    EXPECT_EQ(to_addr->sin_addr.s_addr, inet_addr("127.0.0.2"));
 
-    ct_remote_endpoint_free_content(remotes[0]);
-    ct_remote_endpoint_free_content(remotes[1]);
+    const struct sockaddr_in* from_addr = (const struct sockaddr_in*)&ct_connection_get_active_local_endpoint(connection)->resolved_address;
+    EXPECT_EQ(from_addr->sin_addr.s_addr, inet_addr("127.0.0.1"));
+
+    ASSERT_EQ(to_addr->sin_port, htons(QUIC_PING_PORT));
+
+    ct_remote_endpoint_free(remotes[0]);
+    ct_remote_endpoint_free(remotes[1]);
+    ct_local_endpoint_free(local_endpoint);
     ct_preconnection_free(preconnection);
     ct_transport_properties_free(transport_properties);
     ct_security_parameters_free(security_parameters);
@@ -83,10 +92,16 @@ TEST_F(QuicMigrationTest, migratesAfterPrimaryRemoteFails) {
 TEST_F(QuicMigrationTest, migratesAfterPrimaryLocalFails) {
     struct IptablesGuard guard = IptablesGuard();
     struct IpAddressGuard ipAddr = IpAddressGuard();
-    struct OnlyLoopBackTo4433 onlyLoopBackTo4433 = OnlyLoopBackTo4433();
     ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
     ct_remote_endpoint_with_port(remote_endpoint, QUIC_PING_PORT);
     ct_remote_endpoint_with_ipv4(remote_endpoint, inet_addr("127.0.0.1"));
+
+    ct_local_endpoint_t* local_endpoints[2] = {0};
+    local_endpoints[0] = ct_local_endpoint_new();
+    local_endpoints[1] = ct_local_endpoint_new();
+
+    ct_local_endpoint_with_ipv4(local_endpoints[0], inet_addr("127.0.0.1"));
+    ct_local_endpoint_with_ipv4(local_endpoints[1], inet_addr("127.0.0.2"));
 
     ct_transport_properties_t* transport_properties = ct_transport_properties_new();
     ASSERT_NE(transport_properties, nullptr);
@@ -102,8 +117,8 @@ TEST_F(QuicMigrationTest, migratesAfterPrimaryLocalFails) {
     ct_security_parameters_add_client_certificate(security_parameters, TEST_RESOURCE_DIR "/cert.pem", TEST_RESOURCE_DIR "/key.pem");
 
     ct_preconnection_t* preconnection = ct_preconnection_new(
-        NULL,
-        0,
+        local_endpoints,
+        2,
         &remote_endpoint,
         1,
         transport_properties,
@@ -113,7 +128,6 @@ TEST_F(QuicMigrationTest, migratesAfterPrimaryLocalFails) {
     ct_connection_callbacks_t callbacks = {
         .establishment_error = on_establishment_error,
         .ready = send_message_and_receive_blocking_primary_path_for_local,
-        .sent = capture_local_on_sent,
         .per_connection_context = &test_context,
     };
 
@@ -127,8 +141,14 @@ TEST_F(QuicMigrationTest, migratesAfterPrimaryLocalFails) {
     ASSERT_STREQ(per_connection_messages[connection][1]->content, "Pong: ping");
 
     ASSERT_EQ(test_context.local_sockaddr.size(), 2);
-    ASSERT_NE(memcmp(&test_context.local_sockaddr[0], &test_context.local_sockaddr[1], sizeof(struct sockaddr_in)), 0) << "Local endpoints should have different resolved addresses after migration";
 
+    EXPECT_EQ(((struct sockaddr_in*)&test_context.local_sockaddr[0])->sin_addr.s_addr, inet_addr("127.0.0.1"))
+        << "First message should be sent from 127.0.0.1 before migration";
+    EXPECT_EQ(((struct sockaddr_in*)&test_context.local_sockaddr[1])->sin_addr.s_addr, inet_addr("127.0.0.2"))
+        << "Second message should be sent from 127.0.0.2 after migration";
+
+    ct_local_endpoint_free(local_endpoints[0]);
+    ct_local_endpoint_free(local_endpoints[1]);
     ct_remote_endpoint_free(remote_endpoint);
     ct_preconnection_free(preconnection);
     ct_transport_properties_free(transport_properties);

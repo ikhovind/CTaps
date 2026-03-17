@@ -22,7 +22,6 @@ extern "C" {
 
 struct IptablesGuard {
     ~IptablesGuard() {
-
         // Remote endpoint migration test
         if (system("iptables -C INPUT -s 127.0.0.1 -p udp --sport 4433 -j DROP 2>/dev/null") == 0) {
             system("iptables -D INPUT -s 127.0.0.1 -p udp --sport 4433 -j DROP");
@@ -56,18 +55,6 @@ struct IpAddressGuard {
         if (added) {
             system("ip addr del 127.0.0.2/8 dev lo 2>/dev/null");
         }
-    }
-};
-
-struct OnlyLoopBackTo4433 {
-    OnlyLoopBackTo4433() {
-        system("iptables -A OUTPUT -p udp --dport 4433 ! -s 127.0.0.0/8 -j DROP");
-        system("iptables -A INPUT  -p udp --sport 4433 ! -d 127.0.0.0/8 -j DROP");
-    }
-
-    ~OnlyLoopBackTo4433() {
-        system("iptables -D OUTPUT -p udp --dport 4433 ! -s 127.0.0.0/8 -j DROP");
-        system("iptables -D INPUT  -p udp --sport 4433 ! -d 127.0.0.0/8 -j DROP");
     }
 };
 
@@ -426,16 +413,8 @@ void receive_first_pong_then_block_primary_path_for_remote(ct_connection_t* conn
         };
         ct_receive_message(connection, &recv);
     } else {
-        int rc = system("iptables -D INPUT -s 127.0.0.1 -p udp --sport 4433 -j DROP");
-        if (rc != 0) {
-            log_warn("Could not remote iptables rule");
-        }
-        rc = system("iptables -D OUTPUT -d 127.0.0.1 -p udp --dport 4433 -j DROP");
-        if (rc != 0) {
-            log_warn("Could not remote iptables rule");
-        }
-
         log_info("Received second pong after blocking primary path, migration successful");
+        // Not removing iptables rules here since the test fixture's IptablesGuard will clean up on test teardown
         ct_connection_close_group(connection);
     }
 }
@@ -457,11 +436,15 @@ void send_message_and_receive_blocking_primary_path_for_remote(struct ct_connect
     ct_receive_message(connection, &receive_message_request);
 }
 
-void receive_first_pong_then_block_primary_path_for_local(ct_connection_t* connection,
+void receive_first_pong_capture_local_then_block_primary_path_for_local(ct_connection_t* connection,
                                                          ct_message_t* message,
                                                          ct_message_context_t* ctx) {
     auto* test_ctx = static_cast<CallbackContext*>(ctx->per_receive_context);
     (*test_ctx->per_connection_messages)[connection].push_back(ct_message_deep_copy(message));
+
+    test_ctx->local_sockaddr.push_back(
+        ct_connection_get_active_local_endpoint(connection)->resolved_address);
+
 
     if (!test_ctx->path_blocked) {
         log_info("Received first pong, now blocking primary local path to trigger migration");
@@ -478,20 +461,12 @@ void receive_first_pong_then_block_primary_path_for_local(ct_connection_t* conne
         ct_message_free(msg);
 
         ct_receive_callbacks_t recv = {
-            .receive_callback = receive_first_pong_then_block_primary_path_for_local,
+            .receive_callback = receive_first_pong_capture_local_then_block_primary_path_for_local,
             .per_receive_context = ctx->per_receive_context,
         };
         ct_receive_message(connection, &recv);
     } else {
-        int rc = system("iptables -D OUTPUT -s 127.0.0.1 -p udp --dport 4433 -j DROP");
-        if (rc != 0) {
-            log_warn("Could not remote iptables rule");
-        }
-        rc = system("iptables -D INPUT  -d 127.0.0.1 -p udp --sport 4433 -j DROP");
-        if (rc != 0) {
-            log_warn("Could not remote iptables rule");
-        }
-
+        // Not removing iptables rules here since the test fixture's IptablesGuard will clean up on test teardown
         log_info("Received second pong after blocking primary path, migration successful");
         ct_connection_close_group(connection);
     }
@@ -507,7 +482,7 @@ void send_message_and_receive_blocking_primary_path_for_local(struct ct_connecti
     ct_message_free(message);
 
     ct_receive_callbacks_t receive_message_request = {
-        .receive_callback = receive_first_pong_then_block_primary_path_for_local,
+        .receive_callback = receive_first_pong_capture_local_then_block_primary_path_for_local,
         .per_receive_context = ct_connection_get_callback_context(connection),
     };
 
@@ -938,13 +913,6 @@ ct_connection_group_t* generate_connection_group(int num_connections) {
         ct_connection_group_add_connection(group, conn);
     }
     return group;
-}
-
-void capture_local_on_sent(ct_connection_t* connection, ct_message_context_t* message_context) {
-    auto* context = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
-
-    context->local_sockaddr.push_back(
-        ct_connection_get_active_local_endpoint(connection)->resolved_address);
 }
 
 void close_on_listener_ready(ct_listener_t* listener) {
