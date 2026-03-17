@@ -77,6 +77,37 @@ target_link_libraries(quic_benchmark_server
     picoquic-core
 )
 
+# Our picoquic benchmark client uses the built in picoquic package
+# loop. This package loop only notifies picoquic about a path being
+# unavailable if errno after sendmsg fails fits some internal
+# picoquic criteria (that is, a list of "implies unreachable" errnos)
+#
+# When we use iptables to simulate a path breakdown in our benchmarking
+# then errno is set to EPERM, which is not normally recognized as one
+# of these "implies unreachable" error codes. We therefore created this
+# special fork which has added EPERM to this list, which we use with our
+# benchmark client
+#
+# For the TAPS implementation we don't use the picoquic package loop, so
+# we are free to notify the picoquic quic engine of an unreachable endpoint
+# however we see fit, so this is not needed any other places than the benchmark
+# client
+FetchContent_Declare(
+        picoquic_fork_with_eperm
+        GIT_REPOSITORY https://github.com/ikhovind/picoquic.git
+        GIT_TAG 7b4c96cee25772e0811bb46ac9035d4ede441d9d
+)
+
+set(PICOQUIC_FETCH_PTLS OFF  CACHE BOOL "Fetch PicoTLS during configuration" FORCE)
+set(BUILD_LOGLIB        OFF  CACHE BOOL "Build picoquic-log" FORCE)
+set(BUILD_DEMO          OFF CACHE BOOL "Build picoquicdemo" FORCE)
+set(BUILD_HTTP          OFF CACHE BOOL "Build picohttp" FORCE)
+set(BUILD_PQBENCH       OFF CACHE BOOL "Build pqbench" FORCE)
+set(BUILD_LOGREADER     OFF CACHE BOOL "Build picolog_t the log reader" FORCE)
+set(PICOQUIC_FETCH_PTLS ON)
+
+FetchContent_MakeAvailable(picoquic_fork_with_eperm)
+
 # QUIC Client
 add_executable(quic_benchmark_client
     src/client/quic_benchmark_client.c
@@ -85,7 +116,7 @@ add_executable(quic_benchmark_client
 
 target_link_libraries(quic_benchmark_client
     benchmark_common
-    picoquic-core
+    picoquic-core-fork-with-eperm
 )
 
 add_custom_target(benchmark ALL
