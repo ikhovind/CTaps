@@ -986,24 +986,6 @@ int picoquic_callback(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* bytes, s
     return 0;
 }
 
-void on_quic_udp_send(uv_udp_send_t* req, int status) {
-    log_trace("Sent QUIC packet over UDP");
-
-    ct_quic_send_state_t* send_state = req->data;
-
-    if (status) {
-        log_warn("Send error: %s\n", uv_strerror(status));
-        ct_socket_manager_t* socket_manager = (ct_socket_manager_t*)req->handle->data;
-        ct_quic_socket_state_t* socket_state = socket_manager->internal_socket_manager_state;
-        picoquic_notify_destination_unreachable(
-            send_state->cnx, picoquic_get_quic_time(socket_state->picoquic_ctx),
-            (struct sockaddr*)&send_state->local_address,
-            (struct sockaddr*)&send_state->remote_address, 0, status);
-    }
-    ct_quic_send_state_free(send_state);
-    free(req);
-}
-
 static int ct_quic_send_packet_with_pktinfo(ct_udp_poll_handle_t* poll_handle,
                                             unsigned char* send_buffer_base, size_t send_length,
                                             struct sockaddr_storage* from_address,
@@ -1201,7 +1183,7 @@ void on_socket_timer(uv_timer_t* timer_handle) {
     do {
         send_length = 0;
 
-        // Allocate buffer on heap for each packet (freed in on_quic_udp_send callback)
+        // Allocate buffer on heap for each packet (freed in send callback)
         unsigned char* send_buffer_base = malloc(MAX_QUIC_PACKET_SIZE);
         if (!send_buffer_base) {
             log_error("Failed to allocate buffer for QUIC packet");
@@ -1233,7 +1215,9 @@ void on_socket_timer(uv_timer_t* timer_handle) {
                     last_cnx, picoquic_get_quic_time(socket_state->picoquic_ctx),
                     (struct sockaddr*)&to_address, (struct sockaddr*)&from_address, if_index, -rc);
             }
-            log_trace("Sent QUIC packet of length %zu", send_length);
+            else {
+                log_trace("Sent QUIC packet of length %zu", send_length);
+            }
         } else {
             log_trace("No QUIC data to send at this time");
             // No data to send, free the buffer

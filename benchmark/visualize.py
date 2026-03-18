@@ -55,7 +55,6 @@ def plot_grouped_bars(collected, out_dir):
     for i, name in enumerate(all_impls):
         label, color, linestyle = SERIES[name]
         medians = [np.median(collected[rtt].get(name, [np.nan])) for rtt in rtt_values]
-        stds    = [np.std(collected[rtt].get(name, [np.nan]))    for rtt in rtt_values]
         offset  = (i - n_impls / 2 + 0.5) * bar_width
 
         ax.bar(x + offset, medians, bar_width * 0.9,
@@ -228,13 +227,14 @@ def plot_racing_handshake(handshake: dict, out_dir: Path) -> None:
             alpha=0.15, color=color
         )
 
-    # Annotate the 250ms stagger offset at RTT=50 as a callout
-    tcp_50   = np.median(handshake[50].get("tcp_native", [np.nan]))
-    racing_50 = np.median(handshake[50].get("taps_racing_tcp", [np.nan]))
-    tcp_stagger = ((racing_50 - tcp_50) // 250) * 250
+    # Annotate the minimum 250ms stagger offset as a callout
+    min_handshake = min(handshake.keys())
+    tcp_native_time   = np.median(handshake[min_handshake].get("tcp_native", [np.nan]))
+    tcp_racing_time = np.median(handshake[min_handshake].get("taps_racing_tcp", [np.nan]))
+    tcp_stagger = ((tcp_racing_time - tcp_native_time) // 250) * 250
     ax.annotate(
         f"+{tcp_stagger:.0f} ms\n(stagger delay)",
-        xy=(50, racing_50), xytext=(70, racing_50 - 40),
+        xy=(min_handshake, tcp_racing_time), xytext=(min_handshake + 10, tcp_racing_time - 70),
         arrowprops=dict(arrowstyle="->", color="gray"),
         fontsize=8, color="gray"
     )
@@ -242,7 +242,7 @@ def plot_racing_handshake(handshake: dict, out_dir: Path) -> None:
     ax.set_xlabel("RTT (ms)", fontsize=11)
     ax.set_ylabel("Handshake time (ms)", fontsize=11)
     ax.set_title(
-        "Handshake time vs RTT\n",
+        "Handshake time vs RTT",
         fontsize=11
     )
     ax.set_xticks(rtt_values)
