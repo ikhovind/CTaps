@@ -150,7 +150,7 @@ void free_on_connection_closed(ct_connection_t* connection) {
     ct_connection_free(connection);
 }
 
-int main() {
+intg main() {
     ct_initialize(); // Init logging and event loop
     
     ct_set_log_level(CT_LOG_INFO);
@@ -226,3 +226,7 @@ cmake --build out/Debug --target all -j 6
 ```bash
 cd out/Debug/test && ctest
 ```
+
+## Including in your project
+See the [CTaps example project](https://github.com/ikhovind/CTaps-example-project) for
+an example on how to fetch CTaps as a dependency using CMake.
