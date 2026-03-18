@@ -63,7 +63,11 @@ TEST_F(QuicUnitTest, errorOnPicoquicSetPriorityError) {
 
 TEST_F(QuicUnitTest, diesOnNoPicoquicConnection) {
     dummy_connection.connection_group->connection_group_state = NULL; // No group state, so no picoquic connection
+#ifndef NDEBUG
     EXPECT_DEATH(quic_set_connection_priority(&dummy_connection, 50), "");
+#else
+    GTEST_SKIP() << "Asserts disabled in release build";
+#endif
 }
 
 TEST_F(QuicUnitTest, einvalOnNotInitializedStream) {
@@ -75,5 +79,9 @@ TEST_F(QuicUnitTest, einvalOnNotInitializedStream) {
 TEST_F(QuicUnitTest, diesOnNoStreamState) {
     dummy_stream_state = {0};
     dummy_connection.internal_connection_state = NULL; // No stream state
+#ifndef NDEBUG
     EXPECT_DEATH(quic_set_connection_priority(&dummy_connection, 50), "");
+#else
+    GTEST_SKIP() << "Asserts disabled in release build";
+#endif
 }

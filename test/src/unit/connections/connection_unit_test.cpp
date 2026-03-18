@@ -409,7 +409,12 @@ TEST_F(ConnectionUnitTests, outOfBoundsIndexDies) {
     ct_connection_t conn = {0};
     conn.num_local_endpoints = 3;
     conn.active_local_endpoint = 1;
+
+#ifndef NDEBUG
     EXPECT_DEATH(ct_connection_set_active_local_endpoint_index(&conn, 5), "");
+#else
+    GTEST_SKIP() << "Asserts disabled in release build";
+#endif
 }
 
 TEST_F(ConnectionUnitTests, setActiveRemoteEndpointByObjectSetsIndex) {

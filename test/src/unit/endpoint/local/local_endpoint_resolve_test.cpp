@@ -169,16 +169,23 @@ TEST_F(LocalEndpointResolveTest, resolveHandlesNullCounter) {
   ct_local_endpoint_t* input_endpoint = ct_local_endpoint_new();
 
   // --- ACT ---
+#ifndef NDEBUG
   EXPECT_DEATH(ct_local_endpoint_resolve(input_endpoint, NULL), "");
   ct_local_endpoint_free(input_endpoint);
+#else
+  ct_local_endpoint_free(input_endpoint);
+  GTEST_SKIP() << "Asserts disabled in release build";
+#endif
 }
 
 TEST_F(LocalEndpointResolveTest, resolveHandlesNullEndpoint) {
-  // --- ARRANGE ---
   size_t dummy_count = 1234;
 
-  // --- ACT ---
+#ifndef NDEBUG
   EXPECT_DEATH(ct_local_endpoint_resolve(NULL, &dummy_count), "");
+#else
+    GTEST_SKIP() << "Asserts disabled in release build";
+#endif
 }
 
 TEST_F(LocalEndpointResolveTest, resolvesDirectlyToSingleEndpoint_WhenIPv4IsSet) {

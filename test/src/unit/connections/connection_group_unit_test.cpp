@@ -96,12 +96,20 @@ TEST_F(ConnectionGroupUnitTests, AbortAll_MixedStates_SkipsOnlyClosed) {
 // ── set_active_remote_endpoint ────────────────────────────────────────────────
 
 TEST_F(ConnectionGroupUnitTests, setActiveRemoteEndpoint_NullGroupDies) {
+#ifndef NDEBUG
     EXPECT_DEATH(ct_connection_group_set_active_remote_endpoint(nullptr, &dummy_remote), "");
+#else
+    GTEST_SKIP() << "Asserts disabled in release build";
+#endif
     EXPECT_EQ(__wrap_ct_connection_set_active_remote_endpoint_fake.call_count, 0u);
 }
 
 TEST_F(ConnectionGroupUnitTests, setActiveRemoteEndpoint_NullEndpointDies) {
+#ifndef NDEBUG
     EXPECT_DEATH(ct_connection_group_set_active_remote_endpoint(group, nullptr), "");
+#else
+    GTEST_SKIP() << "Asserts disabled in release build";
+#endif
     EXPECT_EQ(__wrap_ct_connection_set_active_remote_endpoint_fake.call_count, 0u);
 }
 
@@ -125,12 +133,20 @@ TEST_F(ConnectionGroupUnitTests, setActiveRemoteEndpoint_ContinuesAndReturnsErro
 // ── set_active_local_endpoint ─────────────────────────────────────────────────
 
 TEST_F(ConnectionGroupUnitTests, setActiveLocalEndpoint_NullGroupDies) {
+#ifndef NDEBUG
     EXPECT_DEATH(ct_connection_group_set_active_local_endpoint(nullptr, &dummy_local), "");
+#else
+    GTEST_SKIP() << "Asserts disabled in release build";
+#endif
     EXPECT_EQ(__wrap_ct_connection_set_active_local_endpoint_fake.call_count, 0u);
 }
 
 TEST_F(ConnectionGroupUnitTests, setActiveLocalEndpoint_NullEndpointDies) {
+#ifndef NDEBUG
     EXPECT_DEATH(ct_connection_group_set_active_local_endpoint(group, nullptr), "");
+#else
+    GTEST_SKIP() << "Asserts disabled in release build";
+#endif
 }
 
 TEST_F(ConnectionGroupUnitTests, setActiveLocalEndpoint_CallsSetterOnAllConnections) {

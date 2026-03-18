@@ -164,11 +164,19 @@ TEST_F(SocketManagerUnitTests, errorWhenProtocolFailsOnPriorityChange) {
 }
 
 TEST_F(SocketManagerUnitTests, addConnectionDoesNothingOnNullSocketManager) {
+#ifndef NDEBUG
     EXPECT_DEATH(ct_socket_manager_add_connection(NULL, &dummy_connection), "");
+#else
+    GTEST_SKIP() << "Asserts disabled in release build";
+#endif
 }
 
 TEST_F(SocketManagerUnitTests, addConnectionDoesNothingOnNullConnection) {
+#ifndef NDEBUG
     EXPECT_DEATH(ct_socket_manager_add_connection(&dummy_socket_manager, NULL), "");
+#else
+    GTEST_SKIP() << "Asserts disabled in release build";
+#endif
 }
 
 TEST_F(SocketManagerUnitTests, addConnectionPrependsToList) {
@@ -249,7 +257,11 @@ TEST_F(SocketManagerUnitTests, passesSocketManagerNotListenerToProtocol) {
 }
 
 TEST_F(SocketManagerUnitTests, closeConnection_nullConnection_returnsEinval) {
+#ifndef NDEBUG
     EXPECT_DEATH(ct_socket_manager_close_connection(NULL), "");
+#else
+    GTEST_SKIP() << "Asserts disabled in release build";
+#endif
 }
 
 TEST_F(SocketManagerUnitTests, closeConnection_protocolFails_propagatesError) {
