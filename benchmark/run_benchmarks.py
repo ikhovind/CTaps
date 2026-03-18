@@ -18,7 +18,6 @@ from typing import Dict, List, Optional, Tuple
 
 
 # Tests included in the migration benchmark suite.
-#MIGRATION_TEST_NAMES = {"tcp_native", "quic_native", "taps_racing_quic"}
 MIGRATION_TEST_NAMES = {"quic_native", "taps_racing_quic", "tcp_native"}
 
 
