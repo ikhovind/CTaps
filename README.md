@@ -5,7 +5,7 @@ A C implementation of the Transport Services API as described in:
  * [RFC 9622 - External API](https://www.rfc-editor.org/info/rfc9622).
  * [RFC 9623 - Internal workings](https://www.rfc-editor.org/info/rfc9623).
 
-CTaps provides a asyncchronous, callback-based interface for network connections, abstracting over TCP, UDP, and QUIC protocols.
+CTaps provides an asynchronous, callback-based interface for network connections, abstracting over TCP, UDP, and QUIC protocols.
 
 ## Core Structures
 
