@@ -81,7 +81,7 @@ int main() {
     // Create preconection
     ct_preconnection_t* preconnection = ct_preconnection_new(NULL, // No local endpoint to bind to ephemeral port
                                                              0,
-                                                             remote_endpoint,
+                                                             &remote_endpoint,
                                                              1,
                                                              transport_properties,
                                                              NULL
@@ -163,7 +163,7 @@ int main() {
     ct_local_endpoint_with_port(local_endpoint, 1234);
 
     // Create preconnection
-    ct_preconnection_t* preconnection = ct_preconnection_new(local_endpoint,
+    ct_preconnection_t* preconnection = ct_preconnection_new(&local_endpoint,
                                                              1,
                                                              NULL,
                                                              0,
