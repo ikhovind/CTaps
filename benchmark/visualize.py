@@ -11,6 +11,7 @@ import argparse
 from collections import defaultdict
 from pathlib import Path
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -23,6 +24,10 @@ SERIES = {
 
 TCP_FAMILY  = ["tcp_native", "taps_racing_tcp"]
 QUIC_FAMILY = ["quic_native", "taps_racing_quic"]
+
+FIGSIZE_PT = 395.25368 # Originally 418.25368 but shaved a bit
+FIGSIZE_IN = FIGSIZE_PT / 72.27
+DEFAULT_FIGSIZE = (FIGSIZE_IN, FIGSIZE_IN / 1.618)
 
 def load(path):
     with open(path) as f:
@@ -50,7 +55,7 @@ def plot_grouped_bars(collected, out_dir):
     bar_width = 0.8 / n_impls
     x = np.arange(n_rtts)
 
-    fig, ax = plt.subplots(figsize=(10, 5))
+    fig, ax = plt.subplots(figsize=DEFAULT_FIGSIZE)
 
     for i, name in enumerate(all_impls):
         label, color, linestyle = SERIES[name]
@@ -77,7 +82,7 @@ def plot_grouped_bars(collected, out_dir):
     ax.grid(axis="y", linestyle="--", alpha=0.4)
 
     fig.tight_layout()
-    out = out_dir / "bar_chart.png"
+    out = out_dir / "bar_chart.pgf"
     fig.savefig(out, dpi=150, bbox_inches="tight")
     print(f"Saved {out}")
     plt.close(fig)
@@ -85,7 +90,7 @@ def plot_grouped_bars(collected, out_dir):
 
 def plot_split_lines(collected, out_dir):
     rtt_values = sorted(collected.keys())
-    fig, ax = plt.subplots(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=DEFAULT_FIGSIZE)
 
     for family in [TCP_FAMILY, QUIC_FAMILY]:
         for name in family:
@@ -112,7 +117,7 @@ def plot_split_lines(collected, out_dir):
     ax.legend(fontsize=9)
     ax.grid(linestyle="--", alpha=0.4)
     fig.tight_layout()
-    out = out_dir / "rtt_sweep.png"
+    out = out_dir / "rtt_sweep.pgf"
     fig.savefig(out, dpi=150, bbox_inches="tight")
     print(f"Saved {out}")
     plt.close(fig)
@@ -128,7 +133,7 @@ def plot_migration_throughput(migration_data: list, out_dir: Path,
       - "color":  hex color
       - "runs":   list of chunk lists, each list being [{"t_ms": float, "bytes": int}, ...]
     """
-    fig, ax = plt.subplots(figsize=(9, 5))
+    fig, ax = plt.subplots(figsize=DEFAULT_FIGSIZE)
 
     for series in migration_data:
         runs = series["runs"]
@@ -180,7 +185,7 @@ def plot_migration_throughput(migration_data: list, out_dir: Path,
     ax.grid(linestyle="--", alpha=0.4)
 
     fig.tight_layout()
-    out = out_dir / "migration_throughput.png"
+    out = out_dir / "migration_throughput.pgf"
     fig.savefig(out, dpi=150, bbox_inches="tight")
     print(f"Saved {out}")
     plt.close(fig)
@@ -206,7 +211,7 @@ def plot_racing_handshake(handshake: dict, out_dir: Path) -> None:
     """
     rtt_values = sorted(handshake.keys())
 
-    fig, ax = plt.subplots(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=DEFAULT_FIGSIZE)
 
     for name in TCP_FAMILY + QUIC_FAMILY:
         label, color, linestyle = SERIES[name]
@@ -234,7 +239,7 @@ def plot_racing_handshake(handshake: dict, out_dir: Path) -> None:
     tcp_stagger = ((tcp_racing_time - tcp_native_time) // 250) * 250
     ax.annotate(
         f"+{tcp_stagger:.0f} ms\n(stagger delay)",
-        xy=(min_handshake, tcp_racing_time), xytext=(min_handshake + 10, tcp_racing_time - 70),
+        xy=(min_handshake, tcp_racing_time), xytext=(min_handshake + 10, tcp_racing_time + 80),
         arrowprops=dict(arrowstyle="->", color="gray"),
         fontsize=8, color="gray"
     )
@@ -250,12 +255,20 @@ def plot_racing_handshake(handshake: dict, out_dir: Path) -> None:
     ax.grid(linestyle="--", alpha=0.4)
 
     fig.tight_layout()
-    out = out_dir / "racing_handshake.png"
+    out = out_dir / "racing_handshake.pgf"
     fig.savefig(out, dpi=150, bbox_inches="tight")
     print(f"Saved {out}")
     plt.close(fig)
 
 def main():
+    matplotlib.use("pgf")
+    # Match UiO thesis
+    matplotlib.rcParams.update({
+        "pgf.texsystem": "pdflatex",
+        "font.family": "serif",       # body text uses LM serif
+        "text.usetex": True,
+        "pgf.rcfonts": False,
+    })
     parser = argparse.ArgumentParser(description="Plot CTaps benchmark results")
     parser.add_argument("input", help="Path to benchmark JSON file")
     parser.add_argument("--out-dir", default=".", help="Output directory for plots")
