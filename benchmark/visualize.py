@@ -185,7 +185,7 @@ def plot_migration_throughput(migration_data: list, out_dir: Path,
     ax.grid(linestyle="--", alpha=0.4)
 
     fig.tight_layout()
-    out = out_dir / "migration_throughput.pgf"
+    out = out_dir / "migration_throughput.png"
     fig.savefig(out, dpi=150, bbox_inches="tight")
     print(f"Saved {out}")
     plt.close(fig)
@@ -261,14 +261,14 @@ def plot_racing_handshake(handshake: dict, out_dir: Path) -> None:
     plt.close(fig)
 
 def main():
-    matplotlib.use("pgf")
-    # Match UiO thesis
-    matplotlib.rcParams.update({
-        "pgf.texsystem": "pdflatex",
-        "font.family": "serif",       # body text uses LM serif
-        "text.usetex": True,
-        "pgf.rcfonts": False,
-    })
+    # matplotlib.use("pgf")
+    # # Match UiO thesis
+    # matplotlib.rcParams.update({
+    #     "pgf.texsystem": "pdflatex",
+    #     "font.family": "serif",       # body text uses LM serif
+    #     "text.usetex": True,
+    #     "pgf.rcfonts": False,
+    # })
     parser = argparse.ArgumentParser(description="Plot CTaps benchmark results")
     parser.add_argument("input", help="Path to benchmark JSON file")
     parser.add_argument("--out-dir", default=".", help="Output directory for plots")

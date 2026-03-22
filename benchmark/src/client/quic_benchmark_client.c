@@ -5,11 +5,6 @@
 
 #include <picoquic_packet_loop.h>
 #include <picoquic.h>
-#include <picoquic_utils.h>
-#include <picosocks.h>
-#include <picoquic_packet_loop.h>
-#include <picoquic_bbr.h>
-#include <picoquic_set_textlog.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,9 +27,7 @@ typedef struct {
     picoquic_cnx_t* cnx;
     stream_ctx_t large_stream;
     stream_ctx_t short_stream;
-    uint64_t short_stream_start_time;
     int all_done;
-    int migration_triggered;
     struct sockaddr_storage server_addr;
     struct sockaddr_storage new_local_addr;
 } client_ctx_t;
@@ -73,50 +66,24 @@ static int client_callback(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* byt
         start_stream(ctx, &ctx->large_stream);
         break;
 
-    case picoquic_callback_path_available:
-        if (!json_only_mode) {
-                printf("New path is available\n");
-        }
-        break;
-
     case picoquic_callback_path_suspended:
         if (!json_only_mode) {
             printf("Path suspended (path_id=%llu)\n", (unsigned long long)stream_id);
         }
 
-        struct sockaddr_in new_locals[2];
-        memset(new_locals, 0, sizeof(new_locals));
-        new_locals[0].sin_family = AF_INET;
-        new_locals[0].sin_addr.s_addr = inet_addr("127.0.0.1");
-        new_locals[1].sin_family = AF_INET;
-        new_locals[1].sin_addr.s_addr = inet_addr("127.0.0.2");
-        for (int i = 1; i < 2; i++) {
-            if (picoquic_probe_new_path_ex(cnx,
-                    (struct sockaddr*)&ctx->server_addr,
-                    (struct sockaddr*)&new_locals[i], 0,
-                    picoquic_current_time(), 1) != 0) {
-                if (!json_only_mode) {
-                    fprintf(stderr, "WARNING: Failed to probe new path for migration\n");
-                }
-            } else {
-                if (!json_only_mode) {
-                    printf("Probing new path from 127.0.0.2 for connection migration\n");
-                }
+        if (picoquic_probe_new_path_ex(cnx,
+                (struct sockaddr*)&ctx->server_addr,
+                (struct sockaddr*)&ctx->new_local_addr, 0,
+                picoquic_current_time(), 1) != 0) {
+            if (!json_only_mode) {
+                fprintf(stderr, "WARNING: Failed to probe new path for migration\n");
+            }
+        } else {
+            if (!json_only_mode) {
+                printf("Probing new path from 127.0.0.2 for connection migration\n");
             }
         }
         break;
-
-    case picoquic_callback_path_deleted:
-        if (!json_only_mode) {
-            printf("Path deleted (path_id=%llu)\n", (unsigned long long)stream_id);
-        }
-        break;
-    case picoquic_callback_path_quality_changed:
-        if (!json_only_mode) {
-            printf("Path quality changed (path_id=%llu)\n", (unsigned long long)stream_id);
-        }
-    break;
-
     case picoquic_callback_stream_data:
     case picoquic_callback_stream_fin:
         s_ctx->stats->bytes_received += length;

@@ -1,5 +1,33 @@
-#include "benchmark_common_taps.h"
+#include "ctaps.h"
 #include "../common/protocol.h"
+#include "../common/timing.h"
+#include "../common/file_generator.h"
+#include "../common/benchmark_stats.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+
+typedef enum {
+    TRANSFER_NONE_STARTED,
+    STATE_LARGE_STARTED,
+    STATE_LARGE_DONE,
+    STATE_SHORT_STARTED,
+    STATE_BOTH_DONE,
+} transfer_progress_t;
+
+typedef struct {
+    const char* host;
+    int port;
+
+    transfer_progress_t state;
+
+    transfer_stats_t* large_stats;
+    transfer_stats_t* short_stats;
+    int transfer_complete;
+} client_context_t;
+
 
 int json_only_mode = 0;
 
@@ -21,11 +49,6 @@ void on_msg_received(ct_connection_t* connection, ct_message_t* msg,
     client_context_t* client_ctx = ct_connection_get_callback_context(connection);
 
     switch (client_ctx->state) {
-    case TRANSFER_NONE_STARTED:
-        if (!json_only_mode) {
-            printf("Error: Received message in TRANSFER_NONE_STARTED state\n");
-        }
-        break;
     case STATE_LARGE_STARTED:
 
         client_ctx->large_stats->bytes_received += msg_length;
@@ -43,11 +66,6 @@ void on_msg_received(ct_connection_t* connection, ct_message_t* msg,
                     .per_receive_context = ctx
                 };
             ct_receive_message(connection, &receive_callbacks);
-        }
-        break;
-    case STATE_LARGE_DONE:
-        if (!json_only_mode) {
-            printf("Error: Received message in STATE_LARGE_DONE state\n");
         }
         break;
     case STATE_SHORT_STARTED:
@@ -68,11 +86,11 @@ void on_msg_received(ct_connection_t* connection, ct_message_t* msg,
             ct_receive_message(connection, &receive_callbacks);
         }
         break;
-    case STATE_BOTH_DONE:
-        if (!json_only_mode) {
-            printf("Error: Received message in STATE_BOTH_DONE state\n");
-        }
-        break;
+    default:
+         if (!json_only_mode) {
+            printf("Error: Received message in unknown state\n");
+         }
+         break;
     }
 }
 
@@ -104,14 +122,6 @@ void on_connection_ready(ct_connection_t* connection) {
         ct_receive_message(connection, &receive_callbacks);
         break;
     }
-    case STATE_LARGE_STARTED: {
-        // error - should not get new connection here
-        if (!json_only_mode) {
-            printf("Unexpected connection established in STATE_LARGE_STARTED\n");
-        }
-        ct_message_context_free(msg_ctx);
-        break;
-    }
     case STATE_LARGE_DONE: {
         // start small file transfer
         if (!json_only_mode) {
@@ -130,31 +140,23 @@ void on_connection_ready(ct_connection_t* connection) {
         ct_message_free(message);
         ctx->state = STATE_SHORT_STARTED;
         break;
-        }
-    case STATE_SHORT_STARTED:
-        // error - should not get new connection here
-        if (!json_only_mode) {
-            printf("Unexpected connection established in STATE_SHORT_STARTED\n");
-        }
-        ct_message_context_free(msg_ctx);
-        break;
-    case STATE_BOTH_DONE:
-        // error - should not get new connection here
-        if (!json_only_mode) {
-            printf("Unexpected connection established in STATE_BOTH_DONE\n");
-        }
-        ct_message_context_free(msg_ctx);
-        break;
     }
+    default:
+       if (!json_only_mode) {
+           printf("Unexpected state in on_connection_ready\n");
+       }
+       break;
+    }
+    ct_message_context_free(msg_ctx);
 }
 
 void on_establishment_error(ct_connection_t* connection) {
     if (!json_only_mode)
         printf("Connection establishment error occurred\n");
+    ct_connection_free(connection);
 }
 
 int main(int argc, char* argv[]) {
-    client_context_t client_ctx;
     const char* host = "127.0.0.1";
     int port = DEFAULT_PORT;
     int arg_idx = 1;
@@ -172,7 +174,7 @@ int main(int argc, char* argv[]) {
         printf("TAPS Racing Client connecting to %s:%d (prefer QUIC, allow TCP)\n", host, port);
     }
 
-    memset(&client_ctx, 0, sizeof(client_ctx));
+    client_context_t client_ctx = {0};
     client_ctx.host = host;
     client_ctx.port = port;
 
@@ -266,9 +268,17 @@ int main(int argc, char* argv[]) {
     timing_start(&client_ctx.large_stats->handshake_time);
 
     int rc = ct_preconnection_initiate(preconnection, &connection_callbacks);
+    if (rc != 0) {
+        fprintf(stderr, "ERROR: Failed to initiate preconnection\n");
+        ct_preconnection_free(preconnection);
+        ct_transport_properties_free(transport_properties);
+        ct_remote_endpoint_free(remote_endpoint);
+        return -1;
+    }
 
     ct_start_event_loop();
 
+    rc = 0;
     if (client_ctx.transfer_complete == 1) {
         char* json = get_json_stats(TRANSFER_MODE_TAPS_RACING,
                                     client_ctx.large_stats,
@@ -277,17 +287,13 @@ int main(int argc, char* argv[]) {
             printf("%s\n", json);
             free(json);
         }
-        ct_close();
-        ct_preconnection_free(preconnection);
-        ct_transport_properties_free(transport_properties);
-        ct_remote_endpoint_free(remote_endpoint);
-        return 0;
     } else {
         fprintf(stderr, "ERROR: Transfer failed\n");
-        ct_close();
-        ct_preconnection_free(preconnection);
-        ct_transport_properties_free(transport_properties);
-        ct_remote_endpoint_free(remote_endpoint);
-        return -1;
+        rc = -1;
     }
+    ct_close();
+    ct_preconnection_free(preconnection);
+    ct_transport_properties_free(transport_properties);
+    ct_remote_endpoint_free(remote_endpoint);
+    return rc;
 }

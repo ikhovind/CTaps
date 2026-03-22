@@ -115,21 +115,6 @@ static int transfer_file(const char* host, int port, const char* request, size_t
     return rc;
 }
 
-/* Inject a boolean field before the closing brace of a JSON object string. */
-static char* json_inject_bool(const char* json, const char* key, int value) {
-    size_t len = strlen(json);
-    /* Find the last '}' */
-    if (len == 0 || json[len - 1] != '}') {
-        return NULL;
-    }
-    char* out = NULL;
-    if (asprintf(&out, "%.*s,\"%s\":%s}", (int)(len - 1), json,
-                 key, value ? "true" : "false") == -1) {
-        return NULL;
-    }
-    return out;
-}
-
 int main(int argc, char* argv[]) {
     const char* host = "127.0.0.1";
     int port = DEFAULT_PORT;
@@ -183,12 +168,8 @@ int main(int argc, char* argv[]) {
 output:;
     char* json = get_json_stats(TRANSFER_MODE_TCP_NATIVE, large_stats, short_stats);
     if (json) {
-        char* final_json = json_inject_bool(json, "timed_out", timed_out);
+        printf("%s\n", json);
         free(json);
-        if (final_json) {
-            printf("%s\n", final_json);
-            free(final_json);
-        }
     }
 
     transfer_stats_free(large_stats);
