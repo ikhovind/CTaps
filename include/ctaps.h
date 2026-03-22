@@ -256,12 +256,6 @@ f(ACTIVE_READ_BEFORE_SEND,     "activeReadBeforeSend",       ct_selection_prefer
 // =============================================================================
 // Connection Properties
 // =============================================================================
-/**
- * @ingroup connection_properties
- * @struct ct_connection_properties_t
- * @brief Collection of all connection properties.
- */
-typedef struct ct_connection_properties_s ct_connection_properties_t;
 
 /**
  * @ingroup connection_properties
@@ -1792,17 +1786,6 @@ typedef enum {
     CT_PROTOCOL_UDP,
     CT_PROTOCOL_QUIC,
 } ct_protocol_enum_t;
-
-/**
- * @ingroup connection
- * @brief Get the shared connection properties used by a connection.
- *
- * @param[in] connection The connection to query
- * @return A pointer to the connection properties struct, or NULL if connection is NULL
- */
-CT_EXTERN const ct_connection_properties_t*
-ct_connection_get_connection_properties(const ct_connection_t* connection);
-
 
 /** 
  * @ingroup connection

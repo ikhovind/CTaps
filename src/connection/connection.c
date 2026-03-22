@@ -720,22 +720,6 @@ ct_connection_group_t* ct_connection_get_connection_group(const ct_connection_t*
     return connection->connection_group;
 }
 
-const ct_connection_properties_t*
-ct_connection_get_connection_properties(const ct_connection_t* connection) {
-    if (!connection || !connection->connection_group ||
-        !connection->connection_group->transport_properties) {
-        log_error("ct_get_connection_properties called with NULL connection");
-        log_debug("Connection pointer: %p, connection group pointer: %p, transport properties "
-                  "pointer: %p",
-                  (void*)connection, (void*)(connection ? connection->connection_group : NULL),
-                  (void*)(connection && connection->connection_group
-                              ? connection->connection_group->transport_properties
-                              : NULL));
-        return NULL;
-    }
-    return &connection->connection_group->transport_properties->connection_properties;
-}
-
 ct_protocol_enum_t ct_connection_get_transport_protocol(const ct_connection_t* connection) {
     if (!connection) {
         log_error("ct_connection_get_transport_protocol called with NULL connection");

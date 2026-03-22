@@ -284,35 +284,6 @@ TEST_F(ConnectionUnitTests, SendMessageFullFailsWhenCanSendIsFalse) {
     ct_connection_free(connection);
 }
 
-TEST_F(ConnectionUnitTests, connectionPropertyGetterGetsConnectionProperty) {
-    dummy_connection.connection_group->transport_properties->connection_properties.list[RECV_CHECKSUM_LEN].value.uint32_val = 1234;
-
-    const ct_connection_properties_t* gotten_props = ct_connection_get_connection_properties(&dummy_connection);
-
-    ASSERT_NE(gotten_props, nullptr);
-    ASSERT_EQ(gotten_props->list[RECV_CHECKSUM_LEN].value.uint32_val, 1234);
-    ASSERT_EQ((void*)gotten_props, (void*)&dummy_connection.connection_group->transport_properties->connection_properties);
-}
-
-TEST_F(ConnectionUnitTests, connectionPropertyGetterHandlesNullParam) {
-    const ct_connection_properties_t* gotten_props = ct_connection_get_connection_properties(nullptr);
-
-    ASSERT_EQ((void*)gotten_props, nullptr);
-}
- 
-TEST_F(ConnectionUnitTests, clonedConnectionSharesConnectionProperties) {
-    clone = ct_connection_create_clone(&dummy_connection, NULL, NULL, NULL);
-    ASSERT_NE(clone, nullptr);
-
-    ct_transport_properties_set_conn_timeout(dummy_connection.connection_group->transport_properties, 1234);
-
-    const ct_connection_properties_t* gotten_props = ct_connection_get_connection_properties(clone);
-
-    ASSERT_NE(gotten_props, nullptr);
-    ASSERT_EQ(gotten_props->list[CONN_TIMEOUT].value.uint32_val, 1234);
-    ASSERT_EQ((void*)gotten_props, (void*)&clone->connection_group->transport_properties->connection_properties);
-}
-
 TEST_F(ConnectionUnitTests, cloneSocketManagerIsNullWhenNoneProvided) {
     clone = ct_connection_create_clone(&dummy_connection, nullptr, nullptr, nullptr);
     ASSERT_NE(clone, nullptr);
