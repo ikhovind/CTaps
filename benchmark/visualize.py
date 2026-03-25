@@ -316,7 +316,7 @@ def plot_handshake_kde(handshake: dict, out_dir: Path, use_pgf=True) -> None:
 def main():
     parser = argparse.ArgumentParser(description="Plot CTaps benchmark results")
     parser.add_argument("input", help="Path to benchmark JSON file")
-    parser.add_argument("--out-dir", default=".", help="Output directory for plots")
+    parser.add_argument("--output", default=".", help="Output directory for plots")
     parser.add_argument("--migration", help="Whether to plot as migration scenario", action="store_true")
     parser.add_argument("--bucket-duration-ms", type=float, default=100.0,
                         help="Duration of each throughput bucket in ms (default: 100)")
@@ -325,7 +325,7 @@ def main():
     parser.add_argument("--png", help="Use PGF backend for LaTeX-quality plots", action="store_true", default=True)
     args = parser.parse_args()
 
-    out_dir = Path(args.out_dir)
+    out_dir = Path(args.output)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     if not args.png:

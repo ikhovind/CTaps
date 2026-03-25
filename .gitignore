@@ -16,6 +16,7 @@
 *.o
 *.obj
 # IDE specific files (e.g., CLion, VS Code)
+.clangd
 .idea/
 .vscode/
 # Dependency management (if used, e.g., Conan)
@@ -35,6 +36,8 @@ Testing/
 compile_commands.json
 # data files
 *.dat
+*.pgf
+*.png
 # Benchmark results
 benchmark/results/
 benchmark/plots/
