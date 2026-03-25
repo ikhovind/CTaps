@@ -18,11 +18,11 @@ import numpy as np
 
 SERIES = {
     "tcp_native":       ("TCP (Native)",        "#1565C0", "solid"),
-    "taps_racing_tcp":  ("TCP (TAPS)",   "#90CAF9", "dashed"),
+    "taps_racing_tcp":  ("TCP (CTaps)",   "#90CAF9", "dashed"),
     "quic_native":      ("QUIC (Picoquic)",         "#2E7D32", "solid"),
-    "taps_racing_quic": ("QUIC (TAPS)",   "#A5D6A7", "dashed"),
-    "quic_native_dual_ip":      ("QUIC (Picoquic)",         "#90CAF9", "solid"),
-    "taps_racing_quic_dual_ip": ("QUIC (TAPS)",   "#A5D6A7", "dashed"),
+    "taps_racing_quic": ("QUIC (CTaps)",   "#A5D6A7", "dashed"),
+    "quic_native_dual_ip":      ("Picoquic",         "#90CAF9", "solid"),
+    "taps_racing_quic_dual_ip": ("CTaps",   "#A5D6A7", "dashed"),
 }
 
 TCP_FAMILY  = ["tcp_native", "taps_racing_tcp"]
@@ -276,6 +276,16 @@ def plot_handshake_kde(handshake: dict, out_dir: Path, use_pgf=True) -> None:
     rtt_value = list(handshake.keys())[0]
     fig, ax = plt.subplots(figsize=DEFAULT_FIGSIZE)
 
+    theoretical = {
+        "quic_native_dual_ip": 2 * rtt_value,
+        "taps_racing_quic_dual_ip":     250 + 2 * 100
+    }
+    for i, (name, t) in enumerate(theoretical.items()):
+        ax.axvline(
+            t, color="red", linestyle="--", linewidth=1.2, alpha=0.8,
+            label="Theoretical minima" if i == 0 else "_nolegend_"
+        )
+
     for name in DUAL_IP_QUIC_HANDSHAKE:
         label, color, linestyle = SERIES[name]
 
@@ -293,14 +303,14 @@ def plot_handshake_kde(handshake: dict, out_dir: Path, use_pgf=True) -> None:
             warn_singular=False
         )
 
-        plot.set_xlim(0, 1000)
+        plot.set_xlim(300, 900)
 
-    # Styling the axes and title
-    ax.set_xlabel("Handshake Completion Time (ms)")
+    ax.set_xlabel("Handshake Time (ms)")
     ax.set_ylabel("Probability Density")
-    ax.set_title(f"Handshake Time Distribution (RTT = {rtt_value}ms)")
+    ax.set_title(f"Effect of Candidate Racing on Connection Establishment Time")
+
+    ax.legend(fontsize=9, frameon=True, loc="upper left", bbox_to_anchor=(0.62, 0.98))
     
-    ax.legend(fontsize=9, frameon=True)
     ax.grid(linestyle="--", alpha=0.4)
     sns.despine()
 
@@ -322,13 +332,13 @@ def main():
                         help="Duration of each throughput bucket in ms (default: 100)")
     parser.add_argument("--path-change-ms", type=float, default=500.0,
                         help="When the path change was triggered in ms (default: 500)")
-    parser.add_argument("--png", help="Use PGF backend for LaTeX-quality plots", action="store_true", default=True)
+    parser.add_argument("--pgf", help="Use PGF backend for LaTeX-quality plots", action="store_true", default=False)
     args = parser.parse_args()
 
     out_dir = Path(args.output)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    if not args.png:
+    if not args.pgf:
         matplotlib.use("pgf")
         # Match UiO thesis
         matplotlib.rcParams.update({
@@ -364,18 +374,18 @@ def main():
                 migration_data, out_dir,
                 bucket_duration_ms=args.bucket_duration_ms,
                 path_change_ms=args.path_change_ms,
-                use_pgf=not args.png
+                use_pgf=args.pgf
             )
         else:
             print("Warning: no usable migration data found in migration file")
     else:
         collected = collect(data)
 
-        plot_grouped_bars(collected, out_dir, use_pgf=not args.png)
-        plot_split_lines(collected, out_dir, use_pgf=not args.png)
+        plot_grouped_bars(collected, out_dir, use_pgf=args.pgf)
+        plot_split_lines(collected, out_dir, use_pgf=args.pgf)
         handshake = collect_handshake(data)
-        plot_racing_handshake(handshake, out_dir, use_pgf=not args.png)
-        plot_handshake_kde(handshake, out_dir, use_pgf=not args.png)
+        plot_racing_handshake(handshake, out_dir, use_pgf=args.pgf)
+        plot_handshake_kde(handshake, out_dir, use_pgf=args.pgf)
 
 
 
