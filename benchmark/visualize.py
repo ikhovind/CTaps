@@ -10,6 +10,7 @@ import json
 import argparse
 from collections import defaultdict
 from pathlib import Path
+import seaborn as sns
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -20,10 +21,13 @@ SERIES = {
     "taps_racing_tcp":  ("TCP (TAPS)",   "#90CAF9", "dashed"),
     "quic_native":      ("QUIC (Picoquic)",         "#2E7D32", "solid"),
     "taps_racing_quic": ("QUIC (TAPS)",   "#A5D6A7", "dashed"),
+    "quic_native_dual_ip":      ("QUIC (Picoquic)",         "#90CAF9", "solid"),
+    "taps_racing_quic_dual_ip": ("QUIC (TAPS)",   "#A5D6A7", "dashed"),
 }
 
 TCP_FAMILY  = ["tcp_native", "taps_racing_tcp"]
 QUIC_FAMILY = ["quic_native", "taps_racing_quic"]
+DUAL_IP_QUIC_HANDSHAKE = ["quic_native_dual_ip", "taps_racing_quic_dual_ip"]
 
 FIGSIZE_PT = 395.25368 # Originally 418.25368 but shaved a bit
 FIGSIZE_IN = FIGSIZE_PT / 72.27
@@ -46,7 +50,7 @@ def collect(data):
     return result
 
 
-def plot_grouped_bars(collected, out_dir):
+def plot_grouped_bars(collected, out_dir, use_pgf=True):
     rtt_values = sorted(collected.keys())
     all_impls = [key for key, value in SERIES.items()]
     n_impls = len(all_impls)
@@ -82,13 +86,14 @@ def plot_grouped_bars(collected, out_dir):
     ax.grid(axis="y", linestyle="--", alpha=0.4)
 
     fig.tight_layout()
-    out = out_dir / "bar_chart.pgf"
+    filename = "bar_chart.pgf" if use_pgf else "bar_chart.png"
+    out = out_dir / filename 
     fig.savefig(out, dpi=150, bbox_inches="tight")
     print(f"Saved {out}")
     plt.close(fig)
 
 
-def plot_split_lines(collected, out_dir):
+def plot_split_lines(collected, out_dir, use_pgf=True):
     rtt_values = sorted(collected.keys())
     fig, ax = plt.subplots(figsize=DEFAULT_FIGSIZE)
 
@@ -117,13 +122,15 @@ def plot_split_lines(collected, out_dir):
     ax.legend(fontsize=9)
     ax.grid(linestyle="--", alpha=0.4)
     fig.tight_layout()
-    out = out_dir / "rtt_sweep.pgf"
+    filename = "rtt_sweep.pgf" if use_pgf else "rtt_sweep.png"
+    out = out_dir / filename 
     fig.savefig(out, dpi=150, bbox_inches="tight")
     print(f"Saved {out}")
     plt.close(fig)
 
 
 def plot_migration_throughput(migration_data: list, out_dir: Path,
+                              use_pgf: bool = True,
                               bucket_duration_ms: float = 100.0,
                               path_change_ms: float = 500.0) -> None:
     """
@@ -185,7 +192,8 @@ def plot_migration_throughput(migration_data: list, out_dir: Path,
     ax.grid(linestyle="--", alpha=0.4)
 
     fig.tight_layout()
-    out = out_dir / "migration_throughput.png"
+    filename = "migration_throughput.pgf" if use_pgf else "migration_throughput.png"
+    out = out_dir / filename 
     fig.savefig(out, dpi=150, bbox_inches="tight")
     print(f"Saved {out}")
     plt.close(fig)
@@ -203,7 +211,7 @@ def collect_handshake(data):
     return result
 
 
-def plot_racing_handshake(handshake: dict, out_dir: Path) -> None:
+def plot_racing_handshake(handshake: dict, out_dir: Path, use_pgf=True) -> None:
     """
     Connection establishment time vs RTT for all implementations.
     The racing stagger penalty (250ms) is visible on taps_racing_tcp,
@@ -255,20 +263,57 @@ def plot_racing_handshake(handshake: dict, out_dir: Path) -> None:
     ax.grid(linestyle="--", alpha=0.4)
 
     fig.tight_layout()
-    out = out_dir / "racing_handshake.pgf"
+    filename = "racing_handshake.pgf" if use_pgf else "racing_handshake.png"
+    out = out_dir / filename 
+    fig.savefig(out, dpi=150, bbox_inches="tight")
+    print(f"Saved {out}")
+    plt.close(fig)
+
+def plot_handshake_kde(handshake: dict, out_dir: Path, use_pgf=True) -> None:
+    if len(handshake) != 1:
+        raise ValueError("Expected handshake data for exactly one RTT value to plot KDE")
+
+    rtt_value = list(handshake.keys())[0]
+    fig, ax = plt.subplots(figsize=DEFAULT_FIGSIZE)
+
+    for name in DUAL_IP_QUIC_HANDSHAKE:
+        label, color, linestyle = SERIES[name]
+
+        rtts = handshake[rtt_value].get(name, [np.nan])
+
+        # KDE requires at least 2 data points to form a distribution
+        plot = sns.kdeplot(
+            data=rtts,
+            ax=ax,
+            label=label,
+            color=color,
+            fill=True,
+            alpha=0.4,
+            linewidth=1.5,
+            warn_singular=False
+        )
+
+        plot.set_xlim(0, 1000)
+
+    # Styling the axes and title
+    ax.set_xlabel("Handshake Completion Time (ms)")
+    ax.set_ylabel("Probability Density")
+    ax.set_title(f"Handshake Time Distribution (RTT = {rtt_value}ms)")
+    
+    ax.legend(fontsize=9, frameon=True)
+    ax.grid(linestyle="--", alpha=0.4)
+    sns.despine()
+
+    fig.tight_layout()
+    
+    ext = "pgf" if use_pgf else "png"
+    out = out_dir / f"handshake_kde_{rtt_value}ms.{ext}"
+    
     fig.savefig(out, dpi=150, bbox_inches="tight")
     print(f"Saved {out}")
     plt.close(fig)
 
 def main():
-    # matplotlib.use("pgf")
-    # # Match UiO thesis
-    # matplotlib.rcParams.update({
-    #     "pgf.texsystem": "pdflatex",
-    #     "font.family": "serif",       # body text uses LM serif
-    #     "text.usetex": True,
-    #     "pgf.rcfonts": False,
-    # })
     parser = argparse.ArgumentParser(description="Plot CTaps benchmark results")
     parser.add_argument("input", help="Path to benchmark JSON file")
     parser.add_argument("--out-dir", default=".", help="Output directory for plots")
@@ -277,10 +322,21 @@ def main():
                         help="Duration of each throughput bucket in ms (default: 100)")
     parser.add_argument("--path-change-ms", type=float, default=500.0,
                         help="When the path change was triggered in ms (default: 500)")
+    parser.add_argument("--png", help="Use PGF backend for LaTeX-quality plots", action="store_true", default=True)
     args = parser.parse_args()
 
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    if not args.png:
+        matplotlib.use("pgf")
+        # Match UiO thesis
+        matplotlib.rcParams.update({
+            "pgf.texsystem": "pdflatex",
+            "font.family": "serif",       # body text uses LM serif
+            "text.usetex": True,
+            "pgf.rcfonts": False,
+        })
 
     data = load(args.input)
 
@@ -308,16 +364,18 @@ def main():
                 migration_data, out_dir,
                 bucket_duration_ms=args.bucket_duration_ms,
                 path_change_ms=args.path_change_ms,
+                use_pgf=not args.png
             )
         else:
             print("Warning: no usable migration data found in migration file")
     else:
         collected = collect(data)
 
-        plot_grouped_bars(collected, out_dir)
-        plot_split_lines(collected, out_dir)
+        plot_grouped_bars(collected, out_dir, use_pgf=not args.png)
+        plot_split_lines(collected, out_dir, use_pgf=not args.png)
         handshake = collect_handshake(data)
-        plot_racing_handshake(handshake, out_dir)
+        plot_racing_handshake(handshake, out_dir, use_pgf=not args.png)
+        plot_handshake_kde(handshake, out_dir, use_pgf=not args.png)
 
 
 

@@ -63,6 +63,15 @@ target_link_libraries(taps_benchmark_racing_client
     CTaps
 )
 
+add_executable(taps_benchmark_handshake_client
+    src/client/taps_benchmark_handshake_client.c
+)
+
+target_link_libraries(taps_benchmark_handshake_client
+    benchmark_common
+    CTaps
+)
+
 target_link_libraries(tcp_benchmark_client
     benchmark_common
 )
@@ -115,6 +124,16 @@ add_executable(quic_benchmark_client
 
 
 target_link_libraries(quic_benchmark_client
+    benchmark_common
+    picoquic-core-fork-with-eperm
+)
+
+add_executable(quic_benchmark_handshake_client
+    src/client/quic_benchmark_handshake_client.c
+)
+
+
+target_link_libraries(quic_benchmark_handshake_client
     benchmark_common
     picoquic-core-fork-with-eperm
 )

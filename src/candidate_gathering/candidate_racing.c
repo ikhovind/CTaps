@@ -3,6 +3,7 @@
 #include "candidate_gathering/candidate_gathering.h"
 #include "connection/connection.h"
 #include "ctaps.h"
+#include "protocol/common/socket_utils.h"
 #include <endpoint/local_endpoint.h>
 #include <endpoint/remote_endpoint.h>
 #include <security_parameter/security_parameters.h>
@@ -352,6 +353,14 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
             break;
         }
     }
+    log_debug("Initiating from active remote index: %zu", active_remote_index);
+
+    char from_ip[INET6_ADDRSTRLEN];
+    uint16_t from_port;
+
+    
+    ct_get_addr_string(&remote_endpoints[active_remote_index].resolved_address, from_ip, sizeof(from_ip), &from_port);
+    log_debug("Initiating connection attempt from %s:%d", from_ip, from_port);
 
     // Allocate connection for this attempt
     attempt->connection = ct_connection_create_client(

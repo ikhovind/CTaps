@@ -73,9 +73,17 @@ char* get_json_stats(transfer_mode_t mode, const transfer_stats_t* large_file_st
     double large_transfer_ms = timing_get_duration_ms(&large_file_stats->transfer_time);
     double large_throughput = calculate_throughput_mbps(large_file_stats);
 
-    double small_handshake_ms = timing_get_duration_ms(&small_file_stats->handshake_time);
-    double small_transfer_ms = timing_get_duration_ms(&small_file_stats->transfer_time);
-    double small_throughput = calculate_throughput_mbps(small_file_stats);
+    double small_handshake_ms = 0;
+    double small_transfer_ms = 0;
+    double small_throughput = 0;
+    size_t small_bytes = 0;
+
+    if (small_file_stats) {
+        small_handshake_ms = timing_get_duration_ms(&small_file_stats->handshake_time);
+        small_transfer_ms = timing_get_duration_ms(&small_file_stats->transfer_time);
+        small_throughput = calculate_throughput_mbps(small_file_stats);
+        small_bytes = small_file_stats->bytes_received;
+    }
 
     char* chunk_array = get_chunk_array(large_file_stats);
 
@@ -106,7 +114,7 @@ char* get_json_stats(transfer_mode_t mode, const transfer_stats_t* large_file_st
                       chunk_array,
                       small_handshake_ms,
                       small_transfer_ms,
-                      small_file_stats->bytes_received,
+                      small_bytes,
                       small_throughput
                       );
 
