@@ -25,4 +25,11 @@ void ct_remote_endpoints_free(ct_remote_endpoint_t* remote_endpoints, size_t num
 bool ct_remote_endpoint_resolved_equals(const ct_remote_endpoint_t* endpoint1,
                                         const ct_remote_endpoint_t* endpoint2);
 
+/**
+ * @ingroup remote_endpoints
+ * @brief Free string fields in a remote endpoint without freeing the structure.
+ * @param[in] remote_endpoint Endpoint whose strings to free
+ */
+CT_EXTERN void ct_remote_endpoint_free_content(ct_remote_endpoint_t* remote_endpoint);
+
 #endif

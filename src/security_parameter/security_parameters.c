@@ -268,7 +268,7 @@ int ct_security_parameters_add_alpn(ct_security_parameters_t* sec, const char* a
     return ct_security_parameters_add_to_array_of_strings(sec, ALPN, alpn);
 }
 
-const char** ct_security_parameters_get_alpns(const ct_security_parameters_t* sec,
+const char* const* ct_security_parameters_get_alpns(const ct_security_parameters_t* sec,
                                               size_t* num_alpns) {
     if (!sec || !num_alpns) {
         log_error("Invalid arguments to get ALPNs");
@@ -282,7 +282,7 @@ const char** ct_security_parameters_get_alpns(const ct_security_parameters_t* se
     }
     const ct_security_parameter_t* sec_param = &sec->list[ALPN];
     *num_alpns = sec->list[ALPN].value.array_of_strings.num_strings;
-    return (const char**)sec_param->value.array_of_strings.strings;
+    return (const char* const*) sec_param->value.array_of_strings.strings;
 }
 
 const uint8_t*

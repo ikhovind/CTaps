@@ -242,7 +242,7 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(
 
     size_t out_num_alpns = 0;
 
-    const char** alpn_strings =
+    const char* const* alpn_strings =
         ct_security_parameters_get_alpns(security_parameters, &out_num_alpns);
     if (!alpn_strings) {
         log_error("No ALPN strings specified in security parameters for QUIC context");
@@ -457,7 +457,7 @@ size_t quic_alpn_select_cb(picoquic_quic_t* quic, picoquic_iovec_t* list, size_t
     ct_listener_t* listener = quic_context->socket_manager->listener;
 
     size_t num_alpns = 0;
-    const char** listener_alpns =
+    const char* const* listener_alpns =
         ct_security_parameters_get_alpns(listener->security_parameters, &num_alpns);
     if (num_alpns == 0) {
         log_warn("Listener has no ALPNs configured for selection");
@@ -1309,7 +1309,7 @@ int quic_init_with_send(ct_connection_t* connection, ct_message_t* initial_messa
     }
 
     size_t alpn_count = 0;
-    const char** alpn_strings =
+    const char* const* alpn_strings =
         ct_security_parameters_get_alpns(connection->security_parameters, &alpn_count);
     if (alpn_count == 0) {
         log_error("No ALPN strings configured for QUIC connection");
@@ -1446,7 +1446,7 @@ int quic_init(ct_connection_t* connection) {
     }
 
     size_t alpn_count = 0;
-    const char** alpn_strings =
+    const char* const* alpn_strings =
         ct_security_parameters_get_alpns(connection->security_parameters, &alpn_count);
     if (alpn_count == 0) {
         log_error("No ALPN strings configured for QUIC connection");

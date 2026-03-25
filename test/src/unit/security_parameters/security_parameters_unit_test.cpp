@@ -101,7 +101,7 @@ TEST(SecurityParametersTest, clearAlpnClearsPreviousValue) {
     ct_security_parameters_add_alpn(params, "h2");
     
     size_t num_alpn = 0;
-    const char** alpns = ct_security_parameters_get_alpns(params, &num_alpn);
+    const char* const* alpns = ct_security_parameters_get_alpns(params, &num_alpn);
 
     ASSERT_EQ(num_alpn, 1);
     ASSERT_STREQ(alpns[0], "h2");
@@ -332,7 +332,7 @@ TEST(SecurityParametersTest, CopiesAlpn) {
     ASSERT_NE(copy, nullptr);
 
     size_t num_alpns = 0;
-    const char** alpns = ct_security_parameters_get_alpns(copy, &num_alpns);
+    const char* const* alpns = ct_security_parameters_get_alpns(copy, &num_alpns);
     ASSERT_EQ(num_alpns, 2);
     EXPECT_STREQ(alpns[0], "h2");
     EXPECT_STREQ(alpns[1], "http/1.1");

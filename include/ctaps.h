@@ -644,7 +644,7 @@ CT_EXTERN const char*
 ct_security_parameters_get_client_certificate_key_file(const ct_security_parameters_t* sec,
                                                        size_t index);
 
-CT_EXTERN const char** ct_security_parameters_get_alpns(const ct_security_parameters_t* sec,
+CT_EXTERN const char* const* ct_security_parameters_get_alpns(const ct_security_parameters_t* sec,
                                                         size_t* num_alpns);
 CT_EXTERN const uint8_t*
 ct_security_parameters_get_session_ticket_encryption_key(const ct_security_parameters_t* sec,
@@ -834,13 +834,6 @@ CT_EXTERN void ct_remote_endpoint_with_port(ct_remote_endpoint_t* remote_endpoin
  */
 CT_EXTERN int ct_remote_endpoint_with_service(ct_remote_endpoint_t* remote_endpoint,
                                               const char* service);
-
-/**
- * @ingroup remote_endpoints
- * @brief Free string fields in a remote endpoint without freeing the structure.
- * @param[in] remote_endpoint Endpoint whose strings to free
- */
-CT_EXTERN void ct_remote_endpoint_free_content(ct_remote_endpoint_t* remote_endpoint);
 
 /**
  * @ingroup remote_endpoints
