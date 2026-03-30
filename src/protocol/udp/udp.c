@@ -98,6 +98,7 @@ void udp_multiplex_received_message(ct_socket_manager_t* socket_manager, char* b
         ct_remote_endpoint_from_sockaddr(remote_endpoint, remote_addr);
         connection = ct_connection_create_server_connection(
             socket_manager, remote_endpoint, socket_manager->listener->local_endpoint,
+            socket_manager->listener->transport_properties,
             socket_manager->listener->security_parameters,
             &socket_manager->listener->connection_callbacks, NULL);
         ct_remote_endpoint_free(remote_endpoint);

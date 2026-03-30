@@ -18,7 +18,6 @@
 #include <sys/types.h>
 #include <uv.h>
 
-// Protocol interface definition (moved from header to access internal struct)
 const ct_protocol_impl_t
     tcp_protocol_interface =
         {
@@ -527,6 +526,7 @@ void new_stream_connection_cb(uv_stream_t* server, int status) {
 
     ct_connection_t* server_conn = ct_connection_create_server_connection(
         server_conn_socket_manager, remote_endpoint, listener->local_endpoint,
+        listener->transport_properties,
         listener->security_parameters, &listener->connection_callbacks, NULL);
     ct_remote_endpoint_free(remote_endpoint);
 

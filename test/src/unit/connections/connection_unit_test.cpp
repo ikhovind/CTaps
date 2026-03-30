@@ -50,7 +50,7 @@ protected:
         __wrap_ct_local_endpoint_copy_content_fake.return_val = 0;
         __wrap_ct_socket_manager_ref_fake.return_val = &dummy_socket_manager;
 
-        dummy_connection_group = ct_connection_group_new();
+        dummy_connection_group = ct_connection_group_new(NULL);
         int rc = ct_connection_group_add_connection(dummy_connection_group, &dummy_connection);
         ASSERT_EQ(rc, 0);
 

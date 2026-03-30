@@ -93,9 +93,11 @@ void ct_connection_group_unref(const ct_connection_t* connection);
 int ct_connection_group_set_active_remote_endpoint(ct_connection_group_t* group,
                                                    const ct_remote_endpoint_t* remote_endpoint);
 
+const ct_transport_properties_t* ct_connection_group_get_transport_properties(const ct_connection_group_t* group);
+
 int ct_connection_group_set_active_local_endpoint(ct_connection_group_t* group,
                                                   const ct_local_endpoint_t* local_endpoint);
 
-ct_connection_group_t* ct_connection_group_new(void);
+ct_connection_group_t* ct_connection_group_new(const ct_transport_properties_t* transport_properties);
 
 #endif // CT_CONNECTION_GROUP_H

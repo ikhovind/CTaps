@@ -42,7 +42,7 @@ protected:
         __wrap_ct_connection_set_active_remote_endpoint_fake.return_val = 0;
         __wrap_ct_connection_set_active_local_endpoint_fake.return_val = 0;
 
-        group = ct_connection_group_new();
+        group = ct_connection_group_new(NULL);
         for (int i = 0; i < num_connections; i++) {
             memset(&connections[i], 0, sizeof(ct_connection_t));
             snprintf(connections[i].uuid, sizeof(connections[i].uuid), "test-uuid-%d", i);

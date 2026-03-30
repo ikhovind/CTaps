@@ -8,12 +8,15 @@ ct_connection_t* ct_connection_create_client(
     const ct_protocol_impl_t* protocol_impl, ct_local_endpoint_t* local_endpoints,
     size_t num_local_endpoints, size_t local_endpoint_index, ct_remote_endpoint_t* remote_endpoints,
     size_t num_remote_endpoints, size_t remote_endpoint_index,
+    const ct_transport_properties_t* transport_properties,
     const ct_security_parameters_t* security_parameters,
     const ct_connection_callbacks_t* connection_callbacks, const ct_framer_impl_t* framer_impl);
 
 ct_connection_t* ct_connection_create_server_connection(
     ct_socket_manager_t* socket_manager, const ct_remote_endpoint_t* remote_endpoint,
-    const ct_local_endpoint_t* local_endpoint, const ct_security_parameters_t* security_parameters,
+    const ct_local_endpoint_t* local_endpoint, 
+    const ct_transport_properties_t* transport_properties,
+    const ct_security_parameters_t* security_parameters,
     const ct_connection_callbacks_t* connection_callbacks, const ct_framer_impl_t* framer_impl);
 
 /**

@@ -972,7 +972,10 @@ int picoquic_callback(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* bytes, s
     }
     case picoquic_callback_path_suspended: { /* An available path is suspended */
         log_info("Picoquic path suspended callback received");
-        probe_all_paths(connection_group);
+        if (ct_transport_properties_get_advertises_alt_address(
+            ct_connection_group_get_transport_properties(connection_group))) {
+            probe_all_paths(connection_group);
+        }
         break;
     }
     case picoquic_callback_path_deleted: { /* An existing path has been deleted */
@@ -1111,6 +1114,7 @@ void on_quic_poll_read(ct_socket_manager_t* socket_manager, const uint8_t* buf, 
         }
         ct_connection_t* connection = ct_connection_create_server_connection(
             listener->socket_manager, remote_endpoint, listener->local_endpoint,
+            listener->transport_properties,
             listener->security_parameters, &listener->connection_callbacks, NULL);
         if (!connection) {
             log_error("Failed to create new ct_connection_t for incoming QUIC connection");

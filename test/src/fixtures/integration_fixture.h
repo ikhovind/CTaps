@@ -907,7 +907,7 @@ void receive_message_verify_and_close_listener_on_connection_received(
 }
 
 ct_connection_group_t* generate_connection_group(int num_connections) {
-    ct_connection_group_t* group = ct_connection_group_new();
+    ct_connection_group_t* group = ct_connection_group_new(NULL);
     for (int i = 0; i < num_connections; i++) {
         ct_connection_t* conn = ct_connection_create_empty_with_uuid();
         ct_connection_group_add_connection(group, conn);

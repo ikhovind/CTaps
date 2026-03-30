@@ -198,7 +198,6 @@ static ct_racing_context_t* racing_context_create(ct_connection_callbacks_t user
 }
 
 static guint sockaddr_storage_hash(gconstpointer key) {
-    log_trace("Hashing sockaddr_storage for hash table");
     const struct sockaddr_storage* addr = key;
     // Hash only the relevant bytes based on address family
     if (addr->ss_family == AF_INET) {
@@ -257,6 +256,11 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
     };
 
     log_debug("Removing duplicate remote endpoints for connection attempt");
+    // Because we get many duplicates of endpoints in our candidates
+    // e.g. separete candidates built like this {endpoint 1, protocol 1} and {endpoint 1, protocol 2}
+    // we remove duplicates of remote and local endpoints through this hashing mechanism. This is a bit
+    // of a hack which I threw together: Should really be replaced with some candidate gathering functionality
+    // to only gather unique endpoints or something.
     ct_remote_endpoint_t* remote_endpoints = NULL;
     size_t remote_counter = 0;
     GHashTable* remote_hash = g_hash_table_new(sockaddr_storage_hash, sockaddr_storage_equal);
@@ -366,6 +370,7 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
     attempt->connection = ct_connection_create_client(
         candidate->protocol_candidate->protocol_impl, local_endpoints, local_endpoint_counter,
         active_local_index, remote_endpoints, remote_counter, active_remote_index,
+        &context->preconnection->transport_properties,
         context->preconnection->security_parameters, &attempt_callbacks,
         context->preconnection->framer_impl);
 

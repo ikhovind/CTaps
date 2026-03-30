@@ -48,8 +48,7 @@ setup_network_full() {
         local rtt="${pair##*:}"
         local delay=$(( rtt / 2 ))
         local jitter=7
-        #local jitter=$(( delay / 10 ))  # 10% Jitter
-        local base_jitter=7                # Constant noise (ms)
+        local base_jitter=7
         local pct_jitter=$(echo "scale=2; $delay * 0.05" | bc)
         local total_jitter=$(echo "scale=2; $base_jitter + $pct_jitter" | bc)
 

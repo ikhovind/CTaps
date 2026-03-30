@@ -35,6 +35,7 @@ TEST_F(QuicMigrationTest, migratesAfterPrimaryRemoteFails) {
     ct_transport_properties_set_reliability(transport_properties, REQUIRE);
     ct_transport_properties_set_preserve_msg_boundaries(transport_properties, REQUIRE);
     ct_transport_properties_set_multistreaming(transport_properties, REQUIRE); // force QUIC
+    ct_transport_properties_set_advertises_alt_address(transport_properties, true);
 
     ct_security_parameters_t* security_parameters = ct_security_parameters_new();
     ASSERT_NE(security_parameters, nullptr);
@@ -109,6 +110,7 @@ TEST_F(QuicMigrationTest, migratesAfterPrimaryLocalFails) {
     ct_transport_properties_set_reliability(transport_properties, REQUIRE);
     ct_transport_properties_set_preserve_msg_boundaries(transport_properties, REQUIRE);
     ct_transport_properties_set_multistreaming(transport_properties, REQUIRE); // force QUIC
+    ct_transport_properties_set_advertises_alt_address(transport_properties, true);
 
     ct_security_parameters_t* security_parameters = ct_security_parameters_new();
     ASSERT_NE(security_parameters, nullptr);

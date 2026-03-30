@@ -38,7 +38,9 @@ ct_connection_t* ct_connection_create_empty_with_uuid(void) {
 
 ct_connection_t* ct_connection_create_server_connection(
     ct_socket_manager_t* socket_manager, const ct_remote_endpoint_t* remote_endpoint,
-    const ct_local_endpoint_t* local_endpoint, const ct_security_parameters_t* security_parameters,
+    const ct_local_endpoint_t* local_endpoint, 
+    const ct_transport_properties_t* transport_properties,
+    const ct_security_parameters_t* security_parameters,
     const ct_connection_callbacks_t* connection_callbacks, const ct_framer_impl_t* framer_impl) {
     log_debug("Creating server connection for remote endpoint");
     ct_connection_t* connection = ct_connection_create_empty_with_uuid();
@@ -46,7 +48,7 @@ ct_connection_t* ct_connection_create_server_connection(
         log_error("Failed to create empty connection");
         return NULL;
     }
-    ct_connection_group_t* group = ct_connection_group_new();
+    ct_connection_group_t* group = ct_connection_group_new(transport_properties);
     if (!group) {
         log_error("Failed to get or create connection group for new server connection");
         ct_connection_free(connection);
@@ -104,6 +106,7 @@ ct_connection_t* ct_connection_create_client(
     const ct_protocol_impl_t* protocol_impl, ct_local_endpoint_t* local_endpoints,
     size_t num_local_endpoints, size_t local_endpoint_index, ct_remote_endpoint_t* remote_endpoints,
     size_t num_remote_endpoints, size_t remote_endpoint_index,
+    const ct_transport_properties_t* transport_properties,
     const ct_security_parameters_t* security_parameters,
     const ct_connection_callbacks_t* connection_callbacks, const ct_framer_impl_t* framer_impl) {
     log_debug("Creating client connection to remote endpoint");
@@ -132,7 +135,7 @@ ct_connection_t* ct_connection_create_client(
     }
     ct_socket_manager_t* socket_manager = ct_socket_manager_new(protocol_impl, NULL);
 
-    ct_connection_group_t* group = ct_connection_group_new();
+    ct_connection_group_t* group = ct_connection_group_new(transport_properties);
     if (!group) {
         log_error("Failed to create new connection group for client connection");
         ct_connection_free(connection);

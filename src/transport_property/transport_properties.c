@@ -178,11 +178,10 @@ ct_transport_properties_get_pvd_preference(const ct_transport_properties_t* tran
     }
 
 get_writable_connection_property_list(DEFINE_CONNECTION_PROPERTY_GETTER)
-    get_read_only_connection_properties(DEFINE_CONNECTION_PROPERTY_GETTER)
-        get_tcp_connection_properties(DEFINE_CONNECTION_PROPERTY_GETTER)
-            get_writable_connection_property_list(DEFINE_CONNECTION_PROPERTY_SETTER)
-                get_tcp_connection_properties(DEFINE_CONNECTION_PROPERTY_SETTER)
-                    get_selection_property_list(DEFINE_SELECTION_PROPERTY_GETTER)
-                        get_selection_property_list(DEFINE_SELECTION_PROPERTY_SETTER)
-                            get_preference_set_selection_property_list(
-                                DEFINE_SELECTION_PROPERTY_SETTER)
+get_read_only_connection_properties(DEFINE_CONNECTION_PROPERTY_GETTER)
+get_tcp_connection_properties(DEFINE_CONNECTION_PROPERTY_GETTER)
+get_writable_connection_property_list(DEFINE_CONNECTION_PROPERTY_SETTER)
+get_tcp_connection_properties(DEFINE_CONNECTION_PROPERTY_SETTER)
+get_selection_property_list(DEFINE_SELECTION_PROPERTY_GETTER)
+get_selection_property_list(DEFINE_SELECTION_PROPERTY_SETTER)
+get_preference_set_selection_property_list(DEFINE_SELECTION_PROPERTY_SETTER)

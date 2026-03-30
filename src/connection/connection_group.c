@@ -2,6 +2,7 @@
 
 #include "connection/connection.h"
 #include "connection/socket_manager/socket_manager.h"
+#include "transport_property/transport_properties.h"
 #include "util/uuid_util.h"
 #include <assert.h>
 #include <glib.h>
@@ -183,7 +184,7 @@ void ct_connection_group_unref(const ct_connection_t* connection) {
     }
 }
 
-ct_connection_group_t* ct_connection_group_new(void) {
+ct_connection_group_t* ct_connection_group_new(const ct_transport_properties_t* transport_properties) {
     ct_connection_group_t* group = malloc(sizeof(ct_connection_group_t));
     if (!group) {
         log_error("Failed to allocate memory for connection group");
@@ -197,7 +198,12 @@ ct_connection_group_t* ct_connection_group_new(void) {
         free(group);
         return NULL;
     }
-    group->transport_properties = ct_transport_properties_new();
+    if (transport_properties) {
+        group->transport_properties = ct_transport_properties_deep_copy(transport_properties);
+    }
+    else {
+        group->transport_properties = ct_transport_properties_new();
+    }
     if (!group->transport_properties) {
         log_error("Failed to create transport properties for connection group");
         g_hash_table_destroy(group->connections);
@@ -238,4 +244,11 @@ int ct_connection_group_set_active_local_endpoint(ct_connection_group_t* group,
                                                   const ct_local_endpoint_t* local_endpoint) {
     return ct_connection_group_set_active_endpoint(
         group, local_endpoint, (ct_endpoint_setter_fn)ct_connection_set_active_local_endpoint);
+}
+
+const ct_transport_properties_t* ct_connection_group_get_transport_properties(const ct_connection_group_t* group) {
+    if (!group) {
+        return NULL;
+    }
+    return group->transport_properties;
 }
