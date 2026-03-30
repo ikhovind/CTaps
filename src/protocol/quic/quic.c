@@ -19,7 +19,6 @@
 
 #define MICRO_TO_MILLI(us) ((us) / 1000)
 
-// Protocol interface definition (moved from header to access internal struct)
 const ct_protocol_impl_t
     quic_protocol_interface =
         {.name = "QUIC",
@@ -47,8 +46,6 @@ const ct_protocol_impl_t
                       [ADVERTISES_ALT_ADDRESS] = {.value = {.simple_preference = NO_PREFERENCE}},
                       [DIRECTION] = {.value = {.simple_preference = NO_PREFERENCE}},
                       [SOFT_ERROR_NOTIFY] = {.value = {.simple_preference = NO_PREFERENCE}},
-                      [ACTIVE_READ_BEFORE_SEND] =
-                          {.value = {.simple_preference = PROHIBIT}}, // Temporary - to make it easy to ban quic
                   }},
          .init = quic_init,
          .send = quic_send,
