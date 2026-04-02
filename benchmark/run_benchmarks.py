@@ -28,6 +28,7 @@ class BenchmarkRunner:
                  benchmark_dir: Path,
                  bin_dir: Path,
                  interface: str,
+                 jitter: int,
                  ip1_rtt: int,
                  ip2_rtt: int,
                  bandwidth_mbit: int):
@@ -43,7 +44,8 @@ class BenchmarkRunner:
             "interface": interface,
             "ip1_rtt": ip1_rtt,
             "ip2_rtt": ip2_rtt,
-            "bandwidth_mbit": bandwidth_mbit
+            "bandwidth_mbit": bandwidth_mbit,
+            "jitter": jitter
         }
 
         self.single_ip_tests = [
@@ -129,16 +131,22 @@ class BenchmarkRunner:
             return False
         try:
 
-            # TODO add optional jitter here
+
+            ip1_str = "127.0.0.1:" + str(self.network_config["ip1_rtt"])
+            if self.network_config["jitter"] is not None:
+                ip1_str += f":{self.network_config['jitter']}"
             setup_args = [
                 str(self.setup_script),
                 "setup",
                 self.network_config["interface"],
                 str(self.network_config["bandwidth_mbit"]),
-                "127.0.0.1:" + str(self.network_config["ip1_rtt"])
+                ip1_str
             ]
             if self.network_config["ip2_rtt"] is not None:
-                setup_args.append("127.0.0.2:" + str(self.network_config["ip2_rtt"]))
+                ip2_str = "127.0.0.2:" + str(self.network_config["ip2_rtt"])
+                if self.network_config["jitter"] is not None:
+                    ip2_str += f":{self.network_config['jitter']}"
+                setup_args.append(ip2_str)
             result = subprocess.run(
                 setup_args,
                 capture_output=True, text=True, timeout=100
@@ -395,7 +403,8 @@ def run_rtt_sweep(benchmark_dir: Path,
                   ip2_rtts: List[int],
                   bandwidth_mbit: int,
                   runs: int,
-                  interface: str) -> Dict:
+                  interface: str,
+                  jitter:int) -> Dict:
     """Run the full benchmark suite for each RTT value."""
     output = {
         "benchmark_suite": "CTaps Protocol Performance",
@@ -415,7 +424,8 @@ def run_rtt_sweep(benchmark_dir: Path,
                                  interface=interface,
                                  ip1_rtt=rtt,
                                  ip2_rtt=ip2_rtts[ix] if ip2_rtts else None,
-                                 bandwidth_mbit=bandwidth_mbit)
+                                 bandwidth_mbit=bandwidth_mbit,
+                                 jitter=jitter)
 
         if not runner.setup_network_emulation():
             print(f"Network setup failed for RTT={rtt}ms, aborting", file=sys.stderr)
@@ -480,7 +490,7 @@ def run_bad_ip_good_ip(benchmark_dir: Path, bin_dir: Path, ip_rtts: Dict[str, in
 
 def run_migration_sweep(benchmark_dir: Path, bin_dir: Path, ip1_rtts: List[int],
                         bandwidth_mbit: int, runs: int, interface: str,
-                        path_change_ms: int) -> Dict:
+                        path_change_ms: int, jitter: int) -> Dict:
     """Run the migration benchmark suite for each RTT value."""
     output = {
         "benchmark_suite": "CTaps Connection Migration",
@@ -568,7 +578,7 @@ Examples:
     parser.add_argument('--migration', type=int, default=None,
                         metavar='MS',
                         help='Run migration tests, blocking the path after MS milliseconds')
-    parser.add_argument('--jitter', type=int, default=0,
+    parser.add_argument('--jitter', type=int, default=None,
                         metavar='MS',
                         help='Add jitter to all paths')
     parser.add_argument('--output-file', type=pathlib.Path, default=None,
@@ -591,6 +601,7 @@ Examples:
             runs=args.runs,
             interface=args.interface,
             path_change_ms=args.migration,
+            jitter=args.jitter
         )
     else:
         results = run_rtt_sweep(
@@ -601,6 +612,7 @@ Examples:
             bandwidth_mbit=args.bandwidth,
             runs=args.runs,
             interface=args.interface,
+            jitter=args.jitter
         )
 
     output_file = save_results(results, script_dir / "results", filename=args.output_file)
