@@ -5,11 +5,11 @@
 set -e
 
 print_usage() {
-    echo "Usage: $0 {setup|teardown|status} [interface] [bandwidth_mbit] ip:rtt_ms ... "
+    echo "Usage: $0 {setup|teardown|status} [interface] [bandwidth_mbit] ip:rtt_ms:[jitter] ... "
     echo ""
     echo "Examples:"
-    echo "  $0 setup                         # Use defaults (50ms RTT, 100 Mbps)"
-    echo "  $0 setup lo 50 127.0.0.1:100     # 100ms rtt, 50 Mbps"
+    echo "  $0 setup lo 100 127.0.0.1:50         # 50ms RTT, 0ms jitter"
+    echo "  $0 setup lo 100 127.0.0.1:50:7       # 50ms RTT, 7ms jitter"
     echo "  $0 teardown                      # Remove network emulation"
     echo "  $0 status                        # Show current settings"
     echo ""
@@ -30,50 +30,48 @@ setup_network_full() {
     echo "Setting up network on $iface (bw=${bw}mbit):"
 
     echo "Disabling offloading on $iface to ensure jitter accuracy..."
-    # Disable every form of batching/offloading available
-    sudo ethtool -K "$iface" gso off tso off gro off lro off 2>/dev/null || true
-    #sudo ethtool -K "$iface" gso off tso off 2>/dev/null || true
 
     sudo sysctl -w net.ipv4.conf.all.accept_local=1 2>/dev/null || true
     sudo tc qdisc del dev "$iface" root 2>/dev/null || true
-    sudo tc qdisc del dev "$iface" root 2>/dev/null || true
+
+    sudo ifconfig lo mtu 1500
 
     # HTB root with aggregate bandwidth cap; class 1:99 is the default
     sudo tc qdisc add dev "$iface" root handle 1: htb default 99
-    sudo tc class add dev "$iface" parent 1: classid 1:1 htb rate "${bw}mbit" ceil "${bw}mbit"
+
+    # Default class: bandwidth cap, no delay
+    sudo tc class add dev "$iface" parent 1: classid 1:99 htb rate "${bw}mbit" ceil "${bw}mbit"
+    sudo tc qdisc add dev "$iface" parent 1:99 handle 99: pfifo
 
     local band=10
     for pair in "${pairs[@]}"; do
         local ip="${pair%%:*}"
         local rtt="${pair##*:}"
         local delay=$(( rtt / 2 ))
-        local jitter=7
-        local base_jitter=7
-        local pct_jitter=$(echo "scale=2; $delay * 0.05" | bc)
-        local total_jitter=$(echo "scale=2; $base_jitter + $pct_jitter" | bc)
+        local jitter=$(echo "$pair" | cut -s -d: -f3) # Empty if not provided
 
-        local correlation="25%"
+        # Build netem command string
+        local netem_cmd="delay ${delay}ms"
+        if [ -n "$jitter" ] && [ "$jitter" != "0" ]; then
+            # 25% correlation is standard; increase to 50% for smoother tests
+            netem_cmd="$netem_cmd ${jitter}ms 25% distribution normal"
+        fi
 
-        echo "  $ip -> ${delay}ms delay, ${jitter}ms jitter"
-        sudo tc class add dev "$iface" parent 1:1 classid "1:$band" htb rate "${bw}mbit" ceil "${bw}mbit"
-        sudo tc qdisc add dev "$iface" parent "1:$band" handle "${band}:" netem delay "${delay}ms" "${jitter}ms" "${correlation}" distribution normal
-        #
-        # 2. OUTBOUND FILTER: Traffic GOING TO the server port
-        sudo tc filter add dev "$iface" parent 1: protocol ip prio $band \
-            u32 match ip dst "${ip}/32" \
-            match ip dport 8080 0xffff flowid "1:$band"
+        sudo tc class add dev "$iface" parent 1: classid "1:$band" htb rate "${bw}mbit" ceil "${bw}mbit"
+        sudo tc qdisc add dev "$iface" parent "1:$band" handle "${band}:" netem $netem_cmd
 
-        # 3. INBOUND FILTER: Traffic COMING FROM the server port
-        sudo tc filter add dev "$iface" parent 1: protocol ip prio $((band + 1)) \
-            u32 match ip src "${ip}/32" \
-            match ip sport 8080 0xffff flowid "1:$band"
+        # sudo tc filter add dev "$iface" parent 1: protocol ip prio $band \
+        #     u32 match ip dst "${ip}/32" match ip dport 8080 0xffff flowid "1:$band"
+        # sudo tc filter add dev "$iface" parent 1: protocol ip prio $((band + 1)) \
+        #     u32 match ip src "${ip}/32" match ip sport 8080 0xffff flowid "1:$band"
+        sudo tc filter add dev "$iface" parent 1: protocol ip prio 1 \
+            u32 match ip dport 8080 0xffff flowid "1:$band"
+
+        sudo tc filter add dev "$iface" parent 1: protocol ip prio 1 \
+            u32 match ip sport 8080 0xffff flowid "1:$band"
 
         band=$(( band + 10 ))
     done
-
-    # Default class: bandwidth cap, no delay
-    sudo tc class add dev "$iface" parent 1:1 classid 1:99 htb rate "${bw}mbit" ceil "${bw}mbit"
-    sudo tc qdisc add dev "$iface" parent 1:99 handle 99: pfifo
 
     echo "Network configured successfully!"
 }

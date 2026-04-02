@@ -129,6 +129,7 @@ class BenchmarkRunner:
             return False
         try:
 
+            # TODO add optional jitter here
             setup_args = [
                 str(self.setup_script),
                 "setup",
@@ -205,7 +206,7 @@ class BenchmarkRunner:
             client_path = self.bin_dir / client_cmd
             result = subprocess.run(
                 [str(client_path), "127.0.0.1", str(port), "--json"],
-                capture_output=True, text=True, timeout=15
+                capture_output=True, text=True, timeout=45
             )
             stdout = result.stdout.strip()
             if stdout == "ERROR" or result.returncode != 0:
@@ -567,6 +568,9 @@ Examples:
     parser.add_argument('--migration', type=int, default=None,
                         metavar='MS',
                         help='Run migration tests, blocking the path after MS milliseconds')
+    parser.add_argument('--jitter', type=int, default=0,
+                        metavar='MS',
+                        help='Add jitter to all paths')
     parser.add_argument('--output-file', type=pathlib.Path, default=None,
                         help='Path to save results JSON (default: results/benchmark-<timestamp>.json)')
 

@@ -4,7 +4,7 @@
 #include <uv.h>
 
 typedef struct {
-    uv_poll_t poll; // Must be first — callers can cast to uv_poll_t*
+    uv_poll_t poll;
     int fd;
     int32_t local_port;
 } ct_udp_poll_handle_t;

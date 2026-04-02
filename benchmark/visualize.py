@@ -52,42 +52,56 @@ def collect(data):
 
 def plot_grouped_bars(collected, out_dir, use_pgf=True):
     rtt_values = sorted(collected.keys())
-    all_impls = [key for key, value in SERIES.items()]
-    n_impls = len(all_impls)
-    n_rtts  = len(rtt_values)
-
+    short_file_impls = [key for key in SERIES.keys() if key not in DUAL_IP_QUIC_HANDSHAKE]
+    n_impls   = len(short_file_impls)
+    n_rtts    = len(rtt_values)
     bar_width = 0.8 / n_impls
     x = np.arange(n_rtts)
 
     fig, ax = plt.subplots(figsize=DEFAULT_FIGSIZE)
 
-    for i, name in enumerate(all_impls):
+    for i, name in enumerate(short_file_impls):
         label, color, linestyle = SERIES[name]
-        medians = [np.median(collected[rtt].get(name, [np.nan])) for rtt in rtt_values]
-        offset  = (i - n_impls / 2 + 0.5) * bar_width
+        samples = [collected[rtt].get(name, [np.nan]) for rtt in rtt_values]
 
-        ax.bar(x + offset, medians, bar_width * 0.9,
-               label=label, color=color,
-               capsize=3,
-               error_kw=dict(elinewidth=1, ecolor="black", alpha=0.7))
+        medians = [np.median(s) for s in samples]
 
-    # Divider between TCP and QUIC bar groups
-    ax.axvline(x=n_rtts / 2 - 0.5, color="none")  # invisible, just for spacing reference
+        # Asymmetric error bars: [median - p25, p75 - median] per bar.
+        # Collapse to None when a group has only one sample (no spread to show).
+        if any(len(s) > 1 for s in samples):
+            yerr_lo = [
+                np.median(s) - np.percentile(s, 25) if len(s) > 1 else 0.0
+                for s in samples
+            ]
+            yerr_hi = [
+                np.percentile(s, 75) - np.median(s) if len(s) > 1 else 0.0
+                for s in samples
+            ]
+            yerr = [yerr_lo, yerr_hi]
+        else:
+            yerr = None
 
+        offset = (i - n_impls / 2 + 0.5) * bar_width
+        ax.bar(
+            x + offset, medians, bar_width * 0.9,
+            label=label, color=color,
+            yerr=yerr,
+            capsize=3,
+            error_kw=dict(elinewidth=1, ecolor="black", alpha=0.7),
+        )
+
+    ax.axvline(x=n_rtts / 2 - 0.5, color="none")
     ax.set_xticks(x)
     ax.set_xticklabels([f"{r} ms" for r in rtt_values])
     ax.set_xlabel("RTT", fontsize=11)
     ax.set_ylabel("Small file transfer time (ms)", fontsize=11)
-    ax.set_title(
-        "Small file transfer time by implementation and RTT",
-        fontsize=11
-    )
+    ax.set_title("Small file transfer time by implementation and RTT", fontsize=11)
     ax.legend(fontsize=9, ncol=2)
     ax.grid(axis="y", linestyle="--", alpha=0.4)
-
     fig.tight_layout()
+
     filename = "bar_chart.pgf" if use_pgf else "bar_chart.png"
-    out = out_dir / filename 
+    out = out_dir / filename
     fig.savefig(out, dpi=150, bbox_inches="tight")
     print(f"Saved {out}")
     plt.close(fig)
@@ -328,6 +342,10 @@ def main():
     parser.add_argument("input", help="Path to benchmark JSON file")
     parser.add_argument("--output", default=".", help="Output directory for plots")
     parser.add_argument("--migration", help="Whether to plot as migration scenario", action="store_true")
+    parser.add_argument("--dual-handshake", help="Whether to plot as dual-handshake scenario", action="store_true")
+    parser.add_argument("--small-file", help="Whether to plot small file transfer", action="store_true")
+    parser.add_argument("--handshake", help="Whether to plot simple handshake scenario", action="store_true")
+    parser.add_argument("--rtt-sweep", help="Whether to plot rtt sweep scenario", action="store_true")
     parser.add_argument("--bucket-duration-ms", type=float, default=100.0,
                         help="Duration of each throughput bucket in ms (default: 100)")
     parser.add_argument("--path-change-ms", type=float, default=500.0,
@@ -381,11 +399,18 @@ def main():
     else:
         collected = collect(data)
 
-        plot_grouped_bars(collected, out_dir, use_pgf=args.pgf)
-        plot_split_lines(collected, out_dir, use_pgf=args.pgf)
-        handshake = collect_handshake(data)
-        plot_racing_handshake(handshake, out_dir, use_pgf=args.pgf)
-        plot_handshake_kde(handshake, out_dir, use_pgf=args.pgf)
+        if args.small_file:
+            plot_grouped_bars(collected, out_dir, use_pgf=args.pgf)
+
+        if args.rtt_sweep:
+            plot_split_lines(collected, out_dir, use_pgf=args.pgf)
+        
+        if args.handshake:
+            handshake = collect_handshake(data)
+            plot_racing_handshake(handshake, out_dir, use_pgf=args.pgf)
+
+        if args.dual_handshake:
+            plot_handshake_kde(handshake, out_dir, use_pgf=args.pgf)
 
 
 
