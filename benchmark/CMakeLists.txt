@@ -138,6 +138,14 @@ target_link_libraries(quic_benchmark_handshake_client
     picoquic-core-fork-with-eperm
 )
 
+add_executable(tcp_benchmark_handshake_client
+    src/client/tcp_benchmark_handshake_client.c
+)
+
+target_link_libraries(tcp_benchmark_handshake_client
+    benchmark_common
+)
+
 add_custom_target(benchmark ALL
     DEPENDS
         tcp_benchmark_server
@@ -145,4 +153,6 @@ add_custom_target(benchmark ALL
         taps_benchmark_racing_client
         quic_benchmark_server
         quic_benchmark_client
+        quic_benchmark_handshake_client
+        tcp_benchmark_handshake_client
 )

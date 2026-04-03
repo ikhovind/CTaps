@@ -226,6 +226,7 @@ int main(int argc, char* argv[]) {
     ct_transport_properties_set_reliability(transport_properties, REQUIRE);
     ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PREFER);
     ct_transport_properties_set_multistreaming(transport_properties, PREFER);
+    ct_transport_properties_set_advertises_alt_address(transport_properties, true);
 
     /* Security parameters are required for QUIC; ignored if TCP wins the race. */
     ct_security_parameters_t* security_parameters = ct_security_parameters_new();

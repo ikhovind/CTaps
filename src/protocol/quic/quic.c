@@ -1210,8 +1210,6 @@ void on_socket_timer(uv_timer_t* timer_handle) {
             if (rc < 0) {
                 log_warn("Failed to send QUIC packet: %d, notifying picoquic", rc);
 
-                log_debug("notifying picoquic of unreachable path");
-
                 picoquic_notify_destination_unreachable(
                     last_cnx, picoquic_get_quic_time(socket_state->picoquic_ctx),
                     (struct sockaddr*)&to_address, (struct sockaddr*)&from_address, if_index, -rc);

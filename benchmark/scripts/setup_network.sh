@@ -45,30 +45,30 @@ setup_network_full() {
 
     local band=10
     for pair in "${pairs[@]}"; do
+
+        echo "Configuring $iface for $pair with bandwidth ${bw}mbit..."
         local ip="${pair%%:*}"
-        local rtt="${pair##*:}"
+        local rtt=$(echo "$pair" | cut -d: -f2)
         local delay=$(( rtt / 2 ))
         local jitter=$(echo "$pair" | cut -s -d: -f3) # Empty if not provided
 
-        # Build netem command string
         local netem_cmd="delay ${delay}ms"
         if [ -n "$jitter" ] && [ "$jitter" != "0" ]; then
-            # 25% correlation is standard; increase to 50% for smoother tests
             netem_cmd="$netem_cmd ${jitter}ms 25% distribution normal"
         fi
 
         sudo tc class add dev "$iface" parent 1: classid "1:$band" htb rate "${bw}mbit" ceil "${bw}mbit"
         sudo tc qdisc add dev "$iface" parent "1:$band" handle "${band}:" netem $netem_cmd
 
-        # sudo tc filter add dev "$iface" parent 1: protocol ip prio $band \
-        #     u32 match ip dst "${ip}/32" match ip dport 8080 0xffff flowid "1:$band"
-        # sudo tc filter add dev "$iface" parent 1: protocol ip prio $((band + 1)) \
-        #     u32 match ip src "${ip}/32" match ip sport 8080 0xffff flowid "1:$band"
-        sudo tc filter add dev "$iface" parent 1: protocol ip prio 1 \
-            u32 match ip dport 8080 0xffff flowid "1:$band"
-
-        sudo tc filter add dev "$iface" parent 1: protocol ip prio 1 \
-            u32 match ip sport 8080 0xffff flowid "1:$band"
+        sudo tc filter add dev "$iface" parent 1: protocol ip prio $band \
+            u32 match ip dst "${ip}/32" match ip dport 8080 0xffff flowid "1:$band"
+        sudo tc filter add dev "$iface" parent 1: protocol ip prio $((band + 1)) \
+            u32 match ip src "${ip}/32" match ip sport 8080 0xffff flowid "1:$band"
+        # sudo tc filter add dev "$iface" parent 1: protocol ip prio 1 \
+        #     u32 match ip dport 8080 0xffff flowid "1:$band"
+        #
+        # sudo tc filter add dev "$iface" parent 1: protocol ip prio 1 \
+        #     u32 match ip sport 8080 0xffff flowid "1:$band"
 
         band=$(( band + 10 ))
     done

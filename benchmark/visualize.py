@@ -25,9 +25,13 @@ SERIES = {
     "taps_racing_quic_dual_ip": ("CTaps",   "#A5D6A7", "dashed"),
 }
 
-TCP_FAMILY  = ["tcp_native", "taps_racing_tcp"]
-QUIC_FAMILY = ["quic_native", "taps_racing_quic"]
 DUAL_IP_QUIC_HANDSHAKE = ["quic_native_dual_ip", "taps_racing_quic_dual_ip"]
+HANDSHAKE_TEST_NAMES =  {
+    "tcp_handshake_test": "tcp_native",
+    "quic_handshake_test": "quic_native",
+    "taps_handshake_quic": "taps_racing_quic",
+    "taps_handshake_tcp": "taps_racing_tcp",
+}
 
 FIGSIZE_PT = 395.25368 # Originally 418.25368 but shaved a bit
 FIGSIZE_IN = FIGSIZE_PT / 72.27
@@ -40,7 +44,7 @@ def load(path):
 
 def collect(data):
     result = {}
-    for rtt_entry in data["rtt_sweep"]:
+    for rtt_entry in data["rtt_results"]:
         rtt = rtt_entry["rtt_ms"]
         result[rtt] = defaultdict(list)
         for test in rtt_entry["tests"]:
@@ -50,7 +54,7 @@ def collect(data):
     return result
 
 
-def plot_grouped_bars(collected, out_dir, use_pgf=True):
+def plot_small_file(collected, out_dir, use_pgf=True):
     rtt_values = sorted(collected.keys())
     short_file_impls = [key for key in SERIES.keys() if key not in DUAL_IP_QUIC_HANDSHAKE]
     n_impls   = len(short_file_impls)
@@ -100,44 +104,8 @@ def plot_grouped_bars(collected, out_dir, use_pgf=True):
     ax.grid(axis="y", linestyle="--", alpha=0.4)
     fig.tight_layout()
 
-    filename = "bar_chart.pgf" if use_pgf else "bar_chart.png"
+    filename = "small_file.pgf" if use_pgf else "small_file.png"
     out = out_dir / filename
-    fig.savefig(out, dpi=150, bbox_inches="tight")
-    print(f"Saved {out}")
-    plt.close(fig)
-
-
-def plot_split_lines(collected, out_dir, use_pgf=True):
-    rtt_values = sorted(collected.keys())
-    fig, ax = plt.subplots(figsize=DEFAULT_FIGSIZE)
-
-    for family in [TCP_FAMILY, QUIC_FAMILY]:
-        for name in family:
-            label, color, linestyle = SERIES[name]
-            medians = [np.median(collected[rtt].get(name, [np.nan])) for rtt in rtt_values]
-            stds    = [np.std(collected[rtt].get(name, [np.nan]))    for rtt in rtt_values]
-            ax.plot(rtt_values, medians, marker="o", label=label,
-                    linestyle=linestyle,
-                    color=color, linewidth=2.5, zorder=3)
-            ax.fill_between(
-                rtt_values,
-                [m - s for m, s in zip(medians, stds)],
-                [m + s for m, s in zip(medians, stds)],
-                alpha=0.2, color=color
-            )
-
-    ax.set_xlabel("RTT (ms)", fontsize=11)
-    ax.set_ylabel("Small file transfer time (ms)", fontsize=11)
-    ax.set_title(
-        "Small file transfer time by RTT",
-        fontsize=11
-    )
-    ax.set_xticks(rtt_values)
-    ax.legend(fontsize=9)
-    ax.grid(linestyle="--", alpha=0.4)
-    fig.tight_layout()
-    filename = "rtt_sweep.pgf" if use_pgf else "rtt_sweep.png"
-    out = out_dir / filename 
     fig.savefig(out, dpi=150, bbox_inches="tight")
     print(f"Saved {out}")
     plt.close(fig)
@@ -215,7 +183,7 @@ def plot_migration_throughput(migration_data: list, out_dir: Path,
 def collect_handshake(data):
     """result[rtt_ms][test_name] = list of large_file handshake_time_ms"""
     result = {}
-    for rtt_entry in data["rtt_sweep"]:
+    for rtt_entry in data["rtt_results"]:
         rtt = rtt_entry["rtt_ms"]
         result[rtt] = defaultdict(list)
         for test in rtt_entry["tests"]:
@@ -235,8 +203,9 @@ def plot_racing_handshake(handshake: dict, out_dir: Path, use_pgf=True) -> None:
 
     fig, ax = plt.subplots(figsize=DEFAULT_FIGSIZE)
 
-    for name in TCP_FAMILY + QUIC_FAMILY:
-        label, color, linestyle = SERIES[name]
+    for name in HANDSHAKE_TEST_NAMES:
+        label, color, linestyle = SERIES[HANDSHAKE_TEST_NAMES[name]]
+
         # Thicker / solid line for racing, thinner dashed for non-racing
         lw      = 2.5 if "racing" in name else 1.5
         ls      = "-"  if "racing" in name else "--"
@@ -256,8 +225,8 @@ def plot_racing_handshake(handshake: dict, out_dir: Path, use_pgf=True) -> None:
 
     # Annotate the minimum 250ms stagger offset as a callout
     min_handshake = min(handshake.keys())
-    tcp_native_time   = np.median(handshake[min_handshake].get("tcp_native", [np.nan]))
-    tcp_racing_time = np.median(handshake[min_handshake].get("taps_racing_tcp", [np.nan]))
+    tcp_native_time   = np.median(handshake[min_handshake].get("tcp_handshake_test", [np.nan]))
+    tcp_racing_time = np.median(handshake[min_handshake].get("taps_handshake_tcp", [np.nan]))
     tcp_stagger = ((tcp_racing_time - tcp_native_time) // 250) * 250
     ax.annotate(
         f"+{tcp_stagger:.0f} ms\n(stagger delay)",
@@ -331,7 +300,7 @@ def plot_handshake_kde(handshake: dict, out_dir: Path, use_pgf=True) -> None:
     fig.tight_layout()
     
     ext = "pgf" if use_pgf else "png"
-    out = out_dir / f"handshake_kde_{rtt_value}ms.{ext}"
+    out = out_dir / f"handshake_kde.{ext}"
     
     fig.savefig(out, dpi=150, bbox_inches="tight")
     print(f"Saved {out}")
@@ -371,7 +340,7 @@ def main():
     if args.migration:
         migration_data = []
         runs_by_name = defaultdict(list)
-        for rtt_entry in data.get("rtt_sweep", []):
+        for rtt_entry in data.get("rtt_results", []):
             for test in rtt_entry.get("tests", []):
                 name = test.get("test_name")
                 if name not in SERIES:
@@ -400,13 +369,10 @@ def main():
         collected = collect(data)
 
         if args.small_file:
-            plot_grouped_bars(collected, out_dir, use_pgf=args.pgf)
-
-        if args.rtt_sweep:
-            plot_split_lines(collected, out_dir, use_pgf=args.pgf)
+            plot_small_file(collected, out_dir, use_pgf=args.pgf)
         
+        handshake = collect_handshake(data)
         if args.handshake:
-            handshake = collect_handshake(data)
             plot_racing_handshake(handshake, out_dir, use_pgf=args.pgf)
 
         if args.dual_handshake:

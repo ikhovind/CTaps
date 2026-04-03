@@ -16,10 +16,17 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+from enum import Enum
+
 
 # Tests included in the migration benchmark suite.
 MIGRATION_TEST_NAMES = {"quic_native", "taps_racing_quic", "tcp_native"}
 
+class BenchmarkType(Enum):
+    SMALL_FILE = 0
+    MIGRATION = 1
+    HANDSHAKE = 2
+    DUAL_IP_HANDSHAKE = 3
 
 class BenchmarkRunner:
     """Runs benchmark tests for different protocol implementations."""
@@ -38,6 +45,8 @@ class BenchmarkRunner:
         self.results_dir = benchmark_dir / "results"
         self.results_dir.mkdir(exist_ok=True)
 
+
+
         self.setup_script = benchmark_dir / "scripts" / "setup_network.sh"
 
         self.network_config = {
@@ -48,7 +57,7 @@ class BenchmarkRunner:
             "jitter": jitter
         }
 
-        self.single_ip_tests = [
+        self.small_file_tests = [
             {
                 "name": "tcp_native",
                 "server": "tcp_benchmark_server",
@@ -79,6 +88,30 @@ class BenchmarkRunner:
             },
         ]
 
+        self.migration_tests = [
+            {
+                "name": "tcp_native",
+                "server": "tcp_benchmark_server",
+                "client": "tcp_benchmark_client",
+                "port": 8080,
+                "description": "Native TCP implementation"
+            },
+            {
+                "name": "quic_native",
+                "server": "quic_benchmark_server",
+                "client": "quic_benchmark_client",
+                "port": 8080,
+                "description": "Pure picoquic implementation"
+            },
+            {
+                "name": "taps_racing_quic",
+                "server": "quic_benchmark_server",
+                "client": "taps_benchmark_racing_client",
+                "port": 8080,
+                "description": "TAPS Racing client with QUIC server (QUIC wins race)"
+            },
+        ]
+
         self.dual_ip_tests = [
             {
                 "name": "quic_native_dual_ip",
@@ -96,9 +129,36 @@ class BenchmarkRunner:
             },
         ]
 
-    @property
-    def migration_tests(self) -> List[Dict]:
-        return [t for t in self.single_ip_tests if t["name"] in MIGRATION_TEST_NAMES]
+        self.handshake_tests = [
+            {
+                "name": "tcp_handshake_test",
+                "server": "tcp_benchmark_server",
+                "client": "tcp_benchmark_handshake_client",
+                "port": 8080,
+                "description": "TCP socket implementation"
+            },
+            {
+                "name": "quic_handshake_test",
+                "server": "quic_benchmark_server",
+                "client": "quic_benchmark_handshake_client",
+                "port": 8080,
+                "description": "Pure picoquic implementation"
+            },
+            {
+                "name": "taps_handshake_quic",
+                "server": "quic_benchmark_server",
+                "client": "taps_benchmark_handshake_client",
+                "port": 8080,
+                "description": "TAPS Racing client which closes after handshake"
+            },
+            {
+                "name": "taps_handshake_tcp",
+                "server": "tcp_benchmark_server",
+                "client": "taps_benchmark_handshake_client",
+                "port": 8080,
+                "description": "TAPS Racing client where TCP wins"
+            },
+        ]
 
     def setup_migration_addresses(self) -> bool:
         try:
@@ -130,8 +190,6 @@ class BenchmarkRunner:
             print(f"✗ Network setup script not found at {self.setup_script}", file=sys.stderr)
             return False
         try:
-
-
             ip1_str = "127.0.0.1:" + str(self.network_config["ip1_rtt"])
             if self.network_config["jitter"] is not None:
                 ip1_str += f":{self.network_config['jitter']}"
@@ -147,6 +205,8 @@ class BenchmarkRunner:
                 if self.network_config["jitter"] is not None:
                     ip2_str += f":{self.network_config['jitter']}"
                 setup_args.append(ip2_str)
+
+            print(f"Setting up network emulation with: {' '.join(setup_args)}")
             result = subprocess.run(
                 setup_args,
                 capture_output=True, text=True, timeout=100
@@ -191,7 +251,10 @@ class BenchmarkRunner:
                 stderr=subprocess.DEVNULL,
                 preexec_fn=lambda: signal.signal(signal.SIGINT, signal.SIG_IGN)
             )
-            time.sleep(0.5)
+            time.sleep(2)
+            if process.poll() is not None:
+                print(f"Server {server_cmd} exited immediately (exit code {process.poll()})", file=sys.stderr)
+                return None
             return process
         except Exception as e:
             print(f"Error starting server {server_cmd}: {e}", file=sys.stderr)
@@ -208,6 +271,8 @@ class BenchmarkRunner:
                     process.wait()
             except Exception as e:
                 print(f"Error stopping server: {e}", file=sys.stderr)
+        else:
+            print("Warning: No server process to stop", file=sys.stderr)
 
     def run_client(self, client_cmd: str, port: int) -> Tuple[bool, Optional[Dict]]:
         try:
@@ -250,61 +315,42 @@ class BenchmarkRunner:
             return None
         finally:
             self.stop_server(server_process)
-            time.sleep(0.2)
 
-    def run_all_tests(self, runs: int = 1) -> List[Dict]:
+    def run_all_tests(self, test_type: BenchmarkType, runs: int = 1, path_change_ms=5000) -> List[Dict]:
         """Run all benchmark tests `runs` times, returning a flat list of results."""
         all_results = []
         for run_idx in range(runs):
             print(f"\n  Run {run_idx + 1}/{runs}")
-            test_list = self.dual_ip_tests if self.network_config["ip2_rtt"] is not None else self.single_ip_tests
+            test_list = []
+            if test_type == BenchmarkType.SMALL_FILE:
+                test_list = self.small_file_tests
+            elif test_type == BenchmarkType.MIGRATION:
+                test_list = self.migration_tests
+            elif test_type == BenchmarkType.HANDSHAKE:
+                test_list = self.handshake_tests
+            elif test_type == BenchmarkType.DUAL_IP_HANDSHAKE:
+                test_list = self.dual_ip_tests
+            else:
+                print(f"Unknown benchmark type: {test_type}", file=sys.stderr)
+                return []
+
             for test in test_list:
                 print(f"    {test['name']}... ", end="", flush=True)
-                result = self.run_test(test)
+                if test_type == BenchmarkType.MIGRATION:
+                    result = self.run_migration_test(test, path_change_ms=path_change_ms)
+                else:
+                    result = self.run_test(test)
                 if result:
                     result['run'] = run_idx + 1
                     all_results.append(result)
                     print("✓")
                 else:
                     print("✗")
-                    return []  # Abort on failure, consistent with original behaviour
+                    return []
         return all_results
 
-    def run_all_migration_tests(self, runs: int, path_change_ms: int,
-                                block_src: str = "127.0.0.1",
-                                block_port: int = 8080) -> List[Dict]:
-        """Run migration tests `runs` times, returning a flat list of results.
 
-        Unlike run_all_tests, a timeout (TCP hanging after path loss) is treated
-        as an expected result rather than an abort condition.
-        """
-        all_results = []
-        for run_idx in range(runs):
-            print(f"\n  Run {run_idx + 1}/{runs}")
-            for test in self.migration_tests:
-                print(f"    {test['name']}... ", end="", flush=True)
-                result = self.run_migration_test(
-                    test, path_change_ms, block_src, block_port
-                )
-                entry = {
-                    "test_name": test["name"],
-                    "description": test["description"],
-                    "run": run_idx + 1,
-                    "path_change_ms": path_change_ms,
-                    "timestamp": datetime.utcnow().isoformat() + 'Z',
-                }
-                if result is not None:
-                    entry.update(result)
-                    entry["timed_out"] = False
-                    print("✓")
-                else:
-                    entry["timed_out"] = True
-                    print("✗ (timed out / failed)")
-                all_results.append(entry)
-        return all_results
-
-    def run_migration_test(self, test: Dict, path_change_ms: int,
-                           block_src: str, block_port: int) -> Optional[Dict]:
+    def run_migration_test(self, test: Dict, path_change_ms: int) -> Optional[Dict]:
         server_process = self.start_server(test['server'], test['port'])
         if not server_process:
             return None
@@ -315,13 +361,13 @@ class BenchmarkRunner:
             client_process = subprocess.Popen(
                 [str(client_path), "127.0.0.1", str(test['port']), "--json"],
                 stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
                 text=True,
             )
 
             # Wait for fixed offset then block the path
             time.sleep(path_change_ms / 1000.0)
-            print("Blocking path");
+            print(f"Slept for {path_change_ms / 1000.0}s, now blocking path...")
             # sudo iptables -A INPUT -s 127.0.0.1 -d 127.0.0.1 -p udp --dport 8080 -j REJECT
             subprocess.run(["sudo", "iptables", "-A", "INPUT",
                             "-d", "127.0.0.1",
@@ -347,7 +393,7 @@ class BenchmarkRunner:
 
 
             try:
-                stdout, _ = client_process.communicate(timeout=30)
+                stdout, _ = client_process.communicate(timeout=60)
             except subprocess.TimeoutExpired:
                 client_process.kill()
                 print(f"  ✗ Migration client timed out", file=sys.stderr)
@@ -358,20 +404,18 @@ class BenchmarkRunner:
                 data['test_name'] = test['name']
                 data['description'] = test['description']
                 data['timestamp'] = datetime.utcnow().isoformat() + 'Z'
-                data['path_change_ms'] = path_change_ms
                 return data
             except json.JSONDecodeError:
                 # No valid JSON — only now treat non-zero exit as a hard failure
                 if client_process.returncode != 0:
                     print(f"  ✗ Migration client failed (exit {client_process.returncode})", file=sys.stderr)
-                    if stdout.strip():
-                        print(f"    stdout: {stdout.strip()[:500]}", file=sys.stderr)
                 else:
                     print(f"  ✗ Failed to parse JSON", file=sys.stderr)
                 return None
 
         finally:
             if iptables_added:
+                print("Unblocking path")
                 subprocess.run(["sudo", "iptables", "-D", "INPUT",
                                 "-d", "127.0.0.1",
                                 "-s", "127.0.0.1", "-p", "udp",
@@ -394,103 +438,12 @@ class BenchmarkRunner:
                                 "--dport", "8080", "-j", "REJECT"], check=True)
 
             self.stop_server(server_process)
-            time.sleep(0.2)
 
 
-def run_rtt_sweep(benchmark_dir: Path,
-                  bin_dir: Path,
-                  ip1_rtts: List[int],
-                  ip2_rtts: List[int],
-                  bandwidth_mbit: int,
-                  runs: int,
-                  interface: str,
-                  jitter:int) -> Dict:
-    """Run the full benchmark suite for each RTT value."""
-    output = {
-        "benchmark_suite": "CTaps Protocol Performance",
-        "run_timestamp": datetime.utcnow().isoformat() + 'Z',
-        "bin_dir": bin_dir.absolute().as_posix(),
-        "runs_per_rtt": runs,
-        "bandwidth_mbit": bandwidth_mbit,
-        "rtt_sweep": []
-    }
-
-    for ix, rtt in enumerate(ip1_rtts):
-        print("\n" + "=" * 60)
-        print(f"RTT: {rtt}ms  ({runs} run(s) per test)")
-        print("=" * 60)
-
-        runner = BenchmarkRunner(benchmark_dir, bin_dir,
-                                 interface=interface,
-                                 ip1_rtt=rtt,
-                                 ip2_rtt=ip2_rtts[ix] if ip2_rtts else None,
-                                 bandwidth_mbit=bandwidth_mbit,
-                                 jitter=jitter)
-
-        if not runner.setup_network_emulation():
-            print(f"Network setup failed for RTT={rtt}ms, aborting", file=sys.stderr)
-            sys.exit(1)
-
-        try:
-            results = runner.run_all_tests(runs=runs)
-        finally:
-            runner.teardown_network_emulation()
-
-        if not results:
-            print(f"No valid results for RTT={rtt}ms, aborting", file=sys.stderr)
-            sys.exit(1)
-
-        output["rtt_sweep"].append({
-            "rtt_ms": rtt,
-            "tests": results
-        })
-
-    return output
-
-def run_bad_ip_good_ip(benchmark_dir: Path, bin_dir: Path, ip_rtts: Dict[str, int], runs: int, interface: str) -> Dict:
-    """Run the full benchmark suite for each RTT value."""
-    output = {
-        "benchmark_suite": "CTaps Protocol Performance",
-        "run_timestamp": datetime.utcnow().isoformat() + 'Z',
-        "bin_dir": bin_dir.absolute().as_posix(),
-        "runs_per_rtt": runs,
-        "rtt_sweep": []
-    }
-
-    for rtt in rtt_values:
-        print("\n" + "=" * 60)
-        print(f"RTT: {rtt}ms  ({runs} run(s) per test)")
-        print("=" * 60)
-
-        runner = BenchmarkRunner(benchmark_dir, bin_dir,
-                                 interface=interface,
-                                 rtt_ms=rtt,
-                                 bandwidth_mbit=bandwidth_mbit)
-
-        if not runner.setup_network_emulation():
-            print(f"Network setup failed for RTT={rtt}ms, aborting", file=sys.stderr)
-            sys.exit(1)
-
-        try:
-            results = runner.run_all_tests(runs=runs)
-        finally:
-            runner.teardown_network_emulation()
-
-        if not results:
-            print(f"No valid results for RTT={rtt}ms, aborting", file=sys.stderr)
-            sys.exit(1)
-
-        output["rtt_sweep"].append({
-            "rtt_ms": rtt,
-            "tests": results
-        })
-
-    return output
-
-
-def run_migration_sweep(benchmark_dir: Path, bin_dir: Path, ip1_rtts: List[int],
+def run_specific_test(benchmark_dir: Path, bin_dir: Path, ip1_rtts: List[int],
+                        ip2_rtts: List[int],
                         bandwidth_mbit: int, runs: int, interface: str,
-                        path_change_ms: int, jitter: int) -> Dict:
+                        path_change_ms: int, jitter: int, test_type: BenchmarkType) -> Dict:
     """Run the migration benchmark suite for each RTT value."""
     output = {
         "benchmark_suite": "CTaps Connection Migration",
@@ -499,38 +452,42 @@ def run_migration_sweep(benchmark_dir: Path, bin_dir: Path, ip1_rtts: List[int],
         "runs_per_rtt": runs,
         "bandwidth_mbit": bandwidth_mbit,
         "path_change_ms": path_change_ms,
-        "rtt_sweep": []
+        "rtt_results": []
     }
 
-    for rtt in rtt_values:
+    for ix, rtt in enumerate(ip1_rtts):
         print("\n" + "=" * 60)
-        print(f"RTT: {rtt}ms  |  path blocked after {path_change_ms}ms  ({runs} run(s) per test)")
+        print(f"RTT: {rtt}ms, ({runs} run(s) per test)")
         print("=" * 60)
 
         runner = BenchmarkRunner(benchmark_dir, bin_dir,
                                  interface=interface,
                                  ip1_rtt=rtt,
-                                 ip2_rtt=None,
+                                 ip2_rtt=ip2_rtts[ix] if ip2_rtts else None,
+                                 jitter=jitter,
                                  bandwidth_mbit=bandwidth_mbit)
 
         if not runner.setup_network_emulation():
             print(f"Network setup failed for RTT={rtt}ms, aborting", file=sys.stderr)
             sys.exit(1)
 
-        if not runner.setup_migration_addresses():
-            runner.teardown_network_emulation()
-            print(f"Migration address setup failed for RTT={rtt}ms, aborting", file=sys.stderr)
-            sys.exit(1)
+        if test_type == BenchmarkType.MIGRATION:
+            if not runner.setup_migration_addresses():
+                runner.teardown_network_emulation()
+                print(f"Migration address setup failed for RTT={rtt}ms, aborting", file=sys.stderr)
+                sys.exit(1)
 
         try:
-            results = runner.run_all_migration_tests(
+            results = runner.run_all_tests(
+                test_type=test_type,
                 runs=runs, path_change_ms=path_change_ms
             )
         finally:
-            runner.teardown_migration_addresses()
+            if test_type == BenchmarkType.MIGRATION:
+                runner.teardown_migration_addresses()
             runner.teardown_network_emulation()
 
-        output["rtt_sweep"].append({
+        output["rtt_results"].append({
             "rtt_ms": rtt,
             "tests": results
         })
@@ -575,7 +532,7 @@ Examples:
                         help='Bandwidth in Mbit/s (default: 100)')
     parser.add_argument('--interface', type=str, default='lo',
                         help='Network interface for emulation (default: lo)')
-    parser.add_argument('--migration', type=int, default=None,
+    parser.add_argument('--migration-time', type=int, default=None,
                         metavar='MS',
                         help='Run migration tests, blocking the path after MS milliseconds')
     parser.add_argument('--jitter', type=int, default=None,
@@ -583,6 +540,13 @@ Examples:
                         help='Add jitter to all paths')
     parser.add_argument('--output-file', type=pathlib.Path, default=None,
                         help='Path to save results JSON (default: results/benchmark-<timestamp>.json)')
+    group = parser.add_mutually_exclusive_group()
+
+    # Add arguments to the group
+    group.add_argument("--migration", action="store_true")
+    group.add_argument("--small-file", action="store_true")
+    group.add_argument("--handshake", action="store_true")
+    group.add_argument("--dual-handshake", action="store_true")
 
 
     args = parser.parse_args()
@@ -592,32 +556,35 @@ Examples:
         print("Error: --ip2-rtts must have the same number of values as --ip1-rtts", file=sys.stderr)
         sys.exit(1)
 
-    if args.migration is not None:
-        results = run_migration_sweep(
-            benchmark_dir=script_dir,
-            bin_dir=args.binary_dir,
-            ip1_rtts=args.ip1_rtts,
-            bandwidth_mbit=args.bandwidth,
-            runs=args.runs,
-            interface=args.interface,
-            path_change_ms=args.migration,
-            jitter=args.jitter
-        )
+    test_type = None
+    if args.migration:
+        test_type = BenchmarkType.MIGRATION
+    elif args.small_file:
+        test_type = BenchmarkType.SMALL_FILE
+    elif args.handshake:
+        test_type = BenchmarkType.HANDSHAKE
+    elif args.dual_handshake:
+        test_type = BenchmarkType.DUAL_IP_HANDSHAKE
     else:
-        results = run_rtt_sweep(
-            benchmark_dir=script_dir,
-            bin_dir=args.binary_dir,
-            ip1_rtts=args.ip1_rtts,
-            ip2_rtts=args.ip2_rtts,
-            bandwidth_mbit=args.bandwidth,
-            runs=args.runs,
-            interface=args.interface,
-            jitter=args.jitter
-        )
+        print("Error: Must specify one of --migration, --small-file, --handshake, or --dual-handshake", file=sys.stderr)
+        sys.exit(1)
+
+    results = run_specific_test(
+        benchmark_dir=script_dir,
+        bin_dir=args.binary_dir,
+        ip1_rtts=args.ip1_rtts,
+        ip2_rtts=args.ip2_rtts,
+        bandwidth_mbit=args.bandwidth,
+        runs=args.runs,
+        interface=args.interface,
+        path_change_ms=args.migration_time,
+        jitter=args.jitter,
+        test_type=test_type
+    )
 
     output_file = save_results(results, script_dir / "results", filename=args.output_file)
 
-    total_tests = sum(len(rtt["tests"]) for rtt in results["rtt_sweep"])
+    total_tests = sum(len(rtt["tests"]) for rtt in results["rtt_results"])
     print("\n" + "=" * 60)
     print(f"Results saved to: {output_file}")
     print(f"Total test results: {total_tests}")
