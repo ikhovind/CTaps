@@ -1151,7 +1151,7 @@ typedef struct ct_connection_callbacks_s {
     /** @brief Called when a connection expires (e.g., idle timeout). */
     void (*expired)(ct_connection_t* connection);
 
-    /** @brief Called when the connection's network path changes (multipath). */
+    /** @brief Called when the connection's network path changes, local or remote. */
     void (*path_change)(ct_connection_t* connection);
 
     /** @brief Called when connection is established and ready for data transfer. */

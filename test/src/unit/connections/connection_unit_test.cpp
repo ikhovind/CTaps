@@ -398,7 +398,7 @@ TEST_F(ConnectionUnitTests, setActiveRemoteEndpointByObjectSetsIndex) {
     connection.num_remote_endpoints = 3;
     connection.active_remote_endpoint = 0;
 
-    ct_connection_set_active_remote_endpoint(&connection, &remote_endpoints[2]);
+    ct_connection_set_active_remote_endpoint(&connection, &remote_endpoints[2], NULL);
 
     ASSERT_EQ(connection.active_remote_endpoint, 2);
 }
@@ -417,7 +417,7 @@ TEST_F(ConnectionUnitTests, setActiveRemoteEndpointByObjectHandlesRemoteEndpoint
     ((struct sockaddr_in*)&new_endpoint.resolved_address)->sin_addr.s_addr = INADDR_DUMMY;
     new_endpoint.resolved_address.ss_family = AF_INET;
 
-    ct_connection_set_active_remote_endpoint(&connection, &new_endpoint);
+    ct_connection_set_active_remote_endpoint(&connection, &new_endpoint, NULL);
 
     ASSERT_EQ(connection.num_remote_endpoints, 4);
     ASSERT_EQ(connection.active_remote_endpoint, 3);
@@ -433,7 +433,7 @@ TEST_F(ConnectionUnitTests, setActiveLocalEndpointByObjectSetsIndexWhenFound) {
     bool matching_values[3] = { false, false, true };
     SET_RETURN_SEQ(__wrap_ct_local_endpoint_resolved_equals, matching_values, 3);
 
-    EXPECT_EQ(ct_connection_set_active_local_endpoint(&dummy_connection, &dummy_local_endpoint), 0);
+    EXPECT_EQ(ct_connection_set_active_local_endpoint(&dummy_connection, &dummy_local_endpoint, NULL), 0);
     EXPECT_EQ(dummy_connection.active_local_endpoint, 2u);
     EXPECT_EQ(dummy_connection.num_local_endpoints, 3u);  // no realloc
     EXPECT_EQ(__wrap_ct_local_endpoint_copy_content_fake.call_count, 0u);
@@ -445,7 +445,7 @@ TEST_F(ConnectionUnitTests, setActiveLocalEndpointByObjectAppendsWhenNotFound) {
     dummy_connection.num_local_endpoints = 2;
     dummy_connection.active_local_endpoint = 0;
 
-    EXPECT_EQ(ct_connection_set_active_local_endpoint(&dummy_connection, &dummy_local_endpoint), 0);
+    EXPECT_EQ(ct_connection_set_active_local_endpoint(&dummy_connection, &dummy_local_endpoint, NULL), 0);
     EXPECT_EQ(dummy_connection.num_local_endpoints, 3u);
     EXPECT_EQ(dummy_connection.active_local_endpoint, 2u);
     EXPECT_EQ(__wrap_ct_local_endpoint_copy_content_fake.call_count, 1u);
@@ -460,7 +460,7 @@ TEST_F(ConnectionUnitTests, setActiveLocalEndpointByObjectRollsBackOnCopyFailure
     dummy_connection.num_local_endpoints = 2;
     __wrap_ct_local_endpoint_copy_content_fake.return_val = -ENOMEM;
 
-    EXPECT_EQ(ct_connection_set_active_local_endpoint(&dummy_connection, &dummy_local_endpoint), -ENOMEM);
+    EXPECT_EQ(ct_connection_set_active_local_endpoint(&dummy_connection, &dummy_local_endpoint, NULL), -ENOMEM);
     EXPECT_EQ(dummy_connection.num_local_endpoints, 2u);  // rolled back
 
     free(dummy_connection.all_local_endpoints);

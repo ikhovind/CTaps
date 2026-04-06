@@ -949,9 +949,12 @@ int picoquic_callback(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* bytes, s
         log_debug("New path available for QUIC: from %s:%d to %s:%d", from_ip, from_port, to_ip,
                   to_port);
 
+        bool changed_local = false;
+        bool changed_remote = false;
+
         ct_remote_endpoint_t remote_endpoint = {0};
         ct_remote_endpoint_from_sockaddr(&remote_endpoint, &to_address);
-        rc = ct_connection_group_set_active_remote_endpoint(connection_group, &remote_endpoint);
+        rc = ct_connection_group_set_active_remote_endpoint(connection_group, &remote_endpoint, &changed_remote);
         if (rc != 0) {
             log_error("Failed to set active remote for connection group, error code: %d", rc);
             return rc;
@@ -959,10 +962,14 @@ int picoquic_callback(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* bytes, s
 
         ct_local_endpoint_t local_endpoint = {0};
         ct_local_endpoint_from_sockaddr(&local_endpoint, &from_address);
-        rc = ct_connection_group_set_active_local_endpoint(connection_group, &local_endpoint);
+        rc = ct_connection_group_set_active_local_endpoint(connection_group, &local_endpoint, &changed_local);
         if (rc != 0) {
             log_error("Failed to set active local for connection group, error code: %d", rc);
             return rc;
+        }
+
+        if (changed_local || changed_remote) {
+            ct_connection_group_notify_of_path_change(connection_group);
         }
 
         break;

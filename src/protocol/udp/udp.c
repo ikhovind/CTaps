@@ -434,4 +434,5 @@ void udp_close_connection_group(ct_connection_group_t* connection_group) {
         ct_connection_t* connection = (ct_connection_t*)node->data;
         udp_close(connection);
     }
+    g_slist_free(connections);
 }

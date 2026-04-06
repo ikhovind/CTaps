@@ -15,8 +15,8 @@ extern "C" {
 DEFINE_FFF_GLOBALS;
 FAKE_VALUE_FUNC(int, fake_protocol_close, ct_connection_t*);
 FAKE_VOID_FUNC(fake_protocol_abort, ct_connection_t*);
-FAKE_VALUE_FUNC(int, __wrap_ct_connection_set_active_remote_endpoint, ct_connection_t*, const ct_remote_endpoint_t*);
-FAKE_VALUE_FUNC(int, __wrap_ct_connection_set_active_local_endpoint, ct_connection_t*, const ct_local_endpoint_t*);
+FAKE_VALUE_FUNC(int, __wrap_ct_connection_set_active_remote_endpoint, ct_connection_t*, const ct_remote_endpoint_t*, bool*);
+FAKE_VALUE_FUNC(int, __wrap_ct_connection_set_active_local_endpoint, ct_connection_t*, const ct_local_endpoint_t*, bool*);
 FAKE_VOID_FUNC(free_connection_state, ct_connection_t*);
 FAKE_VOID_FUNC(__wrap_ct_socket_manager_free_connection_state, ct_connection_t*);
 FAKE_VOID_FUNC(__wrap_ct_connection_abort, ct_connection_t*);
@@ -97,7 +97,7 @@ TEST_F(ConnectionGroupUnitTests, AbortAll_MixedStates_SkipsOnlyClosed) {
 
 TEST_F(ConnectionGroupUnitTests, setActiveRemoteEndpoint_NullGroupDies) {
 #ifndef NDEBUG
-    EXPECT_DEATH(ct_connection_group_set_active_remote_endpoint(nullptr, &dummy_remote), "");
+    EXPECT_DEATH(ct_connection_group_set_active_remote_endpoint(nullptr, &dummy_remote, NULL), "");
 #else
     GTEST_SKIP() << "Asserts disabled in release build";
 #endif
@@ -106,7 +106,7 @@ TEST_F(ConnectionGroupUnitTests, setActiveRemoteEndpoint_NullGroupDies) {
 
 TEST_F(ConnectionGroupUnitTests, setActiveRemoteEndpoint_NullEndpointDies) {
 #ifndef NDEBUG
-    EXPECT_DEATH(ct_connection_group_set_active_remote_endpoint(group, nullptr), "");
+    EXPECT_DEATH(ct_connection_group_set_active_remote_endpoint(group, nullptr, NULL), "");
 #else
     GTEST_SKIP() << "Asserts disabled in release build";
 #endif
@@ -114,7 +114,7 @@ TEST_F(ConnectionGroupUnitTests, setActiveRemoteEndpoint_NullEndpointDies) {
 }
 
 TEST_F(ConnectionGroupUnitTests, setActiveRemoteEndpoint_CallsSetterOnAllConnections) {
-    EXPECT_EQ(ct_connection_group_set_active_remote_endpoint(group, &dummy_remote), 0);
+    EXPECT_EQ(ct_connection_group_set_active_remote_endpoint(group, &dummy_remote, NULL), 0);
     EXPECT_EQ(__wrap_ct_connection_set_active_remote_endpoint_fake.call_count, (unsigned)num_connections);
     for (int i = 0; i < num_connections; i++) {
         EXPECT_EQ(__wrap_ct_connection_set_active_remote_endpoint_fake.arg1_history[i], &dummy_remote);
@@ -126,7 +126,7 @@ TEST_F(ConnectionGroupUnitTests, setActiveRemoteEndpoint_ContinuesAndReturnsErro
     int setter_returns[] = {0, -EINVAL, 0, 0};
     SET_RETURN_SEQ(__wrap_ct_connection_set_active_remote_endpoint, setter_returns, 4);
 
-    EXPECT_NE(ct_connection_group_set_active_remote_endpoint(group, &dummy_remote), 0);
+    EXPECT_NE(ct_connection_group_set_active_remote_endpoint(group, &dummy_remote, NULL), 0);
     EXPECT_EQ(__wrap_ct_connection_set_active_remote_endpoint_fake.call_count, (unsigned)num_connections);
 }
 
@@ -134,7 +134,7 @@ TEST_F(ConnectionGroupUnitTests, setActiveRemoteEndpoint_ContinuesAndReturnsErro
 
 TEST_F(ConnectionGroupUnitTests, setActiveLocalEndpoint_NullGroupDies) {
 #ifndef NDEBUG
-    EXPECT_DEATH(ct_connection_group_set_active_local_endpoint(nullptr, &dummy_local), "");
+    EXPECT_DEATH(ct_connection_group_set_active_local_endpoint(nullptr, &dummy_local, NULL), "");
 #else
     GTEST_SKIP() << "Asserts disabled in release build";
 #endif
@@ -143,14 +143,14 @@ TEST_F(ConnectionGroupUnitTests, setActiveLocalEndpoint_NullGroupDies) {
 
 TEST_F(ConnectionGroupUnitTests, setActiveLocalEndpoint_NullEndpointDies) {
 #ifndef NDEBUG
-    EXPECT_DEATH(ct_connection_group_set_active_local_endpoint(group, nullptr), "");
+    EXPECT_DEATH(ct_connection_group_set_active_local_endpoint(group, nullptr, NULL), "");
 #else
     GTEST_SKIP() << "Asserts disabled in release build";
 #endif
 }
 
 TEST_F(ConnectionGroupUnitTests, setActiveLocalEndpoint_CallsSetterOnAllConnections) {
-    EXPECT_EQ(ct_connection_group_set_active_local_endpoint(group, &dummy_local), 0);
+    EXPECT_EQ(ct_connection_group_set_active_local_endpoint(group, &dummy_local, NULL), 0);
     EXPECT_EQ(__wrap_ct_connection_set_active_local_endpoint_fake.call_count, (unsigned)num_connections);
     for (int i = 0; i < num_connections; i++) {
         EXPECT_EQ(__wrap_ct_connection_set_active_local_endpoint_fake.arg1_history[i], &dummy_local);
@@ -161,6 +161,6 @@ TEST_F(ConnectionGroupUnitTests, setActiveLocalEndpoint_ContinuesAndReturnsError
     int setter_returns[] = {0, -EINVAL, 0, 0};
     SET_RETURN_SEQ(__wrap_ct_connection_set_active_local_endpoint, setter_returns, 4);
 
-    EXPECT_NE(ct_connection_group_set_active_local_endpoint(group, &dummy_local), 0);
+    EXPECT_NE(ct_connection_group_set_active_local_endpoint(group, &dummy_local, NULL), 0);
     EXPECT_EQ(__wrap_ct_connection_set_active_local_endpoint_fake.call_count, (unsigned)num_connections);
 }

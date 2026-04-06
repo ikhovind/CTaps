@@ -91,12 +91,16 @@ ct_connection_group_t* ct_connection_group_ref(ct_connection_group_t* group);
 void ct_connection_group_unref(const ct_connection_t* connection);
 
 int ct_connection_group_set_active_remote_endpoint(ct_connection_group_t* group,
-                                                   const ct_remote_endpoint_t* remote_endpoint);
+                                                   const ct_remote_endpoint_t* remote_endpoint,
+                                                   bool* changed);
+
+void ct_connection_group_notify_of_path_change(const ct_connection_group_t* group);
 
 const ct_transport_properties_t* ct_connection_group_get_transport_properties(const ct_connection_group_t* group);
 
 int ct_connection_group_set_active_local_endpoint(ct_connection_group_t* group,
-                                                  const ct_local_endpoint_t* local_endpoint);
+                                                  const ct_local_endpoint_t* local_endpoint,
+                                                  bool* changed);
 
 ct_connection_group_t* ct_connection_group_new(const ct_transport_properties_t* transport_properties);
 

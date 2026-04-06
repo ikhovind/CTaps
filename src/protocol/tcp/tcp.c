@@ -683,4 +683,5 @@ void tcp_close_connection_group(ct_connection_group_t* connection_group) {
             tcp_close(connection);
         }
     }
+    g_slist_free(connections);
 }

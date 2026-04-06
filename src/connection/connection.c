@@ -848,12 +848,16 @@ void ct_connection_set_active_local_endpoint_index(ct_connection_t* connection,
 }
 
 int ct_connection_set_active_remote_endpoint(ct_connection_t* connection,
-                                             const ct_remote_endpoint_t* remote_endpoint) {
+                                             const ct_remote_endpoint_t* remote_endpoint,
+                                             bool* changed) {
     assert(remote_endpoint->resolved_address.ss_family == AF_INET ||
            remote_endpoint->resolved_address.ss_family == AF_INET6);
     for (size_t remote_ix = 0; remote_ix < connection->num_remote_endpoints; remote_ix++) {
         if (ct_remote_endpoint_resolved_equals(remote_endpoint,
                                                &connection->all_remote_endpoints[remote_ix])) {
+            if (changed) {
+                *changed = (remote_ix != connection->active_remote_endpoint);
+            }
             connection->active_remote_endpoint = remote_ix;
             return 0;
         }
@@ -878,11 +882,15 @@ int ct_connection_set_active_remote_endpoint(ct_connection_t* connection,
 
     ct_connection_set_active_remote_endpoint_index(connection,
                                                    connection->num_remote_endpoints - 1);
+    if (changed) {
+        *changed = true;
+    }
     return 0;
 }
 
 int ct_connection_set_active_local_endpoint(ct_connection_t* connection,
-                                            const ct_local_endpoint_t* local_endpoint) {
+                                            const ct_local_endpoint_t* local_endpoint,
+                                            bool* changed) {
     log_debug("Setting active local endpoint for connection %s", connection->uuid);
     assert(local_endpoint->resolved_address.ss_family == AF_INET ||
            local_endpoint->resolved_address.ss_family == AF_INET6);
@@ -894,6 +902,9 @@ int ct_connection_set_active_local_endpoint(ct_connection_t* connection,
             log_trace("Found matching local endpoint at index %zu, setting active_local_endpoint "
                       "to this index",
                       local_ix);
+            if (changed) {
+                *changed = (local_ix != connection->active_local_endpoint);
+            }
             connection->active_local_endpoint = local_ix;
             return 0;
         }
@@ -919,6 +930,9 @@ int ct_connection_set_active_local_endpoint(ct_connection_t* connection,
     }
 
     ct_connection_set_active_local_endpoint_index(connection, connection->num_local_endpoints - 1);
+    if (changed) {
+        *changed = true;
+    }
 
     return 0;
 }

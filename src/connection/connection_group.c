@@ -214,10 +214,11 @@ ct_connection_group_t* ct_connection_group_new(const ct_transport_properties_t* 
     return group;
 }
 
-typedef int (*ct_endpoint_setter_fn)(ct_connection_t*, const void*);
+typedef int (*ct_endpoint_setter_fn)(ct_connection_t*, const void*, bool*);
 
 static int ct_connection_group_set_active_endpoint(ct_connection_group_t* group,
                                                    const void* endpoint,
+                                                   bool* changed,
                                                    ct_endpoint_setter_fn setter) {
     assert(group && endpoint);
     int at_least_one_failure = 0;
@@ -226,7 +227,7 @@ static int ct_connection_group_set_active_endpoint(ct_connection_group_t* group,
     g_hash_table_iter_init(&iter, group->connections);
     while (g_hash_table_iter_next(&iter, &key, &value)) {
         ct_connection_t* conn = (ct_connection_t*)value;
-        int rc = setter(conn, endpoint);
+        int rc = setter(conn, endpoint, changed);
         if (rc != 0) {
             at_least_one_failure = rc;
         }
@@ -235,15 +236,17 @@ static int ct_connection_group_set_active_endpoint(ct_connection_group_t* group,
 }
 
 int ct_connection_group_set_active_remote_endpoint(ct_connection_group_t* group,
-                                                   const ct_remote_endpoint_t* remote_endpoint) {
+                                                   const ct_remote_endpoint_t* remote_endpoint,
+                                                   bool* changed) {
     return ct_connection_group_set_active_endpoint(
-        group, remote_endpoint, (ct_endpoint_setter_fn)ct_connection_set_active_remote_endpoint);
+        group, remote_endpoint, changed, (ct_endpoint_setter_fn)ct_connection_set_active_remote_endpoint);
 }
 
 int ct_connection_group_set_active_local_endpoint(ct_connection_group_t* group,
-                                                  const ct_local_endpoint_t* local_endpoint) {
+                                                  const ct_local_endpoint_t* local_endpoint,
+                                                  bool* changed) {
     return ct_connection_group_set_active_endpoint(
-        group, local_endpoint, (ct_endpoint_setter_fn)ct_connection_set_active_local_endpoint);
+        group, local_endpoint, changed, (ct_endpoint_setter_fn)ct_connection_set_active_local_endpoint);
 }
 
 const ct_transport_properties_t* ct_connection_group_get_transport_properties(const ct_connection_group_t* group) {
@@ -251,4 +254,24 @@ const ct_transport_properties_t* ct_connection_group_get_transport_properties(co
         return NULL;
     }
     return group->transport_properties;
+}
+
+void ct_connection_group_notify_of_path_change(const ct_connection_group_t* connection_group) {
+    // Intermediate to avoid concurrent modification
+    GSList* connections = NULL;
+    GHashTableIter iter;
+    gpointer key = NULL;
+    gpointer value = NULL;
+    g_hash_table_iter_init(&iter, connection_group->connections);
+    while (g_hash_table_iter_next(&iter, &key, &value)) {
+        ct_connection_t* connection = (ct_connection_t*)value;
+        connections = g_slist_append(connections, connection);
+    }
+    for (GSList* node = connections; node != NULL; node = node->next) {
+        ct_connection_t* connection = (ct_connection_t*)node->data;
+        if (connection->connection_callbacks.path_change) {
+            connection->connection_callbacks.path_change(connection);
+        }
+    }
+    g_slist_free(connections);
 }

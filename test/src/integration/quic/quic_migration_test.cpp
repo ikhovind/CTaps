@@ -57,6 +57,7 @@ TEST_F(QuicMigrationTest, migratesAfterPrimaryRemoteFails) {
 
     ct_connection_callbacks_t callbacks = {
         .establishment_error = on_establishment_error,
+        .path_change = count_path_cange,
         .ready = send_message_and_receive_blocking_primary_path_for_remote,
         .per_connection_context = &test_context,
     };
@@ -71,7 +72,10 @@ TEST_F(QuicMigrationTest, migratesAfterPrimaryRemoteFails) {
     ASSERT_EQ(per_connection_messages[connection].size(), 2);
     ASSERT_STREQ(per_connection_messages[connection][0]->content, "Pong: ping");
     ASSERT_STREQ(per_connection_messages[connection][1]->content, "Pong: ping");
+    EXPECT_EQ(test_context.connection_path_change_count[connection], 1) << "Expected exactly 1 path change event for the connection";
 
+    ASSERT_EQ(connection->num_remote_endpoints, 2);
+    ASSERT_EQ(connection->num_local_endpoints, 1);
 
     const struct sockaddr_in* to_addr = (const struct sockaddr_in*)&ct_connection_get_active_remote_endpoint(connection)->resolved_address;
     EXPECT_EQ(to_addr->sin_addr.s_addr, inet_addr("127.0.0.2"));
@@ -129,6 +133,7 @@ TEST_F(QuicMigrationTest, migratesAfterPrimaryLocalFails) {
 
     ct_connection_callbacks_t callbacks = {
         .establishment_error = on_establishment_error,
+        .path_change = count_path_cange,
         .ready = send_message_and_receive_blocking_primary_path_for_local,
         .per_connection_context = &test_context,
     };
@@ -137,10 +142,16 @@ TEST_F(QuicMigrationTest, migratesAfterPrimaryLocalFails) {
     ct_start_event_loop();
 
     ct_connection_t* connection = test_context.client_connections[0];
+
+    ASSERT_EQ(connection->num_remote_endpoints, 1);
+    ASSERT_EQ(connection->num_local_endpoints, 2);
+
     ASSERT_TRUE(ct_connection_is_closed(connection));
     ASSERT_EQ(per_connection_messages[connection].size(), 2);
     ASSERT_STREQ(per_connection_messages[connection][0]->content, "Pong: ping");
     ASSERT_STREQ(per_connection_messages[connection][1]->content, "Pong: ping");
+
+    EXPECT_EQ(test_context.connection_path_change_count[connection], 1) << "Expected exactly 1 path change event for the connection";
 
     ASSERT_EQ(test_context.local_sockaddr.size(), 2);
 

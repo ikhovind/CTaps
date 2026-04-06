@@ -104,8 +104,8 @@ static void poll_recv_cb(uv_poll_t* handle, int status, int events) {
         socklen_t len = sizeof(bound);
         getsockname(wrapper->fd, (struct sockaddr*)&bound, &len);
         local_port = (bound.ss_family == AF_INET)
-                         ? ntohs(((struct sockaddr_in*)&bound)->sin_port)
-                         : ntohs(((struct sockaddr_in6*)&bound)->sin6_port);
+                         ? ((struct sockaddr_in*)&bound)->sin_port
+                         : ((struct sockaddr_in6*)&bound)->sin6_port;
     }
     struct sockaddr_storage addr_to = {0};
     for (struct cmsghdr* cm = CMSG_FIRSTHDR(&msg); cm; cm = CMSG_NXTHDR(&msg, cm)) {
@@ -256,7 +256,7 @@ int resolve_local_endpoint_from_poll(ct_udp_poll_handle_t* handle, ct_connection
 
     if (!ct_address_is_unspecified(&addr)) {
         log_debug("Setting active local endpoint on connection to resolved local endpoint");
-        rc = ct_connection_set_active_local_endpoint(connection, &local_endpoint);
+        rc = ct_connection_set_active_local_endpoint(connection, &local_endpoint, NULL);
         if (rc != 0) {
             log_error("Failed to set active local endpoint on connection: %d", rc);
             return rc;
@@ -290,7 +290,7 @@ int resolve_local_endpoint_from_handle(uv_handle_t* handle, ct_connection_t* con
 
     if (!ct_address_is_unspecified(&addr)) {
         log_debug("Setting active local endpoint on connection to resolved local endpoint");
-        rc = ct_connection_set_active_local_endpoint(connection, &local_endpoint);
+        rc = ct_connection_set_active_local_endpoint(connection, &local_endpoint, NULL);
         if (rc != 0) {
             log_error("Failed to set active local endpoint on connection: %d", rc);
             return rc;

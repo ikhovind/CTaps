@@ -159,10 +159,12 @@ void ct_connection_set_active_local_endpoint_index(ct_connection_t* connection,
 
 // Takes deep copy of remote endpoint
 int ct_connection_set_active_remote_endpoint(ct_connection_t* connection,
-                                             const ct_remote_endpoint_t* remote_endpoint);
+                                             const ct_remote_endpoint_t* remote_endpoint,
+                                             bool* changed);
 
 int ct_connection_set_active_local_endpoint(ct_connection_t* connection,
-                                            const ct_local_endpoint_t* local_endpoint);
+                                            const ct_local_endpoint_t* local_endpoint,
+                                            bool* changed);
 
 void ct_connection_set_all_local_port(ct_connection_t* connection, uint16_t port);
 

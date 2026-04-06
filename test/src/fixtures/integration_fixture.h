@@ -60,6 +60,7 @@ struct IpAddressGuard {
 
 struct CallbackContext {
     std::map<ct_connection_t*, std::vector<ct_message_t*>>* per_connection_messages;
+    std::map<ct_connection_t*, int> connection_path_change_count;
     std::vector<ct_connection_t*> server_connections; // created by the listener callback
     std::vector<ct_connection_t*> client_connections;
     std::function<void(CallbackContext*)>*
@@ -938,6 +939,12 @@ void free_and_close_all_connections_on_listener_stopped(ct_listener_t* listener)
         ct_connection_close(conn);
     }
     ct_listener_free(listener);
+}
+
+void count_path_cange(ct_connection_t* connection) {
+    log_debug("Path change callback triggered for connection %s", connection->uuid);
+    auto* ctx = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
+    ctx->connection_path_change_count[connection]++;
 }
 
 #endif
