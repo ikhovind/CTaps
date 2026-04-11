@@ -977,7 +977,7 @@ int picoquic_callback(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* bytes, s
     case picoquic_callback_path_suspended: { /* An available path is suspended */
         log_info("Picoquic path suspended callback received");
         if (ct_transport_properties_get_advertises_alt_address(
-            ct_connection_group_get_transport_properties(connection_group))) {
+            ct_connection_group_get_transport_properties(connection_group)) != PROHIBIT) {
             probe_all_paths(connection_group);
         }
         break;

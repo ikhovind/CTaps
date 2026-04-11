@@ -226,6 +226,7 @@ E     }
 I     ct_transport_properties_set_reliability(transport_properties, REQUIRE);
 I     ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PREFER);
 I     ct_transport_properties_set_multistreaming(transport_properties, PREFER);
+M     ct_transport_properties_set_advertises_alt_address(transport_properties, NO_PREFERENCE);
 -
 I     /* Security parameters are required for QUIC; ignored if TCP wins the race. */
 I     ct_security_parameters_t* security_parameters = ct_security_parameters_new();

@@ -10,11 +10,11 @@ extern "C" {
 TEST(SelectionPropertiesUnitTest, setsAdvertisesAltAddrCorrectly) {
   ct_transport_properties_t* props = ct_transport_properties_new();
   ASSERT_NE(props, nullptr);
-  ASSERT_EQ(ct_transport_properties_get_advertises_alt_address(props), false);
+  ASSERT_EQ(ct_transport_properties_get_advertises_alt_address(props), PROHIBIT);
 
-  ct_transport_properties_set_advertises_alt_address(props, true);
+  ct_transport_properties_set_advertises_alt_address(props, NO_PREFERENCE);
 
-  ASSERT_EQ(ct_transport_properties_get_advertises_alt_address(props), true);
+  ASSERT_EQ(ct_transport_properties_get_advertises_alt_address(props), NO_PREFERENCE);
   ASSERT_TRUE(props->selection_properties.list[ADVERTISES_ALT_ADDRESS].set_by_user);
   ct_transport_properties_free(props);
 }
@@ -106,8 +106,8 @@ TEST(SelectionPropertiesUnitTest, setsDefaultValues) {
         break;
       case ADVERTISES_ALT_ADDRESS:
         EXPECT_STREQ(current_prop.name, "advertisesAltAddr");
-        EXPECT_EQ(current_prop.type, TYPE_BOOL);
-        EXPECT_EQ(current_prop.value.bool_val, false);
+        EXPECT_EQ(current_prop.type, TYPE_PREFERENCE);
+        EXPECT_EQ(current_prop.value.simple_preference, PROHIBIT);
         break;
       case DIRECTION:
         EXPECT_STREQ(current_prop.name, "direction");
@@ -223,8 +223,8 @@ TEST(SelectionPropertiesUnitTest, setsSetByUser) {
         break;
       case ADVERTISES_ALT_ADDRESS:
         EXPECT_STREQ(current_prop.name, "advertisesAltAddr");
-        EXPECT_EQ(current_prop.type, TYPE_BOOL);
-        EXPECT_EQ(current_prop.value.bool_val, false);
+        EXPECT_EQ(current_prop.type, TYPE_PREFERENCE);
+        EXPECT_EQ(current_prop.value.simple_preference, PROHIBIT);
         break;
       case DIRECTION:
         EXPECT_EQ(current_prop.set_by_user, true);
