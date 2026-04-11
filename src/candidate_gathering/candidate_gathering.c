@@ -5,6 +5,8 @@
 #include "ctaps_internal.h"
 #include "endpoint/local_endpoint.h"
 #include "endpoint/remote_endpoint.h"
+#include "endpoint/util.h"
+#include "protocol/common/socket_utils.h"
 #include <assert.h>
 #include <glib.h>
 #include <logging/log.h>
@@ -208,6 +210,23 @@ gboolean gather_incompatible_path_nodes(GNode* node, gpointer user_data) {
     return false;
 }
 
+gboolean gather_incompatible_endpoint_nodes(GNode* node, gpointer user_data) {
+    log_trace("Traversing candidate tree to gather incompatible endpoint nodes where local family != remote family");
+    const struct ct_candidate_node_t* node_data = (struct ct_candidate_node_t*)node->data;
+    if (node_data->type == NODE_TYPE_ROOT || node_data->type == NODE_TYPE_PATH || node_data->type == NODE_TYPE_PROTOCOL) {
+        log_trace("Skipping node since it is not a protocol node");
+        return false;
+    }
+    struct ct_node_pruning_data_t* pruning_data = (struct ct_node_pruning_data_t*)user_data;
+
+    if (!ct_address_families_match(node_data->local_endpoint, node_data->remote_endpoint)
+        || !(ct_address_is_wildcard(&node_data->local_endpoint->resolved_address) || ct_address_scope_match(node_data->local_endpoint, node_data->remote_endpoint))) {
+
+        pruning_data->undesirable_nodes = g_list_append(pruning_data->undesirable_nodes, node);
+    }
+    return false;
+}
+
 gboolean gather_incompatible_protocol_nodes(GNode* node, gpointer user_data) {
     log_trace("Traversing candidate tree to gather incompatible protocol nodes");
     const struct ct_candidate_node_t* node_data = (struct ct_candidate_node_t*)node->data;
@@ -282,6 +301,10 @@ void prune_candidate_tree(GNode* root, ct_selection_properties_t selection_prope
         .selection_properties = selection_properties,
         .undesirable_nodes = NULL // This is fince since g_list_append handles initialization
     };
+
+    log_trace("About to gather incompatible remote nodes");
+    g_node_traverse(root, G_LEVEL_ORDER, G_TRAVERSE_ALL, -1,
+                    gather_incompatible_endpoint_nodes, &pruning_data);
 
     // Prune from the bottom up, otherwise we may remove a parent first, then try to remove the child
     log_trace("About to gather incompatible protocol nodes");

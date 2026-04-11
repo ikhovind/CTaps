@@ -10,6 +10,7 @@
 #include "message/framer.h"
 #include "message/message.h"
 #include "message/message_context.h"
+#include "protocol/common/socket_utils.h"
 #include "util/uuid_util.h"
 #include <assert.h>
 #include <glib.h>

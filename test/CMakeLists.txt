@@ -198,6 +198,8 @@ add_gtest(candidate_gathering_test
         WRAP_FUNCTIONS
             ct_local_endpoint_resolve
             ct_remote_endpoint_resolve
+            ct_address_families_match
+            ct_address_scope_match
         ASAN_ENABLED
 )
 

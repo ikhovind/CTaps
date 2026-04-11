@@ -12,6 +12,21 @@
 #include <unistd.h>
 #include <uv.h>
 
+ct_addr_scope_t ct_get_addr_scope(const struct sockaddr_storage* addr) {
+    if (addr->ss_family == AF_INET) {
+        uint32_t ip = ntohl(((struct sockaddr_in*)addr)->sin_addr.s_addr);
+        if ((ip & 0xFF000000) == 0x7F000000) return CT_ADDR_SCOPE_LOOPBACK;
+        if ((ip & 0xFFFF0000) == 0xA9FE0000) return CT_ADDR_SCOPE_LINK_LOCAL;
+        return CT_ADDR_SCOPE_OTHER;
+    } else if (addr->ss_family == AF_INET6) {
+        const struct in6_addr* a = &((struct sockaddr_in6*)addr)->sin6_addr;
+        if (IN6_IS_ADDR_LOOPBACK(a)) return CT_ADDR_SCOPE_LOOPBACK;
+        if (IN6_IS_ADDR_LINKLOCAL(a)) return CT_ADDR_SCOPE_LINK_LOCAL;
+        return CT_ADDR_SCOPE_OTHER;
+    }
+    return CT_ADDR_SCOPE_OTHER;
+}
+
 uv_udp_t* create_udp_listening_on_local(const ct_local_endpoint_t* local_endpoint,
                                         uv_alloc_cb alloc_cb, uv_udp_recv_cb on_read_cb) {
     bool is_ephemeral = ct_local_endpoint_get_resolved_port(local_endpoint) == 0;

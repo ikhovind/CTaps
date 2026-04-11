@@ -16,6 +16,8 @@ extern "C" {
   DEFINE_FFF_GLOBALS;
   FAKE_VALUE_FUNC(ct_local_endpoint_t*, __wrap_ct_local_endpoint_resolve, const ct_local_endpoint_t*, size_t*);
   FAKE_VALUE_FUNC(int, faked_ct_remote_endpoint_resolve, const ct_remote_endpoint_t* , ct_remote_resolve_call_context_t*);
+  FAKE_VALUE_FUNC(bool, __wrap_ct_address_families_match, const ct_local_endpoint_t*, const ct_remote_endpoint_t*);
+  FAKE_VALUE_FUNC(bool, __wrap_ct_address_scope_match, const ct_local_endpoint_t*, const ct_remote_endpoint_t*);
 }
 
 
@@ -65,6 +67,8 @@ protected:
         RESET_FAKE(faked_ct_remote_endpoint_resolve);
         __wrap_ct_local_endpoint_resolve_fake.custom_fake = local_endpoint_resolve_fake_custom;
         faked_ct_remote_endpoint_resolve_fake.custom_fake = remote_endpoint_resolve_fake_custom;
+        __wrap_ct_address_families_match_fake.return_val = true;
+        __wrap_ct_address_scope_match_fake.return_val = true;
 
         props = ct_transport_properties_new();
         for (int i = 0; i < SELECTION_PROPERTY_END; i++) {

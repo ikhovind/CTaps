@@ -3,11 +3,20 @@
 #include "ctaps.h"
 #include <uv.h>
 
+// For pruning
+typedef enum {
+    CT_ADDR_SCOPE_LOOPBACK,
+    CT_ADDR_SCOPE_LINK_LOCAL,
+    CT_ADDR_SCOPE_OTHER,
+} ct_addr_scope_t;
+
 typedef struct {
     uv_poll_t poll;
     int fd;
     int32_t local_port;
 } ct_udp_poll_handle_t;
+
+ct_addr_scope_t ct_get_addr_scope(const struct sockaddr_storage* addr);
 
 // New callback type for poll-based recv
 typedef void (*ct_udp_recv_cb)(uv_poll_t* handle, int fd, const uint8_t* buf, ssize_t nread,

@@ -13,4 +13,10 @@ int ct_perform_dns_lookup(const char* hostname, const char* service,
 
 bool ct_sockaddr_equal(const struct sockaddr_storage* a, const struct sockaddr_storage* b);
 
+bool ct_address_families_match(const ct_local_endpoint_t* local, const ct_remote_endpoint_t* remote);
+
+bool ct_address_scope_match(const ct_local_endpoint_t* local, const ct_remote_endpoint_t* remote);
+
+bool ct_address_is_wildcard(const struct sockaddr_storage* addr);
+
 #endif //UTIL_H

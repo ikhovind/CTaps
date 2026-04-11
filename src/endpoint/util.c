@@ -3,6 +3,7 @@
 #include "candidate_gathering/candidate_gathering.h"
 #include "ctaps.h"
 #include "ctaps_internal.h"
+#include "protocol/common/socket_utils.h"
 #include <endpoint/remote_endpoint.h>
 #include <errno.h>
 #include <logging/log.h>
@@ -151,6 +152,35 @@ bool ct_sockaddr_equal(const struct sockaddr_storage* a, const struct sockaddr_s
                (a_in6->sin6_port == b_in6->sin6_port) &&
                (a_in6->sin6_scope_id == b_in6->sin6_scope_id) &&
                (memcmp(&a_in6->sin6_addr, &b_in6->sin6_addr, sizeof(struct in6_addr)) == 0);
+    }
+    return false;
+}
+
+bool ct_address_families_match(const ct_local_endpoint_t* local, const ct_remote_endpoint_t* remote) {
+    if (!local && !remote) {
+        return true;
+    }
+    if (!local || !remote) {
+        return false;
+    }
+    return local->resolved_address.ss_family == remote->resolved_address.ss_family;
+}
+
+bool ct_address_scope_match(const ct_local_endpoint_t* local, const ct_remote_endpoint_t* remote) {
+    if (!local && !remote) {
+        return true;
+    }
+    if (!local || !remote) {
+        return false;
+    }
+    return ct_get_addr_scope(&local->resolved_address) == ct_get_addr_scope(&remote->resolved_address);
+}
+
+bool ct_address_is_wildcard(const struct sockaddr_storage* addr) {
+    if (addr->ss_family == AF_INET) {
+        return ((struct sockaddr_in*)addr)->sin_addr.s_addr == INADDR_ANY;
+    } else if (addr->ss_family == AF_INET6) {
+        return IN6_IS_ADDR_UNSPECIFIED(&((struct sockaddr_in6*)addr)->sin6_addr);
     }
     return false;
 }
