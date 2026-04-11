@@ -706,6 +706,7 @@ int probe_all_paths(const ct_connection_group_t* group) {
 
         for (size_t j = 0; j < ct_connection_get_num_local_endpoints(connection); j++) {
             if (j == connection->active_local_endpoint && i == connection->active_remote_endpoint) {
+                log_debug("Skipping [%d, %d]", i, j);
                 continue;
             }
             const ct_local_endpoint_t* local_endpoint =
@@ -1031,26 +1032,26 @@ static int ct_quic_send_packet_with_pktinfo(ct_udp_poll_handle_t* poll_handle,
     struct cmsghdr* cmsg = CMSG_FIRSTHDR(&msg);
 
     if (to_address->ss_family == AF_INET6) {
-        struct sockaddr_in6* src = (struct sockaddr_in6*)from_address;
-
         cmsg->cmsg_level = IPPROTO_IPV6;
         cmsg->cmsg_type = IPV6_PKTINFO;
         cmsg->cmsg_len = CMSG_LEN(sizeof(struct in6_pktinfo));
 
         struct in6_pktinfo* pktinfo = (struct in6_pktinfo*)CMSG_DATA(cmsg);
-        pktinfo->ipi6_addr = src->sin6_addr;
+        if (from_address->ss_family == AF_INET6) {
+            pktinfo->ipi6_addr = ((struct sockaddr_in6*)from_address)->sin6_addr;
+        }
         pktinfo->ipi6_ifindex = if_index;
 
         msg.msg_controllen = CMSG_SPACE(sizeof(struct in6_pktinfo));
     } else {
-        struct sockaddr_in* src = (struct sockaddr_in*)from_address;
-
         cmsg->cmsg_level = IPPROTO_IP;
         cmsg->cmsg_type = IP_PKTINFO;
         cmsg->cmsg_len = CMSG_LEN(sizeof(struct in_pktinfo));
 
         struct in_pktinfo* pktinfo = (struct in_pktinfo*)CMSG_DATA(cmsg);
-        pktinfo->ipi_spec_dst = src->sin_addr;
+        if (from_address->ss_family == AF_INET) {
+            pktinfo->ipi_spec_dst = ((struct sockaddr_in*)from_address)->sin_addr;
+        }
         pktinfo->ipi_ifindex = if_index;
 
         msg.msg_controllen = CMSG_SPACE(sizeof(struct in_pktinfo));
