@@ -105,7 +105,7 @@ TEST_F(QuicMigrationTest, migratesAfterPrimaryLocalFails) {
     local_endpoints[0] = ct_local_endpoint_new();
     local_endpoints[1] = ct_local_endpoint_new();
 
-    ct_local_endpoint_with_ipv4(local_endpoints[0], inet_addr("127.0.0.1"));
+    ct_local_endpoint_with_ipv4(local_endpoints[0], inet_addr("0.0.0.0"));
     ct_local_endpoint_with_ipv4(local_endpoints[1], inet_addr("127.0.0.2"));
 
     ct_transport_properties_t* transport_properties = ct_transport_properties_new();
@@ -155,7 +155,7 @@ TEST_F(QuicMigrationTest, migratesAfterPrimaryLocalFails) {
 
     ASSERT_EQ(test_context.local_sockaddr.size(), 2);
 
-    EXPECT_EQ(((struct sockaddr_in*)&test_context.local_sockaddr[0])->sin_addr.s_addr, inet_addr("127.0.0.1"))
+    EXPECT_EQ(((struct sockaddr_in*)&test_context.local_sockaddr[0])->sin_addr.s_addr, inet_addr("0.0.0.0"))
         << "First message should be sent from 127.0.0.1 before migration";
     EXPECT_EQ(((struct sockaddr_in*)&test_context.local_sockaddr[1])->sin_addr.s_addr, inet_addr("127.0.0.2"))
         << "Second message should be sent from 127.0.0.2 after migration";

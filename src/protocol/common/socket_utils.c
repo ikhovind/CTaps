@@ -162,29 +162,18 @@ ct_udp_poll_handle_t* create_udp_poll_on_local(const ct_local_endpoint_t* local_
         return NULL;
     }
 
-    // TODO - is this the correct way of detecting ephemeral?
-    bool is_ephemeral = ct_local_endpoint_get_resolved_port(local_endpoint) == 0;
-    int rc;
+    int rc = 0;
+    struct sockaddr_storage addr = *ct_local_endpoint_get_resolved_address(local_endpoint);
+    addr.ss_family = family;
+    socklen_t len = (family == AF_INET6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
 
-    if (is_ephemeral) {
-        if (family == AF_INET6) {
-            log_debug("Binding to ephemeral UDP socket on IPv6");
-            struct sockaddr_in6 ephemeral_addr = {0};
-            uv_ip6_addr("::", 0, &ephemeral_addr);
-            rc = bind(fd, (const struct sockaddr*)&ephemeral_addr, sizeof(ephemeral_addr));
-        } else {
-            log_debug("Binding to ephemeral UDP socket on IPv4");
-            struct sockaddr_in ephemeral_addr = {0};
-            uv_ip4_addr("0.0.0.0", 0, &ephemeral_addr);
-            rc = bind(fd, (const struct sockaddr*)&ephemeral_addr, sizeof(ephemeral_addr));
-        }
-    } else {
-        log_debug("Binding UDP socket to specified local endpoint");
-        const struct sockaddr_storage* addr = ct_local_endpoint_get_resolved_address(local_endpoint);
-        socklen_t len =
-            (family == AF_INET6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
-        rc = bind(fd, (const struct sockaddr*)addr, len);
-    }
+    char from_ip[INET6_ADDRSTRLEN];
+    uint16_t from_port = 0;
+    const struct sockaddr_storage* local_ss = &local_endpoint->resolved_address;
+    ct_get_addr_string(local_ss, from_ip, sizeof(from_ip), &from_port);
+    log_info("Binding to address: %s", from_ip);
+
+    rc = bind(fd, (const struct sockaddr*)&addr, len);
     if (rc < 0) {
         log_error("Failed to bind UDP socket: %s", strerror(errno));
         close(fd);
@@ -262,27 +251,15 @@ int resolve_local_endpoint_from_poll(ct_udp_poll_handle_t* handle, ct_connection
         return -errno;
     }
 
-    ct_local_endpoint_t local_endpoint = {0};
-    rc = ct_local_endpoint_from_sockaddr(&local_endpoint, &addr);
-    if (rc != 0) {
-        log_error("Failed to create local endpoint from sockaddr: %d", rc);
-        return rc;
-    }
-
     if (!ct_address_is_unspecified(&addr)) {
         log_debug("Setting active local endpoint on connection to resolved local endpoint");
-        rc = ct_connection_set_active_local_endpoint(connection, &local_endpoint, NULL);
-        if (rc != 0) {
-            log_error("Failed to set active local endpoint on connection: %d", rc);
-            return rc;
-        }
+        ct_local_endpoint_set_resolved_address(&connection->all_local_endpoints[connection->active_local_endpoint], &addr);
     } else {
         log_debug("Local address is wildcard, not setting active local endpoint on connection");
     }
+    uint16_t port = addr.ss_family  == AF_INET ? ntohs(((struct sockaddr_in*)&addr)->sin_port) : ntohs(((struct sockaddr_in6*)&addr)->sin6_port);
 
-    log_debug("Setting all local port on connection to %d",
-              ct_local_endpoint_get_resolved_port(&local_endpoint));
-    ct_connection_set_all_local_port(connection, ct_local_endpoint_get_resolved_port(&local_endpoint));
+    ct_connection_set_all_local_port(connection, port);
 
     return 0;
 }

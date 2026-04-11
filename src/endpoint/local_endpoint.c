@@ -233,7 +233,6 @@ void ct_local_endpoint_set_resolved_address(ct_local_endpoint_t* local_endpoint,
 }
 
 int ct_local_endpoint_copy_content(const ct_local_endpoint_t* src, ct_local_endpoint_t* dest) {
-    log_debug("src ptr: %p, dest ptr: %p", src, dest);
     *dest = *src;
     dest->service = NULL;
     dest->interface_name = NULL;
