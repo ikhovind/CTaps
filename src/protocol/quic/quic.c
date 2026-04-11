@@ -38,13 +38,14 @@ const ct_protocol_impl_t
                       [CONGESTION_CONTROL] = {.value = {.simple_preference = REQUIRE}},
                       [KEEP_ALIVE] =
                           {.value = {.simple_preference = NO_PREFERENCE}},
-                      [INTERFACE] = {.value = {.simple_preference = NO_PREFERENCE}},
-                      [PVD] = {.value = {.simple_preference = NO_PREFERENCE}},
+                      [INTERFACE] = {.value = {.preference_set_val = {0}}},
+                      [PVD] = {.value = {.preference_set_val = {0}}},
                       [USE_TEMPORARY_LOCAL_ADDRESS] = {.value = {.simple_preference =
                                                                      NO_PREFERENCE}},
-                      [MULTIPATH] = {.value = {.simple_preference = NO_PREFERENCE}},
+                      // Not supported by our implementation
+                      [MULTIPATH] = {.value = {.enum_val = CT_MULTIPATH_DISABLED}},
                       [ADVERTISES_ALT_ADDRESS] = {.value = {.simple_preference = NO_PREFERENCE}},
-                      [DIRECTION] = {.value = {.simple_preference = NO_PREFERENCE}},
+                      [DIRECTION] = {.value = {.enum_val = CT_DIRECTION_BIDIRECTIONAL}},
                       [SOFT_ERROR_NOTIFY] = {.value = {.simple_preference = NO_PREFERENCE}},
                   }},
          .init = quic_init,
