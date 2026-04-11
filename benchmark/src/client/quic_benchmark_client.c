@@ -4,7 +4,6 @@
 #include "../common/benchmark_stats.h"
 
 #include <picoquic_packet_loop.h>
-#include "picoquic_set_textlog.h"
 #include <picoquic.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -85,6 +84,7 @@ static int client_callback(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* byt
             }
         }
         break;
+
     case picoquic_callback_stream_data:
     case picoquic_callback_stream_fin:
         s_ctx->stats->bytes_received += length;
@@ -203,8 +203,6 @@ int main(int argc, char* argv[]) {
     timing_start(&client_ctx.large_stream.stats->handshake_time); /* Start handshake timer */
 
     picoquic_enable_path_callbacks_default(quic, 1);
-
-    picoquic_set_textlog(quic, "benchmark.qlog");
 
     client_ctx.cnx = picoquic_create_cnx(
         quic, picoquic_null_connection_id, picoquic_null_connection_id,
