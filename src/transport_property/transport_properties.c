@@ -22,6 +22,10 @@ ct_transport_properties_t* ct_transport_properties_new(void) {
     return props;
 }
 
+bool ct_transport_properties_multipath_is_active(const ct_transport_properties_t* properties) {
+    return properties && properties->selection_properties.list[MULTIPATH].value.enum_val == CT_MULTIPATH_ACTIVE;
+}
+
 void ct_transport_properties_free(ct_transport_properties_t* props) {
     if (!props) {
         log_warn("Attempted to free NULL transport properties");

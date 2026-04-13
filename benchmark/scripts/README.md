@@ -29,9 +29,9 @@ The generated files will place a pgf file in ``benchmark/plots/``
 if everything succeeds.
 
 Debugging support is not optimal, but you can look at
-``run_benchmarks.py`` to look at how the specific test is
+``run_benchmarks.py`` to see how the specific test is
 run, and try to run the associated binaries in ``out/Release/benchmark/``
-manually.
+manually if you encounter any errors.
 
 ## Running benchmarks
 Starting from root of CTaps:

@@ -23,4 +23,6 @@
  */
 ct_transport_properties_t* ct_transport_properties_deep_copy(const ct_transport_properties_t* src);
 
+bool ct_transport_properties_multipath_is_active(const ct_transport_properties_t* properties);
+
 #endif // CT_TRANSPORT_PROPERTIES_H

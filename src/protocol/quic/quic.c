@@ -3,6 +3,7 @@
 #include "connection/connection_group.h"
 #include "ctaps.h"
 #include "protocol/common/socket_utils.h"
+#include "transport_property/transport_properties.h"
 #include <assert.h>
 #include <glib.h>
 #include <logging/log.h>
@@ -700,51 +701,45 @@ int probe_all_paths(const ct_connection_group_t* group) {
     log_debug("Connection has %zu remote endpoints and %zu local endpoints configured",
               ct_connection_get_num_remote_endpoints(connection),
               ct_connection_get_num_local_endpoints(connection));
-    for (size_t i = 0; i < ct_connection_get_num_remote_endpoints(connection); i++) {
-        const ct_remote_endpoint_t* remote_endpoint =
-            &ct_connection_get_remote_endpoints_list(connection)[i];
 
-        for (size_t j = 0; j < ct_connection_get_num_local_endpoints(connection); j++) {
-            if (j == connection->active_local_endpoint && i == connection->active_remote_endpoint) {
-                log_debug("Skipping [%d, %d]", i, j);
-                continue;
-            }
-            const ct_local_endpoint_t* local_endpoint =
-                &ct_connection_get_local_endpoints_list(connection)[j];
+    const ct_remote_endpoint_t* remote_endpoint =
+    ct_connection_get_active_remote_endpoint(connection);
+    for (size_t j = 0; j < ct_connection_get_num_local_endpoints(connection); j++) {
+        if (j == connection->active_local_endpoint) {
+            continue;
+        }
+        const ct_local_endpoint_t* local_endpoint =
+            &ct_connection_get_local_endpoints_list(connection)[j];
 
-            if (local_endpoint->resolved_address.ss_family !=
-                remote_endpoint->resolved_address.ss_family) {
-                log_debug("Skipping probing local endpoint %zu to remote endpoint %zu due to "
-                          "address family mismatch",
-                          j, i);
-                continue;
-            }
+        if (local_endpoint->resolved_address.ss_family !=
+            remote_endpoint->resolved_address.ss_family) {
+            log_debug("Skipping probing local endpoint %zu due to "
+                      "address family mismatch",
+                      j);
+            continue;
+        }
 
-            char from_ip[INET6_ADDRSTRLEN];
-            char to_ip[INET6_ADDRSTRLEN];
-            uint16_t from_port = 0;
-            uint16_t dest_port = 0;
+        char from_ip[INET6_ADDRSTRLEN];
+        char to_ip[INET6_ADDRSTRLEN];
+        uint16_t from_port = 0;
+        uint16_t dest_port = 0;
 
-            const struct sockaddr_storage* local_ss = &local_endpoint->resolved_address;
-            const struct sockaddr_storage* remote_ss = &remote_endpoint->resolved_address;
+        const struct sockaddr_storage* local_ss = &local_endpoint->resolved_address;
+        const struct sockaddr_storage* remote_ss = &remote_endpoint->resolved_address;
 
-            ct_get_addr_string(local_ss, from_ip, sizeof(from_ip), &from_port);
-            ct_get_addr_string(remote_ss, to_ip, sizeof(to_ip), &dest_port);
+        ct_get_addr_string(local_ss, from_ip, sizeof(from_ip), &from_port);
+        ct_get_addr_string(remote_ss, to_ip, sizeof(to_ip), &dest_port);
 
-            log_debug("Probing picoquic path: %s:%d -> %s:%d", from_ip, from_port, to_ip,
-                      dest_port);
+        log_debug("Probing picoquic path: %s:%d -> %s:%d", from_ip, from_port, to_ip,
+                  dest_port);
 
-            int rc = picoquic_probe_new_path(
-                cnx, (const struct sockaddr*)&remote_endpoint->resolved_address,
-                (const struct sockaddr*)&local_endpoint->resolved_address,
-                picoquic_get_quic_time(ct_connection_get_picoquic_instance(connection))
-            );
-            if (rc < 0) {
-                log_warn("Failed to probe path to remote endpoint %zu with error code: %d", i, rc);
-            } else {
-                log_debug("Probing remote endpoint %zu", i);
-                at_least_one_success = 1;
-            }
+        int rc = picoquic_probe_new_path(
+            cnx, (const struct sockaddr*)&remote_endpoint->resolved_address,
+            (const struct sockaddr*)&local_endpoint->resolved_address,
+            picoquic_get_quic_time(ct_connection_get_picoquic_instance(connection))
+        );
+        if (rc < 0) {
+            log_warn("Failed to probe local endpoint with error code: %d", rc);
         }
     }
 
@@ -978,8 +973,8 @@ int picoquic_callback(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* bytes, s
     }
     case picoquic_callback_path_suspended: { /* An available path is suspended */
         log_info("Picoquic path suspended callback received");
-        if (ct_transport_properties_get_advertises_alt_address(
-            ct_connection_group_get_transport_properties(connection_group)) != PROHIBIT) {
+        if (ct_transport_properties_multipath_is_active(
+            ct_connection_group_get_transport_properties(connection_group))) {
             probe_all_paths(connection_group);
         }
         break;

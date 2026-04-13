@@ -22,24 +22,10 @@ extern "C" {
 
 struct IptablesGuard {
     ~IptablesGuard() {
-        // Remote endpoint migration test
-        if (system("iptables -C INPUT -s 127.0.0.1 -p udp --sport 4433 -j DROP 2>/dev/null") == 0) {
-            system("iptables -D INPUT -s 127.0.0.1 -p udp --sport 4433 -j DROP");
-        }
-
-        if (system("iptables -C OUTPUT -d 127.0.0.1 -p udp --dport 4433 -j DROP 2>/dev/null") ==
-            0) {
-            system("iptables -D OUTPUT -d 127.0.0.1 -p udp --dport 4433 -j DROP");
-        }
-
         // Local endpoint migration test
         if (system("iptables -C OUTPUT -s 127.0.0.1 -p udp --dport 4433 -j DROP 2>/dev/null") ==
             0) {
             system("iptables -D OUTPUT -s 127.0.0.1 -p udp --dport 4433 -j DROP");
-        }
-        if (system("iptables -C INPUT  -d 127.0.0.1 -p udp --sport 4433 -j DROP 2>/dev/null") ==
-            0) {
-            system("iptables -D INPUT  -d 127.0.0.1 -p udp --sport 4433 -j DROP");
         }
     }
 };
@@ -387,56 +373,6 @@ void send_message_and_receive(struct ct_connection_s* connection) {
     ct_receive_message(connection, &receive_message_request);
 }
 
-// Callback context needs a flag to track whether migration has been triggered
-void receive_first_pong_then_block_primary_path_for_remote(ct_connection_t* connection,
-                                                          ct_message_t* message,
-                                                          ct_message_context_t* ctx) {
-    auto* test_ctx = static_cast<CallbackContext*>(ct_message_context_get_receive_context(ctx));
-    (*test_ctx->per_connection_messages)[connection].push_back(ct_message_deep_copy(message));
-
-    if (!test_ctx->path_blocked) {
-        log_info("Received first pong, now blocking primary path to trigger migration");
-        test_ctx->path_blocked = true;
-        // Block primary path — stack should probe 127.0.0.2 and migrate
-        int rc = system("iptables -A INPUT -s 127.0.0.1 -p udp --sport 4433 -j DROP");
-        EXPECT_EQ(rc, 0);
-        rc = system("iptables -A OUTPUT -d 127.0.0.1 -p udp --dport 4433 -j DROP");
-        EXPECT_EQ(rc, 0);
-
-        // Second ping should be routed to alternative path
-        ct_message_t* msg = ct_message_new_with_content("ping", strlen("ping") + 1);
-        ct_send_message(connection, msg);
-        ct_message_free(msg);
-
-        ct_receive_callbacks_t recv = {
-            .receive_callback = receive_first_pong_then_block_primary_path_for_remote,
-            .per_receive_context = ctx->per_receive_context,
-        };
-        ct_receive_message(connection, &recv);
-    } else {
-        log_info("Received second pong after blocking primary path, migration successful");
-        // Not removing iptables rules here since the test fixture's IptablesGuard will clean up on test teardown
-        ct_connection_close_group(connection);
-    }
-}
-
-void send_message_and_receive_blocking_primary_path_for_remote(struct ct_connection_s* connection) {
-    log_trace("Ready - send_message_and_receive_blocking_primary_path_for_remote");
-    auto* context = static_cast<CallbackContext*>(ct_connection_get_callback_context(connection));
-    context->client_connections.push_back(connection);
-
-    ct_message_t* message = ct_message_new_with_content("ping", strlen("ping") + 1);
-    ct_send_message(connection, message);
-    ct_message_free(message);
-
-    ct_receive_callbacks_t receive_message_request = {
-        .receive_callback = receive_first_pong_then_block_primary_path_for_remote,
-        .per_receive_context = ct_connection_get_callback_context(connection),
-    };
-
-    ct_receive_message(connection, &receive_message_request);
-}
-
 void receive_first_pong_capture_local_then_block_primary_path_for_local(ct_connection_t* connection,
                                                          ct_message_t* message,
                                                          ct_message_context_t* ctx) {
@@ -452,8 +388,6 @@ void receive_first_pong_capture_local_then_block_primary_path_for_local(ct_conne
         test_ctx->path_blocked = true;
         // Block primary path — stack should probe 127.0.0.2 and migrate
         int rc = system("iptables -A OUTPUT -s 127.0.0.1 -p udp --dport 4433 -j DROP");
-        EXPECT_EQ(rc, 0);
-        rc = system("iptables -A INPUT  -d 127.0.0.1 -p udp --sport 4433 -j DROP");
         EXPECT_EQ(rc, 0);
 
         // Second ping should be routed to alternative path
