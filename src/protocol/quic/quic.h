@@ -48,7 +48,8 @@ typedef struct ct_quic_stream_state_s {
 // QUIC context management
 ct_quic_socket_state_t* ct_quic_socket_state_new(
     const char* cert_file, const char* key_file, ct_socket_manager_t* socket_manager,
-    const ct_security_parameters_t* security_parameters, ct_message_t* initial_message);
+    const ct_security_parameters_t* security_parameters,
+    const ct_transport_properties_t* transport_properties, ct_message_t* initial_message);
 
 void on_quic_poll_read(ct_socket_manager_t* socket_manager, const uint8_t* buf, ssize_t nread,
                        const struct sockaddr* addr_from, const struct sockaddr* addr_to);

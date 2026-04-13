@@ -217,7 +217,7 @@ typedef enum {
 typedef enum {
     CT_MULTIPATH_DISABLED, ///< Do not use multipath
     CT_MULTIPATH_ACTIVE,   ///< Actively use multiple paths simultaneously
-    CT_MULTIPATH_PASSIVE   ///< TBD
+    CT_MULTIPATH_PASSIVE   ///< Will accept multipath used by peer
 } ct_multipath_enum_t;
 
 // Since it is a struct, wrap with {0}
@@ -259,9 +259,9 @@ f(ACTIVE_READ_BEFORE_SEND,     "activeReadBeforeSend",       ct_selection_prefer
 
 /**
  * @ingroup connection_properties
- * @brief Special value: No timeout
+ * @brief 0 Means no timeout in ms
  */
-#define CT_CONN_TIMEOUT_DISABLED UINT32_MAX       ///< Special value: no timeout
+#define CT_CONN_TIMEOUT_DISABLED 0       ///< Matches picoquic's definition of no timeout
 /**
  * @ingroup connection_properties
  * @brief Special value: No rate limit
@@ -325,7 +325,7 @@ typedef enum {
 #define get_writable_connection_property_list(f)                                                                                   \
 f(RECV_CHECKSUM_LEN,     "recvChecksumLen",     uint32_t,                       recv_checksum_len,     CT_CONN_CHECKSUM_FULL_COVERAGE,           TYPE_UINT32) \
 f(CONN_PRIORITY,         "connPriority",        uint8_t,                        conn_priority,         CT_CONNECTION_DEFAULT_PRIORITY,           TYPE_UINT8) \
-f(CONN_TIMEOUT,          "connTimeout",         uint32_t,                       conn_timeout,          CT_CONN_TIMEOUT_DISABLED,                 TYPE_UINT32) \
+f(CONN_TIMEOUT,          "connTimeout",         uint32_t,                       conn_timeout_ms,          CT_CONN_TIMEOUT_DISABLED,                 TYPE_UINT32) \
 f(KEEP_ALIVE_TIMEOUT,    "keepAliveTimeout",    uint32_t,                       keep_alive_timeout,    CT_CONN_TIMEOUT_DISABLED,                 TYPE_UINT32) \
 f(CONN_SCHEDULER,        "connScheduler",       ct_connection_scheduler_enum_t, conn_scheduler,        CT_CONN_SCHEDULER_WEIGHTED_FAIR_QUEUEING, TYPE_ENUM)  \
 f(CONN_CAPACITY_PROFILE, "connCapacityProfile", ct_capacity_profile_enum_t,     conn_capacity_profile, CT_CAPACITY_PROFILE_BEST_EFFORT,          TYPE_ENUM)  \

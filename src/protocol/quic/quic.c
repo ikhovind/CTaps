@@ -183,7 +183,7 @@ void socket_timer_close_cb(uv_handle_t* handle) {
 
 ct_quic_socket_state_t* ct_quic_socket_state_new(
     const char* cert_file, const char* key_file, ct_socket_manager_t* socket_manager,
-    const ct_security_parameters_t* security_parameters,
+    const ct_security_parameters_t* security_parameters, const ct_transport_properties_t* transport_properties,
     ct_message_t* initial_message // to be freed in case this connection succeeds
 ) {
     if (!cert_file || !key_file || !security_parameters) {
@@ -286,6 +286,7 @@ ct_quic_socket_state_t* ct_quic_socket_state_new(
         return NULL;
     }
 
+    picoquic_set_default_idle_timeout(socket_state->picoquic_ctx, ct_transport_properties_get_conn_timeout_ms(transport_properties));
     picoquic_set_default_priority(socket_state->picoquic_ctx, CT_CONNECTION_DEFAULT_PRIORITY);
     picoquic_enable_path_callbacks_default(socket_state->picoquic_ctx, 1);
 
@@ -1264,7 +1265,7 @@ int quic_init_with_send(ct_connection_t* connection, ct_message_t* initial_messa
 
     ct_quic_socket_state_t* quic_context =
         ct_quic_socket_state_new(cert_file, key_file, connection->socket_manager,
-                                 connection->security_parameters, initial_message);
+                                 connection->security_parameters, connection->connection_group->transport_properties, initial_message);
 
     if (!quic_context) {
         log_error("Failed to create QUIC context for client connection");
@@ -1406,7 +1407,8 @@ int quic_init(ct_connection_t* connection) {
     }
 
     ct_quic_socket_state_t* quic_context = ct_quic_socket_state_new(
-        cert_file, key_file, connection->socket_manager, connection->security_parameters, NULL);
+        cert_file, key_file, connection->socket_manager, connection->security_parameters,
+        connection->connection_group->transport_properties, NULL);
 
     if (!quic_context) {
         log_error("Failed to create QUIC context for client connection");
@@ -1681,7 +1683,12 @@ int quic_listen(ct_socket_manager_t* socket_manager) {
 
     // Create QUIC context for this listener
     ct_quic_socket_state_t* socket_state = ct_quic_socket_state_new(
-        cert_file, key_file, listener->socket_manager, listener->security_parameters, NULL);
+        cert_file,
+        key_file,
+        listener->socket_manager,
+        listener->security_parameters,
+        listener->transport_properties,
+        NULL);
 
     if (!socket_state) {
         log_error("Failed to create QUIC context for listener");

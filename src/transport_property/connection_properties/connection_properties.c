@@ -72,9 +72,9 @@ uint32_t ct_connection_properties_get_conn_priority(ct_connection_properties_t* 
     return conn_props->list[CONN_PRIORITY].value.uint32_val;
 }
 
-uint32_t ct_connection_properties_get_conn_timeout(ct_connection_properties_t* conn_props) {
+uint32_t ct_connection_properties_get_conn_timeout_ms(ct_connection_properties_t* conn_props) {
     if (!conn_props) {
-        log_warn("Null pointer passed to get_conn_timeout");
+        log_warn("Null pointer passed to get_conn_timeout_ms");
         return 0;
     }
     return conn_props->list[CONN_TIMEOUT].value.uint32_val;
@@ -233,7 +233,7 @@ void ct_connection_properties_set_conn_priority(ct_connection_properties_t* conn
     conn_props->list[CONN_PRIORITY].value.uint32_val = conn_priority;
 }
 
-void ct_connection_properties_set_conn_timeout(ct_connection_properties_t* conn_props,
+void ct_connection_properties_set_conn_timeout_ms(ct_connection_properties_t* conn_props,
                                                uint32_t conn_timeout) {
     if (!conn_props) {
         log_warn("Null pointer passed to set_conn_timeout");
