@@ -226,7 +226,7 @@ E     }
 I     ct_transport_properties_set_reliability(transport_properties, REQUIRE);
 I     ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PREFER);
 I     ct_transport_properties_set_multistreaming(transport_properties, PREFER);
-M     ct_transport_properties_set_advertises_alt_address(transport_properties, NO_PREFERENCE);
+M     ct_transport_properties_set_multipath(transport_properties, CT_MULTIPATH_ACTIVE);
 -
 I     /* Security parameters are required for QUIC; ignored if TCP wins the race. */
 I     ct_security_parameters_t* security_parameters = ct_security_parameters_new();
@@ -242,7 +242,7 @@ I                                                   RESOURCE_FOLDER "/cert.pem",
 I                                                   RESOURCE_FOLDER "/key.pem");
 -
 I     ct_local_endpoint_t* local_endpoint = ct_local_endpoint_new();
-I     ct_local_endpoint_with_ipv4(local_endpoint, inet_addr("127.0.0.1"));
+I     ct_local_endpoint_with_ipv4(local_endpoint, inet_addr("0.0.0.0"));
 -
 M     ct_local_endpoint_t* local_endpoint2 = ct_local_endpoint_new();
 M     ct_local_endpoint_with_ipv4(local_endpoint2, inet_addr("127.0.0.2"));
