@@ -1,11 +1,13 @@
 # CTaps
+A C implementation of IETF Transport Services (TAPS, RFC 9622) with QUIC support via Picoquic.
 
-A C implementation of the Transport Services API as described in:
+CTaps provides an asynchronous, callback-based interface for network connections
+which is interacted with through Transport Services.
+
+Transport Services is described in:
  * [RFC 9621 - Overall Structure](https://www.rfc-editor.org/info/rfc9621).
  * [RFC 9622 - External API](https://www.rfc-editor.org/info/rfc9622).
  * [RFC 9623 - Internal workings](https://www.rfc-editor.org/info/rfc9623).
-
-CTaps provides an asynchronous, callback-based interface for network connections, abstracting over TCP, UDP, and QUIC protocols.
 
 ## Core Structures
 
@@ -199,6 +201,13 @@ intg main() {
 }
 ```
 </details>
+
+## Internal structure
+
+To provide QUIC support CTaps uses [Picoquic](https://github.com/private-octopus/picoquic)
+while [libuv](https://github.com/libuv/libuv) is used to power the event loop and interact with the underlying
+sockets.
+
 
 ## Project Structure
 
