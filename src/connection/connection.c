@@ -370,7 +370,7 @@ int ct_send_message(ct_connection_t* connection, const ct_message_t* message) {
 int ct_send_message_full(ct_connection_t* connection, const ct_message_t* message,
                          const ct_message_context_t* message_context) {
     // Fail early if for example FINAL has been sent already
-    log_debug("Trying to send message over connection: %s", connection->uuid);
+    log_trace("Trying to send message over connection: %s", connection->uuid);
     if (!ct_connection_can_send(connection)) {
         log_error("Connection %s cannot send messages in its current state", connection->uuid);
         return -EPIPE;
@@ -407,11 +407,11 @@ int ct_send_message_full(ct_connection_t* connection, const ct_message_t* messag
 
     int rc = 0;
     if (connection->framer_impl && connection->framer_impl->encode_message) {
-        log_debug("User sending message on connection with framer");
+        log_trace("User sending message on connection with framer");
         rc = connection->framer_impl->encode_message(connection, message_copy, message_context_copy,
                                                      ct_connection_send_to_protocol);
     } else {
-        log_debug("User sending message on connection without framer");
+        log_trace("User sending message on connection without framer");
         rc = ct_connection_send_to_protocol(connection, message_copy, message_context_copy);
     }
 
@@ -429,14 +429,14 @@ int ct_receive_message(ct_connection_t* connection, const ct_receive_callbacks_t
         log_error("Connection or receive_callbacks is NULL in ct_receive_message");
         return -EINVAL;
     }
-    log_debug("User attempting to receive message on connection: %s", connection->uuid);
+    log_trace("User attempting to receive message on connection: %s", connection->uuid);
     if (!connection->received_messages || !connection->received_callbacks) {
         log_error("ct_connection_t queues not initialized for receiving messages");
         return -EIO;
     }
 
     if (!g_queue_is_empty(connection->received_messages)) {
-        log_debug("Calling receive callback immediately");
+        log_trace("Calling receive callback immediately");
         ct_queued_message_t* queued_message = g_queue_pop_head(connection->received_messages);
         queued_message->context->per_receive_context = receive_callbacks->per_receive_context;
         if (receive_callbacks->receive_callback) {
@@ -460,7 +460,7 @@ int ct_receive_message(ct_connection_t* connection, const ct_receive_callbacks_t
 
     // If we don't have a message to receive, add the callback to the queue of
     // waiting callbacks
-    log_debug("No message ready, pushing receive callback to queue %p",
+    log_trace("No message ready, pushing receive callback to queue %p",
               (void*)connection->received_callbacks);
     g_queue_push_tail(connection->received_callbacks, ptr);
     return 0;
@@ -560,11 +560,11 @@ void ct_connection_deliver_to_app(ct_connection_t* connection, ct_message_t* mes
                                   ct_message_context_t* context) {
     // Check if there's a waiting receive callback
     if (g_queue_is_empty(connection->received_callbacks)) {
-        log_debug("No receive callback ready, queueing message");
+        log_trace("No receive callback ready, queueing message");
         ct_queued_message_t* queued_message = ct_queued_message_new(message, context);
         g_queue_push_tail(connection->received_messages, queued_message);
     } else {
-        log_debug("Receive callback ready for connection: %s, calling it", connection->uuid);
+        log_trace("Receive callback ready for connection: %s, calling it", connection->uuid);
         ct_receive_callbacks_t* receive_callback = g_queue_pop_head(connection->received_callbacks);
 
         if (!context) {

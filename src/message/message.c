@@ -36,7 +36,7 @@ void ct_message_free(ct_message_t* message) {
     if (!message) {
         return;
     }
-    log_debug("Freeing message of size %zu", message->length);
+    log_trace("Freeing message of size %zu", message->length);
     if (message->content) {
         free(message->content);
         message->content = NULL;
@@ -109,17 +109,17 @@ void ct_message_set_content(ct_message_t* message, const char* content, size_t l
         return;
     }
     if ((void*)content == (void*)message->content) {
-        log_debug("New content is the same as existing content; no action taken");
+        log_trace("New content is the same as existing content; no action taken");
         return;
     }
 
     if (message->content) {
-        log_debug("Replacing existing message content of size %zu", message->length);
+        log_trace("Replacing existing message content of size %zu", message->length);
         free(message->content);
         message->content = NULL;
     }
     if (!content || length == 0) {
-        log_debug("Setting message content to NULL due to NULL content or zero length");
+        log_trace("Setting message content to NULL due to NULL content or zero length");
         message->content = NULL;
         message->length = 0;
         return;

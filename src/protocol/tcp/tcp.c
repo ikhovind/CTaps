@@ -412,7 +412,7 @@ void tcp_abort(ct_connection_t* connection) {
 
 int tcp_send(ct_connection_t* connection, ct_message_t* message, ct_message_context_t* ctx) {
     (void)ctx;
-    log_debug("Sending message over TCP");
+    log_trace("Sending message over TCP");
 
     uv_buf_t buffer = uv_buf_init(message->content, message->length);
 
