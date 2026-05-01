@@ -82,7 +82,7 @@ static void on_timer_close_free_context(uv_handle_t* handle) {
     }
 
     if (context != NULL) {
-        log_debug("Timer closed, now freeing racing context");
+        log_trace("Timer closed, now freeing racing context");
 
         // Free all connection attempts
         if (context->attempts != NULL) {
@@ -404,7 +404,7 @@ static int start_connection_attempt(ct_racing_context_t* context, ct_racing_atte
         rc = attempt->connection->socket_manager->protocol_impl->init(attempt->connection);
     }
     if (rc != 0) {
-        log_error("Failed to initiate connection attempt: %d", rc);
+        log_debug("Failed to initiate connection attempt during racing: %d", rc);
         return rc;
     }
 
