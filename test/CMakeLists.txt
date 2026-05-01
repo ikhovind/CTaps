@@ -36,6 +36,8 @@ target_compile_definitions(
 
 list(TRANSFORM CTAPS_SOURCES PREPEND ${CMAKE_SOURCE_DIR}/)
 
+# Clang is strict about this in C++
+add_compile_options(-Wno-c99-designator)
 # Compile the library once for all tests to link against.
 # This is an OBJECT library so that we can wrap internal
 # Function calls

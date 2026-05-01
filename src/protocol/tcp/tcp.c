@@ -219,7 +219,7 @@ void on_connect(struct uv_connect_s* req, int status) {
     ct_tcp_socket_state_t* socket_state = socket_manager->internal_socket_manager_state;
     ct_connection_t* connection = socket_state->connection;
     if (status < 0) {
-        log_error("ct_connection_t error: %s", uv_strerror(status));
+        log_warn("ct_connection_t error: %s", uv_strerror(status));
         if (!uv_is_closing((uv_handle_t*)socket_state->tcp_handle)) {
             uv_close((uv_handle_t*)socket_state->tcp_handle, on_libuv_close_after_error);
         }

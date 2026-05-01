@@ -171,7 +171,7 @@ ct_udp_poll_handle_t* create_udp_poll_on_local(const ct_local_endpoint_t* local_
     uint16_t from_port = 0;
     const struct sockaddr_storage* local_ss = &local_endpoint->resolved_address;
     ct_get_addr_string(local_ss, from_ip, sizeof(from_ip), &from_port);
-    log_info("Binding to address: %s", from_ip);
+    log_debug("Binding to address: %s", from_ip);
 
     rc = bind(fd, (const struct sockaddr*)&addr, len);
     if (rc < 0) {

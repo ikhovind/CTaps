@@ -1384,7 +1384,7 @@ int quic_init(ct_connection_t* connection) {
 
     // Get certificate from security parameters
     if (!connection->security_parameters) {
-        log_error("Security parameters required for QUIC connection");
+        log_debug("Security parameters required for QUIC connection");
         return -EINVAL;
     }
 
