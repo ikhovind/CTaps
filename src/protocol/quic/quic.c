@@ -44,7 +44,7 @@ const ct_protocol_impl_t
                       [USE_TEMPORARY_LOCAL_ADDRESS] = {.value = {.simple_preference =
                                                                      NO_PREFERENCE}},
                       // Not supported by our implementation
-                      [MULTIPATH] = {.value = {.enum_val = CT_MULTIPATH_DISABLED}},
+                      [MULTIPATH] = {.value = {.enum_val = CT_MULTIPATH_ACTIVE}},
                       [ADVERTISES_ALT_ADDRESS] = {.value = {.simple_preference = NO_PREFERENCE}},
                       [DIRECTION] = {.value = {.enum_val = CT_DIRECTION_BIDIRECTIONAL}},
                       [SOFT_ERROR_NOTIFY] = {.value = {.simple_preference = NO_PREFERENCE}},
