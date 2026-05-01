@@ -56,7 +56,7 @@ HTML_EXTRA_STYLESHEET  = @AWESOME_CSS_DIR@/doxygen-awesome.css
 # Configuration options related to the LaTeX output
 #---------------------------------------------------------------------------
 
-GENERATE_LATEX         = YES
+GENERATE_LATEX         = NO
 
 #---------------------------------------------------------------------------
 # Configuration options related to the preprocessor
