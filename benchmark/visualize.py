@@ -22,7 +22,7 @@ SERIES = {
     "quic_native":              ("QUIC (Picoquic)", "#2E7D32"),
     "taps_racing_quic":         ("QUIC (CTaps)",    "#A5D6A7"),
     "quic_native_dual_ip":      ("Picoquic",        "#90CAF9"),
-    "taps_racing_quic_dual_ip": ("CTaps",           "#A5D6A7"),
+    "taps_racing_quic_dual_ip": ("CTaps (QUIC)",           "#A5D6A7"),
 }
 
 DUAL_IP_QUIC_HANDSHAKE = ["quic_native_dual_ip", "taps_racing_quic_dual_ip"]
@@ -52,10 +52,10 @@ def configure_style(use_pgf: bool) -> None:
     })
     if use_pgf:
         matplotlib.use("pgf")
-        plt.rcParams.update({
-            "pgf.texsystem": "pdflatex",
+        plt.rcParams.update({ "pgf.texsystem": "pdflatex",
             "text.usetex":   True,
             "pgf.rcfonts":   False,
+            "pgf.preamble":  r"\usepackage{siunitx}",
         })
 
 
@@ -101,7 +101,6 @@ def plot_small_file(collected, out_dir, use_pgf=True):
     ax.set_xticklabels([f"{r}" for r in rtt_values])
     ax.set_xlabel("RTT (ms)")
     ax.set_ylabel("Small file transfer time (ms)")
-    ax.set_title("Small file transfer time by implementation and RTT")
     ax.legend(ncol=2)
     fig.tight_layout()
 
@@ -153,7 +152,6 @@ def plot_migration_throughput(migration_data: list, out_dir: Path,
 
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("Throughput (Mbps)")
-    ax.set_title("QUIC recovery after connection migration")
     ax.set_ylim(bottom=0, top=8)
     ax.legend()
 
@@ -207,7 +205,7 @@ def plot_racing_handshake(handshake: dict, out_dir: Path, use_pgf=True) -> None:
     tcp_racing_time = np.median(handshake[min_handshake].get("taps_handshake_tcp",  [np.nan]))
     tcp_stagger = ((tcp_racing_time - tcp_native_time) // 250) * 250
     ax.annotate(
-        f"+{tcp_stagger:.0f} ms\n(stagger delay)",
+        rf"$+{tcp_stagger:.0f}\,\mathrm{{ms}}$" + "\n(stagger delay)",
         xy=(min_handshake, tcp_racing_time),
         xytext=(min_handshake + 10, tcp_racing_time + 80),
         arrowprops=dict(arrowstyle="->", color="gray"),
@@ -216,7 +214,6 @@ def plot_racing_handshake(handshake: dict, out_dir: Path, use_pgf=True) -> None:
 
     ax.set_xlabel("RTT (ms)")
     ax.set_ylabel("Handshake time (ms)")
-    ax.set_title("Handshake time vs RTT")
     ax.set_xticks(rtt_values)
     ax.legend()
 
@@ -256,21 +253,190 @@ def plot_handshake_kde(handshake: dict, out_dir: Path, use_pgf=True) -> None:
             color=color,
             fill=True,
             alpha=0.4,
-            linewidth=1.5,
+            linewidth=1.0,
             warn_singular=False,
         )
         plot.set_xlim(320, 880)
 
     ax.set_xlabel("Handshake time (ms)")
     ax.set_ylabel("Probability density")
-    ax.set_title("Effect of candidate racing on connection establishment time")
 
-    ax.legend(loc="upper left", bbox_to_anchor=(0.62, 0.98))
+    ax.legend(loc="upper right")
 
     fig.tight_layout()
 
     ext = "pgf" if use_pgf else "png"
     out = out_dir / f"handshake_kde.{ext}"
+    fig.savefig(out, dpi=150, bbox_inches="tight")
+    print(f"Saved {out}")
+    plt.close(fig)
+
+
+def plot_rtt_ecdf(
+    baseline_file: Path,
+    ctaps_file: Path,
+    out_dir: Path,
+    p_cut: float = 99.0,
+    use_pgf: bool = True,
+) -> None:
+    """
+    Plot ECDF of RTT for baseline UDP and CTaps, with x-axis
+    limited to a given percentile of the combined data, and
+    save to out_dir as PGF or PNG.
+
+    Enhancements:
+    - Mark p50, p90, p99 on each ECDF curve.
+    - Annotate each marker with its percentile and value (µs).
+    - If CTaps p99 is outside the x-range, annotate it at the right edge.
+    - For Baseline p99, place label further left with an arrow to avoid overlap.
+    """
+
+    # Load RTTs (ns → µs)
+    rtt_ns_base = np.loadtxt(baseline_file)
+    rtt_ns_ctap = np.loadtxt(ctaps_file)
+
+    rtt_us_base = rtt_ns_base / 1e3
+    rtt_us_ctap = rtt_ns_ctap / 1e3
+
+    # ECDF helper
+    def ecdf(data: np.ndarray):
+        x = np.sort(data)
+        y = np.arange(1, len(x) + 1) / len(x)
+        return x, y
+
+    x_base, y_base = ecdf(rtt_us_base)
+    x_ctap, y_ctap = ecdf(rtt_us_ctap)
+
+    # Percentile cutoff based on combined data
+    combined = np.concatenate([rtt_us_base, rtt_us_ctap])
+    x_cut = np.percentile(combined, p_cut)
+
+    # Lower bound: minimum over both datasets
+    x_min = float(min(x_base[0], x_ctap[0]))
+
+    fig, ax = plt.subplots(figsize=DEFAULT_FIGSIZE)
+
+    base_color = "#1565C0"
+    ctap_color = "#2E7D32"
+
+    # Plot ECDFs
+    ax.plot(x_base, y_base, label="Baseline UDP", color=base_color, linewidth=1.8)
+    ax.plot(x_ctap, y_ctap, label="CTaps",        color=ctap_color, linewidth=1.8)
+
+    # Axis labels and limits
+    ax.set_xlabel("RTT (µs)")
+    ax.set_ylabel("Percentile")
+
+    ax.set_xlim(x_min, x_cut)
+    ax.set_ylim(0.0, 1.0)
+
+    ax.grid(True, linestyle="--", alpha=0.4)
+
+    # Percentiles to mark
+    percentiles = [50.0, 90.0, 99.0]
+
+    base_markers_x = []
+    base_markers_y = []
+    ctap_markers_x = []
+    ctap_markers_y = []
+
+    # Compute percentiles for annotation logic
+    med_b = np.percentile(rtt_us_base, 50.0)
+    p90_b = np.percentile(rtt_us_base, 90.0)
+    p99_b = np.percentile(rtt_us_base, 99.0)
+
+    med_c = np.percentile(rtt_us_ctap, 50.0)
+    p90_c = np.percentile(rtt_us_ctap, 90.0)
+    p99_c = np.percentile(rtt_us_ctap, 99.0)
+
+    # Collect markers (only those that lie within x-range)
+    for p in percentiles:
+        yp = p / 100.0
+
+        xb_p = np.percentile(rtt_us_base, p)
+        if x_min <= xb_p <= x_cut:
+            base_markers_x.append(xb_p)
+            base_markers_y.append(yp)
+
+        xc_p = np.percentile(rtt_us_ctap, p)
+        if x_min <= xc_p <= x_cut:
+            ctap_markers_x.append(xc_p)
+            ctap_markers_y.append(yp)
+
+    # Scatter the percentile markers
+    ax.scatter(
+        base_markers_x,
+        base_markers_y,
+        color=base_color,
+        marker="o",
+        s=20,
+        zorder=3,
+        label="_nolegend_",  # avoid duplicate legend entries
+    )
+    ax.scatter(
+        ctap_markers_x,
+        ctap_markers_y,
+        color=ctap_color,
+        marker="s",
+        s=20,
+        zorder=3,
+        label="_nolegend_",
+    )
+
+    if p99_c > x_cut:
+        ax.annotate(
+            f"CTaps p99 $\\approx$ {p99_c:.2f} $\\mu$s\n(outside x-range)",
+            xy=(x_cut, 0.99),
+            xycoords=("data", "data"),
+            xytext=(-5, -25),
+            textcoords="offset points",
+            ha="right",
+            va="top",
+            fontsize=8,
+            arrowprops=dict(
+                arrowstyle="->",
+                linewidth=1.0,
+            ),
+        )
+
+
+    leg = ax.legend(
+        loc="lower right",
+        fontsize=8,
+        framealpha=0.8,
+    )
+
+
+    fig.tight_layout()
+
+    stats_text = (
+        r"\setlength{\tabcolsep}{4pt}"  # default is 6pt
+        r"\begin{tabular}{lrrr}"
+        r"      & \multicolumn{3}{c}{/ \si{\micro\second}} \\"
+        r"      & p50 & p90 & p99 \\"
+        rf"Base  & {med_b:0.1f} & {p90_b:0.1f} & {p99_b:0.1f} \\"
+        rf"CTaps & {med_c:0.1f} & {p90_c:0.1f} & {p99_c:0.1f}"
+        r"\end{tabular}"
+    )
+
+    ax.text(
+        0.98, 0.20,
+        stats_text,
+        transform=ax.transAxes,
+        ha="right",
+        va="bottom",
+        fontsize=7,
+        bbox=dict(
+            boxstyle="round,pad=0.25",
+            facecolor="white",
+            edgecolor="gray",
+            alpha=0.8,
+        ),
+    )
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    filename = "udp_overhead.pgf" if use_pgf else "udp_overhead.png"
+    out = out_dir / filename
     fig.savefig(out, dpi=150, bbox_inches="tight")
     print(f"Saved {out}")
     plt.close(fig)
@@ -285,6 +451,7 @@ def main():
     parser.add_argument("--small-file",     action="store_true", help="Whether to plot small file transfer")
     parser.add_argument("--handshake",      action="store_true", help="Whether to plot simple handshake scenario")
     parser.add_argument("--rtt-sweep",      action="store_true", help="Whether to plot rtt sweep scenario")
+    parser.add_argument("--udp-overhead", nargs=1, metavar=('ctaps'), help="Whether to plot UDP ping overhead")
     parser.add_argument("--bucket-duration-ms", type=float, default=100.0,
                         help="Duration of each throughput bucket in ms (default: 100)")
     parser.add_argument("--path-change-ms", type=float, default=500.0,
@@ -297,6 +464,17 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     configure_style(args.pgf)
+
+    if args.udp_overhead:
+        ctaps = args.udp_overhead[0]
+        print(f"Using {args.input} as baseline and {ctaps} as ctaps")
+        plot_rtt_ecdf(
+            baseline_file=Path(args.input),
+            ctaps_file=Path(ctaps),
+            out_dir=out_dir,
+            use_pgf=args.pgf
+        )
+        return
 
     data = load(args.input)
 

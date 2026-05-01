@@ -146,6 +146,23 @@ target_link_libraries(tcp_benchmark_handshake_client
     benchmark_common
 )
 
+# UDP RTT experiments
+add_executable(ctaps_udp_rtt_client
+    src/client/udp_rtt/ctaps_udp_rtt_client.c
+)
+
+add_executable(baseline_udp_rtt_client
+    src/client/udp_rtt/baseline_udp_rtt_client.c
+)
+
+add_executable(udp_server
+    src/server/udp_rtt/udp_server.c
+)
+
+target_link_libraries(ctaps_udp_rtt_client
+    CTaps
+)
+
 add_custom_target(benchmark ALL
     DEPENDS
         tcp_benchmark_server
@@ -155,4 +172,7 @@ add_custom_target(benchmark ALL
         quic_benchmark_client
         quic_benchmark_handshake_client
         tcp_benchmark_handshake_client
+        ctaps_udp_rtt_client
+        baseline_udp_rtt_client
+        udp_server
 )
