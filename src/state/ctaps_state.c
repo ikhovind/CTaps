@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <uv.h>
 
-uv_loop_t* event_loop;
+uv_loop_t* event_loop = NULL;
 
 int ct_initialize(void) {
     // Set default log level to INFO
@@ -33,11 +33,11 @@ int ct_close(void) {
     return 0;
 }
 
-void ct_start_event_loop(void) {
+int ct_start_event_loop(void) {
     log_info("Starting the libuv event event_loop...");
 
     // Run until there are no more waiting tasks
-    uv_run(event_loop, UV_RUN_DEFAULT);
+    return uv_run(event_loop, UV_RUN_DEFAULT);
 }
 
 void ct_set_log_level(ct_log_level_enum_t level) {

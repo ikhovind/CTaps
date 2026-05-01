@@ -96,13 +96,15 @@ CT_EXTERN int ct_initialize(void);
  * @ingroup library
  * @brief Start the CTaps event loop (blocking operation).
  *
+ * @return 0 on success, negative error on failure
+ *
  * @note Must be called after ct_initialize()
  * @note All CTaps callbacks are invoked from within this event loop's thread context
  * @note Returns when there are no more active and referenced handles
  *
  * @see ct_initialize() for library initialization
  */
-CT_EXTERN void ct_start_event_loop(void);
+CT_EXTERN int ct_start_event_loop(void);
 
 /**
  * @ingroup library
@@ -1242,18 +1244,6 @@ typedef struct ct_listener_callbacks_s {
 
 /**
  * @ingroup framer
- * @struct ct_framer_impl_t
- * @brief Opaque handle representing a framer layer, wrapping or unwrapping sent/received
- * messages.
- *
- * Useful in for example HTTP TCP
- *
- * Currently only one framer is supported per connection.
- */
-typedef struct ct_framer_impl_s ct_framer_impl_t;
-
-/**
- * @ingroup framer
  * @brief Callback invoked by framer when message encoding is complete.
  *
  * @param[in] connection The connection
@@ -1279,11 +1269,15 @@ typedef void (*ct_framer_done_decoding_callback)(ct_connection_t* connection,
 
 /**
  * @ingroup framer
- * @brief Message framer implementation interface.
+ * @struct ct_framer_impl_t
+ * @brief Opaque handle representing a framer layer, wrapping or unwrapping sent/received
+ * messages.
  *
- * Implement this interface to provide custom message framing/deframing logic.
+ * Useful in for example HTTP TCP
+ *
+ * Currently only one framer is supported per connection.
  */
-struct ct_framer_impl_s {
+typedef struct ct_framer_impl_s {
     /**
    * @brief Encode an outbound message before transmission.
    *
@@ -1308,7 +1302,9 @@ struct ct_framer_impl_s {
    */
     void (*decode_data)(ct_connection_t* connection, ct_message_t* message,
                         ct_message_context_t* context, ct_framer_done_decoding_callback callback);
-};
+
+    void* framer_contex;
+} ct_framer_impl_t;
 
 
 /**
