@@ -16,13 +16,19 @@ static int length_prepend_encode(ct_connection_t* connection,
                                    ct_message_t* message,
                                    ct_message_context_t* context,
                                    ct_framer_done_encoding_callback callback) {
-    // Prepend the message length as a single byte
-    // First byte is the length
-    message->content = (char*)realloc(message->content, message->length + 1);
-    memmove(message->content + 1, message->content, message->length);
-    message->content[0] = '0' + (char)(message->length);
-    message->length += 1;
+    // Prepend the message length as a single ascii character
+    const char* content = ct_message_get_content(message);
+    size_t size = ct_message_get_length(message);
 
+    char* new_content = (char*)malloc(size + 1);
+    memcpy(new_content + 1, content, size);
+    // Get ascii representation of length (as long as it is <= 9 bytes)
+    new_content[0] = '0' + (char)(size);
+
+    ct_message_set_content(message,
+        new_content,
+        size + 1);
+    free(new_content);
     return callback(connection, message, context);
 }
 
