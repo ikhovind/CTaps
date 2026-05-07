@@ -74,7 +74,7 @@ void free_on_connection_closed(ct_connection_t* connection) {
 }
 
 int main() {
-    ct_initialize(); // Init (currently) global state
+    ct_initialize(); // Init global state
 
     // Create remote endpoint (where we will try to connect to)
     ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();

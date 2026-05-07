@@ -352,10 +352,12 @@ f(USER_TIMEOUT_CHANGEABLE, "userTimeoutChangeable", bool,     user_timeout_chang
 /**
  * @ingroup transport_properties
  * @struct ct_transport_properties_t
- * @brief Opaque handle representing a listener used for selecting and configuring protocols.
+ * @brief Opaque handle representing a transport properties used for 
+ *        selecting and configuring protocols.
  *
  * Allocate a new instance using ct_transport_properties_new().
- * Use setter functions to configure properties, then pass to ct_preconnection_new() or similar.
+ * Use setter functions to configure properties, then pass to
+ * ct_preconnection_new() or similar.
  */
 typedef struct ct_transport_properties_s ct_transport_properties_t;
 
@@ -1155,7 +1157,7 @@ typedef struct ct_connection_callbacks_s {
     /** @brief Called when connection is established and ready for data transfer. */
     void (*ready)(ct_connection_t* connection);
 
-    /** @brief Called when connection is established and ready for data transfer. */
+    /** @brief Called when connection is closed and can be safely freed. */
     void (*closed)(ct_connection_t* connection);
 
     /** @brief Called when a message send operation fails. */
@@ -1322,8 +1324,8 @@ typedef struct ct_preconnection_s ct_preconnection_t;
  * Takes deep copies of all passed endpoints and transport/security parameters.
  * The caller can therefore safely free or reuse the original parameters after this function returns.
  *
- * @param local_endpoints
- * @param num_local_endpoints
+ * @param[in] local_endpoints Array of local endpoints to bind to, or NULL
+ * @param[in] num_local_endpoints  Number of local endpoints (0 if local_endpoints is NULL)
  * @param[in] remote_endpoints Array of remote endpoints to connect to, or NULL
  * @param[in] num_remote_endpoints Number of remote endpoints (0 if remote_endpoints is NULL)
  * @param[in] transport_properties Transport property preferences, or NULL for defaults
@@ -1699,7 +1701,8 @@ CT_EXTERN void ct_connection_abort(ct_connection_t* connection);
  *
  * @param[in] source_connection The connection to clone
  * @param[in] framer Optional framer for the cloned connection (NULL to inherit)
- * @param[in] connection_properties Optional properties for cloned connection (NULL to inherit)
+ * @param[in] connection_properties Optional properties for cloned connection
+ *            This is currently not implemented
  * @return 0 on success, negative error code on failure
  */
 CT_EXTERN int ct_connection_clone_full(const ct_connection_t* source_connection,
