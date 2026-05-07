@@ -83,7 +83,7 @@ int quic_clone_connection(const struct ct_connection_s* source_connection,
                           struct ct_connection_s* target_connection);
 void quic_free_state(ct_connection_t* connection);
 void quic_close_connection_group(ct_connection_group_t* connection_group);
-int quic_set_connection_priority(ct_connection_t* connection, uint8_t priority);
+int ct_quic_set_connection_priority(ct_connection_t* connection, uint8_t priority);
 void quic_free_socket_state(struct ct_socket_manager_s* socket_manager);
 
 ct_quic_socket_state_t* ct_quic_context_ref(ct_quic_socket_state_t* context);

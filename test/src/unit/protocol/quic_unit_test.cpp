@@ -41,7 +41,7 @@ protected:
 };
 
 TEST_F(QuicUnitTest, picoquicSetConnectionPriorityInvoked) {
-    int rc = quic_set_connection_priority(&dummy_connection, 50);
+    int rc = ct_quic_set_connection_priority(&dummy_connection, 50);
 
     ASSERT_EQ(rc, 0);
     ASSERT_EQ(__wrap_picoquic_set_stream_priority_fake.call_count, 1);
@@ -52,7 +52,7 @@ TEST_F(QuicUnitTest, picoquicSetConnectionPriorityInvoked) {
 
 TEST_F(QuicUnitTest, errorOnPicoquicSetPriorityError) {
     __wrap_picoquic_set_stream_priority_fake.return_val = 0x400; // Picoquic returns positive error codes
-    int rc = quic_set_connection_priority(&dummy_connection, 50);
+    int rc = ct_quic_set_connection_priority(&dummy_connection, 50);
 
     ASSERT_EQ(rc, -EIO);
     ASSERT_EQ(__wrap_picoquic_set_stream_priority_fake.call_count, 1);
@@ -64,7 +64,7 @@ TEST_F(QuicUnitTest, errorOnPicoquicSetPriorityError) {
 TEST_F(QuicUnitTest, diesOnNoPicoquicConnection) {
     dummy_connection.connection_group->connection_group_state = NULL; // No group state, so no picoquic connection
 #ifndef NDEBUG
-    EXPECT_DEATH(quic_set_connection_priority(&dummy_connection, 50), "");
+    EXPECT_DEATH(ct_quic_set_connection_priority(&dummy_connection, 50), "");
 #else
     GTEST_SKIP() << "Asserts disabled in release build";
 #endif
@@ -72,7 +72,7 @@ TEST_F(QuicUnitTest, diesOnNoPicoquicConnection) {
 
 TEST_F(QuicUnitTest, einvalOnNotInitializedStream) {
     dummy_stream_state.stream_initialized = false; // Stream not initialized
-    int rc = quic_set_connection_priority(&dummy_connection, 50);
+    int rc = ct_quic_set_connection_priority(&dummy_connection, 50);
     EXPECT_EQ(rc, -EINVAL);
 }
 
@@ -80,7 +80,7 @@ TEST_F(QuicUnitTest, diesOnNoStreamState) {
     dummy_stream_state = {0};
     dummy_connection.internal_connection_state = NULL; // No stream state
 #ifndef NDEBUG
-    EXPECT_DEATH(quic_set_connection_priority(&dummy_connection, 50), "");
+    EXPECT_DEATH(ct_quic_set_connection_priority(&dummy_connection, 50), "");
 #else
     GTEST_SKIP() << "Asserts disabled in release build";
 #endif

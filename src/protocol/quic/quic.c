@@ -30,7 +30,7 @@ const ct_protocol_impl_t
                   {
                       [RELIABILITY] = {.value = {.simple_preference = REQUIRE}},
                       [PRESERVE_MSG_BOUNDARIES] = {.value = {.simple_preference = REQUIRE}},
-                      [PER_MSG_RELIABILITY] = {.value = {.simple_preference = PREFER}},
+                      [PER_MSG_RELIABILITY] = {.value = {.simple_preference = NO_PREFERENCE}},
                       [PRESERVE_ORDER] = {.value = {.simple_preference = REQUIRE}},
                       [ZERO_RTT_MSG] = {.value = {.simple_preference = NO_PREFERENCE}},
                       [MULTISTREAMING] = {.value = {.simple_preference = NO_PREFERENCE}},
@@ -48,6 +48,7 @@ const ct_protocol_impl_t
                       [ADVERTISES_ALT_ADDRESS] = {.value = {.simple_preference = NO_PREFERENCE}},
                       [DIRECTION] = {.value = {.enum_val = CT_DIRECTION_BIDIRECTIONAL}},
                       [SOFT_ERROR_NOTIFY] = {.value = {.simple_preference = NO_PREFERENCE}},
+                      [ACTIVE_READ_BEFORE_SEND] = {.value = {.simple_preference = NO_PREFERENCE}}
                   }},
          .init = quic_init,
          .send = quic_send,
@@ -60,9 +61,10 @@ const ct_protocol_impl_t
          .clone_connection = quic_clone_connection,
          .free_socket_state = quic_free_socket_state,
          .close_connection_group = quic_close_connection_group,
-         .set_connection_priority = quic_set_connection_priority,
+         .set_connection_priority = ct_quic_set_connection_priority,
          .free_connection_state = quic_free_state,
-         .free_connection_group_state = ct_free_quic_connection_group_state};
+         .free_connection_group_state = ct_free_quic_connection_group_state
+};
 
 typedef struct ct_quic_send_state_t {
     uv_buf_t* buffer;
@@ -1770,7 +1772,7 @@ void quic_close_connection_group(ct_connection_group_t* connection_group) {
     ASSERT_ZERO(rc);
 }
 
-int quic_set_connection_priority(ct_connection_t* connection, uint8_t priority) {
+int ct_quic_set_connection_priority(ct_connection_t* connection, uint8_t priority) {
     assert(connection && connection->internal_connection_state);
     picoquic_cnx_t* cnx = ct_connection_get_picoquic_connection(connection);
     ct_quic_stream_state_t* stream_state =
