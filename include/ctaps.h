@@ -985,7 +985,7 @@ CT_EXTERN const char* ct_message_get_content(const ct_message_t* message);
  * @param[in] content New data buffer for the message
  * @param[in] length Length of new data in bytes
  */
-CT_EXTERN void ct_message_set_content(ct_message_t* message, const char* content, size_t length);
+CT_EXTERN void ct_message_set_content(ct_message_t* message, const void* content, size_t length);
 
 /**
  * @ingroup message

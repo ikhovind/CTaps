@@ -103,12 +103,12 @@ const char* ct_message_get_content(const ct_message_t* message) {
     return message ? message->content : NULL;
 }
 
-void ct_message_set_content(ct_message_t* message, const char* content, size_t length) {
+void ct_message_set_content(ct_message_t* message, const void* content, size_t length) {
     if (!message) {
         log_error("NULL message provided to ct_message_set_content");
         return;
     }
-    if ((void*)content == (void*)message->content) {
+    if (content == (void*)message->content) {
         log_trace("New content is the same as existing content; no action taken");
         return;
     }
