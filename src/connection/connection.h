@@ -116,7 +116,7 @@ ct_connection_t* ct_connection_build_from_received_handle(const struct ct_listen
  * @param[in] listener Parent listener
  * @param[in] remote_endpoint Remote endpoint of the peer
  *
- * @return 0 on success, non-zero on error
+ * @return 0 on success, negative error code on failure
  */
 int ct_connection_build_multiplexed(ct_connection_t* connection,
                                     const struct ct_listener_s* listener,

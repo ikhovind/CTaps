@@ -81,8 +81,7 @@ CT_EXTERN void ct_listener_free(ct_listener_t* listener);
  * This function must be called before any other CTaps functions. It initializes
  * the event loop and sets default logging level
  *
- * @return 0 on success
- * @return negative error code on failure
+ * @return 0 on success, negative error code on failure
  *
  * @note Must be called before ct_start_event_loop()
  * @note This function initializes global state and is not thread-safe
@@ -96,7 +95,7 @@ CT_EXTERN int ct_initialize(void);
  * @ingroup library
  * @brief Start the CTaps event loop (blocking operation).
  *
- * @return 0 on success, negative error on failure
+ * @return 0 on success, negative error code on failure
  *
  * @note Must be called after ct_initialize()
  * @note All CTaps callbacks are invoked from within this event loop's thread context
@@ -110,8 +109,7 @@ CT_EXTERN int ct_start_event_loop(void);
  * @ingroup library
  * @brief Close and cleanup the CTaps library.
  *
- * @return 0 on success
- * @return Non-zero error code on failure
+ * @return 0 on success, negative error code on failure
  *
  * @see ct_initialize() for re-initializing the library
  */
@@ -163,8 +161,7 @@ CT_EXTERN void ct_set_log_level(ct_log_level_enum_t level);
  * @param[in] file_path Path to the log file (will be created/appended)
  * @param[in] min_level Minimum log level to write to this file
  *
- * @return 0 on success
- * @return Non-zero error code if file cannot be opened
+ * @return 0 on success, negative error code on failure
  *
  * @note The file will be opened in append mode
  * @note File handle remains open for the lifetime of the library
@@ -528,7 +525,7 @@ typedef struct ct_security_parameters_s ct_security_parameters_t;
  *
  * @param[in] sec Pointer to security parameters object to configure
  * @param[in] ticket_store_path Filesystem path to the ticket store (e.g., "quic_tickets.dat")
- * @return 0 on success, -ENOMEM on allocation failure or -EINVAL on invalid parameters
+ * @return 0 on success, negative error code on failure
  */
 CT_EXTERN int ct_security_parameters_set_ticket_store_path(ct_security_parameters_t* sec,
                                                            const char* ticket_store_path);
@@ -541,7 +538,7 @@ CT_EXTERN int ct_security_parameters_set_ticket_store_path(ct_security_parameter
  *
  * @param[in] sec Pointer to security parameters object to configure
  * @param[in] sni Server name for TLS SNI extension (e.g., "example.com")
- * @return 0 on success, -ENOMEM on allocation failure or -EINVAL on invalid parameters
+ * @return 0 on success, negative error code on failure
  */
 CT_EXTERN int ct_security_parameters_set_server_name_identification(ct_security_parameters_t* sec,
                                                                     const char* sni);
@@ -552,7 +549,7 @@ CT_EXTERN int ct_security_parameters_set_server_name_identification(ct_security_
  * @param[in] sec Pointer to security parameters object to configure
  * @param[in] cert_file Filesystem path to the certificate file (PEM format)
  * @param[in] key_file Filesystem path to the private key file (PEM format), or NULL if not applicable
- * @return 0 on success, -ENOMEM on allocation failure, -EINVAL on invalid parameters
+ * @return 0 on success, negative error code on failure
  */
 CT_EXTERN int ct_security_parameters_add_server_certificate(ct_security_parameters_t* sec,
                                                             const char* cert_file,
@@ -564,7 +561,7 @@ CT_EXTERN int ct_security_parameters_add_server_certificate(ct_security_paramete
  * @param[in] sec Pointer to security parameters object to configure
  * @param[in] cert_file Filesystem path to the certificate file (PEM format)
  * @param[in] key_file Filesystem path to the private key file (PEM format), or NULL if not applicable
- * @return 0 on success, -ENOMEM on allocation failure, -EINVAL on invalid parameters
+ * @return 0 on success, negative error code on failure
  */
 CT_EXTERN int ct_security_parameters_add_client_certificate(ct_security_parameters_t* sec,
                                                             const char* cert_file,
@@ -574,14 +571,14 @@ CT_EXTERN int ct_security_parameters_add_client_certificate(ct_security_paramete
  * @brief Add an ALPN protocol identifier to the list of supported ALPNs for TLS connections.
  * @param[in] sec Pointer to security parameters object to configure
  * @param[in] alpn ALPN protocol identifier string (e.g., "h3-29")
- * @return 0 on success, -ENOMEM on allocation failure, -EINVAL on invalid parameters
+ * @return 0 on success, negative error code on failure
  */
 CT_EXTERN int ct_security_parameters_add_alpn(ct_security_parameters_t* sec, const char* alpn);
 /**
  * @ingroup security_parameters
  * @brief Free and clear all configured ALPN protocol identifiers from the security parameters.
  * @param[in] sec Pointer to security parameters object to configure
- * @return 0 on success, -EINVAL if sec is NULL
+ * @return 0 on success, negative error code on failure
  */
 CT_EXTERN int ct_security_parameters_clear_alpn(ct_security_parameters_t* sec);
 
@@ -598,7 +595,7 @@ CT_EXTERN int ct_security_parameters_clear_alpn(ct_security_parameters_t* sec);
  * @param[in] sec Pointer to security parameters object to configure
  * @param[in] key Binary key data for encrypting session tickets
  * @param[in] key_len Length of the key data in bytes
- * @return 0 on success, -ENOMEM on allocation failure, -EINVAL on invalid parameters
+ * @return 0 on success, negative error code on failure
  */
 CT_EXTERN int
 ct_security_parameters_set_session_ticket_encryption_key(ct_security_parameters_t* sec,
@@ -729,7 +726,7 @@ CT_EXTERN void ct_local_endpoint_with_port(ct_local_endpoint_t* local_endpoint, 
  *
  * @param[in,out] local_endpoint Endpoint to modify
  * @param[in] service Service name (e.g., "http", "https")
- * @return 0 on success, non-zero on error
+ * @return 0 on success, negative error code on failure
  */
 CT_EXTERN int ct_local_endpoint_with_service(ct_local_endpoint_t* local_endpoint, const char* service);
 
@@ -738,7 +735,7 @@ CT_EXTERN int ct_local_endpoint_with_service(ct_local_endpoint_t* local_endpoint
  * @brief Set the IPv4 address for a local endpoint.
  * @param[in,out] local_endpoint Endpoint to modify
  * @param[in] ipv4_addr IPv4 address in network byte order
- * @return 0 on success, non-zero on error
+ * @return 0 on success, negative error code on failure
  */
 CT_EXTERN int ct_local_endpoint_with_ipv4(ct_local_endpoint_t* local_endpoint, in_addr_t ipv4_addr);
 
@@ -747,7 +744,7 @@ CT_EXTERN int ct_local_endpoint_with_ipv4(ct_local_endpoint_t* local_endpoint, i
  * @brief Set the IPv6 address for a local endpoint.
  * @param[in,out] local_endpoint Endpoint to modify
  * @param[in] ipv6_addr IPv6 address in network byte order
- * @return 0 on success, non-zero on error
+ * @return 0 on success, negative error code on failure
  */
 CT_EXTERN int ct_local_endpoint_with_ipv6(ct_local_endpoint_t* local_endpoint,
                                            struct in6_addr ipv6_addr);
@@ -761,7 +758,7 @@ CT_EXTERN int ct_local_endpoint_with_ipv6(ct_local_endpoint_t* local_endpoint,
  *
  * @param[out] local_endpoint Endpoint to initialize
  * @param[in] addr Socket address structure
- * @return 0 on success, non-zero on error
+ * @return 0 on success, negative error code on failure
  */
 CT_EXTERN int ct_local_endpoint_from_sockaddr(ct_local_endpoint_t* local_endpoint,
                                               const struct sockaddr_storage* addr);
@@ -814,7 +811,7 @@ CT_EXTERN ct_remote_endpoint_t* ct_remote_endpoint_new(void);
  * @brief Set the hostname for a remote endpoint.
  * @param[in,out] remote_endpoint Endpoint to modify
  * @param[in] hostname Hostname or IP address string
- * @return 0 on success, non-zero on error
+ * @return 0 on success, negative error code on failure
  */
 CT_EXTERN int ct_remote_endpoint_with_hostname(ct_remote_endpoint_t* remote_endpoint,
                                                const char* hostname);
@@ -832,7 +829,7 @@ CT_EXTERN void ct_remote_endpoint_with_port(ct_remote_endpoint_t* remote_endpoin
  * @brief Set the service name for a remote endpoint.
  * @param[in,out] remote_endpoint Endpoint to modify
  * @param[in] service Service name (e.g., "http", "https")
- * @return 0 on success, non-zero on error
+ * @return 0 on success, negative error code on failure
  */
 CT_EXTERN int ct_remote_endpoint_with_service(ct_remote_endpoint_t* remote_endpoint,
                                               const char* service);
@@ -849,7 +846,7 @@ CT_EXTERN void ct_remote_endpoint_free(ct_remote_endpoint_t* remote_endpoint);
  * @brief Initialize a remote endpoint from a sockaddr structure.
  * @param[out] remote_endpoint Endpoint to initialize
  * @param[in] addr Socket address structure
- * @return 0 on success, non-zero on error
+ * @return 0 on success, negative error code on failure
  */
 CT_EXTERN int ct_remote_endpoint_from_sockaddr(ct_remote_endpoint_t* remote_endpoint,
                                                const struct sockaddr_storage* addr);
@@ -867,7 +864,7 @@ CT_EXTERN ct_remote_endpoint_t* ct_remote_endpoint_deep_copy(const ct_remote_end
  * @brief Set the IPv4 address for a remote endpoint.
  * @param[in,out] remote_endpoint Endpoint to modify
  * @param[in] ipv4_addr IPv4 address in network byte order
- * @return 0 on success, non-zero on error
+ * @return 0 on success, negative error code on failure
  */
 CT_EXTERN int ct_remote_endpoint_with_ipv4(ct_remote_endpoint_t* remote_endpoint,
                                            in_addr_t ipv4_addr);
@@ -877,7 +874,7 @@ CT_EXTERN int ct_remote_endpoint_with_ipv4(ct_remote_endpoint_t* remote_endpoint
  * @brief Set the IPv6 address for a remote endpoint.
  * @param[in,out] remote_endpoint Endpoint to modify
  * @param[in] ipv6_addr IPv6 address structure
- * @return 0 on success, non-zero on error
+ * @return 0 on success, negative error code on failure
  */
 CT_EXTERN int ct_remote_endpoint_with_ipv6(ct_remote_endpoint_t* remote_endpoint,
                                            struct in6_addr ipv6_addr);
@@ -1368,7 +1365,7 @@ CT_EXTERN void ct_preconnection_free(ct_preconnection_t* preconnection);
  * @param[in,out] preconnection Preconnection to modify
  * @param[in] framer_impl Framer implementation to use, or NULL for no framing
  *
- * @return 0 on success, non-zero on error (memory allocation failure or null parameters)
+ * @return 0 on success, negative error code on failure
  */
 CT_EXTERN int ct_preconnection_set_framer(ct_preconnection_t* preconnection,
                                            const ct_framer_impl_t* framer_impl);
@@ -1390,8 +1387,7 @@ CT_EXTERN int ct_preconnection_set_framer(ct_preconnection_t* preconnection,
  *                          configuration.
  * @param[in] connection_callbacks Struct containing callback functions for connection events:
  *
- * @return 0 on no synchronous errors
- * @return Non-zero error code on synchronous error
+ * @return 0 on success, negative error code on synchronous failure
  *
  * @note Asynchronous errors are reported via the establishment_error callback
  */
@@ -1414,8 +1410,8 @@ CT_EXTERN int ct_preconnection_initiate(const ct_preconnection_t* preconnection,
  *                          configuration.
  * @param[in] connection_callbacks Struct containing callback functions for connection events:
  *
- * @return 0 on no synchronous errors
- * @return Non-zero error code on synchronous error
+ *
+ * @return 0 on success, negative error code on synchronous failure
  *
  * @note Asynchronous errors are reported via the establishment_error callback
  * @note the message context must have the MSG_SAFELY_REPLAYABLE property set to make use of 0-RTT
@@ -1435,7 +1431,7 @@ CT_EXTERN int ct_preconnection_initiate_with_send(const ct_preconnection_t* prec
  * @param[in] preconnection Pointer to preconnection with listener configuration
  * @param[in] listener_callbacks Callbacks for listener events (ready, connection_received, etc.)
  * @param[in] connection_callbacks Callbacks for connection events on accepted connections
- * @return 0 on success, negative errno on synchronous failure
+ * @return 0 on success, negative error code on synchronous failure
  *
  * @see ct_listener_close() to stop accepting new connections
  */
@@ -1452,7 +1448,7 @@ CT_EXTERN int ct_preconnection_listen(const ct_preconnection_t* preconnection,
  *
  * @param[in] connection The connection to send on
  * @param[in] message The message to send
- * @return 0 on success, non-zero on error
+ * @return 0 on success, negative error code on failure
  */
 CT_EXTERN int ct_send_message(ct_connection_t* connection, const ct_message_t* message);
 
@@ -1466,7 +1462,7 @@ CT_EXTERN int ct_send_message(ct_connection_t* connection, const ct_message_t* m
  * @param[in] connection The connection to send on
  * @param[in] message The message to send
  * @param[in] message_context Message properties and context
- * @return 0 on success, non-zero on error
+ * @return 0 on success, negative error code on failure
  */
 CT_EXTERN int ct_send_message_full(ct_connection_t* connection, const ct_message_t* message,
                                    const ct_message_context_t* message_context);
@@ -1480,7 +1476,7 @@ CT_EXTERN int ct_send_message_full(ct_connection_t* connection, const ct_message
  *
  * @param[in] connection The connection to receive on
  * @param[in] receive_callbacks Callbacks for receive events
- * @return 0 on success, non-zero on error
+ * @return 0 on success, negative error code on failure
  */
 CT_EXTERN int ct_receive_message(ct_connection_t* connection,
                                  const ct_receive_callbacks_t* receive_callbacks);
@@ -1510,7 +1506,7 @@ CT_EXTERN uint8_t ct_connection_get_priority(const ct_connection_t* connection);
  * @ingroup connection
  * @brief Set relative priority for a connection compared to other connections in the same group.
  *
- * @return 0 if the priority was set successfully, non-zero on error (e.g., connection is NULL)
+ * @return 0 on success, negative error code on failure
  * @note If a protocol does not support prioritization this does not return any error, but the value is not used.
  */
 CT_EXTERN int ct_connection_set_priority(ct_connection_t* connection, uint8_t priority);
@@ -1709,7 +1705,7 @@ CT_EXTERN void ct_connection_abort(ct_connection_t* connection);
  * @param[in] source_connection The connection to clone
  * @param[in] framer Optional framer for the cloned connection (NULL to inherit)
  * @param[in] connection_properties Optional properties for cloned connection (NULL to inherit)
- * @return 0 on success, non-zero on error (e.g., source_connection is NULL, or cloning not supported by protocol)
+ * @return 0 on success, negative error code on failure
  */
 CT_EXTERN int ct_connection_clone_full(const ct_connection_t* source_connection,
                                        const ct_framer_impl_t* framer,
