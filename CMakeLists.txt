@@ -69,10 +69,12 @@ set(CTAPS_SOURCES
     src/util/uuid_util.c
 )
 
-add_library(
-        CTaps SHARED
-        ${CTAPS_SOURCES}
-)
+option(CTAPS_BUILD_SHARED "Build CTaps as a shared library" ON)
+if(CTAPS_BUILD_SHARED)
+    add_library(CTaps SHARED ${CTAPS_SOURCES})
+else()
+    add_library(CTaps STATIC ${CTAPS_SOURCES})
+endif()
 
 target_compile_definitions(CTaps PRIVATE
     _GNU_SOURCE

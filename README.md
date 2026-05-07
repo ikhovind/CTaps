@@ -1,8 +1,11 @@
 # CTaps
-A C implementation of IETF Transport Services (TAPS, RFC 9622) with QUIC support via Picoquic.
+A C implementation of IETF Transport Services (TAPS) with support for QUIC, TCP and UDP.
 
-CTaps provides an asynchronous, callback-based interface for network connections
-which is interacted with through Transport Services.
+CTaps provides an asynchronous, callback-based interface for network connections.
+It supports **multistreaming**, **connection migration** (as a proof of concept), **session resumption**,
+**candidate gathering** and **candidate racing**.
+Internally it uses
+[Picoquic](https://github.com/private-octopus/picoquic) and [libuv](https://github.com/libuv/libuv).
 
 Transport Services is described in:
  * [RFC 9621 - Overall Structure](https://www.rfc-editor.org/info/rfc9621).
@@ -11,18 +14,21 @@ Transport Services is described in:
 
 ## Core Structures
 
-The library implements several key abstractions from RFC 9622.
+CTaps implements several key abstractions from RFC 9622.
 Among these, the most central to communication are:
 
 | RFC 9622 Concept  | CTaps Equivalent | Description  |
 |---|---|---|
-| Preconnection         | ct_preconnection_t            | Configuration object for setting up connections before establishment. |
+| Preconnection         | ct_preconnection_t            | Configuration object for setting up Connections before establishment. |
 | Connection            | ct_connection_t               | Active connection created from a Preconnection. |
+| Listener              | ct_listener_t                 | Listener for receiving incoming Connections created from a Preconnection. |
 | Message               | ct_message_t                  | A single message delivered by one of the underlying protocols.  |
+| Local Endpoint        | ct_local_endpoint_t           | A generic or resolved local address to communicate from. |
+| Remote Endpoint       | ct_remote_endpoint_t          | A generic or resolved remote address to communicate with. |
 
-Several other abstractions exists to set up the underlying connection.
+Several other abstractions exist to set up the underlying Connection.
 
-An example of a connection can be seen in the following code snippet, adapted from our TCP ping test:
+## Examples
 
 <details>
 
@@ -47,7 +53,7 @@ void close_on_message_received(ct_connection_t* connection,
     ct_connection_close(connection);
 }
 
-void send_message_and_receive(struct ct_connection_s* connection) {
+void send_message_and_receive(ct_connection_t* connection) {
     ct_message_t* message = ct_message_new_with_content("ping", strlen("ping") + 1);
     // CTaps takes a deep copy of the passed content, so the message can be freed after this returns
     ct_send_message(connection, message);
@@ -80,7 +86,7 @@ int main() {
     // TCP is the only protocol compatible with this requirement
     ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PROHIBIT);
 
-    // Create preconection
+    // Create preconnection
     ct_preconnection_t* preconnection = ct_preconnection_new(NULL, // No local endpoint to bind to ephemeral port
                                                              0,
                                                              &remote_endpoint,
@@ -152,14 +158,14 @@ void free_on_connection_closed(ct_connection_t* connection) {
     ct_connection_free(connection);
 }
 
-intg main() {
+int main() {
     ct_initialize(); // Init logging and event loop
     
     ct_set_log_level(CT_LOG_INFO);
 
     // Create transport properties
     ct_transport_properties_t* listener_props = ct_transport_properties_new();
-    ct_transport_properties_set_preserve_msg_boundaries(listener_props, PROHIBIT); // force TCP
+    ct_transport_properties_set_preserve_msg_boundaries(listener_props, PROHIBIT); // Force TCP
 
     ct_local_endpoint_t* local_endpoint = ct_local_endpoint_new();
     ct_local_endpoint_with_port(local_endpoint, 1234);
@@ -202,32 +208,40 @@ intg main() {
 ```
 </details>
 
-## Internal structure
-
-To provide QUIC support CTaps uses [Picoquic](https://github.com/private-octopus/picoquic)
-while [libuv](https://github.com/libuv/libuv) is used to power the event loop and interact with the underlying
-sockets.
-
+Additional examples can be found in the [CTaps example project](https://github.com/ikhovind/CTaps-example-project).
 
 ## Project Structure
 
 ```
 ctaps/
-├── include/        # Public API headers
+├── benchmark/     # Code used to compare CTaps to native benchmarks
+├── include/       # Public API headers
 │   └── ctaps.h    # Public interface
+├── examples/      # Example client and server from this README
 ├── src/           # Implementation
-│   ├── connection/         # (pre)connection abstractions
-│   ├── protocol/          # Protocol implementations (TCP, UDP, QUIC) and setup
+│   ├── connection/          # (pre)connection abstractions
+│   ├── protocol/            # Protocol interfaces (TCP, UDP, QUIC) and setup
 │   ├── candidate_gathering/ # Protocol/endpoint selection and racing
 │   └── ...
 └── test/          # Test suite (googletest)
 ```
 
 ## Building
+Dependencies of CTaps are installed automatically by CMake via ``FetchContent``.
 
 ```bash
 cmake . -B out/Debug
-cmake --build out/Debug --target all -j 6
+cmake --build out/Debug --target all
+```
+
+Note that the migration tests require ``CAP_NET_ADMIN``
+and are by default not built. They can be built by
+setting the ``CTAPS_ENABLE_MIGRATION_TESTS`` option
+in CMake:
+
+```bash
+cmake . -B out/Debug -DCTAPS_ENABLE_MIGRATION_TESTS=ON
+cmake --build out/Debug --target all
 ```
 
 ## Running Tests
@@ -239,3 +253,19 @@ cd out/Debug/test && ctest
 ## Including in your project
 See the [CTaps example project](https://github.com/ikhovind/CTaps-example-project) for
 an example on how to fetch CTaps as a dependency using CMake.
+
+## Platform Support
+
+CTaps is supported on **Linux** only.
+
+
+## Thesis
+
+CTaps was developed as part of a master's thesis at UiO, the final thesis will be added
+here when published.
+
+## License
+
+This project is licensed under the [MIT license].
+
+[MIT license]: https://github.com/ikhovind/ctaps/blob/main/LICENSE

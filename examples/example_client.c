@@ -49,10 +49,10 @@ int main() {
     // TCP is the only protocol compatible with this requirement
     ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PROHIBIT);
 
-    // Create preconection
+    // Create preconnection
     ct_preconnection_t* preconnection = ct_preconnection_new(NULL, // No local endpoint to bind to ephemeral port
                                                              0,
-                                                             remote_endpoint,
+                                                             &remote_endpoint,
                                                              1,
                                                              transport_properties,
                                                              NULL

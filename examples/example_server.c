@@ -37,13 +37,13 @@ int main() {
 
     // Create transport properties
     ct_transport_properties_t* listener_props = ct_transport_properties_new();
-    ct_transport_properties_set_preserve_msg_boundaries(listener_props, PROHIBIT); // force TCP
+    ct_transport_properties_set_preserve_msg_boundaries(listener_props, PROHIBIT); // Force TCP
 
     ct_local_endpoint_t* local_endpoint = ct_local_endpoint_new();
     ct_local_endpoint_with_port(local_endpoint, 1234);
 
     // Create preconnection
-    ct_preconnection_t* preconnection = ct_preconnection_new(local_endpoint,
+    ct_preconnection_t* preconnection = ct_preconnection_new(&local_endpoint,
                                                              1,
                                                              NULL,
                                                              0,
