@@ -14,7 +14,7 @@ extern "C" {
     // ct_remote_endpoint_resolve_cb is defined in candidate_gathering.c — wrap it.
     // perform_dns_lookup is defined in the DNS module — wrap it.
   FAKE_VOID_FUNC(faked_ct_remote_endpoint_resolve_cb, ct_remote_endpoint_t*, size_t, ct_remote_resolve_call_context_t*);
-  FAKE_VOID_FUNC(__wrap_ct_perform_dns_lookup, const char*, const char*, ct_remote_resolve_call_context_t*);
+  FAKE_VALUE_FUNC(int, __wrap_ct_perform_dns_lookup, const char*, const char*, ct_remote_resolve_call_context_t*);
 }
 
 
@@ -35,6 +35,7 @@ protected:
         RESET_FAKE(__wrap_ct_perform_dns_lookup);
         remote_endpoint = ct_remote_endpoint_new();
         ASSERT_NE(remote_endpoint, nullptr);
+        __wrap_ct_perform_dns_lookup_fake.return_val = 0;
     }
 
     void TearDown() override {
