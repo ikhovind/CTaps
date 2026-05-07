@@ -48,14 +48,17 @@ void close_on_message_received(ct_connection_t* connection,
         ct_message_context_get_local_endpoint(message_context)
     );
 
-    printf("Received message: %s on port %d\n", ct_message_get_content(received_message), port);
+    printf("Received message: %s on port %d\n",
+           ct_message_get_content(received_message), port);
 
     ct_connection_close(connection);
 }
 
 void send_message_and_receive(ct_connection_t* connection) {
-    ct_message_t* message = ct_message_new_with_content("ping", strlen("ping") + 1);
-    // CTaps takes a deep copy of the passed content, so the message can be freed after this returns
+    ct_message_t* message =
+        ct_message_new_with_content("ping", strlen("ping") + 1);
+    // CTaps takes a deep copy of the passed content,
+    // so the message can be freed after this returns
     ct_send_message(connection, message);
     ct_message_free(message);
 
@@ -79,37 +82,37 @@ int main() {
     ct_remote_endpoint_with_port(remote_endpoint, 1234); // example port
 
     // Create transport properties
-    ct_transport_properties_t* transport_properties = ct_transport_properties_new();
+    ct_transport_properties_t* transport_properties =
+        ct_transport_properties_new();
 
-    // selection properties decide which protocol(s) will be used, if multiple are compatible with
-    // our requirements, then we will race the protocols
-    // TCP is the only protocol compatible with this requirement
-    ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PROHIBIT);
+    // selection properties decide which protocol(s) will be used,
+    // if multiple are compatible with our requirements,
+    // then we will race the protocols TCP is the only protocol
+    // compatible with this requirement
+    ct_transport_properties_set_preserve_msg_boundaries(
+        transport_properties, PROHIBIT);
 
     // Create preconnection
-    ct_preconnection_t* preconnection = ct_preconnection_new(NULL, // No local endpoint to bind to ephemeral port
-                                                             0,
-                                                             &remote_endpoint,
-                                                             1,
-                                                             transport_properties,
-                                                             NULL
-                                                             );
+    // No local endpoint, so will bind to wildcard 
+    ct_preconnection_t* preconnection = ct_preconnection_new(
+        NULL, 0, &remote_endpoint, 1, transport_properties, NULL);
 
     ct_connection_callbacks_t connection_callbacks = {
         .ready = send_message_and_receive,
         .closed = free_on_connection_closed
     };
 
+    // Gather potential endpoints and start racing, when event loop starts
     int rc = ct_preconnection_initiate(
         preconnection,
-        &connection_callbacks); // Gather potential endpoints and start racing, when event loop starts
+        &connection_callbacks);
 
     if (rc < 0) {
         perror("Error in initiating connection\n");
         return rc;
     }
-
-    ct_start_event_loop(); // Start the libuv event loop, block until all connections close (or no connection can be established)
+    // Block until all connections close (or no connection can be established)
+    ct_start_event_loop();
 
     // Cleanup
     ct_preconnection_free(preconnection);
@@ -130,24 +133,29 @@ int main() {
 #include <stdio.h>
 #include <string.h>
 
-void close_on_message_received(ct_connection_t* connection, ct_message_t* received_message, ct_message_context_t* message_context) {
+void close_on_message_received(ct_connection_t* connection,
+                               ct_message_t* received_message,
+                               ct_message_context_t* message_context) {
     uint16_t port = ct_local_endpoint_get_resolved_port(
         ct_message_context_get_local_endpoint(message_context)
     );
 
-    printf("Received message: %s on port %d\n", ct_message_get_content(received_message), port);
+    printf("Received message: %s on port %d\n",
+           ct_message_get_content(received_message), port);
 
     ct_connection_close(connection);
 }
 
-void on_connection_received_receive_message(ct_listener_t* listener, ct_connection_t* new_connection) {
+void on_connection_received_receive_message(ct_listener_t* listener,
+                                            ct_connection_t* new_connection) {
     printf("Listener received new connection\n");
     ct_receive_callbacks_t receive_message_request = {
       .receive_callback = close_on_message_received,
     };
 
     ct_receive_message(new_connection, &receive_message_request);
-    ct_listener_close(listener); // Stop accepting new connections after the first one is received
+    // Stop accepting new connections after the first one is received
+    ct_listener_close(listener);
 }
 
 void free_on_listener_closed(ct_listener_t* listener) {
@@ -165,19 +173,15 @@ int main() {
 
     // Create transport properties
     ct_transport_properties_t* listener_props = ct_transport_properties_new();
-    ct_transport_properties_set_preserve_msg_boundaries(listener_props, PROHIBIT); // Force TCP
+    ct_transport_properties_set_preserve_msg_boundaries(
+        listener_props, PROHIBIT); // Force TCP
 
     ct_local_endpoint_t* local_endpoint = ct_local_endpoint_new();
     ct_local_endpoint_with_port(local_endpoint, 1234);
 
     // Create preconnection
-    ct_preconnection_t* preconnection = ct_preconnection_new(&local_endpoint,
-                                                             1,
-                                                             NULL,
-                                                             0,
-                                                             listener_props,
-                                                             NULL
-                                                             );
+    ct_preconnection_t* preconnection = ct_preconnection_new(
+        &local_endpoint, 1, NULL, 0, listener_props, NULL);
 
     ct_listener_callbacks_t listener_callbacks = {
         .connection_received = on_connection_received_receive_message,
@@ -188,7 +192,8 @@ int main() {
         .closed = free_on_connection_closed 
     };
 
-    int rc = ct_preconnection_listen(preconnection, &listener_callbacks, &connection_callbacks);
+    int rc = ct_preconnection_listen(
+        preconnection, &listener_callbacks, &connection_callbacks);
 
     if (rc < 0) {
         perror("Sync error in establishing listener\n");
