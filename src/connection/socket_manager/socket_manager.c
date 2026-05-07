@@ -286,10 +286,8 @@ void ct_socket_manager_closed_socket_cb(ct_socket_manager_t* socket_manager) {
 
 void ct_socket_manager_closed_connection_cb(ct_connection_t* connection) {
     ct_socket_manager_t* socket_manager = connection->socket_manager;
-    log_debug("Socket manager closed connection callback invoked for connection: %s",
-              connection->uuid);
-
-    log_debug("socket manager has closed/no attched listener, checking num open connections");
+    log_debug("Socket manager closed connection callback "
+              "invoked for connection: %s", connection->uuid);
     int num_open = ct_socket_manager_get_num_open_dependents(socket_manager);
     if (num_open == 1) {
         log_debug("The final open connection in socket manager is now closed, closing entire "
