@@ -123,7 +123,7 @@ CT_EXTERN int ct_close(void);
  * @ingroup logging
  * @brief Log level enumeration for filtering log output.
  *
- * Log levels range from TRACE (most verbose) to FATAL (critical errors only).
+ * Log levels range from TRACE (most verbose) to ERROR (critical errors only).
  * Setting a log level filters out all messages below that level.
  */
 typedef enum {
@@ -144,7 +144,7 @@ typedef enum {
  * @param[in] level Minimum log level (CT_LOG_TRACE through CT_LOG_ERROR)
  *
  * @note This can be called before ct_initialize() or at any time during execution
- * @note Lower numeric values are more verbose (TRACE=0, FATAL=5)
+ * @note Lower numeric values are more verbose (TRACE=0, ERROR=4)
  *
  * @see ct_log_level_enum_t for available log levels
  */
@@ -352,7 +352,7 @@ f(USER_TIMEOUT_CHANGEABLE, "userTimeoutChangeable", bool,     user_timeout_chang
 /**
  * @ingroup transport_properties
  * @struct ct_transport_properties_t
- * @brief Opaque handle representing a transport properties used for 
+ * @brief Opaque handle representing transport properties used for 
  *        selecting and configuring protocols.
  *
  * Allocate a new instance using ct_transport_properties_new().
@@ -492,8 +492,6 @@ CT_EXTERN void ct_message_properties_free(ct_message_properties_t* message_prope
 /**
  * @ingroup security_parameters
  * @struct ct_security_parameters_t
- * @brief Collection of all security parameters.
- *
  * @brief Opaque handle representing a security parameters used to configure security settings for connections and listeners.
  *
  * ## Security Parameters Ownership Model
@@ -644,8 +642,22 @@ CT_EXTERN const char*
 ct_security_parameters_get_client_certificate_key_file(const ct_security_parameters_t* sec,
                                                        size_t index);
 
+/**
+ * @ingroup security_parameters
+ * @brief Get the configured ALPN protocol identifiers.
+ * @param[in] sec Security parameters to query
+ * @param[out] num_alpns Set to the number of ALPN strings in the returned array
+ * @return Pointer to array of ALPN strings, or NULL if none are set
+ */
 CT_EXTERN const char* const* ct_security_parameters_get_alpns(const ct_security_parameters_t* sec,
                                                         size_t* num_alpns);
+/**
+ * @ingroup security_parameters
+ * @brief Get the session ticket encryption key.
+ * @param[in] sec Security parameters to query
+ * @param[out] key_len Set to the length of the returned key in bytes
+ * @return Pointer to key data, or NULL if no key is set
+ */
 CT_EXTERN const uint8_t*
 ct_security_parameters_get_session_ticket_encryption_key(const ct_security_parameters_t* sec,
                                                          size_t* key_len);
@@ -1480,7 +1492,7 @@ CT_EXTERN int ct_receive_message(ct_connection_t* connection,
 
 /**
  * @ingroup connection
- * @brief get shared connection properties for a connection
+ * @brief Get shared connection properties for a connection
  * @param[in] connection The connection to query
  * @return pointer to transport properties shared with connections in the same connection group, or NULL if connection is NULL
  */
@@ -1510,7 +1522,7 @@ CT_EXTERN int ct_connection_set_priority(ct_connection_t* connection, uint8_t pr
 
 /**
  * @ingroup connection
- * @brief Get the connections callback context.
+ * @brief Get the connection's callback context.
  * @param[in] connection connection to get callback context for
  * @return Void pointer assigned to callback context
  *         null if connection is null or it hasn't been set
@@ -1529,7 +1541,7 @@ CT_EXTERN const char* ct_connection_get_uuid(const ct_connection_t* connection);
  * @ingroup connection
  * @brief Get the name of the underlying protocol
  * @param[in] connection connection to get protocol name for
- * @return Pointer to protocol name, NULL of connection is NULL 
+ * @return Pointer to protocol name, NULL if connection is NULL 
  */
 CT_EXTERN const char* ct_connection_get_protocol_name(const ct_connection_t* connection);
 
@@ -1545,7 +1557,7 @@ ct_connection_get_active_remote_endpoint(const ct_connection_t* connection);
 /**
  * @ingroup connection
  * @brief Get the currently active local endpoint
- * @param[in] connection connection to get remote endpoint for
+ * @param[in] connection connection to get local endpoint for
  * @return Pointer to endpoint, NULL if connection is NULL 
  */
 CT_EXTERN const ct_local_endpoint_t*
@@ -1764,7 +1776,7 @@ CT_EXTERN void ct_connection_abort_group(ct_connection_t* connection);
  * @brief Enumeration of currently supported transport protocols.
  */
 typedef enum {
-    CT_PROTOCOL_ERROR = -1, // returned from getters in errors, e.g. null connection
+    CT_PROTOCOL_ERROR = -1, ///< returned from getters in errors, e.g. null connection
     CT_PROTOCOL_TCP,
     CT_PROTOCOL_UDP,
     CT_PROTOCOL_QUIC,
