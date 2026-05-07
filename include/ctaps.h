@@ -37,10 +37,6 @@ typedef struct ct_connection_s ct_connection_t;
  * @brief Opaque handle representing a listener.
  *
  * Received via callback after ct_preconnection_listen()
- *
- * @note Despite being received via callback, the creation
- * of the listener is currently synchronous so the callback
- * is fired immediately.
  */
 typedef struct ct_listener_s ct_listener_t;
 
@@ -123,7 +119,7 @@ CT_EXTERN int ct_close(void);
  * @ingroup logging
  * @brief Log level enumeration for filtering log output.
  *
- * Log levels range from TRACE (most verbose) to FATAL (critical errors only).
+ * Log levels range from TRACE (most verbose) to ERROR (critical errors only).
  * Setting a log level filters out all messages below that level.
  */
 typedef enum {
@@ -144,7 +140,7 @@ typedef enum {
  * @param[in] level Minimum log level (CT_LOG_TRACE through CT_LOG_ERROR)
  *
  * @note This can be called before ct_initialize() or at any time during execution
- * @note Lower numeric values are more verbose (TRACE=0, FATAL=5)
+ * @note Lower numeric values are more verbose (TRACE=0, ERROR=4)
  *
  * @see ct_log_level_enum_t for available log levels
  */
@@ -352,7 +348,7 @@ f(USER_TIMEOUT_CHANGEABLE, "userTimeoutChangeable", bool,     user_timeout_chang
 /**
  * @ingroup transport_properties
  * @struct ct_transport_properties_t
- * @brief Opaque handle representing a transport properties used for 
+ * @brief Opaque handle representing transport properties used for 
  *        selecting and configuring protocols.
  *
  * Allocate a new instance using ct_transport_properties_new().
@@ -492,8 +488,6 @@ CT_EXTERN void ct_message_properties_free(ct_message_properties_t* message_prope
 /**
  * @ingroup security_parameters
  * @struct ct_security_parameters_t
- * @brief Collection of all security parameters.
- *
  * @brief Opaque handle representing a security parameters used to configure security settings for connections and listeners.
  *
  * ## Security Parameters Ownership Model
@@ -644,8 +638,22 @@ CT_EXTERN const char*
 ct_security_parameters_get_client_certificate_key_file(const ct_security_parameters_t* sec,
                                                        size_t index);
 
+/**
+ * @ingroup security_parameters
+ * @brief Get the configured ALPN protocol identifiers.
+ * @param[in] sec Security parameters to query
+ * @param[out] num_alpns Set to the number of ALPN strings in the returned array
+ * @return Pointer to array of ALPN strings, or NULL if none are set
+ */
 CT_EXTERN const char* const* ct_security_parameters_get_alpns(const ct_security_parameters_t* sec,
                                                         size_t* num_alpns);
+/**
+ * @ingroup security_parameters
+ * @brief Get the session ticket encryption key.
+ * @param[in] sec Security parameters to query
+ * @param[out] key_len Set to the length of the returned key in bytes
+ * @return Pointer to key data, or NULL if no key is set
+ */
 CT_EXTERN const uint8_t*
 ct_security_parameters_get_session_ticket_encryption_key(const ct_security_parameters_t* sec,
                                                          size_t* key_len);
@@ -1148,7 +1156,7 @@ typedef struct ct_connection_callbacks_s {
     /** @brief Called when connection establishment fails. */
     void (*establishment_error)(ct_connection_t* connection);
 
-    /** @brief Called when a connection expires (e.g., idle timeout). */
+    /** @brief Called when a connection expires (e.g., timeout). */
     void (*expired)(ct_connection_t* connection);
 
     /** @brief Called when the connection's network path changes, local or remote. */
@@ -1164,7 +1172,7 @@ typedef struct ct_connection_callbacks_s {
     void (*send_error)(ct_connection_t* connection, ct_message_context_t* message_context,
                        int reason_code);
 
-    /** @brief Called when a sent message is acknowledged by the transport. */
+    /** @brief Called when a message is passed to the transport protocol. */
     void (*sent)(ct_connection_t* connection, ct_message_context_t* message_context);
 
     /** @brief Called when a non-fatal error occurs (e.g., congestion). */
@@ -1319,7 +1327,6 @@ typedef struct ct_preconnection_s ct_preconnection_t;
  *
  * Allocates and initializes a new preconnection object on the heap.
  * The returned object must be freed with ct_preconnection_free().
- * This follows the RFC 9622 pattern: Preconnection := NewPreconnection(...)
  *
  * Takes deep copies of all passed endpoints and transport/security parameters.
  * The caller can therefore safely free or reuse the original parameters after this function returns.
@@ -1343,8 +1350,6 @@ ct_preconnection_new(const ct_local_endpoint_t* const* local_endpoints, size_t n
  * @brief Free a preconnection object.
  *
  * Releases all resources associated with the preconnection object,
- * including any dynamically allocated remote endpoints and internal state.
- * After calling this function, the pointer is invalid and must not be used.
  *
  * @param[in] preconnection Pointer to preconnection to free. Does nothing if NULL.
  */
@@ -1356,8 +1361,6 @@ CT_EXTERN void ct_preconnection_free(ct_preconnection_t* preconnection);
  *
  * CTaps does not take ownership of the passed framer pointer, so it can be
  * safely freed after return.
- *
- * Pass NULL to unset framer
  *
  * @param[in,out] preconnection Preconnection to modify
  * @param[in] framer_impl Framer implementation to use, or NULL for no framing
@@ -1378,7 +1381,7 @@ CT_EXTERN int ct_preconnection_set_framer(ct_preconnection_t* preconnection,
  * safely freed after return.
  *
  * CTaps does not take ownership of the passed connection_callbacks pointer,
- * so it can be safely freed after return if needed.
+ * so it can be safely freed after return.
  *
  * @param[in] preconnection Pointer to the Preconnection object containing the connection
  *                          configuration.
@@ -1480,7 +1483,7 @@ CT_EXTERN int ct_receive_message(ct_connection_t* connection,
 
 /**
  * @ingroup connection
- * @brief get shared connection properties for a connection
+ * @brief Get shared connection properties for a connection
  * @param[in] connection The connection to query
  * @return pointer to transport properties shared with connections in the same connection group, or NULL if connection is NULL
  */
@@ -1510,7 +1513,7 @@ CT_EXTERN int ct_connection_set_priority(ct_connection_t* connection, uint8_t pr
 
 /**
  * @ingroup connection
- * @brief Get the connections callback context.
+ * @brief Get the connection's callback context.
  * @param[in] connection connection to get callback context for
  * @return Void pointer assigned to callback context
  *         null if connection is null or it hasn't been set
@@ -1529,7 +1532,7 @@ CT_EXTERN const char* ct_connection_get_uuid(const ct_connection_t* connection);
  * @ingroup connection
  * @brief Get the name of the underlying protocol
  * @param[in] connection connection to get protocol name for
- * @return Pointer to protocol name, NULL of connection is NULL 
+ * @return Pointer to protocol name, NULL if connection is NULL 
  */
 CT_EXTERN const char* ct_connection_get_protocol_name(const ct_connection_t* connection);
 
@@ -1545,7 +1548,7 @@ ct_connection_get_active_remote_endpoint(const ct_connection_t* connection);
 /**
  * @ingroup connection
  * @brief Get the currently active local endpoint
- * @param[in] connection connection to get remote endpoint for
+ * @param[in] connection connection to get local endpoint for
  * @return Pointer to endpoint, NULL if connection is NULL 
  */
 CT_EXTERN const ct_local_endpoint_t*
@@ -1635,7 +1638,7 @@ CT_EXTERN bool ct_connection_is_server(const ct_connection_t* connection);
  * @ingroup connection
  * @brief Check the value of the canSend connection property.
  * @param[in] connection The connection to check
- * @return false if connection is NULL, closed, not established or "Final" message property has been sent.
+ * @return false if connection is NULL or if canSend is false.
  */
 CT_EXTERN bool ct_connection_can_send(const ct_connection_t* connection);
 
@@ -1644,7 +1647,7 @@ CT_EXTERN bool ct_connection_can_send(const ct_connection_t* connection);
  * @brief Check the value of the canReceive connection property.
  *
  * @param[in] connection The connection to check
- * @return false if connection is NULL of if canReceive is false.
+ * @return false if connection is NULL or if canReceive is false.
  */
 CT_EXTERN bool ct_connection_can_receive(const ct_connection_t* connection);
 
@@ -1660,7 +1663,7 @@ CT_EXTERN void ct_connection_free(ct_connection_t* connection);
  * @brief Close a connection gracefully.
  *
  * Exact behaviour depends on the underlying transport protocol.
- * For TCP, this performs a graceful shutdown (e.g., TCP FIN).
+ * For TCP, this performs a graceful shutdown (e.g., FIN).
  * For UDP this simply stops further sends and receives and closes the socket.
  * For QUIC it closes the connection, if the connection it is invoked on
  * is the last open connection in the connection group. Otherwise it closes
@@ -1675,8 +1678,8 @@ CT_EXTERN void ct_connection_close(ct_connection_t* connection);
  * @ingroup connection
  * @brief Forcefully abort a connection without graceful shutdown.
  *
- * Unlike ct_connection_close() which performs a graceful shutdown (e.g., TCP FIN),
- * this immediately terminates the connection (e.g., TCP RST). Use when an error
+ * Unlike ct_connection_close() which performs a graceful shutdown (e.g., FIN),
+ * this immediately terminates the connection (e.g., RST). Use when an error
  * condition requires immediate termination.
  *
  * @param[in] connection Connection to abort
@@ -1701,8 +1704,7 @@ CT_EXTERN void ct_connection_abort(ct_connection_t* connection);
  *
  * @param[in] source_connection The connection to clone
  * @param[in] framer Optional framer for the cloned connection (NULL to inherit)
- * @param[in] connection_properties Optional properties for cloned connection
- *            This is currently not implemented
+ * @param[in] connection_properties Optional properties for cloned connection (Not implemented)
  * @return 0 on success, negative error code on failure
  */
 CT_EXTERN int ct_connection_clone_full(const ct_connection_t* source_connection,
@@ -1764,7 +1766,7 @@ CT_EXTERN void ct_connection_abort_group(ct_connection_t* connection);
  * @brief Enumeration of currently supported transport protocols.
  */
 typedef enum {
-    CT_PROTOCOL_ERROR = -1, // returned from getters in errors, e.g. null connection
+    CT_PROTOCOL_ERROR = -1, ///< returned from getters in errors, e.g. null connection
     CT_PROTOCOL_TCP,
     CT_PROTOCOL_UDP,
     CT_PROTOCOL_QUIC,
