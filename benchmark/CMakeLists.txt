@@ -151,6 +151,14 @@ add_executable(ctaps_udp_rtt_client
     src/client/udp_rtt/ctaps_udp_rtt_client.c
 )
 
+add_executable(libuv_udp_rtt_client
+    src/client/udp_rtt/libuv_udp_rtt_client.c
+)
+
+target_link_libraries(libuv_udp_rtt_client
+    uv
+)
+
 add_executable(baseline_udp_rtt_client
     src/client/udp_rtt/baseline_udp_rtt_client.c
 )
@@ -175,4 +183,5 @@ add_custom_target(benchmark ALL
         ctaps_udp_rtt_client
         baseline_udp_rtt_client
         udp_server
+        libuv_udp_rtt_client
 )

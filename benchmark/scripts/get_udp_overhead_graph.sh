@@ -9,6 +9,7 @@ SERVER_BIN=../../out/Release/benchmark/udp_server
 BASELINE_CLIENT_BIN=../../out/Release/benchmark/baseline_udp_rtt_client
 
 CTAPS_CLIENT_BIN=../../out/Release/benchmark/ctaps_udp_rtt_client
+LIBUV_CLIENT_BIN=../../out/Release/benchmark/libuv_udp_rtt_client
 
 # Optional: where the clients write their output
 OUT_FOLDER=../results
@@ -52,8 +53,11 @@ run_pair "$SERVER_BIN" "$BASELINE_CLIENT_BIN" "BASELINE"
 echo "=== Running CTaps experiment ==="
 run_pair "$SERVER_BIN" "$CTAPS_CLIENT_BIN" "CTAPS"
 
+echo "=== Running libuv experiment ==="
+run_pair "$SERVER_BIN" "$LIBUV_CLIENT_BIN" "LIBUV"
+
 echo "All experiments completed."
 echo "Expected output folder:"
 echo "  $OUT_FOLDER"
 
-python3 ../visualize.py ../results/rtt_baseline_ns.txt --udp-overhead ../results/rtt_ctaps_ns.txt --pgf --output ../plots
+python3 ../visualize.py ../results/rtt_baseline_ns.txt --udp-overhead ../results/rtt_ctaps_ns.txt ../results/rtt_libuv_ns.txt --output ../plots

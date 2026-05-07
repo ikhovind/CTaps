@@ -275,6 +275,7 @@ def plot_handshake_kde(handshake: dict, out_dir: Path, use_pgf=True) -> None:
 def plot_rtt_ecdf(
     baseline_file: Path,
     ctaps_file: Path,
+    libuv_file: Path,
     out_dir: Path,
     p_cut: float = 99.0,
     use_pgf: bool = True,
@@ -294,9 +295,11 @@ def plot_rtt_ecdf(
     # Load RTTs (ns → µs)
     rtt_ns_base = np.loadtxt(baseline_file)
     rtt_ns_ctap = np.loadtxt(ctaps_file)
+    rtt_ns_libuv = np.loadtxt(libuv_file)
 
     rtt_us_base = rtt_ns_base / 1e3
     rtt_us_ctap = rtt_ns_ctap / 1e3
+    rtt_us_libuv = rtt_ns_libuv / 1e3
 
     # ECDF helper
     def ecdf(data: np.ndarray):
@@ -306,22 +309,25 @@ def plot_rtt_ecdf(
 
     x_base, y_base = ecdf(rtt_us_base)
     x_ctap, y_ctap = ecdf(rtt_us_ctap)
+    x_libuv, y_libuv = ecdf(rtt_us_libuv)
 
     # Percentile cutoff based on combined data
-    combined = np.concatenate([rtt_us_base, rtt_us_ctap])
+    combined = np.concatenate([rtt_us_base, rtt_us_ctap, rtt_us_libuv])
     x_cut = np.percentile(combined, p_cut)
 
     # Lower bound: minimum over both datasets
-    x_min = float(min(x_base[0], x_ctap[0]))
+    x_min = float(min(x_base[0], x_ctap[0], x_libuv[0]))
 
     fig, ax = plt.subplots(figsize=DEFAULT_FIGSIZE)
 
     base_color = "#1565C0"
     ctap_color = "#2E7D32"
+    libuv_color = "#E65100"
 
     # Plot ECDFs
-    ax.plot(x_base, y_base, label="Baseline UDP", color=base_color, linewidth=1.8)
-    ax.plot(x_ctap, y_ctap, label="CTaps",        color=ctap_color, linewidth=1.8)
+    ax.plot(x_base, y_base, label="Baseline UDP", color=base_color,  linewidth=1.8)
+    ax.plot(x_ctap, y_ctap, label="CTaps",        color=ctap_color,  linewidth=1.8)
+    ax.plot(x_libuv, y_libuv, label="libuv",      color=libuv_color, linewidth=1.8)
 
     # Axis labels and limits
     ax.set_xlabel("RTT (µs)")
@@ -339,6 +345,8 @@ def plot_rtt_ecdf(
     base_markers_y = []
     ctap_markers_x = []
     ctap_markers_y = []
+    libuv_markers_x = []
+    libuv_markers_y = []
 
     # Compute percentiles for annotation logic
     med_b = np.percentile(rtt_us_base, 50.0)
@@ -348,6 +356,10 @@ def plot_rtt_ecdf(
     med_c = np.percentile(rtt_us_ctap, 50.0)
     p90_c = np.percentile(rtt_us_ctap, 90.0)
     p99_c = np.percentile(rtt_us_ctap, 99.0)
+
+    med_l = np.percentile(rtt_us_libuv, 50.0)
+    p90_l = np.percentile(rtt_us_libuv, 90.0)
+    p99_l = np.percentile(rtt_us_libuv, 99.0)
 
     # Collect markers (only those that lie within x-range)
     for p in percentiles:
@@ -362,6 +374,11 @@ def plot_rtt_ecdf(
         if x_min <= xc_p <= x_cut:
             ctap_markers_x.append(xc_p)
             ctap_markers_y.append(yp)
+
+        xl_p = np.percentile(rtt_us_libuv, p)
+        if x_min <= xl_p <= x_cut:
+            libuv_markers_x.append(xl_p)
+            libuv_markers_y.append(yp)
 
     # Scatter the percentile markers
     ax.scatter(
@@ -378,6 +395,15 @@ def plot_rtt_ecdf(
         ctap_markers_y,
         color=ctap_color,
         marker="s",
+        s=20,
+        zorder=3,
+        label="_nolegend_",
+    )
+    ax.scatter(
+        libuv_markers_x,
+        libuv_markers_y,
+        color=libuv_color,
+        marker="^",
         s=20,
         zorder=3,
         label="_nolegend_",
@@ -415,7 +441,8 @@ def plot_rtt_ecdf(
         r"      & \multicolumn{3}{c}{/ \si{\micro\second}} \\"
         r"      & p50 & p90 & p99 \\"
         rf"Base  & {med_b:0.1f} & {p90_b:0.1f} & {p99_b:0.1f} \\"
-        rf"CTaps & {med_c:0.1f} & {p90_c:0.1f} & {p99_c:0.1f}"
+        rf"CTaps & {med_c:0.1f} & {p90_c:0.1f} & {p99_c:0.1f} \\"
+        rf"libuv & {med_l:0.1f} & {p90_l:0.1f} & {p99_l:0.1f}"
         r"\end{tabular}"
     )
 
@@ -451,7 +478,7 @@ def main():
     parser.add_argument("--small-file",     action="store_true", help="Whether to plot small file transfer")
     parser.add_argument("--handshake",      action="store_true", help="Whether to plot simple handshake scenario")
     parser.add_argument("--rtt-sweep",      action="store_true", help="Whether to plot rtt sweep scenario")
-    parser.add_argument("--udp-overhead", nargs=1, metavar=('ctaps'), help="Whether to plot UDP ping overhead")
+    parser.add_argument("--udp-overhead", nargs=2, metavar=('ctaps', 'libuv'), help="Whether to plot UDP ping overhead")
     parser.add_argument("--bucket-duration-ms", type=float, default=100.0,
                         help="Duration of each throughput bucket in ms (default: 100)")
     parser.add_argument("--path-change-ms", type=float, default=500.0,
@@ -467,10 +494,12 @@ def main():
 
     if args.udp_overhead:
         ctaps = args.udp_overhead[0]
+        libuv = args.udp_overhead[1]
         print(f"Using {args.input} as baseline and {ctaps} as ctaps")
         plot_rtt_ecdf(
             baseline_file=Path(args.input),
             ctaps_file=Path(ctaps),
+            libuv_file=Path(libuv),
             out_dir=out_dir,
             use_pgf=args.pgf
         )
