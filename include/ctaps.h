@@ -132,7 +132,6 @@ typedef enum {
     CT_LOG_INFO = 2,  ///< Informational messages (default)
     CT_LOG_WARN = 3,  ///< Warning messages
     CT_LOG_ERROR = 4, ///< Error messages
-    CT_LOG_FATAL = 5  ///< Fatal errors (least verbose)
 } ct_log_level_enum_t;
 
 /**
@@ -142,7 +141,7 @@ typedef enum {
  * Only log messages at or above this level will be output. By default,
  * CTaps logs at CT_LOG_INFO level and above.
  *
- * @param[in] level Minimum log level (CT_LOG_TRACE through CT_LOG_FATAL)
+ * @param[in] level Minimum log level (CT_LOG_TRACE through CT_LOG_ERROR)
  *
  * @note This can be called before ct_initialize() or at any time during execution
  * @note Lower numeric values are more verbose (TRACE=0, FATAL=5)
@@ -1270,9 +1269,7 @@ typedef void (*ct_framer_done_decoding_callback)(ct_connection_t* connection,
  * @brief Opaque handle representing a framer layer, wrapping or unwrapping sent/received
  * messages.
  *
- * Useful in for example HTTP TCP
- *
- * Currently only one framer is supported per connection.
+ * Currently only one framer is supported per Connection.
  */
 typedef struct ct_framer_impl_s {
     /**
@@ -1299,8 +1296,6 @@ typedef struct ct_framer_impl_s {
    */
     void (*decode_data)(ct_connection_t* connection, ct_message_t* message,
                         ct_message_context_t* context, ct_framer_done_decoding_callback callback);
-
-    void* framer_contex;
 } ct_framer_impl_t;
 
 
