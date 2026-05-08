@@ -166,23 +166,20 @@ TEST_F(CandidateGatheringTest, PrunesPathAndProtocol) {
     free_candidate_array(candidates);
 }
 
-TEST_F(CandidateGatheringTest, SortsOnPreferOverAvoid) {
-    ct_transport_properties_set_preserve_msg_boundaries(props, REQUIRE);       // Prune TCP
-    // QUIC should win even if UDP has more avoids, since prefers are stronger than avoids
+TEST_F(CandidateGatheringTest, SortsOnPreferOverAvoidTCPAndQUIC) {
+    ct_transport_properties_set_reliability(props, REQUIRE);       // Prune UDP
+    // QUIC should win even if TCP has more avoids, since prefers are stronger than avoids
     ct_transport_properties_set_multistreaming(props, PREFER);
     ct_transport_properties_set_preserve_order(props, AVOID);
     ct_transport_properties_set_congestion_control(props, AVOID);
     BuildPreconnection();
-
     GArray* candidates = GatherCandidates();
     ASSERT_NE(candidates, nullptr);
     ASSERT_EQ(candidates->len, 2 * 2 * 1);
-
     ASSERT_STREQ(g_array_index(candidates, ct_candidate_node_t, 0).protocol_candidate->protocol_impl->name, "QUIC");
     ASSERT_STREQ(g_array_index(candidates, ct_candidate_node_t, 1).protocol_candidate->protocol_impl->name, "QUIC");
-    ASSERT_STREQ(g_array_index(candidates, ct_candidate_node_t, 2).protocol_candidate->protocol_impl->name, "UDP");
-    ASSERT_STREQ(g_array_index(candidates, ct_candidate_node_t, 3).protocol_candidate->protocol_impl->name, "UDP");
-
+    ASSERT_STREQ(g_array_index(candidates, ct_candidate_node_t, 2).protocol_candidate->protocol_impl->name, "TCP");
+    ASSERT_STREQ(g_array_index(candidates, ct_candidate_node_t, 3).protocol_candidate->protocol_impl->name, "TCP");
     free_candidate_array(candidates);
 }
 
@@ -190,18 +187,18 @@ TEST_F(CandidateGatheringTest, UsesAvoidAsTieBreaker) {
     // QUIC and TCP both match these two
     ct_transport_properties_set_reliability(props, PREFER);
     ct_transport_properties_set_congestion_control(props, PREFER);
-    // But only TCP here, so TCP should be placed first
-    ct_transport_properties_set_preserve_msg_boundaries(props, AVOID);
+    // But only QUIC
+    ct_transport_properties_set_multistreaming(props, PREFER);
     BuildPreconnection();
 
     GArray* candidates = GatherCandidates();
     ASSERT_NE(candidates, nullptr);
     ASSERT_EQ(candidates->len, 2 * 3 * 1);
 
-    ASSERT_STREQ(g_array_index(candidates, ct_candidate_node_t, 0).protocol_candidate->protocol_impl->name, "TCP");
-    ASSERT_STREQ(g_array_index(candidates, ct_candidate_node_t, 1).protocol_candidate->protocol_impl->name, "TCP");
-    ASSERT_STREQ(g_array_index(candidates, ct_candidate_node_t, 2).protocol_candidate->protocol_impl->name, "QUIC");
-    ASSERT_STREQ(g_array_index(candidates, ct_candidate_node_t, 3).protocol_candidate->protocol_impl->name, "QUIC");
+    ASSERT_STREQ(g_array_index(candidates, ct_candidate_node_t, 0).protocol_candidate->protocol_impl->name, "QUIC");
+    ASSERT_STREQ(g_array_index(candidates, ct_candidate_node_t, 1).protocol_candidate->protocol_impl->name, "QUIC");
+    ASSERT_STREQ(g_array_index(candidates, ct_candidate_node_t, 2).protocol_candidate->protocol_impl->name, "TCP");
+    ASSERT_STREQ(g_array_index(candidates, ct_candidate_node_t, 3).protocol_candidate->protocol_impl->name, "TCP");
     ASSERT_STREQ(g_array_index(candidates, ct_candidate_node_t, 4).protocol_candidate->protocol_impl->name, "UDP");
     ASSERT_STREQ(g_array_index(candidates, ct_candidate_node_t, 5).protocol_candidate->protocol_impl->name, "UDP");
 

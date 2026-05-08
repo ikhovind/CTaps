@@ -31,8 +31,6 @@ TEST_F(QuicPingTest, successfullyPingsQuicServerWithout0Rtt) {
   ASSERT_NE(transport_properties, nullptr);
 
   ct_transport_properties_set_reliability(transport_properties, REQUIRE);
-  ct_transport_properties_set_preserve_msg_boundaries(transport_properties, REQUIRE);
-  ct_transport_properties_set_multistreaming(transport_properties, REQUIRE); // force QUIC
 
   ct_security_parameters_t* security_parameters = ct_security_parameters_new();
   ASSERT_NE(security_parameters, nullptr);
@@ -86,7 +84,6 @@ TEST_F(QuicPingTest, connectionFailsIfAlpnDoesNotMatch) {
   ASSERT_NE(transport_properties, nullptr);
 
   ct_transport_properties_set_reliability(transport_properties, REQUIRE);
-  ct_transport_properties_set_preserve_msg_boundaries(transport_properties, REQUIRE);
   ct_transport_properties_set_multistreaming(transport_properties, REQUIRE); // force QUIC
 
   ct_security_parameters_t* security_parameters = ct_security_parameters_new();
@@ -129,7 +126,6 @@ TEST_F(QuicPingTest, successfullyPingsQuicServerEvenIfFirstAlpnDoesNotMatch) {
   ASSERT_NE(transport_properties, nullptr);
 
   ct_transport_properties_set_reliability(transport_properties, REQUIRE);
-  ct_transport_properties_set_preserve_msg_boundaries(transport_properties, REQUIRE);
   ct_transport_properties_set_multistreaming(transport_properties, REQUIRE); // force QUIC
 
   ct_security_parameters_t* security_parameters = ct_security_parameters_new();
@@ -186,7 +182,6 @@ TEST_F(QuicPingTest, successfullyPingsQuicServerWith0Rtt) {
   ASSERT_NE(transport_properties, nullptr);
 
   ct_transport_properties_set_reliability(transport_properties, REQUIRE);
-  ct_transport_properties_set_preserve_msg_boundaries(transport_properties, REQUIRE);
   ct_transport_properties_set_multistreaming(transport_properties, REQUIRE); // force QUIC
 
   ct_security_parameters_t* security_parameters = ct_security_parameters_new();
@@ -283,7 +278,6 @@ TEST_F(QuicPingTest, doesNotUse0rttWithNormalInitiate) {
   ASSERT_NE(transport_properties, nullptr);
 
   ct_transport_properties_set_reliability(transport_properties, REQUIRE);
-  ct_transport_properties_set_preserve_msg_boundaries(transport_properties, REQUIRE);
   ct_transport_properties_set_multistreaming(transport_properties, REQUIRE); // force QUIC
 
   ct_security_parameters_t* security_parameters = ct_security_parameters_new();
@@ -359,7 +353,6 @@ TEST_F(QuicPingTest, doesNotUse0rttWhenReplayableNotSet) {
   ASSERT_NE(transport_properties, nullptr);
 
   ct_transport_properties_set_reliability(transport_properties, REQUIRE);
-  ct_transport_properties_set_preserve_msg_boundaries(transport_properties, REQUIRE);
   ct_transport_properties_set_multistreaming(transport_properties, REQUIRE); // force QUIC
 
   ct_security_parameters_t* security_parameters = ct_security_parameters_new();

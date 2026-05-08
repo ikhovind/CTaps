@@ -29,7 +29,7 @@ const ct_protocol_impl_t
              {.list =
                   {
                       [RELIABILITY] = {.value = {.simple_preference = REQUIRE}},
-                      [PRESERVE_MSG_BOUNDARIES] = {.value = {.simple_preference = REQUIRE}},
+                      [PRESERVE_MSG_BOUNDARIES] = {.value = {.simple_preference = PROHIBIT}},
                       [PER_MSG_RELIABILITY] = {.value = {.simple_preference = NO_PREFERENCE}},
                       [PRESERVE_ORDER] = {.value = {.simple_preference = REQUIRE}},
                       [ZERO_RTT_MSG] = {.value = {.simple_preference = NO_PREFERENCE}},
@@ -43,7 +43,6 @@ const ct_protocol_impl_t
                       [PVD] = {.value = {.preference_set_val = {0}}},
                       [USE_TEMPORARY_LOCAL_ADDRESS] = {.value = {.simple_preference =
                                                                      NO_PREFERENCE}},
-                      // Not supported by our implementation
                       [MULTIPATH] = {.value = {.enum_val = CT_MULTIPATH_ACTIVE}},
                       [ADVERTISES_ALT_ADDRESS] = {.value = {.simple_preference = NO_PREFERENCE}},
                       [DIRECTION] = {.value = {.enum_val = CT_DIRECTION_BIDIRECTIONAL}},

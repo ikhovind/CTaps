@@ -24,7 +24,6 @@ TEST_F(QuicListenTests, quicReceivesConnectionFromListenerAndExchangesMessages) 
     ct_transport_properties_t* listener_props = ct_transport_properties_new();
     ASSERT_NE(listener_props, nullptr);
     ct_transport_properties_set_reliability(listener_props, REQUIRE);
-    ct_transport_properties_set_preserve_msg_boundaries(listener_props, REQUIRE);
     ct_transport_properties_set_multistreaming(listener_props, REQUIRE); // force QUIC
 
     ct_security_parameters_t* server_security_parameters = ct_security_parameters_new();
@@ -57,7 +56,6 @@ TEST_F(QuicListenTests, quicReceivesConnectionFromListenerAndExchangesMessages) 
     ASSERT_NE(client_props, nullptr);
 
     ct_transport_properties_set_reliability(client_props, REQUIRE);
-    ct_transport_properties_set_preserve_msg_boundaries(client_props, REQUIRE);
     ct_transport_properties_set_multistreaming(client_props, REQUIRE);
 
     ct_security_parameters_t* client_security_parameters = ct_security_parameters_new();
@@ -124,7 +122,6 @@ TEST_F(QuicListenTests, ServerInitiatesStreamByWritingFirst) {
     ct_transport_properties_t* listener_props = ct_transport_properties_new();
     ASSERT_NE(listener_props, nullptr);
     ct_transport_properties_set_reliability(listener_props, REQUIRE);
-    ct_transport_properties_set_preserve_msg_boundaries(listener_props, REQUIRE);
     ct_transport_properties_set_multistreaming(listener_props, REQUIRE); // force QUIC
 
     ct_security_parameters_t* server_security_parameters = ct_security_parameters_new();
@@ -155,7 +152,6 @@ TEST_F(QuicListenTests, ServerInitiatesStreamByWritingFirst) {
     ct_transport_properties_t* client_props = ct_transport_properties_new();
     ASSERT_NE(client_props, nullptr);
     ct_transport_properties_set_reliability(client_props, REQUIRE);
-    ct_transport_properties_set_preserve_msg_boundaries(client_props, REQUIRE);
     ct_transport_properties_set_multistreaming(client_props, REQUIRE);
 
     ct_security_parameters_t* client_security_parameters = ct_security_parameters_new();
@@ -219,7 +215,6 @@ TEST_F(QuicListenTests, listenerCanReceive0RttMessage) {
     ct_transport_properties_t* listener_props = ct_transport_properties_new();
     ASSERT_NE(listener_props, nullptr);
     ct_transport_properties_set_reliability(listener_props, REQUIRE);
-    ct_transport_properties_set_preserve_msg_boundaries(listener_props, REQUIRE);
     ct_transport_properties_set_multistreaming(listener_props, REQUIRE); // force QUIC
 
     ct_security_parameters_t* server_security_parameters = ct_security_parameters_new();
@@ -257,7 +252,6 @@ TEST_F(QuicListenTests, listenerCanReceive0RttMessage) {
     ASSERT_NE(client_props, nullptr);
 
     ct_transport_properties_set_reliability(client_props, REQUIRE);
-    ct_transport_properties_set_preserve_msg_boundaries(client_props, REQUIRE);
     ct_transport_properties_set_multistreaming(client_props, REQUIRE);
 
     ct_security_parameters_t* client_security_parameters = ct_security_parameters_new();

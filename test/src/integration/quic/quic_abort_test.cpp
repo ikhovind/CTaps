@@ -57,7 +57,6 @@ TEST_F(QuicAbortTest, singleConnectionAbortCallsCloseImmediate) {
   ASSERT_NE(transport_properties, nullptr);
   // Allocated with ct_transport_properties_new()
   ct_transport_properties_set_reliability(transport_properties, REQUIRE);
-  ct_transport_properties_set_preserve_msg_boundaries(transport_properties, REQUIRE);
   ct_transport_properties_set_multistreaming(transport_properties, REQUIRE); // Force QUIC
 
   ct_security_parameters_t* security_parameters = ct_security_parameters_new();
@@ -111,7 +110,6 @@ TEST_F(QuicAbortTest, multiStreamAbortCallsResetStream) {
   ASSERT_NE(transport_properties, nullptr);
   // Allocated with ct_transport_properties_new()
   ct_transport_properties_set_reliability(transport_properties, REQUIRE);
-  ct_transport_properties_set_preserve_msg_boundaries(transport_properties, REQUIRE);
   ct_transport_properties_set_multistreaming(transport_properties, REQUIRE); // Force QUIC
 
   ct_security_parameters_t* security_parameters = ct_security_parameters_new();

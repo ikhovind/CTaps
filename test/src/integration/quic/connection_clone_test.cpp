@@ -74,7 +74,6 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
 
     ct_transport_properties_t* listener_props = ct_transport_properties_new();
     ct_transport_properties_set_reliability(listener_props, REQUIRE);
-    ct_transport_properties_set_preserve_msg_boundaries(listener_props, REQUIRE);
     ct_transport_properties_set_multistreaming(listener_props, REQUIRE); // Force QUIC
 
     ct_security_parameters_t* server_security_parameters = ct_security_parameters_new();
@@ -111,7 +110,6 @@ TEST_F(ConnectionCloneTest, cloneWithListenerBothClientsSendAndReceiveResponses)
 
     ct_transport_properties_t* client_props = ct_transport_properties_new();
     ct_transport_properties_set_reliability(client_props, REQUIRE);
-    ct_transport_properties_set_preserve_msg_boundaries(client_props, REQUIRE);
     ct_transport_properties_set_multistreaming(client_props, REQUIRE);
 
     ct_security_parameters_t* client_security_parameters = ct_security_parameters_new();

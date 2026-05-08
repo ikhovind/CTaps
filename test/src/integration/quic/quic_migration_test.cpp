@@ -34,7 +34,6 @@ TEST_F(QuicMigrationTest, migratesAfterPrimaryLocalFails) {
     ASSERT_NE(transport_properties, nullptr);
 
     ct_transport_properties_set_reliability(transport_properties, REQUIRE);
-    ct_transport_properties_set_preserve_msg_boundaries(transport_properties, REQUIRE);
     ct_transport_properties_set_multistreaming(transport_properties, REQUIRE); // force QUIC
     ct_transport_properties_set_multipath(transport_properties, CT_MULTIPATH_ACTIVE);
 
@@ -108,7 +107,6 @@ TEST_F(QuicMigrationTest, migrationFailsIfMulipathIsNotActive) {
     ASSERT_NE(transport_properties, nullptr);
 
     ct_transport_properties_set_reliability(transport_properties, REQUIRE);
-    ct_transport_properties_set_preserve_msg_boundaries(transport_properties, REQUIRE);
     ct_transport_properties_set_multistreaming(transport_properties, REQUIRE); // force QUIC
     ct_transport_properties_set_multipath(transport_properties, CT_MULTIPATH_PASSIVE);
     ct_transport_properties_set_conn_timeout_ms(transport_properties, 500);
