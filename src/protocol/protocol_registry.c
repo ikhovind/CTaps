@@ -5,6 +5,9 @@
 
 #include <stddef.h>
 
+// This is the base ordering of most desirable
+// protocols, currently the only way to prefer
+// TCP for listeners is to rely on this ordering
 const ct_protocol_impl_t* const ct_supported_protocols[] = {
     &udp_protocol_interface,
     &tcp_protocol_interface,
