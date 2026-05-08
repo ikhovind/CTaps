@@ -232,7 +232,12 @@ ctaps/
 ```
 
 ## Building
-Dependencies of CTaps are installed automatically by CMake via ``FetchContent``.
+Most dependencies are installed automatically by CMake via ``FetchContent``, but
+``libglib2.0-dev`` must be installed separately:
+
+```bash
+sudo apt-get install libglib2.0-dev
+```
 
 ```bash
 cmake . -B out/Debug
