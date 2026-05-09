@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.21)
 project(
     CTaps
     VERSION 0.3.0
-    DESCRIPTION "A C implementation of the TAPS as described in RFC 9621 - 9623"
+    DESCRIPTION "CTaps: An Implementation of IETF Transport Services over QUIC, TCP and UDP"
     HOMEPAGE_URL "https://github.com/ikhovind/ctaps"
     LANGUAGES C
 )
