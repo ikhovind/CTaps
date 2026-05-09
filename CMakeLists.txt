@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.21)
 
 project(
     CTaps
-    VERSION 0.1.0
+    VERSION 0.3.0
     DESCRIPTION "A C implementation of the TAPS as described in RFC 9621 - 9623"
     HOMEPAGE_URL "https://github.com/ikhovind/ctaps"
     LANGUAGES C
