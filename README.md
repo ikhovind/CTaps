@@ -90,10 +90,9 @@ int main() {
 
     // selection properties decide which protocol(s) will be used,
     // if multiple are compatible with our requirements,
-    // then we will race the protocols TCP is the only protocol
-    // compatible with this requirement
+    // TCP is preferred with this requirement
     ct_transport_properties_set_preserve_msg_boundaries(
-        transport_properties, PROHIBIT);
+        transport_properties, AVOID);
 
     const ct_remote_endpoint_t* remotes[] = {remote_endpoint};
     // Create preconnection
@@ -177,8 +176,8 @@ int main() {
 
     // Create transport properties
     ct_transport_properties_t* listener_props = ct_transport_properties_new();
-    ct_transport_properties_set_preserve_msg_boundaries(
-        listener_props, PROHIBIT); // Force TCP
+    ct_transport_properties_set_multistreaming(
+        listener_props, AVOID); // Prefer TCP
 
     ct_local_endpoint_t* local_endpoint = ct_local_endpoint_new();
     ct_local_endpoint_with_port(local_endpoint, 1234);

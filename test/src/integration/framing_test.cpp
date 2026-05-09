@@ -150,7 +150,7 @@ TEST_F(FramingTest, LengthPrependFramerSendsCorrectFormat) {
     ct_transport_properties_t* transport_properties = ct_transport_properties_new();
   ASSERT_NE(transport_properties, nullptr);
     // Allocated with ct_transport_properties_new()
-    ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PROHIBIT); // force tcp
+    ct_transport_properties_set_preserve_msg_boundaries(transport_properties, AVOID);
 
     ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
     ASSERT_NE(remote_endpoint, nullptr);
@@ -188,7 +188,7 @@ TEST_F(FramingTest, StripFirstCharFramerReceivesStrippedMessage) {
     ct_transport_properties_t* transport_properties = ct_transport_properties_new();
   ASSERT_NE(transport_properties, nullptr);
     // Allocated with ct_transport_properties_new()
-    ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PROHIBIT); // force tcp
+    ct_transport_properties_set_preserve_msg_boundaries(transport_properties, AVOID);
 
     ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
     ASSERT_NE(remote_endpoint, nullptr);
@@ -232,7 +232,7 @@ TEST_F(FramingTest, AsyncFramerDefersSendCallback) {
     ct_transport_properties_t* transport_properties = ct_transport_properties_new();
   ASSERT_NE(transport_properties, nullptr);
     // Allocated with ct_transport_properties_new()
-    ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PROHIBIT); // force tcp
+    ct_transport_properties_set_preserve_msg_boundaries(transport_properties, AVOID);
 
     ct_remote_endpoint_t* remote_endpoint = ct_remote_endpoint_new();
     ASSERT_NE(remote_endpoint, nullptr);

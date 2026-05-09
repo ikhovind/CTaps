@@ -50,10 +50,9 @@ int main() {
 
     // selection properties decide which protocol(s) will be used,
     // if multiple are compatible with our requirements,
-    // then we will race the protocols TCP is the only protocol
-    // compatible with this requirement
+    // TCP is preferred with this requirement
     ct_transport_properties_set_preserve_msg_boundaries(
-        transport_properties, PROHIBIT);
+        transport_properties, AVOID);
 
     const ct_remote_endpoint_t* remotes[] = {remote_endpoint};
     // Create preconnection

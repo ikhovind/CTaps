@@ -18,7 +18,6 @@ TEST_F(TcpListenTests, receivesConnectionFromListenerAndExchangesMessages) {
     ct_transport_properties_t* listener_props = ct_transport_properties_new();
 
     ct_transport_properties_set_reliability(listener_props, REQUIRE);
-    ct_transport_properties_set_preserve_msg_boundaries(listener_props, PROHIBIT);
     ct_transport_properties_set_multistreaming(listener_props, PROHIBIT);
 
     ct_preconnection_t* listener_precon = ct_preconnection_new(&listener_endpoint, 1, NULL, 0, listener_props,NULL);
@@ -41,7 +40,6 @@ TEST_F(TcpListenTests, receivesConnectionFromListenerAndExchangesMessages) {
     ASSERT_NE(client_props, nullptr);
 
     ct_transport_properties_set_reliability(client_props, REQUIRE);
-    ct_transport_properties_set_preserve_msg_boundaries(client_props, PROHIBIT);
     ct_transport_properties_set_multistreaming(client_props, PROHIBIT);
 
     ct_preconnection_t* client_precon = ct_preconnection_new(NULL, 0, &client_remote, 1, client_props,NULL);
@@ -98,7 +96,6 @@ TEST_F(TcpListenTests, canFreeOnListenerClose) {
     ct_transport_properties_t* listener_props = ct_transport_properties_new();
 
     ct_transport_properties_set_reliability(listener_props, REQUIRE);
-    ct_transport_properties_set_preserve_msg_boundaries(listener_props, PROHIBIT);
     ct_transport_properties_set_multistreaming(listener_props, PROHIBIT);
 
     ct_preconnection_t* listener_precon = ct_preconnection_new(&listener_endpoint, 1, &listener_remote, 1, listener_props,NULL);
@@ -122,7 +119,6 @@ TEST_F(TcpListenTests, canFreeOnListenerClose) {
     ASSERT_NE(client_props, nullptr);
 
     ct_transport_properties_set_reliability(client_props, REQUIRE);
-    ct_transport_properties_set_preserve_msg_boundaries(client_props, PROHIBIT);
     ct_transport_properties_set_multistreaming(client_props, PROHIBIT);
 
     ct_preconnection_t* client_precon = ct_preconnection_new(NULL, 0, &client_remote, 1, client_props,NULL);

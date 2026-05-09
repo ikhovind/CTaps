@@ -225,7 +225,6 @@ int main(int argc, char* argv[]) {
     }
 
     ct_transport_properties_set_reliability(transport_properties, REQUIRE);
-    ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PREFER);
     ct_transport_properties_set_multistreaming(transport_properties, PREFER);
     ct_transport_properties_set_multipath(transport_properties, CT_MULTIPATH_ACTIVE);
 

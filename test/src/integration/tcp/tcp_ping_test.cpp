@@ -35,7 +35,6 @@ TEST_F(TcpPingTest, successfullyConnectsToTcpServer) {
   ASSERT_NE(transport_properties, nullptr);
 
   ct_transport_properties_set_reliability(transport_properties, REQUIRE);
-  ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PROHIBIT);
   ct_transport_properties_set_multistreaming(transport_properties, PROHIBIT);
 
   ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, &remote_endpoint, 1, transport_properties,NULL);
@@ -74,7 +73,6 @@ TEST_F(TcpPingTest, connectionErrorCalledWhenNoServer) {
   ASSERT_NE(transport_properties, nullptr);
 
   ct_transport_properties_set_reliability(transport_properties, REQUIRE);
-  ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PROHIBIT);
 
   ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, &remote_endpoint, 1, transport_properties,NULL);
   ASSERT_NE(preconnection, nullptr);
@@ -114,7 +112,6 @@ TEST_F(TcpPingTest, sendsSingleTcpMessage) {
   ASSERT_NE(transport_properties, nullptr);
 
   ct_transport_properties_set_reliability(transport_properties, REQUIRE);
-  ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PROHIBIT);
   ct_transport_properties_set_multistreaming(transport_properties, PROHIBIT);
 
   ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, &remote_endpoint, 1, transport_properties,NULL);

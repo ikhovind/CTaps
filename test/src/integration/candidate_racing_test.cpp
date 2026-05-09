@@ -307,7 +307,7 @@ TEST_F(CandidateRacingTests, WorksWithHostnameResolution) {
   ct_transport_properties_t* transport_properties = ct_transport_properties_new();
   ASSERT_NE(transport_properties, nullptr);
 
-  ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PROHIBIT); // force TCP
+  ct_transport_properties_set_preserve_msg_boundaries(transport_properties, AVOID);
 
   ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, &remote_endpoint, 1, transport_properties,NULL);
   ASSERT_NE(preconnection, nullptr);
@@ -349,7 +349,6 @@ TEST_F(CandidateRacingTests, SingleCandidateOptimization) {
 
   // Select TCP specifically - stream-based, reliable, no multistreaming
   ct_transport_properties_set_reliability(transport_properties, REQUIRE);
-  ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PROHIBIT);
   ct_transport_properties_set_multistreaming(transport_properties, PROHIBIT);
 
   ct_preconnection_t* preconnection = ct_preconnection_new(NULL, 0, &remote_endpoint, 1, transport_properties,NULL);

@@ -207,7 +207,6 @@ TEST_F(CandidateGatheringTest, UsesAvoidAsTieBreaker) {
 
 TEST_F(CandidateGatheringTest, GivesNoCandidateNodesWhenAllProtocolsProhibited) {
     ct_transport_properties_set_reliability(props, PROHIBIT);
-    ct_transport_properties_set_preserve_msg_boundaries(props, REQUIRE);
     ct_transport_properties_set_congestion_control(props, REQUIRE);
 
     BuildPreconnection();

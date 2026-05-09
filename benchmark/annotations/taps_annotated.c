@@ -225,7 +225,6 @@ E         return 1;
 E     }
 -
 I     ct_transport_properties_set_reliability(transport_properties, REQUIRE);
-I     ct_transport_properties_set_preserve_msg_boundaries(transport_properties, PREFER);
 I     ct_transport_properties_set_multistreaming(transport_properties, PREFER);
 M     ct_transport_properties_set_multipath(transport_properties, CT_MULTIPATH_ACTIVE);
 -
