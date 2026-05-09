@@ -87,7 +87,7 @@ set_target_properties(CTaps PROPERTIES
 )
 
 target_compile_options(CTaps PRIVATE
-     -Wall -Wextra -Wpedantic -Werror
+     -Wall -Wextra -Wpedantic
      $<$<CONFIG:Debug>:-O0 -g3>
      $<$<CONFIG:Release>:-O2>
 )

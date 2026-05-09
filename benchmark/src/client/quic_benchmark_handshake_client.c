@@ -25,6 +25,10 @@ int json_only_mode = 0;
 static int client_callback(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* bytes, size_t length,
                            picoquic_call_back_event_t fin_or_event, void* callback_ctx,
                            void* stream_ctx) {
+    (void)stream_id;
+    (void)bytes;
+    (void)length;
+    (void)stream_ctx;
 
     client_ctx_t* ctx = (client_ctx_t*)callback_ctx;
 
@@ -45,6 +49,8 @@ static int client_callback(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* byt
 
 static int sample_client_loop_cb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode,
                                  void* callback_ctx, void* callback_arg) {
+    (void)callback_arg;
+    (void)quic;
     if (!callback_ctx) {
         return PICOQUIC_ERROR_UNEXPECTED_ERROR;
     }
@@ -83,7 +89,7 @@ int main(int argc, char* argv[]) {
     struct sockaddr_storage server_addr;
 
     int is_name = 0;
-    ret = picoquic_get_server_address(host, port, (struct sockaddr*)&server_addr, &is_name);
+    ret = picoquic_get_server_address(host, port, &server_addr, &is_name);
     if (ret != 0) {
         fprintf(stderr, "ERROR: Failed to resolve server address\n");
         return -1;
@@ -109,7 +115,7 @@ int main(int argc, char* argv[]) {
 
     client_ctx.cnx = picoquic_create_cnx(
         quic, picoquic_null_connection_id, picoquic_null_connection_id,
-        (struct sockaddr*)&server_addr, picoquic_current_time(), 0, host, ALPN, 1);
+        (const struct sockaddr*)&server_addr, picoquic_current_time(), 0, host, ALPN, 1);
 
     if (!client_ctx.cnx) {
         fprintf(stderr, "ERROR: Failed to create connection\n");

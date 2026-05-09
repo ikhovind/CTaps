@@ -55,10 +55,11 @@ int main() {
     ct_transport_properties_set_preserve_msg_boundaries(
         transport_properties, PROHIBIT);
 
+    const ct_remote_endpoint_t* remotes[] = {remote_endpoint};
     // Create preconnection
     // No local endpoint, so will bind to wildcard 
     ct_preconnection_t* preconnection = ct_preconnection_new(
-        NULL, 0, &remote_endpoint, 1, transport_properties, NULL);
+        NULL, 0, remotes, 1, transport_properties, NULL);
 
     ct_connection_callbacks_t connection_callbacks = {
         .ready = send_message_and_receive,

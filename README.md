@@ -95,10 +95,11 @@ int main() {
     ct_transport_properties_set_preserve_msg_boundaries(
         transport_properties, PROHIBIT);
 
+    const ct_remote_endpoint_t* remotes[] = {remote_endpoint};
     // Create preconnection
     // No local endpoint, so will bind to wildcard 
     ct_preconnection_t* preconnection = ct_preconnection_new(
-        NULL, 0, &remote_endpoint, 1, transport_properties, NULL);
+        NULL, 0, remotes, 1, transport_properties, NULL);
 
     ct_connection_callbacks_t connection_callbacks = {
         .ready = send_message_and_receive,
@@ -181,10 +182,11 @@ int main() {
 
     ct_local_endpoint_t* local_endpoint = ct_local_endpoint_new();
     ct_local_endpoint_with_port(local_endpoint, 1234);
+    const ct_local_endpoint_t* locals[] = {local_endpoint};
 
     // Create preconnection
     ct_preconnection_t* preconnection = ct_preconnection_new(
-        &local_endpoint, 1, NULL, 0, listener_props, NULL);
+        locals, 1, NULL, 0, listener_props, NULL);
 
     ct_listener_callbacks_t listener_callbacks = {
         .connection_received = on_connection_received_receive_message,
@@ -235,11 +237,12 @@ ctaps/
 ```
 
 ## Building
-Most dependencies are installed automatically by CMake via ``FetchContent``, but
-``libglib2.0-dev`` must be installed separately:
+Most dependencies are installed automatically by CMake via ``FetchContent``.
+
+Some system-level dependencies must be installed separately:
 
 ```bash
-sudo apt-get install libglib2.0-dev
+sudo apt-get install pkg-config libglib2.0-dev libssl-dev
 ```
 
 ```bash

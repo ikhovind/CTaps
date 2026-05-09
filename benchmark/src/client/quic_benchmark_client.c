@@ -47,7 +47,7 @@ static void start_stream(client_ctx_t* client_ctx, stream_ctx_t* stream) {
     stream->state = STREAM_STATE_RECEIVING;
     clock_gettime(CLOCK_MONOTONIC, &stream->stats->transfer_time.start);
     int stream_id = picoquic_get_next_local_stream_id(client_ctx->cnx, 0);
-    picoquic_add_to_stream_with_ctx(client_ctx->cnx, stream_id, stream->request,
+    picoquic_add_to_stream_with_ctx(client_ctx->cnx, stream_id, (const uint8_t*)stream->request,
                                     strlen(stream->request), 1, stream);
 }
 
@@ -55,6 +55,7 @@ static int client_callback(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* byt
                            picoquic_call_back_event_t fin_or_event, void* callback_ctx,
                            void* stream_ctx) {
 
+    (void)bytes;
     client_ctx_t* ctx = (client_ctx_t*)callback_ctx;
     stream_ctx_t* s_ctx = (stream_ctx_t*)stream_ctx;
 
@@ -72,8 +73,8 @@ static int client_callback(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* byt
         }
 
         if (picoquic_probe_new_path_ex(cnx,
-                (struct sockaddr*)&ctx->server_addr,
-                (struct sockaddr*)&ctx->new_local_addr, 0,
+                (const struct sockaddr*)&ctx->server_addr,
+                (const struct sockaddr*)&ctx->new_local_addr, 0,
                 picoquic_current_time(), 1) != 0) {
             if (!json_only_mode) {
                 fprintf(stderr, "WARNING: Failed to probe new path for migration\n");
@@ -134,6 +135,8 @@ static int client_callback(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* byt
 
 static int sample_client_loop_cb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode,
                                  void* callback_ctx, void* callback_arg) {
+    (void)quic;
+    (void)callback_arg;
     if (!callback_ctx) {
         return PICOQUIC_ERROR_UNEXPECTED_ERROR;
     }
@@ -206,7 +209,7 @@ int main(int argc, char* argv[]) {
 
     client_ctx.cnx = picoquic_create_cnx(
         quic, picoquic_null_connection_id, picoquic_null_connection_id,
-        (struct sockaddr*)&client_ctx.server_addr, picoquic_current_time(), 0, host, ALPN, 1);
+        (const struct sockaddr*)&client_ctx.server_addr, picoquic_current_time(), 0, host, ALPN, 1);
 
     if (!client_ctx.cnx) {
         fprintf(stderr, "ERROR: Failed to create connection\n");

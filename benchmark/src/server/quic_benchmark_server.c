@@ -127,7 +127,6 @@ static int server_callback(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* byt
                s_ctx->is_request_complete, length, (void*)bytes);
         if (!s_ctx->is_request_complete && length > 0) {
             printf("[SERVER CB] Entering data copy block\n");
-            size_t to_copy = length;
 
             if (fin_or_event == picoquic_callback_stream_fin) {
                 printf("[SERVER CB] Request is complete, parsing...\n");

@@ -127,9 +127,7 @@ int main(int argc, char** argv) {
     ct_remote_endpoint_t *remote_endpoint = ct_remote_endpoint_new();
     ct_remote_endpoint_with_ipv4(remote_endpoint, inet_addr("127.0.0.1"));
     ct_remote_endpoint_with_port(remote_endpoint, 5000);
-
-    ct_local_endpoint_t *local = ct_local_endpoint_new();
-    ct_local_endpoint_with_interface(local, "lo");
+    const ct_remote_endpoint_t* remotes[] = {remote_endpoint};
 
     ct_transport_properties_t *tp = ct_transport_properties_new();
     ct_transport_properties_set_reliability(tp, PROHIBIT);
@@ -137,7 +135,7 @@ int main(int argc, char** argv) {
     ct_transport_properties_set_congestion_control(tp, PROHIBIT);
 
     ct_preconnection_t *preconnection = ct_preconnection_new(
-        NULL, 0, &remote_endpoint, 1, tp, NULL);
+        NULL, 0, remotes, 1, tp, NULL);
 
     ct_connection_callbacks_t connection_callbacks = {
         .ready = ping_on_ready,
@@ -149,7 +147,6 @@ int main(int argc, char** argv) {
 
     ct_start_event_loop();
 
-    ct_local_endpoint_free(local);
     ct_preconnection_free(preconnection);
     ct_transport_properties_free(tp);
     ct_remote_endpoint_free(remote_endpoint);

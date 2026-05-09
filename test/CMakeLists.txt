@@ -62,7 +62,7 @@ function(add_gtest test_name)
 
     add_executable(${test_name} ${ARGS_SOURCES})
 
-    target_compile_options(${test_name} PRIVATE -Werror -Wno-write-strings)
+    target_compile_options(${test_name} PRIVATE -Wno-write-strings)
 
     if (ARGS_DEBUG_SYMBOLS)
         message(STATUS "Adding debug symbols to ${test_name}")

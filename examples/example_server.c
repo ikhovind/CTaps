@@ -47,10 +47,11 @@ int main() {
 
     ct_local_endpoint_t* local_endpoint = ct_local_endpoint_new();
     ct_local_endpoint_with_port(local_endpoint, 1234);
+    const ct_local_endpoint_t* locals[] = {local_endpoint};
 
     // Create preconnection
     ct_preconnection_t* preconnection = ct_preconnection_new(
-        &local_endpoint, 1, NULL, 0, listener_props, NULL);
+        locals, 1, NULL, 0, listener_props, NULL);
 
     ct_listener_callbacks_t listener_callbacks = {
         .connection_received = on_connection_received_receive_message,

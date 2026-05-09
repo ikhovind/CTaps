@@ -138,7 +138,7 @@ int main(int argc, char* argv[]) {
     ct_remote_endpoint_with_ipv4(r2, ip2);
     ct_remote_endpoint_with_port(r2, port);
 
-    ct_remote_endpoint_t* endpoints[] = {r1, r2};
+    const ct_remote_endpoint_t* endpoints[] = {r1, r2};
 
     ct_local_endpoint_t* local_endpoint = ct_local_endpoint_new();
     if (!local_endpoint) {
@@ -150,9 +150,10 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     ct_local_endpoint_with_ipv4(local_endpoint, inet_addr("127.0.0.1"));
+    const ct_local_endpoint_t* locals[] = {local_endpoint};
 
     ct_preconnection_t* preconnection = ct_preconnection_new(
-        &local_endpoint, 1, endpoints, 2, transport_properties, security_parameters);
+        locals, 1, endpoints, 2, transport_properties, security_parameters);
     if (!preconnection) {
         fprintf(stderr, "Failed to allocate preconnection\n");
         ct_security_parameters_free(security_parameters);

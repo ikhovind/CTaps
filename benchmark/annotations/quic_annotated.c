@@ -47,7 +47,7 @@ C     timing_end(&stream->stats->handshake_time); /* End handshake timer */
 C     stream->state = STREAM_STATE_RECEIVING;
 C     clock_gettime(CLOCK_MONOTONIC, &stream->stats->transfer_time.start);
 C     int stream_id = picoquic_get_next_local_stream_id(client_ctx->cnx, 0);
-D     picoquic_add_to_stream_with_ctx(client_ctx->cnx, stream_id, stream->request,
+D     picoquic_add_to_stream_with_ctx(client_ctx->cnx, stream_id, (const uint8_t*)stream->request,
 D                                     strlen(stream->request), 1, stream);
 C }
 -
@@ -55,6 +55,7 @@ C static int client_callback(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* b
 C                            picoquic_call_back_event_t fin_or_event, void* callback_ctx,
 C                            void* stream_ctx) {
 -
+-     (void)bytes;
 I     client_ctx_t* ctx = (client_ctx_t*)callback_ctx;
 I     stream_ctx_t* s_ctx = (stream_ctx_t*)stream_ctx;
 -
@@ -72,8 +73,8 @@ M             printf("Path suspended (path_id=%llu)\n", (unsigned long long)stre
 M         }
 -
 M         if (picoquic_probe_new_path_ex(cnx,
-M                 (struct sockaddr*)&ctx->server_addr,
-M                 (struct sockaddr*)&ctx->new_local_addr, 0,
+M                 (const struct sockaddr*)&ctx->server_addr,
+M                 (const struct sockaddr*)&ctx->new_local_addr, 0,
 M                 picoquic_current_time(), 1) != 0) {
 E             if (!json_only_mode) {
 E                 fprintf(stderr, "WARNING: Failed to probe new path for migration\n");
@@ -134,6 +135,8 @@ I }
 -
 C static int sample_client_loop_cb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum cb_mode,
 C                                  void* callback_ctx, void* callback_arg) {
+-     (void)quic;
+-     (void)callback_arg;
 E     if (!callback_ctx) {
 E         return PICOQUIC_ERROR_UNEXPECTED_ERROR;
 E     }
@@ -206,7 +209,7 @@ M     picoquic_enable_path_callbacks_default(quic, 1);
 -
 C     client_ctx.cnx = picoquic_create_cnx(
 C         quic, picoquic_null_connection_id, picoquic_null_connection_id,
-C         (struct sockaddr*)&client_ctx.server_addr, picoquic_current_time(), 0, host, ALPN, 1);
+C         (const struct sockaddr*)&client_ctx.server_addr, picoquic_current_time(), 0, host, ALPN, 1);
 -
 E     if (!client_ctx.cnx) {
 E         fprintf(stderr, "ERROR: Failed to create connection\n");

@@ -55,7 +55,7 @@ void on_msg_received(ct_connection_t* connection, ct_message_t* msg,
         time_received_chunk(client_ctx->large_stats, msg_length);
         if (client_ctx->large_stats->bytes_received >= LARGE_FILE_SIZE) {
             if (!json_only_mode) {
-                printf("LARGE file transfers of size %zu completed.\n", LARGE_FILE_SIZE);
+                printf("LARGE file transfers of size %d completed.\n", LARGE_FILE_SIZE);
             }
             timing_end(&client_ctx->large_stats->transfer_time);
             client_ctx->state = STATE_LARGE_DONE;
@@ -213,6 +213,7 @@ int main(int argc, char* argv[]) {
     }
     ct_remote_endpoint_with_ipv4(remote_endpoint, ipv4_addr);
     ct_remote_endpoint_with_port(remote_endpoint, port);
+    const ct_remote_endpoint_t* remotes[] = {remote_endpoint};
 
     /* Prefer QUIC (multistreaming + msg boundaries), allow TCP as fallback.
      * REQUIRE reliability rules out raw UDP. */
@@ -247,10 +248,10 @@ int main(int argc, char* argv[]) {
     ct_local_endpoint_t* local_endpoint2 = ct_local_endpoint_new();
     ct_local_endpoint_with_ipv4(local_endpoint2, inet_addr("127.0.0.2"));
 
-    ct_local_endpoint_t* endpoints[] = {local_endpoint, local_endpoint2};
+    const ct_local_endpoint_t* endpoints[] = {local_endpoint, local_endpoint2};
 
     ct_preconnection_t* preconnection = ct_preconnection_new(
-        endpoints, 2, &remote_endpoint, 1, transport_properties, security_parameters);
+        endpoints, 2, remotes, 1, transport_properties, security_parameters);
     if (!preconnection) {
         fprintf(stderr, "Failed to allocate preconnection\n");
         ct_security_parameters_free(security_parameters);
