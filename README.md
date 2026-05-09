@@ -12,6 +12,9 @@ Transport Services is described in:
  * [RFC 9622 - External API](https://www.rfc-editor.org/info/rfc9622).
  * [RFC 9623 - Internal workings](https://www.rfc-editor.org/info/rfc9623).
 
+CTaps documentation is available on [GitHub pages](https://ikhovind.github.io/CTaps/),
+with the most useful overview being the [topics page](https://ikhovind.github.io/CTaps/topics.html)
+
 ## Core Structures
 
 CTaps implements several key abstractions from RFC 9622.
