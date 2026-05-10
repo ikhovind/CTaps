@@ -159,8 +159,8 @@ int picoquic_packet_loop_cb(picoquic_quic_t* quic, picoquic_packet_loop_cb_enum 
                             void* callback_ctx, void* callback_argv) {
     switch (cb_mode) {
     case picoquic_packet_loop_ready: {
-        int ready_fd = (int)callback_ctx;
-        write(ready_fd, "1", 1);
+        int* ready_fd = (int*)callback_ctx;
+        write(*ready_fd, "1", 1);
         break;
     }
     }
@@ -192,7 +192,7 @@ int main(int argc, char* argv[]) {
     }
 
     int ret =
-        picoquic_packet_loop(quic, port, 0, 0, 0, 0, picoquic_packet_loop_cb, (void*)ready_fd);
+        picoquic_packet_loop(quic, port, 0, 0, 0, 0, picoquic_packet_loop_cb, &ready_fd);
 
     if (ret != 0) {
         fprintf(stderr, "Packet loop error: %d\n", ret);

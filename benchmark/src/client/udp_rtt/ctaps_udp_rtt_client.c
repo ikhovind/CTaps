@@ -47,7 +47,7 @@ void respond_and_continue_on_message_received(ct_connection_t *connection,
             }
             fclose(g_out);
             g_out = NULL;
-            printf("Wrote %d RTT samples to %s\n", N_ITER, ct_connection_get_callback_context(connection));
+            printf("Wrote %d RTT samples to %s\n", N_ITER, (char*)ct_connection_get_callback_context(connection));
         }
 
         ct_connection_close(connection);
